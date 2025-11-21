@@ -12,14 +12,23 @@ export interface Board {
   createdAt: number;
 }
 
+export interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  deadline?: number; // Added deadline
+}
+
 export interface Task {
   id: string;
-  boardId: string; // Added board association
+  boardId: string;
   title: string;
   quadrant: QuadrantType;
   isLongTerm: boolean;
   completed: boolean;
   createdAt: number;
+  deadline?: number; // Timestamp
+  subtasks?: SubTask[];
 }
 
 export interface AIAnalysisResult {
@@ -27,6 +36,7 @@ export interface AIAnalysisResult {
   quadrant: QuadrantType;
   isLongTerm: boolean;
   reasoning?: string;
+  subtasks?: string[]; // AI returns strings, converted to SubTasks later
 }
 
 export enum AIProvider {
@@ -42,8 +52,10 @@ export type InputMode = 'single' | 'brainDump';
 export interface AppSettings {
   language: Language;
   theme: ThemeMode;
-  themeColor: ThemeColor; // Added theme color
+  themeColor: ThemeColor;
   defaultInputMode: InputMode;
+  autoGroupAI: boolean; // New: AI auto grouping
+  urgencyThresholdDays: number; // New: Days before deadline to move quadrants
 }
 
 export interface AIConfig {
