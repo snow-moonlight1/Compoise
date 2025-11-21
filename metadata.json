@@ -1,0 +1,5 @@
+{
+  "name": "MatrixFlow AI",
+  "description": "An AI-driven Eisenhower Matrix task planner that intelligently sorts tasks into quadrants and assists in breaking down long-term goals. Features dual-mode AI support (Gemini & Custom compatible APIs).",
+  "requestFramePermissions": []
+}
