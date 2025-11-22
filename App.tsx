@@ -6,7 +6,7 @@ import { translations } from './translations';
 import { 
   SparklesIcon, SettingsIcon, PlusIcon, XIcon, 
   AlertTriangleIcon, LoaderIcon, SplitIcon, TrashIcon,
-  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, CalendarIcon, LayersIcon
+  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, CalendarIcon, LayersIcon, FlagIcon
 } from './components/Icons';
 
 // --- Interfaces ---
@@ -43,6 +43,7 @@ interface QuadrantProps {
   onDragOver: (e: React.DragEvent) => void;
   onDragStart: (e: React.DragEvent, task: Task) => void;
   onDelete: (id: string) => void;
+  onClear: (type: QuadrantType) => void;
   onDecompose: (task: Task) => void;
   onUpdate: (task: Task) => void;
   t: any;
@@ -124,6 +125,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
     const updatedSubs = task.subtasks.filter(s => s.id !== subId);
     onUpdate({ ...task, subtasks: updatedSubs });
   };
+  
+  const toggleLongTerm = () => {
+     onUpdate({ ...task, isLongTerm: !task.isLongTerm });
+  };
 
   return (
     <div
@@ -168,11 +173,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <button 
                     onClick={(e) => { e.stopPropagation(); onDecompose(task); }}
                     className="text-yellow-500 hover:scale-110 transition-transform p-1"
-                    title="Decompose"
+                    title={t.decompose}
                   >
                     <SplitIcon size={14} />
                   </button>
                 )}
+                 <button 
+                  onClick={(e) => { e.stopPropagation(); toggleLongTerm(); }}
+                  className={`hover:text-primary transition-colors p-1 ${task.isLongTerm ? 'text-yellow-500' : 'text-slate-400'}`}
+                  title={t.toggleLongTerm}
+                >
+                  <FlagIcon size={14} />
+                </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsAddingSub(!isAddingSub); }}
                   className="text-slate-400 hover:text-primary transition-colors p-1"
@@ -183,7 +195,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <button 
                   onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
                   className="text-red-400 hover:scale-110 transition-transform p-1"
-                  title="Delete"
+                  title={t.deleteBoard}
                 >
                   <TrashIcon size={14} />
                 </button>
@@ -250,13 +262,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
 const Quadrant: React.FC<QuadrantProps> = ({ 
   type, 
   title, 
-  shortTitle,
+  shortTitle, 
   colorCode, 
   tasks, 
   onDrop, 
   onDragOver, 
   onDragStart,
   onDelete,
+  onClear,
   onDecompose,
   onUpdate,
   t,
@@ -289,9 +302,24 @@ const Quadrant: React.FC<QuadrantProps> = ({
           <h3 className="font-bold text-slate-600 dark:text-slate-300 text-sm md:text-base truncate hidden md:block">{title}</h3>
           <h3 className="font-bold text-slate-600 dark:text-slate-300 text-sm md:text-base truncate block md:hidden">{shortTitle}</h3>
         </div>
-        <span className="text-xs font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-700/50 px-2 py-0.5 rounded-full">
-          {tasks.length}
-        </span>
+        <div className="flex items-center gap-2">
+            {tasks.length > 0 && (
+               <button 
+                 onClick={(e) => { 
+                   e.stopPropagation(); 
+                   e.preventDefault();
+                   onClear(type); 
+                 }}
+                 className="p-2 text-slate-400 hover:text-red-400 transition-colors z-10 relative"
+                 title={t.clearQuadrant}
+               >
+                 <TrashIcon size={16} />
+               </button>
+            )}
+            <span className="text-xs font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-700/50 px-2 py-0.5 rounded-full">
+              {tasks.length}
+            </span>
+        </div>
       </div>
       
       <div className="flex-1 p-2 overflow-y-auto custom-scrollbar">
@@ -373,6 +401,9 @@ export default function App() {
     themeColor: 'blue',
     defaultInputMode: 'single',
     autoGroupAI: false,
+    autoDecomposeAI: false,
+    suppressGroupPrompt: false,
+    suppressLongTermPrompt: false,
     urgencyThresholdDays: 3
   });
 
@@ -391,6 +422,9 @@ export default function App() {
       setAppSettings({
          ...parsed,
          autoGroupAI: parsed.autoGroupAI ?? false,
+         autoDecomposeAI: parsed.autoDecomposeAI ?? false,
+         suppressGroupPrompt: parsed.suppressGroupPrompt ?? false,
+         suppressLongTermPrompt: parsed.suppressLongTermPrompt ?? false,
          urgencyThresholdDays: parsed.urgencyThresholdDays ?? 3
       });
       setInputMode(parsed.defaultInputMode); 
@@ -524,6 +558,126 @@ export default function App() {
       t.id === taskId ? { ...t, quadrant: targetQuadrant } : t
     ));
   };
+  
+  const handleClearQuadrant = (type: QuadrantType) => {
+    if (confirm(t.confirmClearQuadrant)) {
+       setTasks(prev => prev.filter(t => t.boardId !== activeBoardId || t.quadrant !== type));
+    }
+  };
+
+  // Helper: Flatten grouped tasks into individuals
+  const flattenTasks = (groupedTasks: Task[]) => {
+      let flat: Task[] = [];
+      groupedTasks.forEach(t => {
+          if (t.subtasks && t.subtasks.length > 0) {
+             // It's a group, flatten it
+             t.subtasks.forEach(sub => {
+                 flat.push({
+                    id: crypto.randomUUID(),
+                    boardId: t.boardId,
+                    title: sub.title,
+                    quadrant: t.quadrant,
+                    isLongTerm: false,
+                    completed: false,
+                    createdAt: Date.now(),
+                    subtasks: []
+                 });
+             });
+          } else {
+             flat.push(t);
+          }
+      });
+      return flat;
+  };
+
+  // Helper: Execute batch decompose with provided list
+  const executeBatchDecompose = async (tasksToDecompose: Task[]) => {
+      if (tasksToDecompose.length === 0) return;
+      
+      const titles = tasksToDecompose.map(t => t.title);
+      const ids = new Set(tasksToDecompose.map(t => t.id));
+      
+      try {
+          const results = await decomposeTasksBatch(titles, aiConfig, appSettings.language);
+          
+          setTasks(prev => prev.map(t => {
+              if (!ids.has(t.id)) return t;
+              
+              const result = results.find(r => r.originalTitle === t.title);
+              if (result) {
+                  const newSubs: SubTask[] = result.subtasks.map(st => ({
+                      id: crypto.randomUUID(),
+                      title: st,
+                      completed: false
+                  }));
+                  return { ...t, subtasks: [...(t.subtasks || []), ...newSubs] };
+              }
+              return t;
+          }));
+      } catch (err) {
+          console.error(err);
+          alert(t.error);
+      }
+  };
+
+  // New consolidated process for adding analyzed tasks
+  const processFinalTasks = async (incomingTasks: Task[]) => {
+      let tasksToProcess = [...incomingTasks];
+
+      // Scenario: Auto Decompose is ON
+      // Goal: Ensure tasks appear decomposed immediately without "flash"
+      if (appSettings.autoDecomposeAI) {
+          // Find tasks that should have been decomposed but AI might have missed subtasks in first pass
+          const tasksNeedingDecomposition = tasksToProcess.filter(t => t.isLongTerm && (!t.subtasks || t.subtasks.length === 0));
+          
+          if (tasksNeedingDecomposition.length > 0) {
+              try {
+                  // Perform a silent batch decomposition BEFORE adding to state
+                  const results = await decomposeTasksBatch(
+                      tasksNeedingDecomposition.map(t => t.title), 
+                      aiConfig, 
+                      appSettings.language
+                  );
+                  
+                  // Update the tasks in memory
+                  tasksToProcess = tasksToProcess.map(t => {
+                      const res = results.find(r => r.originalTitle === t.title);
+                      if (res && t.isLongTerm && (!t.subtasks || t.subtasks.length === 0)) {
+                          const newSubs: SubTask[] = res.subtasks.map(st => ({
+                              id: crypto.randomUUID(),
+                              title: st,
+                              completed: false
+                          }));
+                          return { ...t, subtasks: newSubs };
+                      }
+                      return t;
+                  });
+              } catch (e) {
+                  console.error("Silent decomposition correction failed", e);
+                  // If failed, just proceed. User can manually decompose later.
+              }
+          }
+          
+          // Add everything to board at once
+          setTasks(prev => [...tasksToProcess, ...prev]);
+          setIsProcessing(false);
+
+      } else {
+          // Scenario: Auto Decompose is OFF
+          // Standard flow: Add to board -> Check for long term -> Prompt User
+          setTasks(prev => [...tasksToProcess, ...prev]);
+          
+          const longTerms = tasksToProcess.filter(t => t.isLongTerm && (!t.subtasks || t.subtasks.length === 0));
+          
+          if (longTerms.length > 0 && !appSettings.suppressLongTermPrompt) {
+              setLongTermBatchQueue(longTerms);
+              const initialIds = new Set<string>();
+              longTerms.forEach(t => initialIds.add(t.id));
+              setLongTermSelectedIds(initialIds);
+          }
+          setIsProcessing(false);
+      }
+  };
 
   const handleAISort = async () => {
     if (!inputText.trim()) return;
@@ -535,7 +689,8 @@ export default function App() {
         rawTasks, 
         aiConfig, 
         appSettings.language, 
-        appSettings.autoGroupAI
+        appSettings.autoGroupAI,
+        appSettings.autoDecomposeAI
       );
       
       const newTasks: Task[] = results.map(res => ({
@@ -553,36 +708,33 @@ export default function App() {
         })) || []
       }));
       
-      // PHASE 1 Complete. 
       setInputText('');
       if (addModalOpen) setAddModalOpen(false);
 
-      // Start Workflow:
-      // If AutoGroup is OFF, we need to verify groups first.
-      // We put all new tasks into pendingTasks initially, but we actually iterate queues.
-      
-      if (!appSettings.autoGroupAI) {
-        // Find tasks that have subtasks (suggested groups)
-        const potentialGroups = newTasks.filter(t => t.subtasks && t.subtasks.length > 0);
-        const others = newTasks.filter(t => !t.subtasks || t.subtasks.length === 0);
-        
-        // "others" are ready for the next phase (long term check)
-        setPendingTasks(others);
-        
-        if (potentialGroups.length > 0) {
-          setGroupingQueue(potentialGroups);
-          // processing stays true until queues are empty
-          return; 
-        } else {
-           // No groups to check, proceed directly to long term check
-           initiateLongTermCheck(others);
-           return;
-        }
+      // --- Workflow Phase 2: Grouping ---
+      let tasksForPhase3 = [];
+
+      if (appSettings.autoGroupAI) {
+         // Auto-accept all structures
+         tasksForPhase3 = newTasks;
+      } else if (appSettings.suppressGroupPrompt) {
+         // Auto-reject groups (flatten)
+         tasksForPhase3 = flattenTasks(newTasks);
       } else {
-         // Auto Group is ON, accept all structure as is
-         initiateLongTermCheck(newTasks);
-         return;
+         // Check for groups to prompt
+         const potentialGroups = newTasks.filter(t => t.subtasks && t.subtasks.length > 0);
+         if (potentialGroups.length > 0) {
+            setPendingTasks(newTasks.filter(t => !t.subtasks || t.subtasks.length === 0));
+            setGroupingQueue(potentialGroups);
+            // Stop here, wait for modal interactions
+            return;
+         } else {
+            tasksForPhase3 = newTasks;
+         }
       }
+      
+      // Proceed if no modal needed
+      processFinalTasks(tasksForPhase3);
       
     } catch (err) {
       alert(`${t.error}: ` + (err instanceof Error ? err.message : String(err)));
@@ -590,32 +742,7 @@ export default function App() {
     } 
   };
 
-  const initiateLongTermCheck = (tasksToCheck: Task[]) => {
-      const longTerms = tasksToCheck.filter(t => t.isLongTerm);
-      
-      // Add non-long-terms directly to board
-      setTasks(prev => [...tasksToCheck, ...prev]); 
-      
-      if (longTerms.length > 0) {
-          const trueLongTerms = longTerms.filter(t => !t.subtasks || t.subtasks.length === 0);
-          
-          if (trueLongTerms.length > 0) {
-              setLongTermBatchQueue(trueLongTerms);
-              const initialIds = new Set<string>();
-              trueLongTerms.forEach(t => initialIds.add(t.id));
-              setLongTermSelectedIds(initialIds); // Default all to checked
-              
-              // Important: Turn off loading spinner so user can interact with the modal
-              setIsProcessing(false);
-          } else {
-              setIsProcessing(false);
-          }
-      } else {
-          setIsProcessing(false);
-      }
-  };
-
-  // Workflow: Handle Group Suggestion
+  // Workflow: Handle Group Suggestion Decision
   const handleGroupDecision = (accepted: boolean) => {
       const currentGroup = groupingQueue[0];
       const remainingQueue = groupingQueue.slice(1);
@@ -623,77 +750,38 @@ export default function App() {
       let finalTasks: Task[] = [];
       
       if (accepted) {
-          // Keep as group
           finalTasks = [currentGroup];
       } else {
-          // Split into individual tasks
-          if (currentGroup.subtasks) {
-              finalTasks = currentGroup.subtasks.map(sub => ({
-                  id: crypto.randomUUID(),
-                  boardId: currentGroup.boardId,
-                  title: sub.title,
-                  quadrant: currentGroup.quadrant,
-                  isLongTerm: false, // Assuming split items are simple
-                  completed: false,
-                  createdAt: Date.now(),
-                  subtasks: []
-              }));
-          } else {
-              // Fallback (shouldn't happen)
-              finalTasks = [currentGroup];
-          }
+          // Split
+          finalTasks = flattenTasks([currentGroup]);
       }
       
-      // Add decided tasks to pending pool for next phase
+      // Update pending tasks
       const updatedPending = [...pendingTasks, ...finalTasks];
       setPendingTasks(updatedPending);
       setGroupingQueue(remainingQueue);
 
       if (remainingQueue.length === 0) {
-          // All groups resolved, move to next phase
-          initiateLongTermCheck(updatedPending);
+          // Groups resolved, move to Phase 3
+          processFinalTasks(updatedPending);
       }
   };
 
-  // Workflow: Handle Batch Decomposition
+  // Workflow: Handle Batch Decomposition (From Modal)
   const handleBatchDecompose = async () => {
       if (longTermSelectedIds.size === 0) {
-          setLongTermBatchQueue([]);
-          setIsProcessing(false);
+          handleSkipBatchDecompose();
           return;
       }
 
-      setIsProcessing(true); // Show spinner on button
-      try {
-          const tasksToDecompose = longTermBatchQueue.filter(t => longTermSelectedIds.has(t.id));
-          const titles = tasksToDecompose.map(t => t.title);
-          
-          const results = await decomposeTasksBatch(titles, aiConfig, appSettings.language);
-          
-          // Update tasks in state
-          setTasks(prev => prev.map(t => {
-              if (!longTermSelectedIds.has(t.id)) return t;
-              
-              const result = results.find(r => r.originalTitle === t.title); // Matching by title
-              if (result) {
-                  const newSubs: SubTask[] = result.subtasks.map(st => ({
-                      id: crypto.randomUUID(),
-                      title: st,
-                      completed: false
-                  }));
-                  return { ...t, subtasks: [...(t.subtasks || []), ...newSubs] };
-              }
-              return t;
-          }));
-
-      } catch (err) {
-          console.error(err);
-          alert(t.error);
-      } finally {
-          setLongTermBatchQueue([]);
-          setIsProcessing(false);
-          setLongTermSelectedIds(new Set());
-      }
+      setIsProcessing(true); 
+      const tasksToDecompose = longTermBatchQueue.filter(t => longTermSelectedIds.has(t.id));
+      
+      await executeBatchDecompose(tasksToDecompose);
+      
+      setLongTermBatchQueue([]);
+      setIsProcessing(false);
+      setLongTermSelectedIds(new Set());
   };
 
   const handleSkipBatchDecompose = () => {
@@ -702,25 +790,11 @@ export default function App() {
     setLongTermSelectedIds(new Set());
   };
 
-  // Individual Decompose (Legacy/Manual trigger) - IMMEDIATE action
+  // Individual Decompose (Manual trigger)
   const handleManualDecompose = async (task: Task) => {
       setSingleDecomposingTask(task);
-      
       try {
-          const results = await decomposeTasksBatch([task.title], aiConfig, appSettings.language);
-          const result = results[0];
-          
-          if (result) {
-             const newSubs: SubTask[] = result.subtasks.map(st => ({
-                 id: crypto.randomUUID(),
-                 title: st,
-                 completed: false
-             }));
-             
-             setTasks(prev => prev.map(t => 
-                 t.id === task.id ? { ...t, subtasks: [...(t.subtasks || []), ...newSubs] } : t
-             ));
-          }
+         await executeBatchDecompose([task]);
       } catch (err) {
          console.error(err);
          alert(t.error);
@@ -728,7 +802,6 @@ export default function App() {
          setSingleDecomposingTask(null);
       }
   };
-
 
   const handleManualAdd = () => {
     if (!inputText.trim()) return;
@@ -772,24 +845,20 @@ export default function App() {
 
   const handleConfirmGroup = () => {
     if (!groupTitleInput.trim()) {
-        setGroupModalOpen(false); // Cancel if empty
+        setGroupModalOpen(false);
         return;
     }
-
     const selectedTasks = tasks.filter(t => selectedTaskIds.has(t.id));
     if (selectedTasks.length === 0) return;
 
     const firstTask = selectedTasks[0];
-    
-    // Convert selected tasks into subtasks
     const newSubtasks: SubTask[] = selectedTasks.map(t => ({
       id: crypto.randomUUID(),
       title: t.title,
       completed: t.completed,
-      deadline: t.deadline // Preserve deadline if exists
+      deadline: t.deadline
     }));
 
-    // Create Parent Task
     const parentTask: Task = {
       id: crypto.randomUUID(),
       boardId: firstTask.boardId,
@@ -803,7 +872,6 @@ export default function App() {
     };
 
     setTasks(prev => {
-      // Remove original selected tasks
       const remaining = prev.filter(t => !selectedTaskIds.has(t.id));
       return [parentTask, ...remaining];
     });
@@ -816,7 +884,6 @@ export default function App() {
   // Edit Handlers
   const openEditModal = (task: Task, subId?: string) => {
       setEditingTask({ task, subId });
-      
       let currentDeadline: number | undefined;
       if (subId && task.subtasks) {
           const sub = task.subtasks.find(s => s.id === subId);
@@ -824,7 +891,6 @@ export default function App() {
       } else {
           currentDeadline = task.deadline;
       }
-
       if (currentDeadline) {
           setEditDateInput(new Date(currentDeadline).toISOString().split('T')[0]);
       } else {
@@ -834,17 +900,13 @@ export default function App() {
 
   const saveEdit = () => {
       if (!editingTask) return;
-      
       const timestamp = editDateInput ? new Date(editDateInput).getTime() : undefined;
-      
       if (editingTask.subId) {
-          // Update subtask
            const updatedSubs = (editingTask.task.subtasks || []).map(s => 
               s.id === editingTask.subId ? { ...s, deadline: timestamp } : s
            );
            handleTaskUpdate({ ...editingTask.task, subtasks: updatedSubs });
       } else {
-          // Update parent task
           handleTaskUpdate({ ...editingTask.task, deadline: timestamp });
       }
       setEditingTask(null);
@@ -867,10 +929,8 @@ export default function App() {
   const handleDeleteBoard = (id: string) => {
     if (boards.length <= 1) return; 
     if (!confirm(t.confirmDeleteBoard)) return;
-    
     setBoards(prev => prev.filter(b => b.id !== id));
     setTasks(prev => prev.filter(t => t.boardId !== id));
-    
     if (activeBoardId === id) {
       const remaining = boards.filter(b => b.id !== id);
       if (remaining.length > 0) setActiveBoardId(remaining[0].id);
@@ -949,8 +1009,6 @@ export default function App() {
       {/* --- Header --- */}
       <header className="flex-none h-16 flex items-center justify-between px-6 z-20 relative">
         <div className="flex items-center gap-3">
-           {/* Logo Removed as requested */}
-          
           {/* Board Switcher */}
           <div className="relative">
              <button 
@@ -1051,6 +1109,7 @@ export default function App() {
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Do)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
             onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
             t={t}
@@ -1065,6 +1124,7 @@ export default function App() {
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Plan)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
             onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
             t={t}
@@ -1079,6 +1139,7 @@ export default function App() {
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Delegate)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
             onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
             t={t}
@@ -1093,6 +1154,7 @@ export default function App() {
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Eliminate)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
             onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
             t={t}
@@ -1193,6 +1255,36 @@ export default function App() {
              </label>
              
              <div className="neu-concave rounded-xl p-3 space-y-4">
+                
+                {/* Auto Decompose Toggle */}
+                <div className="flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoDecomposeAI}</p>
+                     <p className="text-xs text-slate-500">{t.autoDecomposeDesc}</p>
+                   </div>
+                   <button 
+                     onClick={() => setAppSettings(s => ({ ...s, autoDecomposeAI: !s.autoDecomposeAI }))}
+                     className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.autoDecomposeAI ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
+                   >
+                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.autoDecomposeAI ? 'left-6' : 'left-1'}`}></div>
+                   </button>
+                </div>
+
+                {/* Suppress Decompose Prompt */}
+                <div className="flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressLongTermPrompt}</p>
+                   </div>
+                   <button 
+                     onClick={() => setAppSettings(s => ({ ...s, suppressLongTermPrompt: !s.suppressLongTermPrompt }))}
+                     className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.suppressLongTermPrompt ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
+                   >
+                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.suppressLongTermPrompt ? 'left-6' : 'left-1'}`}></div>
+                   </button>
+                </div>
+
+                <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
+
                 {/* Auto Group Toggle */}
                 <div className="flex items-center justify-between">
                    <div>
@@ -1204,6 +1296,19 @@ export default function App() {
                      className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.autoGroupAI ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
                    >
                      <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.autoGroupAI ? 'left-6' : 'left-1'}`}></div>
+                   </button>
+                </div>
+
+                {/* Suppress Group Prompt */}
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressGroupPrompt}</p>
+                   </div>
+                   <button 
+                     onClick={() => setAppSettings(s => ({ ...s, suppressGroupPrompt: !s.suppressGroupPrompt }))}
+                     className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.suppressGroupPrompt ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
+                   >
+                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.suppressGroupPrompt ? 'left-6' : 'left-1'}`}></div>
                    </button>
                 </div>
 

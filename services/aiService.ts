@@ -13,8 +13,8 @@ const getLanguagePromptSuffix = (lang: Language) => {
   }
 };
 
-// Updated: Always instruct to group. The UI determines whether to accept or ask.
-const getSortInstruction = (lang: Language) => `
+// Updated: Prompt logic now includes stronger immediate decomposition instructions
+const getSortInstruction = (lang: Language, autoDecompose: boolean) => `
 You are an expert productivity assistant based on the Eisenhower Matrix.
 Analyze the user's tasks and categorize them into four quadrants:
 1. Urgent & Important (Do First)
@@ -24,9 +24,11 @@ Analyze the user's tasks and categorize them into four quadrants:
 
 STRICT RULES:
 1. Identify if a task is "Long Term" (requires breakdown). Set isLongTerm=true.
-2. DO NOT decompose a single task into steps in this phase. For example, if the input is "Running", just return "Running" with isLongTerm=true.
+2. ${autoDecompose 
+    ? 'IMMEDIATE DECOMPOSITION REQUIRED: If a task is "Long Term" (isLongTerm=true), you MUST break it down NOW into 3-5 actionable, short-term steps and populate the "subtasks" array. DO NOT leave subtasks empty for long term tasks.' 
+    : 'DO NOT decompose a single task into steps in this phase. If the input is "Running", just return "Running" with isLongTerm=true and subtasks=[].'}
 3. GROUPING LOGIC: Always look for multiple DISTINCT input lines that belong to the same project or category (e.g. inputs "Buy milk", "Buy eggs", "Buy soap"). Merge them into one task titled "Shopping" (or appropriate category) with subtasks ["Buy milk", "Buy eggs", "Buy soap"].
-4. If an input is a standalone task, leave subtasks empty.
+4. If an input is a standalone short-term task, leave subtasks empty.
 
 Important: Return the output strictly in JSON format.
 The "title", "reasoning", and "subtasks" fields MUST be in the user's language: ${lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English'}.
@@ -50,11 +52,12 @@ export const analyzeTasks = async (
   inputs: string[], 
   config: AIConfig,
   lang: Language,
-  autoGroup: boolean = false // Kept for signature compatibility, but logic is now handled in App.tsx
+  autoGroup: boolean = false, // Kept for signature compatibility
+  autoDecompose: boolean = false // New: instructs AI to decompose immediately
 ): Promise<AIAnalysisResult[]> => {
   const langSuffix = getLanguagePromptSuffix(lang);
   const prompt = `Here are the tasks to analyze: ${JSON.stringify(inputs)}. \n\nImportant: ${langSuffix}`;
-  const instruction = getSortInstruction(lang);
+  const instruction = getSortInstruction(lang, autoDecompose);
 
   if (config.provider === AIProvider.Gemini) {
     return analyzeWithGemini(prompt, instruction);
@@ -101,7 +104,7 @@ async function analyzeWithGemini(prompt: string, systemInstruction: string): Pro
               subtasks: { 
                 type: Type.ARRAY, 
                 items: { type: Type.STRING },
-                description: "List of subtasks if grouped, otherwise empty"
+                description: "List of subtasks if grouped or decomposed, otherwise empty"
               }
             },
             required: ["title", "quadrant", "isLongTerm"]

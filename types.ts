@@ -54,8 +54,11 @@ export interface AppSettings {
   theme: ThemeMode;
   themeColor: ThemeColor;
   defaultInputMode: InputMode;
-  autoGroupAI: boolean; // New: AI auto grouping
-  urgencyThresholdDays: number; // New: Days before deadline to move quadrants
+  autoGroupAI: boolean; 
+  autoDecomposeAI: boolean; // New: Auto decompose long-term
+  suppressGroupPrompt: boolean; // New: Don't show group prompt (default to split)
+  suppressLongTermPrompt: boolean; // New: Don't show long-term prompt (default to keep)
+  urgencyThresholdDays: number; 
 }
 
 export interface AIConfig {
