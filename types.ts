@@ -68,6 +68,15 @@ export interface AIConfig {
   customModel?: string;
 }
 
+export interface ExportData {
+    version: number;
+    timestamp: number;
+    boards: Board[];
+    tasks: Task[];
+    settings: AppSettings;
+    aiConfig: AIConfig;
+}
+
 // SVG Icon Props
 export interface IconProps {
   className?: string;

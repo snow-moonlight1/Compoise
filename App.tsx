@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Task, QuadrantType, AIConfig, AIProvider, AIAnalysisResult, AppSettings, InputMode, Board, ThemeColor, SubTask } from './types';
+import { Task, QuadrantType, AIConfig, AIProvider, AIAnalysisResult, AppSettings, InputMode, Board, ThemeColor, SubTask, ExportData } from './types';
 import { analyzeTasks, decomposeTasksBatch } from './services/aiService';
 import { translations } from './translations';
 import { 
   SparklesIcon, SettingsIcon, PlusIcon, XIcon, 
   AlertTriangleIcon, LoaderIcon, SplitIcon, TrashIcon,
-  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, CalendarIcon, LayersIcon, FlagIcon
+  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, CalendarIcon, LayersIcon, FlagIcon, DownloadIcon, UploadIcon
 } from './components/Icons';
 
 // --- Interfaces ---
@@ -55,13 +54,34 @@ interface QuadrantProps {
 
 // --- Components ---
 
+const Checkbox: React.FC<{ checked: boolean; onChange: () => void; className?: string }> = ({ checked, onChange, className }) => (
+  <button
+    onClick={(e) => { e.stopPropagation(); onChange(); }}
+    className={`w-5 h-5 rounded-md border transition-all duration-200 flex-none flex items-center justify-center ${
+      checked 
+        ? 'bg-primary border-primary text-white' 
+        : 'bg-slate-300 dark:bg-slate-600 border-transparent hover:border-primary/50'
+    } ${className}`}
+  >
+    <svg 
+      className={`w-3.5 h-3.5 transition-transform duration-200 ${checked ? 'scale-100' : 'scale-0'}`} 
+      fill="none" 
+      viewBox="0 0 24 24" 
+      stroke="currentColor" 
+      strokeWidth={3}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  </button>
+);
+
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title, hideClose = false }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="neu-flat dark:text-slate-200 rounded-2xl w-full max-w-md p-6 relative animate-slide-up overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="neu-flat dark:text-slate-200 rounded-2xl w-full max-w-md p-6 relative animate-slide-up overflow-hidden max-h-[90vh] flex flex-col shadow-2xl">
         <div className="flex justify-between items-center mb-4 flex-none">
-          {title && <h2 className="text-xl font-bold">{title}</h2>}
+          {title && <h2 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h2>}
           {!hideClose && (
             <button onClick={onClose} className="neu-btn p-2 rounded-full text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors absolute top-4 right-4">
               <XIcon size={18} />
@@ -75,6 +95,19 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title, hideClo
     </div>
   );
 };
+
+// Optimized ToggleSwitch with Spring Animation and Transform
+const ToggleSwitch: React.FC<{ checked: boolean; onChange: () => void }> = ({ checked, onChange }) => (
+  <button 
+    onClick={onChange}
+    className={`w-12 h-7 rounded-full relative transition-colors duration-200 focus:outline-none flex-none ${checked ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
+  >
+    <div 
+      className="absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ease-spring"
+      style={{ transform: checked ? 'translateX(20px)' : 'translateX(0)' }}
+    />
+  </button>
+);
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
   task, 
@@ -136,7 +169,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
       onDragStart={(e) => onDragStart(e, task)}
       onClick={() => isSelectionMode && onToggleSelect(task.id)}
       onDoubleClick={(e) => { e.stopPropagation(); onEdit(task); }}
-      className={`neu-btn p-3 mb-3 rounded-xl cursor-grab active:cursor-grabbing group relative overflow-hidden flex flex-col gap-2
+      className={`neu-btn cursor-grab active:cursor-grabbing group relative overflow-hidden flex flex-col gap-2 rounded-2xl
+        mb-3 p-3 border border-slate-200/50 dark:border-slate-700/50 max-h-96
         ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}
       `}
     >
@@ -146,7 +180,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       
       <div className="flex justify-between items-start gap-2 w-full">
         {isSelectionMode && (
-          <div className={`w-5 h-5 rounded border flex-none flex items-center justify-center ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
+          <div className={`w-5 h-5 rounded border flex-none flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
              {isSelected && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
           </div>
         )}
@@ -212,14 +246,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
              return (
                 <div 
                   key={sub.id} 
-                  className="flex items-center gap-2 text-xs group/sub"
+                  className="flex items-center gap-2 text-xs group/sub transition-all duration-300 ease-in-out overflow-hidden opacity-100"
                   onDoubleClick={(e) => { e.stopPropagation(); onEdit(task, sub.id); }}
                 >
                   <button 
                     onClick={(e) => { e.stopPropagation(); toggleSubtask(sub.id); }}
-                    className={`w-3 h-3 rounded-sm border flex-none ${sub.completed ? 'bg-slate-400 border-slate-400' : 'border-slate-400'}`}
+                    className={`w-3 h-3 rounded-sm border flex-none transition-colors ${sub.completed ? 'bg-slate-400 border-slate-400' : 'border-slate-400'}`}
                   />
-                  <span className={`flex-1 ${sub.completed ? 'line-through text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                  <span className={`flex-1 transition-all ${sub.completed ? 'line-through text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
                     {sub.title}
                   </span>
                   
@@ -231,7 +265,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
                   <button 
                      onClick={(e) => { e.stopPropagation(); deleteSubtask(sub.id); }}
-                     className="opacity-0 group-hover/sub:opacity-100 text-red-400 p-0.5"
+                     className="opacity-0 group-hover/sub:opacity-100 text-red-400 p-0.5 transition-opacity"
                   >
                     <XIcon size={10} />
                   </button>
@@ -243,7 +277,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Add Subtask Input */}
       {isAddingSub && (
-        <div className="mt-2 flex gap-1 items-center">
+        <div className="mt-2 flex gap-1 items-center animate-fade-in">
           <input 
             autoFocus
             value={newSubtask}
@@ -294,9 +328,10 @@ const Quadrant: React.FC<QuadrantProps> = ({
     <div 
       onDrop={(e) => onDrop(e, type)}
       onDragOver={onDragOver}
-      className="neu-pressed rounded-2xl flex flex-col h-full overflow-hidden relative"
+      className="flex flex-col h-full gap-3 min-h-0"
     >
-      <div className={`p-3 flex justify-between items-center border-b border-slate-200/10`}>
+      {/* Header Outside the Box */}
+      <div className="flex justify-between items-center px-1 flex-none h-6 md:h-8">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full bg-${colorCode}`}></div>
           <h3 className="font-bold text-slate-600 dark:text-slate-300 text-sm md:text-base truncate hidden md:block">{title}</h3>
@@ -310,7 +345,7 @@ const Quadrant: React.FC<QuadrantProps> = ({
                    e.preventDefault();
                    onClear(type); 
                  }}
-                 className="p-2 text-slate-400 hover:text-red-400 transition-colors z-10 relative"
+                 className="p-1 text-slate-400 hover:text-red-400 transition-colors"
                  title={t.clearQuadrant}
                >
                  <TrashIcon size={16} />
@@ -322,29 +357,32 @@ const Quadrant: React.FC<QuadrantProps> = ({
         </div>
       </div>
       
-      <div className="flex-1 p-2 overflow-y-auto custom-scrollbar">
-        {tasks.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-slate-400 text-xs italic select-none">
-            {t.empty}
-          </div>
-        ) : (
-          tasks.map(task => (
-            <TaskCard 
-              key={task.id} 
-              task={task} 
-              onDragStart={onDragStart} 
-              onDelete={onDelete}
-              onDecompose={onDecompose}
-              onUpdate={onUpdate}
-              colors={styles}
-              t={t}
-              isSelectionMode={isSelectionMode}
-              isSelected={selectedTaskIds.has(task.id)}
-              onToggleSelect={onToggleSelect}
-              onEdit={onEdit}
-            />
-          ))
-        )}
+      {/* Task Container */}
+      <div className="neu-pressed rounded-2xl flex-1 overflow-hidden relative">
+        <div className="h-full overflow-y-auto custom-scrollbar p-2">
+          {tasks.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-slate-400 text-xs italic select-none animate-fade-in">
+              {t.empty}
+            </div>
+          ) : (
+            tasks.map(task => (
+              <TaskCard 
+                key={task.id} 
+                task={task} 
+                onDragStart={onDragStart} 
+                onDelete={onDelete}
+                onDecompose={onDecompose}
+                onUpdate={onUpdate}
+                colors={styles}
+                t={t}
+                isSelectionMode={isSelectionMode}
+                isSelected={selectedTaskIds.has(task.id)}
+                onToggleSelect={onToggleSelect}
+                onEdit={onEdit}
+              />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -367,6 +405,12 @@ export default function App() {
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [renameBoardId, setRenameBoardId] = useState<string | null>(null);
   const [newBoardName, setNewBoardName] = useState('');
+  
+  // Import Flow State
+  const [importStage, setImportStage] = useState<'none' | 'mode-select' | 'settings-review'>('none');
+  const [pendingImport, setPendingImport] = useState<ExportData | null>(null);
+  const [tempSettings, setTempSettings] = useState<AppSettings | null>(null);
+  const [importSelection, setImportSelection] = useState<Set<string>>(new Set());
   
   // New Workflow State: Group Suggestion Queue & Batch Long-Term Queue
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
@@ -558,10 +602,15 @@ export default function App() {
       t.id === taskId ? { ...t, quadrant: targetQuadrant } : t
     ));
   };
+
+  // Instant Delete (Removed animations)
+  const handleDeleteTask = (id: string) => {
+      setTasks(prev => prev.filter(t => t.id !== id));
+  };
   
   const handleClearQuadrant = (type: QuadrantType) => {
     if (confirm(t.confirmClearQuadrant)) {
-       setTasks(prev => prev.filter(t => t.boardId !== activeBoardId || t.quadrant !== type));
+        setTasks(prev => prev.filter(t => !(t.boardId === activeBoardId && t.quadrant === type)));
     }
   };
 
@@ -625,7 +674,6 @@ export default function App() {
       let tasksToProcess = [...incomingTasks];
 
       // Scenario: Auto Decompose is ON
-      // Goal: Ensure tasks appear decomposed immediately without "flash"
       if (appSettings.autoDecomposeAI) {
           // Find tasks that should have been decomposed but AI might have missed subtasks in first pass
           const tasksNeedingDecomposition = tasksToProcess.filter(t => t.isLongTerm && (!t.subtasks || t.subtasks.length === 0));
@@ -654,17 +702,14 @@ export default function App() {
                   });
               } catch (e) {
                   console.error("Silent decomposition correction failed", e);
-                  // If failed, just proceed. User can manually decompose later.
               }
           }
           
-          // Add everything to board at once
           setTasks(prev => [...tasksToProcess, ...prev]);
           setIsProcessing(false);
 
       } else {
           // Scenario: Auto Decompose is OFF
-          // Standard flow: Add to board -> Check for long term -> Prompt User
           setTasks(prev => [...tasksToProcess, ...prev]);
           
           const longTerms = tasksToProcess.filter(t => t.isLongTerm && (!t.subtasks || t.subtasks.length === 0));
@@ -944,6 +989,126 @@ export default function App() {
     setNewBoardName('');
   };
 
+  // Import / Export Handlers
+  const handleExport = () => {
+      const data: ExportData = {
+          version: 1,
+          timestamp: Date.now(),
+          boards,
+          tasks,
+          settings: appSettings,
+          aiConfig
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `matrixflow_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          try {
+              const content = event.target?.result as string;
+              if (!content) return;
+              const json = JSON.parse(content);
+
+              // Basic Schema Validation
+              if (!Array.isArray(json.boards) || !Array.isArray(json.tasks)) {
+                  alert(t.importError);
+                  return;
+              }
+              
+              setPendingImport(json);
+              // Initialize import selection with all available keys including granular automation settings
+              setImportSelection(new Set([
+                'language', 'theme', 'themeColor', 'inputMode', 'aiProvider', 
+                'autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'urgencyThresholdDays'
+              ]));
+              
+              // Step 1: Ask User Mode
+              setImportStage('mode-select');
+
+          } catch (err) {
+              console.error(err);
+              alert(t.importError);
+          } finally {
+              e.target.value = '';
+          }
+      };
+      reader.readAsText(file);
+  };
+
+  const executeImportTasks = (mode: 'merge' | 'overwrite') => {
+      if (!pendingImport) return;
+
+      if (mode === 'overwrite') {
+          setBoards(pendingImport.boards);
+          setTasks(pendingImport.tasks);
+          // Set active board to first imported or defaults
+          if (pendingImport.boards.length > 0) setActiveBoardId(pendingImport.boards[0].id);
+      } else {
+          // Merge: Append tasks. Merge boards by ID, else add.
+          const existingBoardIds = new Set(boards.map(b => b.id));
+          const newBoards = pendingImport.boards.filter(b => !existingBoardIds.has(b.id));
+          
+          setBoards(prev => [...prev, ...newBoards]);
+          setTasks(prev => [...prev, ...pendingImport.tasks]);
+      }
+
+      // Proceed to Step 2: Settings
+      if (pendingImport.settings) {
+          setTempSettings(pendingImport.settings);
+          setImportStage('settings-review');
+      } else {
+          closeImportFlow();
+          alert(t.importSuccess);
+      }
+  };
+
+  const applyImportSettings = () => {
+      if (tempSettings) {
+          setAppSettings(prev => {
+              const next = { ...prev };
+              if (importSelection.has('language')) next.language = tempSettings.language;
+              if (importSelection.has('theme')) next.theme = tempSettings.theme;
+              if (importSelection.has('themeColor')) next.themeColor = tempSettings.themeColor;
+              if (importSelection.has('inputMode')) next.defaultInputMode = tempSettings.defaultInputMode;
+              
+              // Granular Automation Settings
+              if (importSelection.has('autoDecomposeAI')) next.autoDecomposeAI = tempSettings.autoDecomposeAI;
+              if (importSelection.has('suppressLongTermPrompt')) next.suppressLongTermPrompt = tempSettings.suppressLongTermPrompt;
+              if (importSelection.has('autoGroupAI')) next.autoGroupAI = tempSettings.autoGroupAI;
+              if (importSelection.has('suppressGroupPrompt')) next.suppressGroupPrompt = tempSettings.suppressGroupPrompt;
+              if (importSelection.has('urgencyThresholdDays')) next.urgencyThresholdDays = tempSettings.urgencyThresholdDays;
+              
+              return next;
+          });
+      }
+      if (pendingImport?.aiConfig && importSelection.has('aiProvider')) {
+          setAiConfig(pendingImport.aiConfig);
+      }
+      closeImportFlow();
+      alert(t.importSuccess);
+  };
+
+  const closeImportFlow = () => {
+      setImportStage('none');
+      setPendingImport(null);
+      setTempSettings(null);
+      setSettingsOpen(false);
+      setImportSelection(new Set());
+  };
+
+
   // --- Renders ---
 
   const renderInputArea = (inModal = false) => (
@@ -951,13 +1116,13 @@ export default function App() {
       <div className="flex p-1 bg-slate-200 dark:bg-slate-800 rounded-xl mb-4">
         <button 
           onClick={() => setInputMode('single')}
-          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'single' ? 'neu-btn bg-bgLight dark:bg-bgDark text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-400'}`}
+          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${inputMode === 'single' ? 'neu-btn bg-bgLight dark:bg-bgDark text-slate-800 dark:text-slate-100 scale-100' : 'text-slate-500 hover:text-slate-400 scale-95'}`}
         >
           {t.modeManual}
         </button>
         <button 
           onClick={() => setInputMode('brainDump')}
-          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'brainDump' ? 'neu-btn bg-bgLight dark:bg-bgDark text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-400'}`}
+          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${inputMode === 'brainDump' ? 'neu-btn bg-bgLight dark:bg-bgDark text-slate-800 dark:text-slate-100 scale-100' : 'text-slate-500 hover:text-slate-400 scale-95'}`}
         >
           {t.modeAI}
         </button>
@@ -984,7 +1149,7 @@ export default function App() {
           <button 
             onClick={handleAISort}
             disabled={isProcessing || !inputText.trim()}
-            className="neu-btn w-full py-3 rounded-xl font-bold text-primary hover:opacity-80 disabled:opacity-50 flex justify-center items-center gap-2"
+            className="neu-btn w-full py-3 rounded-xl font-bold text-primary hover:opacity-80 disabled:opacity-50 flex justify-center items-center gap-2 active:scale-95 transition-transform"
           >
             {isProcessing ? <LoaderIcon className="animate-spin" /> : <SparklesIcon />}
             {t.analyzeBtn}
@@ -993,7 +1158,7 @@ export default function App() {
            <button 
             onClick={handleManualAdd}
             disabled={!inputText.trim()}
-            className="neu-btn w-full py-3 rounded-xl font-bold text-primary hover:opacity-80 flex justify-center items-center gap-2"
+            className="neu-btn w-full py-3 rounded-xl font-bold text-primary hover:opacity-80 flex justify-center items-center gap-2 active:scale-95 transition-transform"
           >
             <PlusIcon />
             {t.addSingleBtn}
@@ -1002,6 +1167,164 @@ export default function App() {
       </div>
     </div>
   );
+
+  // Reusable Settings Block (used in Settings Modal)
+  const renderSettingsControls = (settings: AppSettings, setSettings: React.Dispatch<React.SetStateAction<AppSettings>>, readOnly: boolean = false) => (
+      <div className="neu-flat rounded-xl p-3 space-y-4">
+          {/* Auto Decompose Toggle */}
+          <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoDecomposeAI}</p>
+                  <p className="text-xs text-slate-500">{t.autoDecomposeDesc}</p>
+              </div>
+              <ToggleSwitch 
+                  checked={settings.autoDecomposeAI} 
+                  onChange={() => !readOnly && setSettings(s => ({ ...s, autoDecomposeAI: !s.autoDecomposeAI }))}
+              />
+          </div>
+
+          {/* Suppress Decompose Prompt */}
+          <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressLongTermPrompt}</p>
+              </div>
+              <ToggleSwitch 
+                  checked={settings.suppressLongTermPrompt} 
+                  onChange={() => !readOnly && setSettings(s => ({ ...s, suppressLongTermPrompt: !s.suppressLongTermPrompt }))}
+              />
+          </div>
+
+          <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
+
+          {/* Auto Group Toggle */}
+          <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoGroupAI}</p>
+                  <p className="text-xs text-slate-500">{t.autoGroupDesc}</p>
+              </div>
+              <ToggleSwitch 
+                  checked={settings.autoGroupAI} 
+                  onChange={() => !readOnly && setSettings(s => ({ ...s, autoGroupAI: !s.autoGroupAI }))}
+              />
+          </div>
+
+          {/* Suppress Group Prompt */}
+          <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressGroupPrompt}</p>
+              </div>
+              <ToggleSwitch 
+                  checked={settings.suppressGroupPrompt} 
+                  onChange={() => !readOnly && setSettings(s => ({ ...s, suppressGroupPrompt: !s.suppressGroupPrompt }))}
+              />
+          </div>
+          
+          <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
+
+           {/* Urgency Threshold */}
+          <div>
+             <div className="flex justify-between mb-1">
+               <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.urgencyThreshold}</p>
+               <span className="text-xs font-bold text-primary bg-primary/10 px-2 rounded">{settings.urgencyThresholdDays} {t.daysLeft.split(' ')[0]}</span>
+             </div>
+             <input 
+               type="range" 
+               min="1" max="14" 
+               value={settings.urgencyThresholdDays} 
+               onChange={(e) => !readOnly && setSettings(s => ({ ...s, urgencyThresholdDays: parseInt(e.target.value) }))}
+               className="w-full accent-primary h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
+               disabled={readOnly}
+             />
+          </div>
+      </div>
+  );
+
+  // Helper for import row rendering
+  const renderImportRow = (key: string, label: string, value: React.ReactNode) => {
+      const toggle = () => {
+          const newSet = new Set(importSelection);
+          if (newSet.has(key)) newSet.delete(key);
+          else newSet.add(key);
+          setImportSelection(newSet);
+      };
+
+      return (
+        <div 
+            onClick={toggle}
+            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${importSelection.has(key) ? 'bg-primary/5' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+            <Checkbox checked={importSelection.has(key)} onChange={toggle} />
+            <div className="flex-1 flex justify-between text-sm">
+                <span className="text-slate-500">{label}:</span>
+                <span className={`font-bold ${importSelection.has(key) ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 decoration-slate-400 line-through'}`}>
+                    {value}
+                </span>
+            </div>
+        </div>
+      );
+  };
+
+  // New visual review component for imports
+  const renderVisualSettingsReview = (settings: AppSettings) => {
+      const boolText = (val: boolean) => val ? 'ON' : 'OFF';
+      
+      // Automation Group Logic
+      const automationKeys = ['autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'urgencyThresholdDays'];
+      const isAllAutoSelected = automationKeys.every(k => importSelection.has(k));
+      
+      const toggleAutomationGroup = () => {
+          const newSet = new Set(importSelection);
+          if (isAllAutoSelected) {
+              automationKeys.forEach(k => newSet.delete(k));
+          } else {
+              automationKeys.forEach(k => newSet.add(k));
+          }
+          setImportSelection(newSet);
+      };
+
+      return (
+          <div className="neu-flat rounded-xl p-3 space-y-1">
+               {renderImportRow('language', t.language, <span className="uppercase">{settings.language}</span>)}
+               {renderImportRow('theme', t.theme, <span className="capitalize">{settings.theme}</span>)}
+               {renderImportRow('themeColor', t.themeColor, (
+                   <div className="flex items-center gap-2">
+                       <span className="capitalize">{settings.themeColor}</span>
+                       <div className="w-3 h-3 rounded-full" style={{ 
+                           backgroundColor: settings.themeColor === 'blue' ? '#3b82f6' : 
+                                           settings.themeColor === 'purple' ? '#8b5cf6' : 
+                                           settings.themeColor === 'green' ? '#10b981' : 
+                                           settings.themeColor === 'orange' ? '#f97316' : '#ec4899' 
+                       }}></div>
+                   </div>
+               ))}
+               {renderImportRow('inputMode', t.defaultMode, settings.defaultInputMode === 'single' ? t.modeManual : t.modeAI)}
+               
+               {pendingImport?.aiConfig && (
+                   renderImportRow('aiProvider', t.provider, <span className="capitalize">{pendingImport.aiConfig.provider}</span>)
+               )}
+
+               {/* Granular Automation Settings Group */}
+               <div className="pt-2">
+                   <div 
+                      onClick={toggleAutomationGroup}
+                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isAllAutoSelected ? 'bg-primary/10' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                   >
+                        <Checkbox checked={isAllAutoSelected} onChange={toggleAutomationGroup} />
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{t.grouping}</span>
+                   </div>
+                   
+                   <div className="pl-6 space-y-1 mt-1 border-l-2 border-slate-200 dark:border-slate-700 ml-3">
+                        {renderImportRow('autoDecomposeAI', t.autoDecomposeAI, boolText(settings.autoDecomposeAI))}
+                        {renderImportRow('suppressLongTermPrompt', t.suppressLongTermPrompt, boolText(settings.suppressLongTermPrompt))}
+                        {renderImportRow('autoGroupAI', t.autoGroupAI, boolText(settings.autoGroupAI))}
+                        {renderImportRow('suppressGroupPrompt', t.suppressGroupPrompt, boolText(settings.suppressGroupPrompt))}
+                        {renderImportRow('urgencyThresholdDays', t.urgencyThreshold, `${settings.urgencyThresholdDays} d`)}
+                   </div>
+               </div>
+
+          </div>
+      );
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-white font-sans">
@@ -1016,14 +1339,14 @@ export default function App() {
                className="flex items-center gap-2 font-bold text-lg text-slate-700 dark:text-slate-200 hover:text-primary transition-colors"
              >
                {activeBoard?.name || t.defaultBoardName}
-               <svg className={`w-4 h-4 transition-transform ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+               <svg className={`w-4 h-4 transition-transform duration-300 ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
              </button>
 
              {boardMenuOpen && (
-               <div className="absolute top-full left-0 mt-2 w-64 neu-flat rounded-xl p-2 animate-fade-in z-50">
+               <div className="absolute top-full left-0 mt-2 w-64 neu-flat rounded-xl p-2 animate-slide-down origin-top z-50 shadow-xl">
                  <div className="max-h-60 overflow-y-auto custom-scrollbar">
                    {boards.map(board => (
-                     <div key={board.id} className="group flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50">
+                     <div key={board.id} className="group flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors">
                         {renameBoardId === board.id ? (
                           <input 
                             autoFocus
@@ -1052,7 +1375,7 @@ export default function App() {
                    ))}
                  </div>
                  <div className="h-px bg-slate-300 dark:bg-slate-600 my-2"></div>
-                 <button onClick={handleCreateBoard} className="w-full text-left p-2 text-sm font-bold text-primary hover:bg-slate-200/50 dark:hover:bg-slate-700/50 rounded-lg flex items-center gap-2">
+                 <button onClick={handleCreateBoard} className="w-full text-left p-2 text-sm font-bold text-primary hover:bg-slate-200/50 dark:hover:bg-slate-700/50 rounded-lg flex items-center gap-2 transition-colors">
                     <PlusIcon size={14} /> {t.createBoard}
                  </button>
                </div>
@@ -1073,7 +1396,7 @@ export default function App() {
             {isSelectionMode && selectedTaskIds.size >= 2 && (
                <button 
                  onClick={openGroupModal}
-                 className="neu-btn px-3 py-2 rounded-lg text-primary font-bold text-xs animate-fade-in"
+                 className="neu-btn px-3 py-2 rounded-lg text-primary font-bold text-xs animate-pop-in"
                >
                  {t.groupSelected} ({selectedTaskIds.size})
                </button>
@@ -1081,7 +1404,7 @@ export default function App() {
 
             <button 
               onClick={() => setSettingsOpen(true)}
-              className="neu-btn p-3 rounded-full text-slate-500 dark:text-slate-400 hover:text-primary transition-colors"
+              className="neu-btn p-3 rounded-full text-slate-500 dark:text-slate-400 hover:text-primary transition-colors active:scale-95"
             >
               <SettingsIcon />
             </button>
@@ -1108,7 +1431,7 @@ export default function App() {
             title={t.q1} shortTitle={t.q1Short} colorCode="q1"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Do)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onDelete={handleDeleteTask}
             onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
@@ -1123,7 +1446,7 @@ export default function App() {
             title={t.q2} shortTitle={t.q2Short} colorCode="q2"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Plan)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onDelete={handleDeleteTask}
             onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
@@ -1138,7 +1461,7 @@ export default function App() {
             title={t.q3} shortTitle={t.q3Short} colorCode="q3"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Delegate)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onDelete={handleDeleteTask}
             onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
@@ -1153,7 +1476,7 @@ export default function App() {
             title={t.q4} shortTitle={t.q4Short} colorCode="q4"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Eliminate)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={id => setTasks(prev => prev.filter(t => t.id !== id))}
+            onDelete={handleDeleteTask}
             onClear={handleClearQuadrant}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
@@ -1170,7 +1493,7 @@ export default function App() {
       {/* Mobile FAB (Hidden on Desktop) */}
       <button 
         onClick={openAddModal}
-        className="md:hidden absolute bottom-8 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/40 flex items-center justify-center active:scale-90 transition-transform z-30"
+        className="md:hidden absolute bottom-8 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/40 flex items-center justify-center active:scale-90 transition-transform z-30 animate-pop-in"
       >
         <PlusIcon size={28} />
       </button>
@@ -1196,7 +1519,7 @@ export default function App() {
                 <button
                   key={lang}
                   onClick={() => setAppSettings(s => ({ ...s, language: lang }))}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${appSettings.language === lang ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${appSettings.language === lang ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
                 >
                   {lang === 'en' ? 'EN' : lang === 'zh' ? '中文' : '日本語'}
                 </button>
@@ -1212,19 +1535,19 @@ export default function App() {
             <div className="flex gap-2">
                <button
                  onClick={() => setAppSettings(s => ({ ...s, theme: 'light' }))}
-                 className={`flex-1 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 ${appSettings.theme === 'light' ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
+                 className={`flex-1 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 transition-all duration-300 ${appSettings.theme === 'light' ? 'neu-pressed text-primary scale-105' : 'neu-flat text-slate-500'}`}
                >
                  <SunIcon size={16}/> {t.themeLight}
                </button>
                <button
                  onClick={() => setAppSettings(s => ({ ...s, theme: 'dark' }))}
-                 className={`flex-1 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 ${appSettings.theme === 'dark' ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
+                 className={`flex-1 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 transition-all duration-300 ${appSettings.theme === 'dark' ? 'neu-pressed text-primary scale-105' : 'neu-flat text-slate-500'}`}
                >
                  <MoonIcon size={16}/> {t.themeDark}
                </button>
                <button
                  onClick={() => setAppSettings(s => ({ ...s, theme: 'system' }))}
-                 className={`flex-1 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 ${appSettings.theme === 'system' ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
+                 className={`flex-1 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 transition-all duration-300 ${appSettings.theme === 'system' ? 'neu-pressed text-primary scale-105' : 'neu-flat text-slate-500'}`}
                >
                  <MonitorIcon size={16}/> {t.themeSystem}
                </button>
@@ -1241,97 +1564,48 @@ export default function App() {
                   <button
                     key={color}
                     onClick={() => setAppSettings(s => ({ ...s, themeColor: color }))}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${appSettings.themeColor === color ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : ''}`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${appSettings.themeColor === color ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-105'}`}
                     style={{ backgroundColor: color === 'blue' ? '#3b82f6' : color === 'purple' ? '#8b5cf6' : color === 'green' ? '#10b981' : color === 'orange' ? '#f97316' : '#ec4899' }}
                   />
                 ))}
              </div>
           </div>
 
-          {/* Grouping & Automation */}
+          {/* Grouping & Automation (Reused Control) */}
           <div>
              <label className="block text-sm font-bold text-slate-500 mb-2 flex items-center gap-2">
                <LayersIcon size={16} /> {t.grouping}
              </label>
-             
-             <div className="neu-concave rounded-xl p-3 space-y-4">
-                
-                {/* Auto Decompose Toggle */}
-                <div className="flex items-center justify-between">
-                   <div>
-                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoDecomposeAI}</p>
-                     <p className="text-xs text-slate-500">{t.autoDecomposeDesc}</p>
-                   </div>
-                   <button 
-                     onClick={() => setAppSettings(s => ({ ...s, autoDecomposeAI: !s.autoDecomposeAI }))}
-                     className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.autoDecomposeAI ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
-                   >
-                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.autoDecomposeAI ? 'left-6' : 'left-1'}`}></div>
-                   </button>
-                </div>
-
-                {/* Suppress Decompose Prompt */}
-                <div className="flex items-center justify-between">
-                   <div>
-                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressLongTermPrompt}</p>
-                   </div>
-                   <button 
-                     onClick={() => setAppSettings(s => ({ ...s, suppressLongTermPrompt: !s.suppressLongTermPrompt }))}
-                     className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.suppressLongTermPrompt ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
-                   >
-                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.suppressLongTermPrompt ? 'left-6' : 'left-1'}`}></div>
-                   </button>
-                </div>
-
-                <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
-
-                {/* Auto Group Toggle */}
-                <div className="flex items-center justify-between">
-                   <div>
-                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoGroupAI}</p>
-                     <p className="text-xs text-slate-500">{t.autoGroupDesc}</p>
-                   </div>
-                   <button 
-                     onClick={() => setAppSettings(s => ({ ...s, autoGroupAI: !s.autoGroupAI }))}
-                     className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.autoGroupAI ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
-                   >
-                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.autoGroupAI ? 'left-6' : 'left-1'}`}></div>
-                   </button>
-                </div>
-
-                {/* Suppress Group Prompt */}
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressGroupPrompt}</p>
-                   </div>
-                   <button 
-                     onClick={() => setAppSettings(s => ({ ...s, suppressGroupPrompt: !s.suppressGroupPrompt }))}
-                     className={`w-10 h-5 rounded-full relative transition-colors ${appSettings.suppressGroupPrompt ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
-                   >
-                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform ${appSettings.suppressGroupPrompt ? 'left-6' : 'left-1'}`}></div>
-                   </button>
-                </div>
-
-                <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
-
-                {/* Urgency Threshold */}
-                <div>
-                   <div className="flex justify-between mb-1">
-                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.urgencyThreshold}</p>
-                     <span className="text-xs font-bold text-primary bg-primary/10 px-2 rounded">{appSettings.urgencyThresholdDays} {t.daysLeft.split(' ')[0]}</span>
-                   </div>
-                   <p className="text-xs text-slate-500 mb-2">{t.urgencyDesc}</p>
-                   <input 
-                     type="range" 
-                     min="1" max="14" 
-                     value={appSettings.urgencyThresholdDays} 
-                     onChange={(e) => setAppSettings(s => ({ ...s, urgencyThresholdDays: parseInt(e.target.value) }))}
-                     className="w-full accent-primary h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
-                   />
-                </div>
-             </div>
+             {renderSettingsControls(appSettings, setAppSettings)}
           </div>
-          
+
+          <hr className="border-slate-300 dark:border-slate-700" />
+
+          {/* Data Backup */}
+          <div>
+            <label className="block text-sm font-bold text-slate-500 mb-2 flex items-center gap-2">
+               <DownloadIcon size={16} /> {t.dataManagement}
+            </label>
+            <div className="flex gap-2">
+              <button 
+                 onClick={handleExport}
+                 className="flex-1 neu-btn py-2 rounded-lg text-sm font-bold text-primary flex items-center justify-center gap-2 active:scale-95"
+              >
+                 <DownloadIcon size={16}/> {t.exportData}
+              </button>
+              <label className="flex-1 neu-btn py-2 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2 cursor-pointer active:scale-95">
+                 <UploadIcon size={16}/> {t.importData}
+                 <input 
+                   type="file" 
+                   accept=".json" 
+                   onChange={handleFileSelect} 
+                   className="hidden" 
+                   onClick={(e) => (e.target as HTMLInputElement).value = ''}
+                 />
+              </label>
+            </div>
+          </div>
+
           <hr className="border-slate-300 dark:border-slate-700" />
 
           {/* Default Mode Section */}
@@ -1342,13 +1616,13 @@ export default function App() {
              <div className="flex bg-slate-200 dark:bg-slate-700/30 p-1 rounded-lg">
                 <button 
                    onClick={() => setAppSettings(s => ({ ...s, defaultInputMode: 'single' }))}
-                   className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${appSettings.defaultInputMode === 'single' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}
+                   className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${appSettings.defaultInputMode === 'single' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}
                 >
                   {t.modeManual}
                 </button>
                 <button 
                    onClick={() => setAppSettings(s => ({ ...s, defaultInputMode: 'brainDump' }))}
-                   className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${appSettings.defaultInputMode === 'brainDump' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}
+                   className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${appSettings.defaultInputMode === 'brainDump' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}
                 >
                   {t.modeAI}
                 </button>
@@ -1363,20 +1637,20 @@ export default function App() {
             <div className="flex gap-2 mb-3">
               <button
                 onClick={() => setAiConfig(c => ({ ...c, provider: AIProvider.Gemini }))}
-                className={`flex-1 py-2 rounded-lg text-sm font-bold ${aiConfig.provider === AIProvider.Gemini ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
+                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${aiConfig.provider === AIProvider.Gemini ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
               >
                 Gemini
               </button>
               <button
                 onClick={() => setAiConfig(c => ({ ...c, provider: AIProvider.Custom }))}
-                className={`flex-1 py-2 rounded-lg text-sm font-bold ${aiConfig.provider === AIProvider.Custom ? 'neu-pressed text-green-500' : 'neu-flat text-slate-500'}`}
+                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${aiConfig.provider === AIProvider.Custom ? 'neu-pressed text-green-500' : 'neu-flat text-slate-500'}`}
               >
                 Custom API
               </button>
             </div>
 
             {aiConfig.provider === AIProvider.Custom && (
-              <div className="space-y-3 p-3 neu-concave rounded-xl">
+              <div className="space-y-3 p-3 neu-concave rounded-xl animate-fade-in">
                 <div>
                   <label className="text-xs font-bold text-slate-400">{t.customBaseUrl}</label>
                   <input 
@@ -1409,6 +1683,70 @@ export default function App() {
           </div>
         </div>
       </Modal>
+
+       {/* Import Stage 1: Mode Selection */}
+      <Modal isOpen={importStage === 'mode-select'} onClose={closeImportFlow} title={t.importOptions}>
+          <div className="space-y-4">
+              <p className="text-sm text-slate-500">{t.importPrompt}</p>
+              <button 
+                  onClick={() => executeImportTasks('merge')}
+                  className="w-full p-4 neu-btn rounded-xl flex flex-col items-start gap-1 active:scale-95"
+              >
+                  <span className="font-bold text-primary">{t.importModeMerge}</span>
+                  <span className="text-xs text-slate-500">{t.importModeMergeDesc}</span>
+              </button>
+              <button 
+                  onClick={() => executeImportTasks('overwrite')}
+                  className="w-full p-4 neu-btn rounded-xl flex flex-col items-start gap-1 active:scale-95 hover:text-red-500"
+              >
+                  <span className="font-bold text-slate-700 dark:text-slate-200">{t.importModeOverwrite}</span>
+                  <span className="text-xs text-slate-500">{t.importModeOverwriteDesc}</span>
+              </button>
+              <button 
+                  onClick={closeImportFlow}
+                  className="w-full py-2 text-sm font-bold text-slate-400 hover:text-slate-600"
+              >
+                  {t.importCancel}
+              </button>
+          </div>
+      </Modal>
+
+      {/* Import Stage 2: Settings Review */}
+      <Modal isOpen={importStage === 'settings-review' && !!tempSettings} onClose={closeImportFlow} title={t.importSettingsTitle}>
+          <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex items-center gap-2">
+                  <AlertTriangleIcon className="text-blue-500" size={20} />
+                  <p className="text-xs text-blue-600 dark:text-blue-300">
+                      {t.importSettingsWarning}
+                  </p>
+              </div>
+
+              <div className="max-h-[50vh] overflow-y-auto custom-scrollbar space-y-4 pr-1">
+                  {tempSettings && (
+                    <>
+                       <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.importReviewDetails}</p>
+                       {renderVisualSettingsReview(tempSettings)}
+                    </>
+                  )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                  <button 
+                      onClick={closeImportFlow}
+                      className="flex-1 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-500 font-bold text-sm"
+                  >
+                      {t.importSkipSettings}
+                  </button>
+                  <button 
+                      onClick={applyImportSettings}
+                      className="flex-1 py-2 rounded-lg bg-primary text-white font-bold text-sm hover:opacity-90"
+                  >
+                      {t.importApplySettings}
+                  </button>
+              </div>
+          </div>
+      </Modal>
+
 
       {/* Suggest Group Modal (Step 1 of workflow) */}
       <Modal isOpen={groupingQueue.length > 0} onClose={() => handleGroupDecision(false)} title={t.suggestedGroup}>
@@ -1453,17 +1791,19 @@ export default function App() {
             
             <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar p-1">
                 {longTermBatchQueue.map(task => (
-                    <div key={task.id} className="neu-flat p-3 rounded-xl flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          checked={longTermSelectedIds.has(task.id)}
-                          onChange={() => {
+                    <div 
+                        key={task.id} 
+                        className="neu-flat p-3 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                        onClick={() => {
                               const newSet = new Set(longTermSelectedIds);
                               if (newSet.has(task.id)) newSet.delete(task.id);
                               else newSet.add(task.id);
                               setLongTermSelectedIds(newSet);
-                          }}
-                          className="w-5 h-5 accent-primary cursor-pointer"
+                        }}
+                    >
+                        <Checkbox 
+                          checked={longTermSelectedIds.has(task.id)}
+                          onChange={() => {}}
                         />
                         <div className="flex-1">
                             <p className="font-bold text-slate-700 dark:text-slate-200">{task.title}</p>
@@ -1547,7 +1887,7 @@ export default function App() {
                 {Array.from(selectedTaskIds).map(id => {
                     const task = tasks.find(t => t.id === id);
                     return task ? (
-                        <span key={id} className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-300">
+                        <span key={id} className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-300 animate-pop-in">
                             {task.title}
                         </span>
                     ) : null;

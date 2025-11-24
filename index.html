@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -30,6 +29,33 @@
               q2: '#4ecdc4', // Teal
               q3: '#ffbe0b', // Yellow
               q4: '#a0aec0', // Grey
+            },
+            transitionTimingFunction: {
+               'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.3s ease-out forwards',
+              'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+              'slide-down': 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              popIn: {
+                '0%': { transform: 'scale(0.9)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              },
+              slideDown: {
+                '0%': { transform: 'translateY(-10px) scale(0.98)', opacity: '0' },
+                '100%': { transform: 'translateY(0) scale(1)', opacity: '1' },
+              }
             }
           }
         }
@@ -58,6 +84,12 @@
         background: #efeeee;
         box-shadow: inset 6px 6px 12px #c5c5c5, inset -6px -6px 12px #ffffff;
       }
+      /* Fixed: Concave should be inset/pressed style, removing the dark gradient that caused issues */
+      .neu-concave {
+        background: #efeeee;
+        box-shadow: inset 5px 5px 10px #c5c5c5, inset -5px -5px 10px #ffffff;
+        border: 1px solid rgba(255,255,255,0.0); /* Cleaner look */
+      }
       .neu-btn {
         background: #efeeee;
         box-shadow: 5px 5px 10px #c5c5c5, -5px -5px 10px #ffffff;
@@ -78,6 +110,10 @@
         background: #2d3748;
         box-shadow: inset 6px 6px 12px #1f2632, inset -6px -6px 12px #3b485e;
       }
+      .dark .neu-concave {
+        background: #2d3748;
+         box-shadow: inset 5px 5px 10px #1f2632, inset -5px -5px 10px #3b485e;
+      }
       .dark .neu-btn {
         background: #2d3748;
         box-shadow: 5px 5px 10px #1f2632, -5px -5px 10px #3b485e;
@@ -86,16 +122,18 @@
         box-shadow: inset 5px 5px 10px #1f2632, inset -5px -5px 10px #3b485e;
       }
 
-      /* Scrollbar */
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
+      /* Scrollbar Hidden Globally */
+      *::-webkit-scrollbar {
+        display: none;
       }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
+      * {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(156, 163, 175, 0.5);
-        border-radius: 2px;
+      
+      /* Optimization Utilities */
+      .will-change-transform {
+        will-change: transform, opacity, height, margin, padding;
       }
     </style>
   <script type="importmap">

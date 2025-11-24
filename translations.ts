@@ -96,6 +96,28 @@ export const translations = {
     processingBatch: "Decomposing...",
     skipBatch: "Keep All as Original",
     decomposingSingle: "Decomposing Task...",
+
+    // Data Backup
+    dataManagement: "Data Backup",
+    exportData: "Export JSON",
+    importData: "Import JSON",
+    importSuccess: "Data imported successfully!",
+    importError: "Invalid data format.",
+    confirmImport: "Importing will overwrite current data. Continue?",
+    
+    // Import Flow
+    importOptions: "Import Options",
+    importPrompt: "How would you like to import tasks?",
+    importModeMerge: "Merge to Current",
+    importModeMergeDesc: "Add tasks to existing boards. No data lost.",
+    importModeOverwrite: "Overwrite All",
+    importModeOverwriteDesc: "Replace current tasks and settings completely.",
+    importCancel: "Cancel",
+    importSettingsTitle: "Import Settings",
+    importSettingsWarning: "Settings found in file. Review them before applying, or skip to keep your current configuration.",
+    importSkipSettings: "Skip Settings",
+    importApplySettings: "Apply Settings",
+    importReviewDetails: "Settings to be imported:",
   },
   zh: {
     appTitle: "矩阵流",
@@ -191,6 +213,28 @@ export const translations = {
     processingBatch: "正在拆解中...",
     skipBatch: "全部保持原样",
     decomposingSingle: "正在拆解任务...",
+    
+    // Data Backup
+    dataManagement: "数据备份",
+    exportData: "导出数据 (JSON)",
+    importData: "导入数据 (JSON)",
+    importSuccess: "数据导入成功！",
+    importError: "数据格式无效。",
+    confirmImport: "导入将覆盖当前所有数据。是否继续？",
+
+    // Import Flow
+    importOptions: "导入选项",
+    importPrompt: "您希望如何导入任务？",
+    importModeMerge: "合并到当前",
+    importModeMergeDesc: "添加到现有任务板，不丢失数据。",
+    importModeOverwrite: "覆盖所有",
+    importModeOverwriteDesc: "完全替换当前所有任务和设置。",
+    importCancel: "取消",
+    importSettingsTitle: "导入设置",
+    importSettingsWarning: "检测到配置文件。应用前请检查，或跳过以保持当前设置。",
+    importSkipSettings: "跳过设置",
+    importApplySettings: "应用设置",
+    importReviewDetails: "即将导入的设置：",
   },
   ja: {
     appTitle: "マトリックスフロー",
@@ -286,5 +330,27 @@ export const translations = {
     processingBatch: "分解中...",
     skipBatch: "全てそのまま",
     decomposingSingle: "タスク分解中...",
+    
+    // Data Backup
+    dataManagement: "データ管理",
+    exportData: "エクスポート (JSON)",
+    importData: "インポート (JSON)",
+    importSuccess: "インポート成功！",
+    importError: "データ形式が無効です。",
+    confirmImport: "現在のデータは上書きされます。続けますか？",
+
+    // Import Flow
+    importOptions: "インポートオプション",
+    importPrompt: "タスクをどのようにインポートしますか？",
+    importModeMerge: "現在のデータに統合",
+    importModeMergeDesc: "既存のボードに追加します。データは失われません。",
+    importModeOverwrite: "すべて上書き",
+    importModeOverwriteDesc: "現在のタスクと設定を完全に置き換えます。",
+    importCancel: "キャンセル",
+    importSettingsTitle: "設定のインポート",
+    importSettingsWarning: "ファイル内に設定が見つかりました。適用する前に確認するか、スキップして現在の設定を保持してください。",
+    importSkipSettings: "設定をスキップ",
+    importApplySettings: "設定を適用",
+    importReviewDetails: "インポートされる設定:",
   }
 };
