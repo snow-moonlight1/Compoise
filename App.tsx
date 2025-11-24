@@ -1,392 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Task, QuadrantType, AIConfig, AIProvider, AIAnalysisResult, AppSettings, InputMode, Board, ThemeColor, SubTask, ExportData } from './types';
+import React, { useState, useEffect } from 'react';
+import { Task, QuadrantType, AIConfig, AIProvider, AppSettings, InputMode, Board, ThemeColor, SubTask, ExportData } from './types';
 import { analyzeTasks, decomposeTasksBatch } from './services/aiService';
 import { translations } from './translations';
 import { 
-  SparklesIcon, SettingsIcon, PlusIcon, XIcon, 
+  SparklesIcon, SettingsIcon, PlusIcon, 
   AlertTriangleIcon, LoaderIcon, SplitIcon, TrashIcon,
-  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, CalendarIcon, LayersIcon, FlagIcon, DownloadIcon, UploadIcon
+  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, LayersIcon, DownloadIcon, UploadIcon
 } from './components/Icons';
 
-// --- Interfaces ---
+// UI Components
+import { Modal } from './components/ui/Modal';
+import { Checkbox } from './components/ui/Checkbox';
 
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-  title?: string;
-  hideClose?: boolean;
-}
-
-interface TaskCardProps {
-  task: Task;
-  onDragStart: (e: React.DragEvent, task: Task) => void;
-  onDelete: (id: string) => void;
-  onDecompose: (task: Task) => void;
-  onUpdate: (task: Task) => void;
-  colors: { border: string, text: string };
-  t: any;
-  isSelectionMode: boolean;
-  isSelected: boolean;
-  onToggleSelect: (id: string) => void;
-  onEdit: (task: Task, subTaskId?: string) => void;
-}
-
-interface QuadrantProps {
-  type: QuadrantType;
-  title: string;
-  shortTitle: string;
-  colorCode: string;
-  tasks: Task[];
-  onDrop: (e: React.DragEvent, quadrant: QuadrantType) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragStart: (e: React.DragEvent, task: Task) => void;
-  onDelete: (id: string) => void;
-  onClear: (type: QuadrantType) => void;
-  onDecompose: (task: Task) => void;
-  onUpdate: (task: Task) => void;
-  t: any;
-  isSelectionMode: boolean;
-  selectedTaskIds: Set<string>;
-  onToggleSelect: (id: string) => void;
-  onEdit: (task: Task, subTaskId?: string) => void;
-}
-
-// --- Components ---
-
-const Checkbox: React.FC<{ checked: boolean; onChange: () => void; className?: string }> = ({ checked, onChange, className }) => (
-  <button
-    onClick={(e) => { e.stopPropagation(); onChange(); }}
-    className={`w-5 h-5 rounded-md border transition-all duration-200 flex-none flex items-center justify-center ${
-      checked 
-        ? 'bg-primary border-primary text-white' 
-        : 'bg-slate-300 dark:bg-slate-600 border-transparent hover:border-primary/50'
-    } ${className}`}
-  >
-    <svg 
-      className={`w-3.5 h-3.5 transition-transform duration-200 ${checked ? 'scale-100' : 'scale-0'}`} 
-      fill="none" 
-      viewBox="0 0 24 24" 
-      stroke="currentColor" 
-      strokeWidth={3}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  </button>
-);
-
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title, hideClose = false }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="neu-flat dark:text-slate-200 rounded-2xl w-full max-w-md p-6 relative animate-slide-up overflow-hidden max-h-[90vh] flex flex-col shadow-2xl">
-        <div className="flex justify-between items-center mb-4 flex-none">
-          {title && <h2 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h2>}
-          {!hideClose && (
-            <button onClick={onClose} className="neu-btn p-2 rounded-full text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors absolute top-4 right-4">
-              <XIcon size={18} />
-            </button>
-          )}
-        </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Optimized ToggleSwitch with Spring Animation and Transform
-const ToggleSwitch: React.FC<{ checked: boolean; onChange: () => void }> = ({ checked, onChange }) => (
-  <button 
-    onClick={onChange}
-    className={`w-12 h-7 rounded-full relative transition-colors duration-200 focus:outline-none flex-none ${checked ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
-  >
-    <div 
-      className="absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ease-spring"
-      style={{ transform: checked ? 'translateX(20px)' : 'translateX(0)' }}
-    />
-  </button>
-);
-
-const TaskCard: React.FC<TaskCardProps> = ({ 
-  task, 
-  onDragStart, 
-  onDelete, 
-  onDecompose,
-  onUpdate,
-  colors,
-  t,
-  isSelectionMode,
-  isSelected,
-  onToggleSelect,
-  onEdit
-}) => {
-  
-  const [newSubtask, setNewSubtask] = useState('');
-  const [isAddingSub, setIsAddingSub] = useState(false);
-
-  const calculateDaysLeft = (timestamp?: number) => {
-    if (!timestamp) return null;
-    return Math.ceil((timestamp - Date.now()) / (1000 * 60 * 60 * 24));
-  };
-
-  const daysLeft = calculateDaysLeft(task.deadline);
-  
-  const getDeadlineColor = (days: number) => {
-    if (days < 0) return 'text-red-500 font-bold';
-    if (days <= 2) return 'text-orange-500 font-bold';
-    return 'text-slate-400';
-  };
-
-  const handleAddSubtask = () => {
-    if (!newSubtask.trim()) return;
-    const sub: SubTask = { id: crypto.randomUUID(), title: newSubtask, completed: false };
-    onUpdate({ ...task, subtasks: [...(task.subtasks || []), sub] });
-    setNewSubtask('');
-    setIsAddingSub(false);
-  };
-
-  const toggleSubtask = (subId: string) => {
-    if (!task.subtasks) return;
-    const updatedSubs = task.subtasks.map(s => s.id === subId ? { ...s, completed: !s.completed } : s);
-    onUpdate({ ...task, subtasks: updatedSubs });
-  };
-
-  const deleteSubtask = (subId: string) => {
-    if (!task.subtasks) return;
-    const updatedSubs = task.subtasks.filter(s => s.id !== subId);
-    onUpdate({ ...task, subtasks: updatedSubs });
-  };
-  
-  const toggleLongTerm = () => {
-     onUpdate({ ...task, isLongTerm: !task.isLongTerm });
-  };
-
-  return (
-    <div
-      draggable={!isSelectionMode}
-      onDragStart={(e) => onDragStart(e, task)}
-      onClick={() => isSelectionMode && onToggleSelect(task.id)}
-      onDoubleClick={(e) => { e.stopPropagation(); onEdit(task); }}
-      className={`neu-btn cursor-grab active:cursor-grabbing group relative overflow-hidden flex flex-col gap-2 rounded-2xl
-        mb-3 p-3 border border-slate-200/50 dark:border-slate-700/50 max-h-96
-        ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}
-      `}
-    >
-      {task.isLongTerm && !task.subtasks?.length && (
-        <div className="absolute top-0 left-0 w-1 h-full bg-yellow-400/50" />
-      )}
-      
-      <div className="flex justify-between items-start gap-2 w-full">
-        {isSelectionMode && (
-          <div className={`w-5 h-5 rounded border flex-none flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
-             {isSelected && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-          </div>
-        )}
-        
-        <div className="flex-1 min-w-0">
-           <p className="text-sm font-bold text-slate-700 dark:text-slate-200 break-words leading-tight">
-            {task.title}
-           </p>
-        </div>
-
-        {/* Meta Section: Deadline + Actions */}
-        <div className="flex items-center gap-2 flex-none">
-            {/* Right-aligned deadline */}
-            {daysLeft !== null && (
-             <div className={`text-xs flex items-center gap-1 ${getDeadlineColor(daysLeft)} whitespace-nowrap`}>
-               {daysLeft < 0 ? t.overdue : daysLeft === 0 ? t.today : `${daysLeft}${t.daysLeft}`}
-               <CalendarIcon size={10} />
-             </div>
-           )}
-
-            {!isSelectionMode && (
-              <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity ml-1">
-                {task.isLongTerm && !task.subtasks?.length && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDecompose(task); }}
-                    className="text-yellow-500 hover:scale-110 transition-transform p-1"
-                    title={t.decompose}
-                  >
-                    <SplitIcon size={14} />
-                  </button>
-                )}
-                 <button 
-                  onClick={(e) => { e.stopPropagation(); toggleLongTerm(); }}
-                  className={`hover:text-primary transition-colors p-1 ${task.isLongTerm ? 'text-yellow-500' : 'text-slate-400'}`}
-                  title={t.toggleLongTerm}
-                >
-                  <FlagIcon size={14} />
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setIsAddingSub(!isAddingSub); }}
-                  className="text-slate-400 hover:text-primary transition-colors p-1"
-                  title={t.addSubtask}
-                >
-                  <PlusIcon size={14} />
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-                  className="text-red-400 hover:scale-110 transition-transform p-1"
-                  title={t.deleteBoard}
-                >
-                  <TrashIcon size={14} />
-                </button>
-              </div>
-            )}
-        </div>
-      </div>
-
-      {/* Subtasks List */}
-      {task.subtasks && task.subtasks.length > 0 && (
-        <div className="mt-1 pl-2 border-l-2 border-slate-200 dark:border-slate-700 space-y-1">
-          {task.subtasks.map(sub => {
-             const subDays = calculateDaysLeft(sub.deadline);
-             return (
-                <div 
-                  key={sub.id} 
-                  className="flex items-center gap-2 text-xs group/sub transition-all duration-300 ease-in-out overflow-hidden opacity-100"
-                  onDoubleClick={(e) => { e.stopPropagation(); onEdit(task, sub.id); }}
-                >
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); toggleSubtask(sub.id); }}
-                    className={`w-3 h-3 rounded-sm border flex-none transition-colors ${sub.completed ? 'bg-slate-400 border-slate-400' : 'border-slate-400'}`}
-                  />
-                  <span className={`flex-1 transition-all ${sub.completed ? 'line-through text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                    {sub.title}
-                  </span>
-                  
-                  {subDays !== null && !sub.completed && (
-                     <span className={`text-[10px] ${getDeadlineColor(subDays)}`}>
-                        {subDays}d
-                     </span>
-                  )}
-
-                  <button 
-                     onClick={(e) => { e.stopPropagation(); deleteSubtask(sub.id); }}
-                     className="opacity-0 group-hover/sub:opacity-100 text-red-400 p-0.5 transition-opacity"
-                  >
-                    <XIcon size={10} />
-                  </button>
-                </div>
-             );
-          })}
-        </div>
-      )}
-
-      {/* Add Subtask Input */}
-      {isAddingSub && (
-        <div className="mt-2 flex gap-1 items-center animate-fade-in">
-          <input 
-            autoFocus
-            value={newSubtask}
-            onChange={(e) => setNewSubtask(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
-            placeholder={t.addSubtask}
-            className="flex-1 bg-white dark:bg-slate-700 text-xs p-1 rounded border border-slate-200 dark:border-slate-600 outline-none"
-          />
-          <button onClick={handleAddSubtask} className="text-primary"><PlusIcon size={14}/></button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const Quadrant: React.FC<QuadrantProps> = ({ 
-  type, 
-  title, 
-  shortTitle, 
-  colorCode, 
-  tasks, 
-  onDrop, 
-  onDragOver, 
-  onDragStart,
-  onDelete,
-  onClear,
-  onDecompose,
-  onUpdate,
-  t,
-  isSelectionMode,
-  selectedTaskIds,
-  onToggleSelect,
-  onEdit
-}) => {
-  const getColorStyles = (code: string) => {
-    switch(code) {
-      case 'q1': return { border: 'border-q1', text: 'text-q1' };
-      case 'q2': return { border: 'border-q2', text: 'text-q2' };
-      case 'q3': return { border: 'border-q3', text: 'text-q3' };
-      case 'q4': return { border: 'border-q4', text: 'text-q4' };
-      default: return { border: 'border-slate-400', text: 'text-slate-400' };
-    }
-  };
-  
-  const styles = getColorStyles(colorCode);
-
-  return (
-    <div 
-      onDrop={(e) => onDrop(e, type)}
-      onDragOver={onDragOver}
-      className="flex flex-col h-full gap-3 min-h-0"
-    >
-      {/* Header Outside the Box */}
-      <div className="flex justify-between items-center px-1 flex-none h-6 md:h-8">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full bg-${colorCode}`}></div>
-          <h3 className="font-bold text-slate-600 dark:text-slate-300 text-sm md:text-base truncate hidden md:block">{title}</h3>
-          <h3 className="font-bold text-slate-600 dark:text-slate-300 text-sm md:text-base truncate block md:hidden">{shortTitle}</h3>
-        </div>
-        <div className="flex items-center gap-2">
-            {tasks.length > 0 && (
-               <button 
-                 onClick={(e) => { 
-                   e.stopPropagation(); 
-                   e.preventDefault();
-                   onClear(type); 
-                 }}
-                 className="p-1 text-slate-400 hover:text-red-400 transition-colors"
-                 title={t.clearQuadrant}
-               >
-                 <TrashIcon size={16} />
-               </button>
-            )}
-            <span className="text-xs font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-700/50 px-2 py-0.5 rounded-full">
-              {tasks.length}
-            </span>
-        </div>
-      </div>
-      
-      {/* Task Container */}
-      <div className="neu-pressed rounded-2xl flex-1 overflow-hidden relative">
-        <div className="h-full overflow-y-auto custom-scrollbar p-2">
-          {tasks.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-slate-400 text-xs italic select-none animate-fade-in">
-              {t.empty}
-            </div>
-          ) : (
-            tasks.map(task => (
-              <TaskCard 
-                key={task.id} 
-                task={task} 
-                onDragStart={onDragStart} 
-                onDelete={onDelete}
-                onDecompose={onDecompose}
-                onUpdate={onUpdate}
-                colors={styles}
-                t={t}
-                isSelectionMode={isSelectionMode}
-                isSelected={selectedTaskIds.has(task.id)}
-                onToggleSelect={onToggleSelect}
-                onEdit={onEdit}
-              />
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+// Feature Components
+import { Quadrant } from './components/Quadrant';
+import { InputArea } from './components/InputArea';
+import { SettingsControls } from './components/SettingsControls';
+import { ImportReview } from './components/ImportReview';
 
 // --- Main App ---
 
@@ -1109,223 +739,6 @@ export default function App() {
   };
 
 
-  // --- Renders ---
-
-  const renderInputArea = (inModal = false) => (
-    <div className="flex flex-col h-full">
-      <div className="flex p-1 bg-slate-200 dark:bg-slate-800 rounded-xl mb-4">
-        <button 
-          onClick={() => setInputMode('single')}
-          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${inputMode === 'single' ? 'neu-btn bg-bgLight dark:bg-bgDark text-slate-800 dark:text-slate-100 scale-100' : 'text-slate-500 hover:text-slate-400 scale-95'}`}
-        >
-          {t.modeManual}
-        </button>
-        <button 
-          onClick={() => setInputMode('brainDump')}
-          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${inputMode === 'brainDump' ? 'neu-btn bg-bgLight dark:bg-bgDark text-slate-800 dark:text-slate-100 scale-100' : 'text-slate-500 hover:text-slate-400 scale-95'}`}
-        >
-          {t.modeAI}
-        </button>
-      </div>
-
-      <textarea 
-        value={inputText}
-        onChange={(e) => setInputText(e.target.value)}
-        placeholder={inputMode === 'brainDump' ? t.inputPlaceholderAI : t.inputPlaceholderManual}
-        className="w-full flex-1 neu-pressed rounded-xl p-4 bg-transparent border-none focus:outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 resize-none min-h-[120px]"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && e.metaKey) {
-            inputMode === 'brainDump' ? handleAISort() : handleManualAdd();
-          }
-        }}
-      />
-      
-      {inputMode === 'brainDump' && (
-         <p className="text-xs text-slate-500 mt-2 text-center">{t.aiNote}</p>
-      )}
-
-      <div className="mt-4 flex justify-end">
-        {inputMode === 'brainDump' ? (
-          <button 
-            onClick={handleAISort}
-            disabled={isProcessing || !inputText.trim()}
-            className="neu-btn w-full py-3 rounded-xl font-bold text-primary hover:opacity-80 disabled:opacity-50 flex justify-center items-center gap-2 active:scale-95 transition-transform"
-          >
-            {isProcessing ? <LoaderIcon className="animate-spin" /> : <SparklesIcon />}
-            {t.analyzeBtn}
-          </button>
-        ) : (
-           <button 
-            onClick={handleManualAdd}
-            disabled={!inputText.trim()}
-            className="neu-btn w-full py-3 rounded-xl font-bold text-primary hover:opacity-80 flex justify-center items-center gap-2 active:scale-95 transition-transform"
-          >
-            <PlusIcon />
-            {t.addSingleBtn}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-
-  // Reusable Settings Block (used in Settings Modal)
-  const renderSettingsControls = (settings: AppSettings, setSettings: React.Dispatch<React.SetStateAction<AppSettings>>, readOnly: boolean = false) => (
-      <div className="neu-flat rounded-xl p-3 space-y-4">
-          {/* Auto Decompose Toggle */}
-          <div className="flex items-center justify-between">
-              <div>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoDecomposeAI}</p>
-                  <p className="text-xs text-slate-500">{t.autoDecomposeDesc}</p>
-              </div>
-              <ToggleSwitch 
-                  checked={settings.autoDecomposeAI} 
-                  onChange={() => !readOnly && setSettings(s => ({ ...s, autoDecomposeAI: !s.autoDecomposeAI }))}
-              />
-          </div>
-
-          {/* Suppress Decompose Prompt */}
-          <div className="flex items-center justify-between">
-              <div>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressLongTermPrompt}</p>
-              </div>
-              <ToggleSwitch 
-                  checked={settings.suppressLongTermPrompt} 
-                  onChange={() => !readOnly && setSettings(s => ({ ...s, suppressLongTermPrompt: !s.suppressLongTermPrompt }))}
-              />
-          </div>
-
-          <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
-
-          {/* Auto Group Toggle */}
-          <div className="flex items-center justify-between">
-              <div>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoGroupAI}</p>
-                  <p className="text-xs text-slate-500">{t.autoGroupDesc}</p>
-              </div>
-              <ToggleSwitch 
-                  checked={settings.autoGroupAI} 
-                  onChange={() => !readOnly && setSettings(s => ({ ...s, autoGroupAI: !s.autoGroupAI }))}
-              />
-          </div>
-
-          {/* Suppress Group Prompt */}
-          <div className="flex items-center justify-between">
-              <div>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressGroupPrompt}</p>
-              </div>
-              <ToggleSwitch 
-                  checked={settings.suppressGroupPrompt} 
-                  onChange={() => !readOnly && setSettings(s => ({ ...s, suppressGroupPrompt: !s.suppressGroupPrompt }))}
-              />
-          </div>
-          
-          <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
-
-           {/* Urgency Threshold */}
-          <div>
-             <div className="flex justify-between mb-1">
-               <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.urgencyThreshold}</p>
-               <span className="text-xs font-bold text-primary bg-primary/10 px-2 rounded">{settings.urgencyThresholdDays} {t.daysLeft.split(' ')[0]}</span>
-             </div>
-             <input 
-               type="range" 
-               min="1" max="14" 
-               value={settings.urgencyThresholdDays} 
-               onChange={(e) => !readOnly && setSettings(s => ({ ...s, urgencyThresholdDays: parseInt(e.target.value) }))}
-               className="w-full accent-primary h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
-               disabled={readOnly}
-             />
-          </div>
-      </div>
-  );
-
-  // Helper for import row rendering
-  const renderImportRow = (key: string, label: string, value: React.ReactNode) => {
-      const toggle = () => {
-          const newSet = new Set(importSelection);
-          if (newSet.has(key)) newSet.delete(key);
-          else newSet.add(key);
-          setImportSelection(newSet);
-      };
-
-      return (
-        <div 
-            onClick={toggle}
-            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${importSelection.has(key) ? 'bg-primary/5' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-            <Checkbox checked={importSelection.has(key)} onChange={toggle} />
-            <div className="flex-1 flex justify-between text-sm">
-                <span className="text-slate-500">{label}:</span>
-                <span className={`font-bold ${importSelection.has(key) ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 decoration-slate-400 line-through'}`}>
-                    {value}
-                </span>
-            </div>
-        </div>
-      );
-  };
-
-  // New visual review component for imports
-  const renderVisualSettingsReview = (settings: AppSettings) => {
-      const boolText = (val: boolean) => val ? 'ON' : 'OFF';
-      
-      // Automation Group Logic
-      const automationKeys = ['autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'urgencyThresholdDays'];
-      const isAllAutoSelected = automationKeys.every(k => importSelection.has(k));
-      
-      const toggleAutomationGroup = () => {
-          const newSet = new Set(importSelection);
-          if (isAllAutoSelected) {
-              automationKeys.forEach(k => newSet.delete(k));
-          } else {
-              automationKeys.forEach(k => newSet.add(k));
-          }
-          setImportSelection(newSet);
-      };
-
-      return (
-          <div className="neu-flat rounded-xl p-3 space-y-1">
-               {renderImportRow('language', t.language, <span className="uppercase">{settings.language}</span>)}
-               {renderImportRow('theme', t.theme, <span className="capitalize">{settings.theme}</span>)}
-               {renderImportRow('themeColor', t.themeColor, (
-                   <div className="flex items-center gap-2">
-                       <span className="capitalize">{settings.themeColor}</span>
-                       <div className="w-3 h-3 rounded-full" style={{ 
-                           backgroundColor: settings.themeColor === 'blue' ? '#3b82f6' : 
-                                           settings.themeColor === 'purple' ? '#8b5cf6' : 
-                                           settings.themeColor === 'green' ? '#10b981' : 
-                                           settings.themeColor === 'orange' ? '#f97316' : '#ec4899' 
-                       }}></div>
-                   </div>
-               ))}
-               {renderImportRow('inputMode', t.defaultMode, settings.defaultInputMode === 'single' ? t.modeManual : t.modeAI)}
-               
-               {pendingImport?.aiConfig && (
-                   renderImportRow('aiProvider', t.provider, <span className="capitalize">{pendingImport.aiConfig.provider}</span>)
-               )}
-
-               {/* Granular Automation Settings Group */}
-               <div className="pt-2">
-                   <div 
-                      onClick={toggleAutomationGroup}
-                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isAllAutoSelected ? 'bg-primary/10' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                   >
-                        <Checkbox checked={isAllAutoSelected} onChange={toggleAutomationGroup} />
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{t.grouping}</span>
-                   </div>
-                   
-                   <div className="pl-6 space-y-1 mt-1 border-l-2 border-slate-200 dark:border-slate-700 ml-3">
-                        {renderImportRow('autoDecomposeAI', t.autoDecomposeAI, boolText(settings.autoDecomposeAI))}
-                        {renderImportRow('suppressLongTermPrompt', t.suppressLongTermPrompt, boolText(settings.suppressLongTermPrompt))}
-                        {renderImportRow('autoGroupAI', t.autoGroupAI, boolText(settings.autoGroupAI))}
-                        {renderImportRow('suppressGroupPrompt', t.suppressGroupPrompt, boolText(settings.suppressGroupPrompt))}
-                        {renderImportRow('urgencyThresholdDays', t.urgencyThreshold, `${settings.urgencyThresholdDays} d`)}
-                   </div>
-               </div>
-
-          </div>
-      );
-  };
-
   return (
     <div className="h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-white font-sans">
       
@@ -1417,7 +830,16 @@ export default function App() {
         {/* Desktop Input Panel (Hidden on Mobile) */}
         <div className="hidden md:block w-80 flex-none flex flex-col gap-4">
            <div className="neu-flat rounded-2xl p-6 flex-1">
-              {renderInputArea()}
+              <InputArea 
+                  inputMode={inputMode} 
+                  setInputMode={setInputMode} 
+                  inputText={inputText} 
+                  setInputText={setInputText} 
+                  handleAISort={handleAISort} 
+                  handleManualAdd={handleManualAdd} 
+                  isProcessing={isProcessing} 
+                  t={t} 
+              />
            </div>
            <div className="neu-flat rounded-2xl p-4 text-center text-xs text-slate-400">
              MatrixFlow AI &copy; 2024
@@ -1502,7 +924,16 @@ export default function App() {
 
       {/* Mobile Add Task Modal */}
       <Modal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title={t.addBtn}>
-         {renderInputArea(true)}
+         <InputArea 
+            inputMode={inputMode} 
+            setInputMode={setInputMode} 
+            inputText={inputText} 
+            setInputText={setInputText} 
+            handleAISort={handleAISort} 
+            handleManualAdd={handleManualAdd} 
+            isProcessing={isProcessing} 
+            t={t} 
+         />
       </Modal>
 
       {/* Settings Modal */}
@@ -1576,7 +1007,7 @@ export default function App() {
              <label className="block text-sm font-bold text-slate-500 mb-2 flex items-center gap-2">
                <LayersIcon size={16} /> {t.grouping}
              </label>
-             {renderSettingsControls(appSettings, setAppSettings)}
+             <SettingsControls settings={appSettings} setSettings={setAppSettings} t={t} />
           </div>
 
           <hr className="border-slate-300 dark:border-slate-700" />
@@ -1725,7 +1156,13 @@ export default function App() {
                   {tempSettings && (
                     <>
                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.importReviewDetails}</p>
-                       {renderVisualSettingsReview(tempSettings)}
+                       <ImportReview 
+                          settings={tempSettings} 
+                          pendingImport={pendingImport} 
+                          importSelection={importSelection} 
+                          setImportSelection={setImportSelection} 
+                          t={t}
+                       />
                     </>
                   )}
               </div>
