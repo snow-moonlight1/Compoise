@@ -1,4 +1,5 @@
 
+
 import { Language } from "./types";
 
 export const translations = {
@@ -64,6 +65,8 @@ export const translations = {
     autoGroupDesc: "AI will group related tasks together.",
     autoDecomposeAI: "AI Auto-Decompose",
     autoDecomposeDesc: "Automatically break down long-term tasks.",
+    autoCompleteParent: "Auto-Complete Parent",
+    autoCompleteParentDesc: "Complete parent task when all subtasks are done.",
     suppressGroupPrompt: "Suppress Grouping Prompt",
     suppressLongTermPrompt: "Suppress Decompose Prompt",
     urgencyThreshold: "Urgency Threshold (Days)",
@@ -83,6 +86,14 @@ export const translations = {
     clearQuadrant: "Clear",
     confirmClearQuadrant: "Are you sure you want to delete all tasks in this quadrant?",
     toggleLongTerm: "Toggle Long-Term",
+
+    // Confirmation Modals
+    confirm: "Confirm",
+    cancel: "Cancel",
+    deleteTaskTitle: "Delete Task",
+    deleteTaskConfirm: "Are you sure you want to delete this task?",
+    deleteBoardTitle: "Delete Board",
+    clearQuadrantTitle: "Clear Quadrant",
 
     // New Batch Flow
     suggestedGroup: "Suggested Grouping",
@@ -181,6 +192,8 @@ export const translations = {
     autoGroupDesc: "AI 将自动合并相关任务。",
     autoDecomposeAI: "AI 自动拆解",
     autoDecomposeDesc: "自动拆解检测到的长期任务。",
+    autoCompleteParent: "父任务自动完成",
+    autoCompleteParentDesc: "当所有子任务完成时，自动勾选父任务。",
     suppressGroupPrompt: "隐藏分组提示",
     suppressLongTermPrompt: "隐藏拆解提示",
     urgencyThreshold: "紧急阈值 (天)",
@@ -200,6 +213,14 @@ export const translations = {
     clearQuadrant: "清空",
     confirmClearQuadrant: "确定要清空该象限的所有任务吗？",
     toggleLongTerm: "切换长期任务状态",
+
+    // Confirmation Modals
+    confirm: "确认",
+    cancel: "取消",
+    deleteTaskTitle: "删除任务",
+    deleteTaskConfirm: "确定要删除此任务吗？",
+    deleteBoardTitle: "删除任务板",
+    clearQuadrantTitle: "清空象限",
 
     // New Batch Flow
     suggestedGroup: "建议编组",
@@ -298,6 +319,8 @@ export const translations = {
     autoGroupDesc: "AIが関連タスクをまとめます。",
     autoDecomposeAI: "AI 自動分解",
     autoDecomposeDesc: "長期タスクを自動的に分解します。",
+    autoCompleteParent: "親タスク自動完了",
+    autoCompleteParentDesc: "サブタスク全完了時に親タスクも完了にします。",
     suppressGroupPrompt: "グループ化プロンプトを非表示",
     suppressLongTermPrompt: "分解プロンプトを非表示",
     urgencyThreshold: "緊急しきい値 (日)",
@@ -317,6 +340,14 @@ export const translations = {
     clearQuadrant: "クリア",
     confirmClearQuadrant: "この領域の全タスクを削除しますか？",
     toggleLongTerm: "長期タスク状態を切り替え",
+
+    // Confirmation Modals
+    confirm: "確認",
+    cancel: "キャンセル",
+    deleteTaskTitle: "タスク削除",
+    deleteTaskConfirm: "このタスクを削除してもよろしいですか？",
+    deleteBoardTitle: "ボード削除",
+    clearQuadrantTitle: "領域クリア",
 
     // New Batch Flow
     suggestedGroup: "グループ化の提案",

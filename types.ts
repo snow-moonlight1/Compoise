@@ -1,4 +1,5 @@
 
+
 export enum QuadrantType {
   Do = 1,       // Urgent & Important
   Plan = 2,     // Not Urgent & Important
@@ -56,6 +57,7 @@ export interface AppSettings {
   defaultInputMode: InputMode;
   autoGroupAI: boolean; 
   autoDecomposeAI: boolean; // New: Auto decompose long-term
+  autoCompleteParent: boolean; // New: Auto complete parent when subtasks done
   suppressGroupPrompt: boolean; // New: Don't show group prompt (default to split)
   suppressLongTermPrompt: boolean; // New: Don't show long-term prompt (default to keep)
   urgencyThresholdDays: number; 

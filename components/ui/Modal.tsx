@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { XIcon } from '../Icons';
 
 export interface ModalProps {
@@ -10,10 +10,33 @@ export interface ModalProps {
 }
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title, hideClose = false }) => {
-  if (!isOpen) return null;
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isAnimating, setIsAnimating] = useState(isOpen);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      // Use double requestAnimationFrame or small timeout to ensure browser paints before applying 'in' class if we were transitioning styles.
+      // But with keyframe animations on mount, it works immediately.
+      setIsAnimating(true);
+    } else {
+      setIsAnimating(false);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 300); // Match animation duration
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!shouldRender) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="neu-flat dark:text-slate-200 rounded-2xl w-full max-w-md p-6 relative animate-slide-up overflow-hidden max-h-[90vh] flex flex-col shadow-2xl">
+    <div 
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm ${isAnimating ? 'animate-fade-in' : 'animate-fade-out'}`}
+    >
+      <div 
+        className={`neu-flat dark:text-slate-200 rounded-2xl w-full max-w-md p-6 relative overflow-hidden max-h-[90vh] flex flex-col shadow-2xl ${isAnimating ? 'animate-slide-up' : 'animate-slide-out'}`}
+      >
         <div className="flex justify-between items-center mb-4 flex-none">
           {title && <h2 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h2>}
           {!hideClose && (

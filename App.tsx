@@ -36,6 +36,13 @@ export default function App() {
   const [renameBoardId, setRenameBoardId] = useState<string | null>(null);
   const [newBoardName, setNewBoardName] = useState('');
   
+  // Confirmation Modal State
+  const [confirmationState, setConfirmationState] = useState<{
+      type: 'deleteTask' | 'deleteBoard' | 'clearQuadrant';
+      id: string; // Task ID, Board ID, or Quadrant ID (as string)
+      title?: string;
+  } | null>(null);
+
   // Import Flow State
   const [importStage, setImportStage] = useState<'none' | 'mode-select' | 'settings-review'>('none');
   const [pendingImport, setPendingImport] = useState<ExportData | null>(null);
@@ -76,6 +83,7 @@ export default function App() {
     defaultInputMode: 'single',
     autoGroupAI: false,
     autoDecomposeAI: false,
+    autoCompleteParent: false,
     suppressGroupPrompt: false,
     suppressLongTermPrompt: false,
     urgencyThresholdDays: 3
@@ -97,6 +105,7 @@ export default function App() {
          ...parsed,
          autoGroupAI: parsed.autoGroupAI ?? false,
          autoDecomposeAI: parsed.autoDecomposeAI ?? false,
+         autoCompleteParent: parsed.autoCompleteParent ?? false,
          suppressGroupPrompt: parsed.suppressGroupPrompt ?? false,
          suppressLongTermPrompt: parsed.suppressLongTermPrompt ?? false,
          urgencyThresholdDays: parsed.urgencyThresholdDays ?? 3
@@ -233,15 +242,40 @@ export default function App() {
     ));
   };
 
-  // Instant Delete (Removed animations)
-  const handleDeleteTask = (id: string) => {
-      setTasks(prev => prev.filter(t => t.id !== id));
+  // --- Deletion Logic with Confirmation ---
+
+  const handleDeleteTaskTrigger = (id: string) => {
+      setConfirmationState({ type: 'deleteTask', id });
   };
   
-  const handleClearQuadrant = (type: QuadrantType) => {
-    if (confirm(t.confirmClearQuadrant)) {
-        setTasks(prev => prev.filter(t => !(t.boardId === activeBoardId && t.quadrant === type)));
-    }
+  const handleClearQuadrantTrigger = (type: QuadrantType) => {
+      setConfirmationState({ type: 'clearQuadrant', id: String(type) });
+  };
+  
+  const handleDeleteBoardTrigger = (id: string) => {
+     if (boards.length <= 1) return; 
+     setConfirmationState({ type: 'deleteBoard', id });
+  };
+
+  const executeConfirmAction = () => {
+      if (!confirmationState) return;
+      const { type, id } = confirmationState;
+
+      if (type === 'deleteTask') {
+          setTasks(prev => prev.filter(t => t.id !== id));
+      } else if (type === 'clearQuadrant') {
+          const qType = parseInt(id) as QuadrantType;
+          setTasks(prev => prev.filter(t => !(t.boardId === activeBoardId && t.quadrant === qType)));
+      } else if (type === 'deleteBoard') {
+          setBoards(prev => prev.filter(b => b.id !== id));
+          setTasks(prev => prev.filter(t => t.boardId !== id));
+          if (activeBoardId === id) {
+              const remaining = boards.filter(b => b.id !== id);
+              if (remaining.length > 0) setActiveBoardId(remaining[0].id);
+          }
+      }
+
+      setConfirmationState(null);
   };
 
   // Helper: Flatten grouped tasks into individuals
@@ -495,8 +529,43 @@ export default function App() {
     if (addModalOpen) setAddModalOpen(false);
   };
 
+  // General Update Handler (for subtask toggles, edits, drag drop)
   const handleTaskUpdate = (updatedTask: Task) => {
+    // Auto-Complete Parent Logic (When Subtasks are toggled)
+    if (appSettings.autoCompleteParent && updatedTask.subtasks && updatedTask.subtasks.length > 0) {
+        const total = updatedTask.subtasks.length;
+        const completed = updatedTask.subtasks.filter(s => s.completed).length;
+        
+        if (total > 0 && total === completed) {
+             updatedTask.completed = true;
+        } else if (updatedTask.completed && total !== completed) {
+             // Optional: Uncheck parent if a subtask is unchecked
+             updatedTask.completed = false;
+        }
+    }
+
     setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+  };
+
+  // Cascading Parent Checkbox Logic
+  const handleParentCheck = (task: Task) => {
+    const newStatus = !task.completed;
+    
+    // Create new subtasks array with forced status
+    const updatedSubtasks = task.subtasks?.map(s => ({
+      ...s,
+      completed: newStatus
+    }));
+
+    const newTask = {
+      ...task,
+      completed: newStatus,
+      subtasks: updatedSubtasks
+    };
+
+    // We bypass handleTaskUpdate's internal auto-complete check because we are forcing consistency here.
+    // If we used handleTaskUpdate, the logic might revert based on old subtask states before the update propagates.
+    setTasks(prev => prev.map(t => t.id === newTask.id ? newTask : t));
   };
 
   // Selection & Grouping Handlers
@@ -601,15 +670,9 @@ export default function App() {
     setBoardMenuOpen(false);
   };
 
+  // Deletion logic moved to executeConfirmAction
   const handleDeleteBoard = (id: string) => {
-    if (boards.length <= 1) return; 
-    if (!confirm(t.confirmDeleteBoard)) return;
-    setBoards(prev => prev.filter(b => b.id !== id));
-    setTasks(prev => prev.filter(t => t.boardId !== id));
-    if (activeBoardId === id) {
-      const remaining = boards.filter(b => b.id !== id);
-      if (remaining.length > 0) setActiveBoardId(remaining[0].id);
-    }
+      handleDeleteBoardTrigger(id);
   };
 
   const handleRenameBoard = () => {
@@ -661,7 +724,7 @@ export default function App() {
               // Initialize import selection with all available keys including granular automation settings
               setImportSelection(new Set([
                 'language', 'theme', 'themeColor', 'inputMode', 'aiProvider', 
-                'autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'urgencyThresholdDays'
+                'autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'autoCompleteParent', 'urgencyThresholdDays'
               ]));
               
               // Step 1: Ask User Mode
@@ -718,6 +781,7 @@ export default function App() {
               if (importSelection.has('suppressLongTermPrompt')) next.suppressLongTermPrompt = tempSettings.suppressLongTermPrompt;
               if (importSelection.has('autoGroupAI')) next.autoGroupAI = tempSettings.autoGroupAI;
               if (importSelection.has('suppressGroupPrompt')) next.suppressGroupPrompt = tempSettings.suppressGroupPrompt;
+              if (importSelection.has('autoCompleteParent')) next.autoCompleteParent = tempSettings.autoCompleteParent;
               if (importSelection.has('urgencyThresholdDays')) next.urgencyThresholdDays = tempSettings.urgencyThresholdDays;
               
               return next;
@@ -829,7 +893,7 @@ export default function App() {
         
         {/* Desktop Input Panel (Hidden on Mobile) */}
         <div className="hidden md:block w-80 flex-none flex flex-col gap-4">
-           <div className="neu-flat rounded-2xl p-6 flex-1">
+           <div className="neu-flat rounded-2xl p-6 flex-1 flex flex-col">
               <InputArea 
                   inputMode={inputMode} 
                   setInputMode={setInputMode} 
@@ -841,9 +905,6 @@ export default function App() {
                   t={t} 
               />
            </div>
-           <div className="neu-flat rounded-2xl p-4 text-center text-xs text-slate-400">
-             MatrixFlow AI &copy; 2024
-           </div>
         </div>
 
         {/* The Matrix Grid */}
@@ -853,10 +914,11 @@ export default function App() {
             title={t.q1} shortTitle={t.q1Short} colorCode="q1"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Do)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={handleDeleteTask}
-            onClear={handleClearQuadrant}
+            onDelete={handleDeleteTaskTrigger}
+            onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
+            onParentCheck={handleParentCheck}
             t={t}
             isSelectionMode={isSelectionMode}
             selectedTaskIds={selectedTaskIds}
@@ -868,10 +930,11 @@ export default function App() {
             title={t.q2} shortTitle={t.q2Short} colorCode="q2"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Plan)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={handleDeleteTask}
-            onClear={handleClearQuadrant}
+            onDelete={handleDeleteTaskTrigger}
+            onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
+            onParentCheck={handleParentCheck}
             t={t}
             isSelectionMode={isSelectionMode}
             selectedTaskIds={selectedTaskIds}
@@ -883,10 +946,11 @@ export default function App() {
             title={t.q3} shortTitle={t.q3Short} colorCode="q3"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Delegate)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={handleDeleteTask}
-            onClear={handleClearQuadrant}
+            onDelete={handleDeleteTaskTrigger}
+            onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
+            onParentCheck={handleParentCheck}
             t={t}
             isSelectionMode={isSelectionMode}
             selectedTaskIds={selectedTaskIds}
@@ -898,10 +962,11 @@ export default function App() {
             title={t.q4} shortTitle={t.q4Short} colorCode="q4"
             tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Eliminate)}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
-            onDelete={handleDeleteTask}
-            onClear={handleClearQuadrant}
+            onDelete={handleDeleteTaskTrigger}
+            onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
             onUpdate={handleTaskUpdate}
+            onParentCheck={handleParentCheck}
             t={t}
             isSelectionMode={isSelectionMode}
             selectedTaskIds={selectedTaskIds}
@@ -921,6 +986,46 @@ export default function App() {
       </button>
 
       {/* --- Modals --- */}
+
+      {/* Neumorphic Confirmation Modal (Restyled) */}
+      <Modal 
+          isOpen={!!confirmationState} 
+          onClose={() => setConfirmationState(null)} 
+          title={
+              confirmationState?.type === 'deleteTask' ? t.deleteTaskTitle :
+              confirmationState?.type === 'deleteBoard' ? t.deleteBoardTitle :
+              t.clearQuadrantTitle
+          }
+      >
+          <div className="space-y-6">
+              {/* Neumorphic Concave Alert Box */}
+              <div className="neu-concave p-5 rounded-xl flex items-center gap-4 text-red-500">
+                  <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-full flex-none">
+                     <AlertTriangleIcon size={28} className="animate-pulse" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {confirmationState?.type === 'deleteTask' ? t.deleteTaskConfirm :
+                       confirmationState?.type === 'deleteBoard' ? t.confirmDeleteBoard :
+                       t.confirmClearQuadrant}
+                  </p>
+              </div>
+              
+              <div className="flex gap-4">
+                  <button 
+                      onClick={() => setConfirmationState(null)}
+                      className="neu-btn flex-1 py-3 rounded-xl text-slate-500 font-bold text-sm hover:text-slate-700 dark:hover:text-slate-200 active:scale-95 transition-all"
+                  >
+                      {t.cancel}
+                  </button>
+                  <button 
+                      onClick={executeConfirmAction}
+                      className="neu-btn flex-1 py-3 rounded-xl text-red-500 font-bold text-sm hover:text-red-600 active:scale-95 transition-all"
+                  >
+                      {t.confirm}
+                  </button>
+              </div>
+          </div>
+      </Modal>
 
       {/* Mobile Add Task Modal */}
       <Modal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title={t.addBtn}>

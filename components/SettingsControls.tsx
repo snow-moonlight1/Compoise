@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { AppSettings } from '../types';
 import { ToggleSwitch } from './ui/ToggleSwitch';
@@ -57,6 +59,20 @@ export const SettingsControls: React.FC<SettingsControlsProps> = ({ settings, se
               <ToggleSwitch 
                   checked={settings.suppressGroupPrompt} 
                   onChange={() => !readOnly && setSettings(s => ({ ...s, suppressGroupPrompt: !s.suppressGroupPrompt }))}
+              />
+          </div>
+
+          <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
+          
+          {/* Auto Complete Parent Toggle */}
+          <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoCompleteParent}</p>
+                  <p className="text-xs text-slate-500">{t.autoCompleteParentDesc}</p>
+              </div>
+              <ToggleSwitch 
+                  checked={settings.autoCompleteParent} 
+                  onChange={() => !readOnly && setSettings(s => ({ ...s, autoCompleteParent: !s.autoCompleteParent }))}
               />
           </div>
           

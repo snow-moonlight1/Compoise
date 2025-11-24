@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { Task, QuadrantType } from '../types';
 import { TaskCard } from './TaskCard';
@@ -16,6 +18,7 @@ interface QuadrantProps {
   onClear: (type: QuadrantType) => void;
   onDecompose: (task: Task) => void;
   onUpdate: (task: Task) => void;
+  onParentCheck: (task: Task) => void;
   t: any;
   isSelectionMode: boolean;
   selectedTaskIds: Set<string>;
@@ -36,6 +39,7 @@ export const Quadrant: React.FC<QuadrantProps> = ({
   onClear,
   onDecompose,
   onUpdate,
+  onParentCheck,
   t,
   isSelectionMode,
   selectedTaskIds,
@@ -103,6 +107,7 @@ export const Quadrant: React.FC<QuadrantProps> = ({
                 onDelete={onDelete}
                 onDecompose={onDecompose}
                 onUpdate={onUpdate}
+                onParentCheck={onParentCheck}
                 colors={styles}
                 t={t}
                 isSelectionMode={isSelectionMode}

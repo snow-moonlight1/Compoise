@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { AppSettings, ExportData } from '../types';
 import { Checkbox } from './ui/Checkbox';
@@ -14,7 +16,7 @@ export const ImportReview: React.FC<ImportReviewProps> = ({ settings, pendingImp
     const boolText = (val: boolean) => val ? 'ON' : 'OFF';
       
     // Automation Group Logic
-    const automationKeys = ['autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'urgencyThresholdDays'];
+    const automationKeys = ['autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'urgencyThresholdDays', 'autoCompleteParent'];
     const isAllAutoSelected = automationKeys.every(k => importSelection.has(k));
     
     const toggleAutomationGroup = () => {
@@ -87,6 +89,7 @@ export const ImportReview: React.FC<ImportReviewProps> = ({ settings, pendingImp
                       {renderImportRow('suppressLongTermPrompt', t.suppressLongTermPrompt, boolText(settings.suppressLongTermPrompt))}
                       {renderImportRow('autoGroupAI', t.autoGroupAI, boolText(settings.autoGroupAI))}
                       {renderImportRow('suppressGroupPrompt', t.suppressGroupPrompt, boolText(settings.suppressGroupPrompt))}
+                      {renderImportRow('autoCompleteParent', t.autoCompleteParent, boolText(settings.autoCompleteParent))}
                       {renderImportRow('urgencyThresholdDays', t.urgencyThreshold, `${settings.urgencyThresholdDays} d`)}
                  </div>
              </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Task, SubTask } from '../types';
 import { CalendarIcon, SplitIcon, FlagIcon, PlusIcon, TrashIcon, XIcon } from './Icons';
+import { Checkbox } from './ui/Checkbox';
 
 interface TaskCardProps {
   task: Task;
@@ -8,6 +9,7 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   onDecompose: (task: Task) => void;
   onUpdate: (task: Task) => void;
+  onParentCheck: (task: Task) => void;
   colors: { border: string, text: string };
   t: any;
   isSelectionMode: boolean;
@@ -22,6 +24,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onDelete, 
   onDecompose,
   onUpdate,
+  onParentCheck,
   colors,
   t,
   isSelectionMode,
@@ -85,23 +88,38 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         <div className="absolute top-0 left-0 w-1 h-full bg-yellow-400/50" />
       )}
       
-      <div className="flex justify-between items-start gap-2 w-full">
-        {isSelectionMode && (
-          <div className={`w-5 h-5 rounded border flex-none flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
-             {isSelected && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+      {/* Parent Task Header */}
+      <div className="flex justify-between items-start gap-3 w-full">
+        {isSelectionMode ? (
+          <div className={`w-6 h-6 rounded border-2 flex-none flex items-center justify-center transition-colors mt-[1px] ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
+             {isSelected && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
           </div>
+        ) : (
+          <Checkbox 
+            checked={task.completed} 
+            onChange={() => onParentCheck(task)}
+            className="w-6 h-6 mt-0.2" // Slight top margin adjustment
+          />
         )}
         
         <div className="flex-1 min-w-0">
-           <p className="text-sm font-bold text-slate-700 dark:text-slate-200 break-words leading-tight">
-            {task.title}
-           </p>
+           <div className="relative inline-block">
+               <span className={`text-sm font-bold break-words leading-tight transition-colors duration-500 ease-in-out relative z-0
+                  ${task.completed ? 'text-gray-400 dark:text-gray-600' : 'text-slate-700 dark:text-slate-200'}
+               `}>
+                {task.title}
+               </span>
+               <span 
+                 className={`absolute left-0 top-1/2 h-[2px] bg-slate-400/80 dark:bg-slate-500/80 block transition-all duration-500 ease-out z-10 pointer-events-none`}
+                 style={{ width: task.completed ? '100%' : '0%' }}
+               />
+           </div>
         </div>
 
         {/* Meta Section: Deadline + Actions */}
-        <div className="flex items-center gap-2 flex-none">
+        <div className="flex items-center gap-2 flex-none pt-0.5">
             {/* Right-aligned deadline */}
-            {daysLeft !== null && (
+            {daysLeft !== null && !task.completed && (
              <div className={`text-xs flex items-center gap-1 ${getDeadlineColor(daysLeft)} whitespace-nowrap`}>
                {daysLeft < 0 ? t.overdue : daysLeft === 0 ? t.today : `${daysLeft}${t.daysLeft}`}
                <CalendarIcon size={10} />
@@ -147,25 +165,50 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Subtasks List */}
       {task.subtasks && task.subtasks.length > 0 && (
-        <div className="mt-1 pl-2 border-l-2 border-slate-200 dark:border-slate-700 space-y-1">
+        <div className="mt-1 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-2">
           {task.subtasks.map(sub => {
              const subDays = calculateDaysLeft(sub.deadline);
              return (
                 <div 
                   key={sub.id} 
-                  className="flex items-center gap-2 text-xs group/sub transition-all duration-300 ease-in-out overflow-hidden opacity-100"
+                  className="flex items-start gap-2 text-xs group/sub transition-all duration-300 ease-in-out overflow-hidden opacity-100"
                   onDoubleClick={(e) => { e.stopPropagation(); onEdit(task, sub.id); }}
                 >
                   <button 
                     onClick={(e) => { e.stopPropagation(); toggleSubtask(sub.id); }}
-                    className={`w-3 h-3 rounded-sm border flex-none transition-colors ${sub.completed ? 'bg-slate-400 border-slate-400' : 'border-slate-400'}`}
-                  />
-                  <span className={`flex-1 transition-all ${sub.completed ? 'line-through text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                    {sub.title}
-                  </span>
+                    className={`w-4 h-4 mt-0.5 rounded border transition-colors flex-none flex items-center justify-center ${
+                      sub.completed 
+                        ? 'bg-slate-400 border-slate-400' 
+                        : 'bg-transparent border-slate-400 hover:border-primary'
+                    }`}
+                  >
+                     <svg 
+                      className={`w-3 h-3 text-white transition-transform duration-200 ${sub.completed ? 'scale-100' : 'scale-0'}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor" 
+                      strokeWidth={4}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    <span className="relative inline-block leading-tight pt-0.5">
+                        <span className={`transition-colors duration-500 ease-in-out relative z-0
+                            ${sub.completed ? 'text-gray-400 dark:text-gray-600' : 'text-slate-600 dark:text-slate-300'}
+                        `}>
+                          {sub.title}
+                        </span>
+                        <span 
+                           className={`absolute left-0 top-1/2 h-[1.5px] bg-slate-400/80 dark:bg-slate-500/80 block transition-all duration-500 ease-out z-10 pointer-events-none`}
+                           style={{ width: sub.completed ? '100%' : '0%' }}
+                         />
+                    </span>
+                  </div>
                   
                   {subDays !== null && !sub.completed && (
-                     <span className={`text-[10px] ${getDeadlineColor(subDays)}`}>
+                     <span className={`text-[10px] mt-0.5 ${getDeadlineColor(subDays)}`}>
                         {subDays}d
                      </span>
                   )}
@@ -191,9 +234,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onChange={(e) => setNewSubtask(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
             placeholder={t.addSubtask}
-            className="flex-1 bg-white dark:bg-slate-700 text-xs p-1 rounded border border-slate-200 dark:border-slate-600 outline-none"
+            className="flex-1 bg-white dark:bg-slate-700 text-xs p-1.5 rounded border border-slate-200 dark:border-slate-600 outline-none"
           />
-          <button onClick={handleAddSubtask} className="text-primary"><PlusIcon size={14}/></button>
+          <button onClick={handleAddSubtask} className="text-primary hover:scale-110 transition-transform"><PlusIcon size={16}/></button>
         </div>
       )}
     </div>

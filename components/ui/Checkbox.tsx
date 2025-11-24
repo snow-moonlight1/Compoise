@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface CheckboxProps {
@@ -9,11 +10,11 @@ interface CheckboxProps {
 export const Checkbox: React.FC<CheckboxProps> = ({ checked, onChange, className }) => (
   <button
     onClick={(e) => { e.stopPropagation(); onChange(); }}
-    className={`w-5 h-5 rounded-md border transition-all duration-200 flex-none flex items-center justify-center ${
+    className={`rounded-md border-2 transition-all duration-200 flex-none flex items-center justify-center ${
       checked 
         ? 'bg-primary border-primary text-white' 
-        : 'bg-slate-300 dark:bg-slate-600 border-transparent hover:border-primary/50'
-    } ${className || ''}`}
+        : 'bg-transparent border-slate-300 dark:border-slate-500 hover:border-primary text-transparent'
+    } ${className || 'w-5 h-5'}`}
   >
     <svg 
       className={`w-3.5 h-3.5 transition-transform duration-200 ${checked ? 'scale-100' : 'scale-0'}`} 

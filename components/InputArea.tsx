@@ -76,5 +76,14 @@ export const InputArea: React.FC<InputAreaProps> = ({
         </button>
       )}
     </div>
+
+    <div className="mt-auto pt-6 text-center">
+       <div className="flex items-center justify-center gap-2 mb-1 text-slate-400">
+          <span className="font-bold text-sm tracking-wider opacity-70">MatrixFlow AI</span>
+       </div>
+       <p className="text-[10px] text-slate-400 font-medium">
+          &copy; {new Date().getFullYear()}
+       </p>
+    </div>
   </div>
 );
