@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Task, QuadrantType, AIConfig, AIProvider, AppSettings, InputMode, Board, ThemeColor, SubTask, ExportData } from './types';
 import { analyzeTasks, decomposeTasksBatch } from './services/aiService';
@@ -5,7 +6,7 @@ import { translations } from './translations';
 import { 
   SparklesIcon, SettingsIcon, PlusIcon, 
   AlertTriangleIcon, LoaderIcon, SplitIcon, TrashIcon,
-  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, LayersIcon, DownloadIcon, UploadIcon
+  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, LayersIcon, DownloadIcon, UploadIcon, CalendarIcon, PencilIcon
 } from './components/Icons';
 
 // UI Components
@@ -32,16 +33,21 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  
+  // Board Menu State with Animation
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+  const [boardMenuClosing, setBoardMenuClosing] = useState(false);
+
   const [renameBoardId, setRenameBoardId] = useState<string | null>(null);
   const [newBoardName, setNewBoardName] = useState('');
   
-  // Confirmation Modal State
-  const [confirmationState, setConfirmationState] = useState<{
+  // Confirmation Modal State (Split for animation stability)
+  const [confirmData, setConfirmData] = useState<{
       type: 'deleteTask' | 'deleteBoard' | 'clearQuadrant';
-      id: string; // Task ID, Board ID, or Quadrant ID (as string)
+      id: string; 
       title?: string;
   } | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   // Import Flow State
   const [importStage, setImportStage] = useState<'none' | 'mode-select' | 'settings-review'>('none');
@@ -64,9 +70,17 @@ export default function App() {
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupTitleInput, setGroupTitleInput] = useState('');
 
-  // Edit State
-  const [editingTask, setEditingTask] = useState<{ task: Task, subId?: string } | null>(null);
+  // Edit State (Overhauled)
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // For Single Task Edit
+  const [editTitleInput, setEditTitleInput] = useState('');
   const [editDateInput, setEditDateInput] = useState('');
+  // For Group Edit
+  const [editGroupSelectedIds, setEditGroupSelectedIds] = useState<Set<string>>(new Set());
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null); // ID of subtask or 'parent' being edited
+  const [inlineEditText, setInlineEditText] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
 
   // Config & Settings State
   const [aiConfig, setAiConfig] = useState<AIConfig>({
@@ -245,21 +259,24 @@ export default function App() {
   // --- Deletion Logic with Confirmation ---
 
   const handleDeleteTaskTrigger = (id: string) => {
-      setConfirmationState({ type: 'deleteTask', id });
+      setConfirmData({ type: 'deleteTask', id });
+      setIsConfirmOpen(true);
   };
   
   const handleClearQuadrantTrigger = (type: QuadrantType) => {
-      setConfirmationState({ type: 'clearQuadrant', id: String(type) });
+      setConfirmData({ type: 'clearQuadrant', id: String(type) });
+      setIsConfirmOpen(true);
   };
   
   const handleDeleteBoardTrigger = (id: string) => {
      if (boards.length <= 1) return; 
-     setConfirmationState({ type: 'deleteBoard', id });
+     setConfirmData({ type: 'deleteBoard', id });
+     setIsConfirmOpen(true);
   };
 
   const executeConfirmAction = () => {
-      if (!confirmationState) return;
-      const { type, id } = confirmationState;
+      if (!confirmData) return;
+      const { type, id } = confirmData;
 
       if (type === 'deleteTask') {
           setTasks(prev => prev.filter(t => t.id !== id));
@@ -274,8 +291,8 @@ export default function App() {
               if (remaining.length > 0) setActiveBoardId(remaining[0].id);
           }
       }
-
-      setConfirmationState(null);
+      setIsConfirmOpen(false);
+      // Data persists for animation, will be overwritten next open
   };
 
   // Helper: Flatten grouped tasks into individuals
@@ -529,9 +546,8 @@ export default function App() {
     if (addModalOpen) setAddModalOpen(false);
   };
 
-  // General Update Handler (for subtask toggles, edits, drag drop)
+  // General Update Handler
   const handleTaskUpdate = (updatedTask: Task) => {
-    // Auto-Complete Parent Logic (When Subtasks are toggled)
     if (appSettings.autoCompleteParent && updatedTask.subtasks && updatedTask.subtasks.length > 0) {
         const total = updatedTask.subtasks.length;
         const completed = updatedTask.subtasks.filter(s => s.completed).length;
@@ -539,19 +555,15 @@ export default function App() {
         if (total > 0 && total === completed) {
              updatedTask.completed = true;
         } else if (updatedTask.completed && total !== completed) {
-             // Optional: Uncheck parent if a subtask is unchecked
              updatedTask.completed = false;
         }
     }
-
     setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
   };
 
   // Cascading Parent Checkbox Logic
   const handleParentCheck = (task: Task) => {
     const newStatus = !task.completed;
-    
-    // Create new subtasks array with forced status
     const updatedSubtasks = task.subtasks?.map(s => ({
       ...s,
       completed: newStatus
@@ -562,9 +574,6 @@ export default function App() {
       completed: newStatus,
       subtasks: updatedSubtasks
     };
-
-    // We bypass handleTaskUpdate's internal auto-complete check because we are forcing consistency here.
-    // If we used handleTaskUpdate, the logic might revert based on old subtask states before the update propagates.
     setTasks(prev => prev.map(t => t.id === newTask.id ? newTask : t));
   };
 
@@ -625,38 +634,94 @@ export default function App() {
     setSelectedTaskIds(new Set());
   };
 
-  // Edit Handlers
-  const openEditModal = (task: Task, subId?: string) => {
-      setEditingTask({ task, subId });
-      let currentDeadline: number | undefined;
-      if (subId && task.subtasks) {
-          const sub = task.subtasks.find(s => s.id === subId);
-          currentDeadline = sub?.deadline;
-      } else {
-          currentDeadline = task.deadline;
-      }
-      if (currentDeadline) {
-          setEditDateInput(new Date(currentDeadline).toISOString().split('T')[0]);
-      } else {
-          setEditDateInput('');
-      }
+  // --- Edit Logic Handlers ---
+
+  const openEditModal = (task: Task) => {
+      setEditingTask(task);
+      setEditGroupSelectedIds(new Set());
+      setInlineEditId(null);
+      setShowDatePicker(false);
+
+      // Single task init
+      setEditTitleInput(task.title);
+      setEditDateInput(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
   };
 
-  const saveEdit = () => {
+  const handleEditGroupSelect = (id: string) => {
+      const newSet = new Set(editGroupSelectedIds);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      setEditGroupSelectedIds(newSet);
+  };
+
+  const startInlineEdit = (id: string, initialText: string) => {
+      setInlineEditId(id);
+      setInlineEditText(initialText);
+  };
+
+  const saveInlineEdit = () => {
+      if (!editingTask || !inlineEditId) return;
+      const text = inlineEditText.trim();
+      
+      let updatedTask = { ...editingTask };
+
+      if (inlineEditId === 'parent') {
+          if (text) updatedTask.title = text;
+      } else {
+          const subs = updatedTask.subtasks?.map(s => s.id === inlineEditId ? { ...s, title: text || s.title } : s);
+          updatedTask.subtasks = subs;
+      }
+      
+      setEditingTask(updatedTask);
+      handleTaskUpdate(updatedTask);
+      setInlineEditId(null);
+  };
+
+  const applyGroupDeadline = (dateStr: string) => {
+      if (!editingTask || !dateStr) return;
+      const timestamp = new Date(dateStr).getTime();
+      
+      let updatedTask = { ...editingTask };
+      
+      if (editGroupSelectedIds.has('parent')) {
+          updatedTask.deadline = timestamp;
+      }
+      
+      if (updatedTask.subtasks) {
+          const subs = updatedTask.subtasks.map(s => editGroupSelectedIds.has(s.id) ? { ...s, deadline: timestamp } : s);
+          updatedTask.subtasks = subs;
+      }
+
+      setEditingTask(updatedTask);
+      handleTaskUpdate(updatedTask);
+      setShowDatePicker(false);
+      setEditGroupSelectedIds(new Set());
+  };
+
+  const saveSingleEdit = () => {
       if (!editingTask) return;
       const timestamp = editDateInput ? new Date(editDateInput).getTime() : undefined;
-      if (editingTask.subId) {
-           const updatedSubs = (editingTask.task.subtasks || []).map(s => 
-              s.id === editingTask.subId ? { ...s, deadline: timestamp } : s
-           );
-           handleTaskUpdate({ ...editingTask.task, subtasks: updatedSubs });
-      } else {
-          handleTaskUpdate({ ...editingTask.task, deadline: timestamp });
-      }
+      const newTitle = editTitleInput.trim();
+      
+      if (!newTitle) return;
+
+      handleTaskUpdate({ ...editingTask, title: newTitle, deadline: timestamp });
       setEditingTask(null);
   };
 
   // Board Management Handlers
+  const toggleBoardMenu = () => {
+    if (boardMenuOpen) {
+      setBoardMenuClosing(true);
+      setTimeout(() => {
+        setBoardMenuClosing(false);
+        setBoardMenuOpen(false);
+      }, 200); // Fast match animation
+    } else {
+      setBoardMenuOpen(true);
+    }
+  };
+
   const handleCreateBoard = () => {
     const newBoard: Board = {
       id: crypto.randomUUID(),
@@ -667,10 +732,9 @@ export default function App() {
     setActiveBoardId(newBoard.id);
     setRenameBoardId(newBoard.id);
     setNewBoardName(t.untitledBoard);
-    setBoardMenuOpen(false);
+    toggleBoardMenu();
   };
 
-  // Deletion logic moved to executeConfirmAction
   const handleDeleteBoard = (id: string) => {
       handleDeleteBoardTrigger(id);
   };
@@ -714,20 +778,17 @@ export default function App() {
               if (!content) return;
               const json = JSON.parse(content);
 
-              // Basic Schema Validation
               if (!Array.isArray(json.boards) || !Array.isArray(json.tasks)) {
                   alert(t.importError);
                   return;
               }
               
               setPendingImport(json);
-              // Initialize import selection with all available keys including granular automation settings
               setImportSelection(new Set([
                 'language', 'theme', 'themeColor', 'inputMode', 'aiProvider', 
                 'autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'autoCompleteParent', 'urgencyThresholdDays'
               ]));
               
-              // Step 1: Ask User Mode
               setImportStage('mode-select');
 
           } catch (err) {
@@ -746,10 +807,8 @@ export default function App() {
       if (mode === 'overwrite') {
           setBoards(pendingImport.boards);
           setTasks(pendingImport.tasks);
-          // Set active board to first imported or defaults
           if (pendingImport.boards.length > 0) setActiveBoardId(pendingImport.boards[0].id);
       } else {
-          // Merge: Append tasks. Merge boards by ID, else add.
           const existingBoardIds = new Set(boards.map(b => b.id));
           const newBoards = pendingImport.boards.filter(b => !existingBoardIds.has(b.id));
           
@@ -757,7 +816,6 @@ export default function App() {
           setTasks(prev => [...prev, ...pendingImport.tasks]);
       }
 
-      // Proceed to Step 2: Settings
       if (pendingImport.settings) {
           setTempSettings(pendingImport.settings);
           setImportStage('settings-review');
@@ -776,7 +834,6 @@ export default function App() {
               if (importSelection.has('themeColor')) next.themeColor = tempSettings.themeColor;
               if (importSelection.has('inputMode')) next.defaultInputMode = tempSettings.defaultInputMode;
               
-              // Granular Automation Settings
               if (importSelection.has('autoDecomposeAI')) next.autoDecomposeAI = tempSettings.autoDecomposeAI;
               if (importSelection.has('suppressLongTermPrompt')) next.suppressLongTermPrompt = tempSettings.suppressLongTermPrompt;
               if (importSelection.has('autoGroupAI')) next.autoGroupAI = tempSettings.autoGroupAI;
@@ -812,15 +869,20 @@ export default function App() {
           {/* Board Switcher */}
           <div className="relative">
              <button 
-               onClick={() => setBoardMenuOpen(!boardMenuOpen)}
+               onClick={toggleBoardMenu}
                className="flex items-center gap-2 font-bold text-lg text-slate-700 dark:text-slate-200 hover:text-primary transition-colors"
              >
                {activeBoard?.name || t.defaultBoardName}
-               <svg className={`w-4 h-4 transition-transform duration-300 ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+               <svg 
+                  className={`w-4 h-4 transition-transform duration-200 ${boardMenuOpen && !boardMenuClosing ? 'rotate-180' : ''}`} 
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+               >
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+               </svg>
              </button>
 
-             {boardMenuOpen && (
-               <div className="absolute top-full left-0 mt-2 w-64 neu-flat rounded-xl p-2 animate-slide-down origin-top z-50 shadow-xl">
+             {(boardMenuOpen || boardMenuClosing) && (
+               <div className={`absolute top-full left-0 mt-2 w-64 neu-flat rounded-xl p-2 origin-top z-50 shadow-xl ${boardMenuClosing ? 'animate-slide-back-up' : 'animate-slide-down'}`}>
                  <div className="max-h-60 overflow-y-auto custom-scrollbar">
                    {boards.map(board => (
                      <div key={board.id} className="group flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors">
@@ -835,7 +897,7 @@ export default function App() {
                           />
                         ) : (
                           <button 
-                            onClick={() => { setActiveBoardId(board.id); setBoardMenuOpen(false); }}
+                            onClick={() => { setActiveBoardId(board.id); toggleBoardMenu(); }}
                             className={`flex-1 text-left text-sm font-bold truncate ${activeBoardId === board.id ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}
                           >
                             {board.name}
@@ -891,9 +953,9 @@ export default function App() {
       {/* --- Main Content --- */}
       <div className="flex-1 flex flex-col md:flex-row gap-6 px-4 md:px-8 pb-6 md:pb-8 overflow-hidden">
         
-        {/* Desktop Input Panel (Hidden on Mobile) */}
+        {/* Desktop Input Panel */}
         <div className="hidden md:block w-80 flex-none flex flex-col gap-4">
-           <div className="neu-flat rounded-2xl p-6 flex-1 flex flex-col">
+           <div className="neu-flat rounded-2xl p-6 flex-1 flex flex-col min-h-0">
               <InputArea 
                   inputMode={inputMode} 
                   setInputMode={setInputMode} 
@@ -977,7 +1039,7 @@ export default function App() {
 
       </div>
 
-      {/* Mobile FAB (Hidden on Desktop) */}
+      {/* Mobile FAB */}
       <button 
         onClick={openAddModal}
         className="md:hidden absolute bottom-8 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/40 flex items-center justify-center active:scale-90 transition-transform z-30 animate-pop-in"
@@ -987,32 +1049,31 @@ export default function App() {
 
       {/* --- Modals --- */}
 
-      {/* Neumorphic Confirmation Modal (Restyled) */}
+      {/* Confirmation Modal - Using stable data */}
       <Modal 
-          isOpen={!!confirmationState} 
-          onClose={() => setConfirmationState(null)} 
+          isOpen={isConfirmOpen} 
+          onClose={() => setIsConfirmOpen(false)} 
           title={
-              confirmationState?.type === 'deleteTask' ? t.deleteTaskTitle :
-              confirmationState?.type === 'deleteBoard' ? t.deleteBoardTitle :
+              confirmData?.type === 'deleteTask' ? t.deleteTaskTitle :
+              confirmData?.type === 'deleteBoard' ? t.deleteBoardTitle :
               t.clearQuadrantTitle
           }
       >
           <div className="space-y-6">
-              {/* Neumorphic Concave Alert Box */}
               <div className="neu-concave p-5 rounded-xl flex items-center gap-4 text-red-500">
                   <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-full flex-none">
                      <AlertTriangleIcon size={28} className="animate-pulse" />
                   </div>
                   <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {confirmationState?.type === 'deleteTask' ? t.deleteTaskConfirm :
-                       confirmationState?.type === 'deleteBoard' ? t.confirmDeleteBoard :
+                      {confirmData?.type === 'deleteTask' ? t.deleteTaskConfirm :
+                       confirmData?.type === 'deleteBoard' ? t.confirmDeleteBoard :
                        t.confirmClearQuadrant}
                   </p>
               </div>
               
               <div className="flex gap-4">
                   <button 
-                      onClick={() => setConfirmationState(null)}
+                      onClick={() => setIsConfirmOpen(false)}
                       className="neu-btn flex-1 py-3 rounded-xl text-slate-500 font-bold text-sm hover:text-slate-700 dark:hover:text-slate-200 active:scale-95 transition-all"
                   >
                       {t.cancel}
@@ -1039,6 +1100,137 @@ export default function App() {
             isProcessing={isProcessing} 
             t={t} 
          />
+      </Modal>
+
+      {/* Redesigned Edit Modal */}
+      <Modal isOpen={!!editingTask} onClose={() => setEditingTask(null)} title={editingTask?.subtasks?.length ? t.editTask : t.editTask}>
+         {editingTask && (
+             editingTask.subtasks && editingTask.subtasks.length > 0 ? (
+                 // --- Complex Group Edit View ---
+                 <div className="flex flex-col h-[60vh]">
+                     <div className="flex-1 overflow-y-auto custom-scrollbar p-1 space-y-2">
+                        {/* Parent Item */}
+                        <div 
+                          className={`p-3 rounded-xl transition-all border ${editGroupSelectedIds.has('parent') ? 'bg-primary/5 border-primary' : 'bg-transparent border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                          onClick={() => handleEditGroupSelect('parent')}
+                          onDoubleClick={() => startInlineEdit('parent', editingTask.title)}
+                        >
+                            {inlineEditId === 'parent' ? (
+                                <input 
+                                  autoFocus
+                                  value={inlineEditText}
+                                  onChange={(e) => setInlineEditText(e.target.value)}
+                                  onBlur={saveInlineEdit}
+                                  onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit()}
+                                  className="w-full bg-white dark:bg-slate-700 rounded px-2 py-1 outline-none text-sm font-bold"
+                                />
+                            ) : (
+                                <div className="flex justify-between items-center">
+                                    <span className="font-bold text-slate-700 dark:text-slate-200">{editingTask.title}</span>
+                                    {editingTask.deadline && <CalendarIcon size={14} className="text-primary" />}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Subtasks List */}
+                        <div className="pl-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-700 ml-3">
+                            {editingTask.subtasks.map(sub => (
+                                <div 
+                                  key={sub.id}
+                                  className={`p-2 rounded-lg transition-all border cursor-pointer ${editGroupSelectedIds.has(sub.id) ? 'bg-primary/5 border-primary' : 'bg-transparent border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                  onClick={() => handleEditGroupSelect(sub.id)}
+                                  onDoubleClick={() => startInlineEdit(sub.id, sub.title)}
+                                >
+                                    {inlineEditId === sub.id ? (
+                                        <input 
+                                          autoFocus
+                                          value={inlineEditText}
+                                          onChange={(e) => setInlineEditText(e.target.value)}
+                                          onBlur={saveInlineEdit}
+                                          onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit()}
+                                          className="w-full bg-white dark:bg-slate-700 rounded px-2 py-1 outline-none text-xs"
+                                        />
+                                    ) : (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600 dark:text-slate-300">{sub.title}</span>
+                                            {sub.deadline && <CalendarIcon size={12} className="text-primary" />}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                     </div>
+
+                     {/* Bottom Action Bar */}
+                     <div className="pt-4 border-t border-slate-200 dark:border-slate-700 mt-2">
+                        {showDatePicker ? (
+                            <div className="animate-slide-up bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg border border-slate-100 dark:border-slate-700">
+                                <label className="text-xs font-bold text-slate-500 mb-2 block">{t.setDeadline}</label>
+                                <input 
+                                  type="date" 
+                                  className="w-full p-2 rounded bg-slate-100 dark:bg-slate-900 outline-none mb-2"
+                                  onChange={(e) => applyGroupDeadline(e.target.value)}
+                                />
+                                <button onClick={() => setShowDatePicker(false)} className="text-xs text-slate-400 underline w-full text-center">{t.cancel}</button>
+                            </div>
+                        ) : (
+                            <button 
+                              disabled={editGroupSelectedIds.size === 0}
+                              onClick={() => setShowDatePicker(true)}
+                              className="neu-btn w-full py-3 rounded-xl flex items-center justify-center gap-2 text-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                            >
+                                <CalendarIcon />
+                                {t.setDeadline} {editGroupSelectedIds.size > 0 && `(${editGroupSelectedIds.size})`}
+                            </button>
+                        )}
+                     </div>
+                 </div>
+             ) : (
+                 // --- Simple Task Edit View (Modernized) ---
+                 <div className="flex flex-col h-[60vh] md:h-auto">
+                     <div className="flex-1 space-y-4 p-1">
+                         {/* Title Input Card */}
+                         <div className="space-y-2">
+                             <label className="text-xs font-bold text-slate-500 ml-1">{t.boardName.replace('Board Name', 'Task Name').replace('任务板名称', '任务名称').replace('ボード名', 'タスク名')}</label>
+                             <div className="neu-pressed rounded-xl p-3 flex items-start gap-2 bg-slate-50 dark:bg-slate-800/50">
+                                 <PencilIcon className="text-slate-400 mt-1 flex-none" size={16} />
+                                 <textarea
+                                   rows={3}
+                                   value={editTitleInput}
+                                   onChange={(e) => setEditTitleInput(e.target.value)}
+                                   className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 resize-none placeholder-slate-400"
+                                   placeholder="Task Title"
+                                 />
+                             </div>
+                         </div>
+                         
+                         {/* Deadline Input Card */}
+                         <div className="space-y-2">
+                              <label className="text-xs font-bold text-slate-500 ml-1">{t.setDeadline}</label>
+                              <div className="neu-flat rounded-xl p-1 flex items-center bg-white dark:bg-slate-700">
+                                 <input 
+                                   type="date" 
+                                   value={editDateInput}
+                                   onChange={(e) => setEditDateInput(e.target.value)}
+                                   className="w-full bg-transparent outline-none p-2 text-sm text-slate-600 dark:text-slate-300 font-bold"
+                                 />
+                              </div>
+                         </div>
+                     </div>
+
+                     {/* Action Button */}
+                     <div className="pt-4 mt-auto">
+                         <button 
+                           onClick={saveSingleEdit}
+                           className="neu-btn w-full py-3 rounded-xl text-primary font-bold text-sm hover:opacity-90 active:scale-95 transition-all flex justify-center items-center gap-2"
+                         >
+                           <SparklesIcon size={18} />
+                           {t.addSingleBtn}
+                         </button>
+                     </div>
+                 </div>
+             )
+         )}
       </Modal>
 
       {/* Settings Modal */}
@@ -1396,29 +1588,6 @@ export default function App() {
              <LoaderIcon className="animate-spin text-primary" size={48} />
              <p className="text-sm text-slate-500 dark:text-slate-400 font-bold animate-pulse">{t.decomposingSingle}</p>
           </div>
-      </Modal>
-
-      {/* Task/Subtask Edit Modal */}
-      <Modal isOpen={!!editingTask} onClose={() => setEditingTask(null)} title={editingTask?.subId ? t.editSubtask : t.editTask}>
-         <div className="space-y-4">
-             <div>
-                 <label className="block text-xs font-bold text-slate-500 mb-1">{t.setDeadline}</label>
-                 <input 
-                   type="date" 
-                   value={editDateInput}
-                   onChange={(e) => setEditDateInput(e.target.value)}
-                   className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-2 text-lg outline-none text-slate-700 dark:text-slate-200 font-mono"
-                 />
-             </div>
-             <div className="flex justify-end gap-2 mt-4">
-                 <button 
-                   onClick={saveEdit}
-                   className="neu-btn px-4 py-2 rounded-lg text-primary font-bold text-sm"
-                 >
-                   {t.addSingleBtn}
-                 </button>
-             </div>
-         </div>
       </Modal>
 
       {/* Manual Grouping Modal */}

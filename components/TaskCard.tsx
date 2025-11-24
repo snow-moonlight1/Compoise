@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, SubTask } from '../types';
-import { CalendarIcon, SplitIcon, FlagIcon, PlusIcon, TrashIcon, XIcon } from './Icons';
+import { CalendarIcon, SplitIcon, FlagIcon, PlusIcon, TrashIcon, XIcon, PencilIcon } from './Icons';
 import { Checkbox } from './ui/Checkbox';
 
 interface TaskCardProps {
@@ -78,7 +78,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       draggable={!isSelectionMode}
       onDragStart={(e) => onDragStart(e, task)}
       onClick={() => isSelectionMode && onToggleSelect(task.id)}
-      onDoubleClick={(e) => { e.stopPropagation(); onEdit(task); }}
       className={`neu-btn cursor-grab active:cursor-grabbing group relative overflow-hidden flex flex-col gap-2 rounded-2xl
         mb-3 p-3 border border-slate-200/50 dark:border-slate-700/50 max-h-96
         ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}
@@ -91,14 +90,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {/* Parent Task Header */}
       <div className="flex justify-between items-start gap-3 w-full">
         {isSelectionMode ? (
-          <div className={`w-6 h-6 rounded border-2 flex-none flex items-center justify-center transition-colors mt-[1px] ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
+          <div className={`w-6 h-6 rounded border-2 flex-none flex items-center justify-center transition-colors mt-[1.5px] ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
              {isSelected && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
           </div>
         ) : (
           <Checkbox 
             checked={task.completed} 
             onChange={() => onParentCheck(task)}
-            className="w-6 h-6 mt-0.2" // Slight top margin adjustment
+            className="w-6 h-6 mt-[1.5px]" 
           />
         )}
         
@@ -145,6 +144,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   <FlagIcon size={14} />
                 </button>
                 <button 
+                  onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+                  className="text-slate-400 hover:text-primary transition-colors p-1"
+                  title={t.editTask}
+                >
+                  <PencilIcon size={14} />
+                </button>
+                <button 
                   onClick={(e) => { e.stopPropagation(); setIsAddingSub(!isAddingSub); }}
                   className="text-slate-400 hover:text-primary transition-colors p-1"
                   title={t.addSubtask}
@@ -165,14 +171,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Subtasks List */}
       {task.subtasks && task.subtasks.length > 0 && (
-        <div className="mt-1 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-2">
+        <div className="mt-1 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-2 animate-fade-in origin-top">
           {task.subtasks.map(sub => {
              const subDays = calculateDaysLeft(sub.deadline);
              return (
                 <div 
                   key={sub.id} 
                   className="flex items-start gap-2 text-xs group/sub transition-all duration-300 ease-in-out overflow-hidden opacity-100"
-                  onDoubleClick={(e) => { e.stopPropagation(); onEdit(task, sub.id); }}
                 >
                   <button 
                     onClick={(e) => { e.stopPropagation(); toggleSubtask(sub.id); }}
@@ -212,7 +217,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         {subDays}d
                      </span>
                   )}
-
+                  
+                  <button 
+                     onClick={(e) => { e.stopPropagation(); onEdit(task, sub.id); }}
+                     className="opacity-0 group-hover/sub:opacity-100 text-slate-400 hover:text-primary p-0.5 transition-opacity"
+                  >
+                    <PencilIcon size={10} />
+                  </button>
                   <button 
                      onClick={(e) => { e.stopPropagation(); deleteSubtask(sub.id); }}
                      className="opacity-0 group-hover/sub:opacity-100 text-red-400 p-0.5 transition-opacity"
