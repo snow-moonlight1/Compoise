@@ -2,6 +2,8 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理纯前端应用（React 19 + Vite 6 + TypeScript）。完整文档索引见 [README.md](README.md)。
 
+> 原生跨平台版（Flutter，Android + Windows）在 `D:\Dev_project\matrixflow-native`（独立仓库），数据备份格式与本仓库互通。
+
 ## 运行与验证
 
 - `npm install` → `npm run dev`（http://localhost:3000，端口被系统保留时加 `-- --port 3456`）；改动后用 `npm run build` + `npx tsc --noEmit` 做最低验证（无测试框架）。
