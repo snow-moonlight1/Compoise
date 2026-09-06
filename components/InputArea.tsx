@@ -72,15 +72,16 @@ export const InputArea: React.FC<InputAreaProps> = ({
           style={{ height: areaHeight }}
           className="w-full neu-pressed rounded-xl p-4 bg-transparent border-none focus:outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 resize-none min-h-[120px] max-h-[calc(100%-80px)] overflow-y-auto transition-[height] duration-200 ease-out"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.metaKey) {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               inputMode === 'brainDump' ? handleAISort() : handleManualAdd();
             }
           }}
         />
-        
+
         {inputMode === 'brainDump' && (
            <p className="text-xs text-slate-500 mt-2 text-center flex-none">{t.aiNote}</p>
         )}
+        <p className="text-[10px] text-slate-400 mt-1.5 text-center flex-none">{t.shortcutHint}</p>
 
         <div className="mt-4 flex justify-end flex-none">
           {inputMode === 'brainDump' ? (

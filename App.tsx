@@ -1,23 +1,56 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Task, QuadrantType, AIConfig, AIProvider, AppSettings, InputMode, Board, ThemeColor, SubTask, ExportData } from './types';
-import { analyzeTasks, decomposeTasksBatch } from './services/aiService';
+import { analyzeTasks, decomposeTasksBatch, testAIConnection } from './services/aiService';
 import { translations } from './translations';
-import { 
-  SparklesIcon, SettingsIcon, PlusIcon, 
+import {
+  SparklesIcon, SettingsIcon, PlusIcon,
   AlertTriangleIcon, LoaderIcon, SplitIcon, TrashIcon,
-  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, LayersIcon, DownloadIcon, UploadIcon, CalendarIcon, PencilIcon
+  MoonIcon, SunIcon, GlobeIcon, MonitorIcon, LayersIcon, DownloadIcon, UploadIcon, CalendarIcon, PencilIcon,
+  EyeIcon, EyeOffIcon
 } from './components/Icons';
 
 // UI Components
 import { Modal } from './components/ui/Modal';
 import { Checkbox } from './components/ui/Checkbox';
+import { ToastStack, ToastItem, ToastType } from './components/ui/Toast';
 
 // Feature Components
 import { Quadrant } from './components/Quadrant';
 import { InputArea } from './components/InputArea';
 import { SettingsControls } from './components/SettingsControls';
 import { ImportReview } from './components/ImportReview';
+
+// --- Helpers ---
+
+// localStorage JSON read that never crashes the app on corrupted data
+function safeParse<T>(key: string, fallback: T, onCorrupt?: () => void): T {
+  const raw = localStorage.getItem(key);
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    onCorrupt?.();
+    return fallback;
+  }
+}
+
+// Parse a YYYY-MM-DD date input as LOCAL midnight (not UTC) so deadlines
+// behave intuitively in any timezone.
+function parseDateInput(dateStr: string): number | undefined {
+  if (!dateStr) return undefined;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d).getTime();
+}
+
+// Serialize a timestamp as a YYYY-MM-DD string in local time (toISOString is UTC).
+function formatDateLocal(timestamp?: number): string {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 // --- Main App ---
 
@@ -43,8 +76,8 @@ export default function App() {
   
   // Confirmation Modal State (Split for animation stability)
   const [confirmData, setConfirmData] = useState<{
-      type: 'deleteTask' | 'deleteBoard' | 'clearQuadrant';
-      id: string; 
+      type: 'deleteTask' | 'deleteBoard' | 'clearQuadrant' | 'overwriteImport';
+      id: string;
       title?: string;
   } | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -75,16 +108,27 @@ export default function App() {
   // For Single Task Edit
   const [editTitleInput, setEditTitleInput] = useState('');
   const [editDateInput, setEditDateInput] = useState('');
+  const [editQuadrant, setEditQuadrant] = useState<QuadrantType>(QuadrantType.Do);
   // For Group Edit
   const [editGroupSelectedIds, setEditGroupSelectedIds] = useState<Set<string>>(new Set());
   const [inlineEditId, setInlineEditId] = useState<string | null>(null); // ID of subtask or 'parent' being edited
   const [inlineEditText, setInlineEditText] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Toasts
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
+
+  // Drag feedback
+  const [dragOverQuadrant, setDragOverQuadrant] = useState<QuadrantType | null>(null);
+
+  // Connection test
+  const [testingConnection, setTestingConnection] = useState(false);
+
 
   // Config & Settings State
   const [aiConfig, setAiConfig] = useState<AIConfig>({
-    provider: AIProvider.Gemini,
+    provider: AIProvider.OpenAI,
     customBaseUrl: '',
     customApiKey: '',
     customModel: 'gpt-4o-mini'
@@ -100,55 +144,77 @@ export default function App() {
     autoCompleteParent: false,
     suppressGroupPrompt: false,
     suppressLongTermPrompt: false,
+    hideCompleted: false,
     urgencyThresholdDays: 3
   });
+
+  // Persistence is enabled only after the initial load has run, so an empty
+  // state (or a crash mid-load) can never wipe saved data.
+  const [hydrated, setHydrated] = useState(false);
 
   // Helper for translations
   const t = translations[appSettings.language];
 
+  const pushToast = useCallback((message: string, type: ToastType) => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { id, message, type }]);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts(prev => prev.filter(item => item.id !== id));
+  }, []);
+
   // --- Effects ---
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem('matrixflow-config');
-    if (savedConfig) setAiConfig(JSON.parse(savedConfig));
+    let corrupted = 0;
+    const onCorrupt = () => { corrupted += 1; };
 
-    const savedSettings = localStorage.getItem('matrixflow-settings');
+    const savedConfig = safeParse<typeof aiConfig>('matrixflow-config', null as unknown as typeof aiConfig, onCorrupt);
+    if (savedConfig) {
+      // Legacy providers map to the OpenAI-compatible protocol
+      const legacy = (savedConfig as any).provider;
+      if (legacy === 'custom' || legacy === 'gemini') savedConfig.provider = AIProvider.OpenAI;
+      setAiConfig({ ...{
+          provider: AIProvider.OpenAI,
+          customBaseUrl: '',
+          customApiKey: '',
+          customModel: 'gpt-4o-mini'
+        }, ...savedConfig });
+    }
+
+    const savedSettings = safeParse<Partial<AppSettings>>('matrixflow-settings', null as unknown as Partial<AppSettings>, onCorrupt);
     if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
       setAppSettings({
-         ...parsed,
-         autoGroupAI: parsed.autoGroupAI ?? false,
-         autoDecomposeAI: parsed.autoDecomposeAI ?? false,
-         autoCompleteParent: parsed.autoCompleteParent ?? false,
-         suppressGroupPrompt: parsed.suppressGroupPrompt ?? false,
-         suppressLongTermPrompt: parsed.suppressLongTermPrompt ?? false,
-         urgencyThresholdDays: parsed.urgencyThresholdDays ?? 3
+         language: savedSettings.language ?? 'en',
+         theme: savedSettings.theme ?? 'system',
+         themeColor: savedSettings.themeColor ?? 'blue',
+         defaultInputMode: savedSettings.defaultInputMode ?? 'single',
+         autoGroupAI: savedSettings.autoGroupAI ?? false,
+         autoDecomposeAI: savedSettings.autoDecomposeAI ?? false,
+         autoCompleteParent: savedSettings.autoCompleteParent ?? false,
+         suppressGroupPrompt: savedSettings.suppressGroupPrompt ?? false,
+         suppressLongTermPrompt: savedSettings.suppressLongTermPrompt ?? false,
+         hideCompleted: savedSettings.hideCompleted ?? false,
+         urgencyThresholdDays: savedSettings.urgencyThresholdDays ?? 3
       });
-      setInputMode(parsed.defaultInputMode); 
+      setInputMode(savedSettings.defaultInputMode ?? 'single');
     }
 
-    const savedBoards = localStorage.getItem('matrixflow-boards');
-    const savedTasks = localStorage.getItem('matrixflow-tasks');
-    
-    let loadedBoards: Board[] = [];
-    let loadedTasks: Task[] = [];
+    const loadedBoards = safeParse<Board[]>('matrixflow-boards', [], onCorrupt);
+    const loadedTasks = safeParse<Task[]>('matrixflow-tasks', [], onCorrupt);
 
-    if (savedBoards) {
-      loadedBoards = JSON.parse(savedBoards);
-    }
-    
-    if (savedTasks) {
-      const rawTasks = JSON.parse(savedTasks);
-      if (rawTasks.length > 0 && !rawTasks[0].boardId) {
-        const defaultBoardId = crypto.randomUUID();
-        if (loadedBoards.length === 0) {
-          loadedBoards.push({ id: defaultBoardId, name: t.defaultBoardName, createdAt: Date.now() });
-        }
-        const targetBoardId = loadedBoards[0]?.id || defaultBoardId;
-        loadedTasks = rawTasks.map((task: any) => ({ ...task, boardId: targetBoardId }));
-      } else {
-        loadedTasks = rawTasks;
+    let tasksOut: Task[] = [];
+
+    if (loadedTasks.length > 0 && !loadedTasks[0].boardId) {
+      const defaultBoardId = crypto.randomUUID();
+      if (loadedBoards.length === 0) {
+        loadedBoards.push({ id: defaultBoardId, name: t.defaultBoardName, createdAt: Date.now() });
       }
+      const targetBoardId = loadedBoards[0]?.id || defaultBoardId;
+      tasksOut = loadedTasks.map((task: any) => ({ ...task, boardId: targetBoardId }));
+    } else {
+      tasksOut = loadedTasks;
     }
 
     if (loadedBoards.length === 0) {
@@ -157,16 +223,25 @@ export default function App() {
     }
 
     setBoards(loadedBoards);
-    setTasks(loadedTasks);
+    setTasks(tasksOut);
     setActiveBoardId(loadedBoards[0].id);
+    setHydrated(true);
+
+    if (corrupted > 0) pushToast(t.localStorageCorrupt, 'error');
 
   }, []);
 
-  // Save changes
-  useEffect(() => { if (tasks.length > 0) localStorage.setItem('matrixflow-tasks', JSON.stringify(tasks)); }, [tasks]);
-  useEffect(() => { if (boards.length > 0) localStorage.setItem('matrixflow-boards', JSON.stringify(boards)); }, [boards]);
-  useEffect(() => { localStorage.setItem('matrixflow-config', JSON.stringify(aiConfig)); }, [aiConfig]);
-  useEffect(() => { localStorage.setItem('matrixflow-settings', JSON.stringify(appSettings)); }, [appSettings]);
+  // Save changes (after hydration; empty lists persist too, so clearing all
+  // tasks no longer resurrects them on reload)
+  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-tasks', JSON.stringify(tasks)); }, [tasks, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-boards', JSON.stringify(boards)); }, [boards, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-config', JSON.stringify(aiConfig)); }, [aiConfig, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-settings', JSON.stringify(appSettings)); }, [appSettings, hydrated]);
+
+  // Keep <html lang> in sync with the UI language
+  useEffect(() => {
+    document.documentElement.lang = appSettings.language;
+  }, [appSettings.language]);
 
   // Auto-Move Tasks based on Deadline
   useEffect(() => {
@@ -228,45 +303,77 @@ export default function App() {
     root.style.setProperty('--primary', colorMap[appSettings.themeColor] || '#3b82f6');
   }, [appSettings.theme, appSettings.themeColor]);
 
-  // --- Handlers ---
+  // --- Derived Data ---
 
-  const activeTasks = tasks.filter(t => t.boardId === activeBoardId);
   const activeBoard = boards.find(b => b.id === activeBoardId);
+  const visibleTasks = useMemo(
+    () => tasks.filter(t => t.boardId === activeBoardId && (!appSettings.hideCompleted || !t.completed)),
+    [tasks, activeBoardId, appSettings.hideCompleted]
+  );
+  const doTasks = useMemo(() => visibleTasks.filter(t => t.quadrant === QuadrantType.Do), [visibleTasks]);
+  const planTasks = useMemo(() => visibleTasks.filter(t => t.quadrant === QuadrantType.Plan), [visibleTasks]);
+  const delegateTasks = useMemo(() => visibleTasks.filter(t => t.quadrant === QuadrantType.Delegate), [visibleTasks]);
+  const eliminateTasks = useMemo(() => visibleTasks.filter(t => t.quadrant === QuadrantType.Eliminate), [visibleTasks]);
+
+  // --- AI Connection Test ---
+
+  const handleTestConnection = async () => {
+      setTestingConnection(true);
+      try {
+          const result = await testAIConnection(aiConfig, { error: t.error, testOk: t.testOk, testFail: t.testFail });
+          pushToast(result.message, result.ok ? 'success' : 'error');
+      } catch (err) {
+          console.error(err);
+          pushToast(t.testFail, 'error');
+      } finally {
+          setTestingConnection(false);
+      }
+  };
+
+  // --- Handlers ---
 
   const openAddModal = () => {
     setInputMode(appSettings.defaultInputMode);
     setAddModalOpen(true);
   };
 
-  const handleDragStart = (e: React.DragEvent, task: Task) => {
+  const handleDragStart = useCallback((e: React.DragEvent, task: Task) => {
     e.dataTransfer.setData('taskId', task.id);
     e.dataTransfer.effectAllowed = 'move';
-  };
+    setDragOverQuadrant(task.quadrant);
+  }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragEnd = useCallback(() => {
+    setDragOverQuadrant(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, quadrant: QuadrantType) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-  };
+    setDragOverQuadrant(prev => (prev === quadrant ? prev : quadrant));
+  }, []);
 
-  const handleDrop = (e: React.DragEvent, targetQuadrant: QuadrantType) => {
+  const handleDrop = useCallback((e: React.DragEvent, targetQuadrant: QuadrantType) => {
     e.preventDefault();
+    setDragOverQuadrant(null);
     const taskId = e.dataTransfer.getData('taskId');
-    setTasks(prev => prev.map(t => 
+    if (!taskId) return;
+    setTasks(prev => prev.map(t =>
       t.id === taskId ? { ...t, quadrant: targetQuadrant } : t
     ));
-  };
+  }, []);
 
   // --- Deletion Logic with Confirmation ---
 
-  const handleDeleteTaskTrigger = (id: string) => {
+  const handleDeleteTaskTrigger = useCallback((id: string) => {
       setConfirmData({ type: 'deleteTask', id });
       setIsConfirmOpen(true);
-  };
-  
-  const handleClearQuadrantTrigger = (type: QuadrantType) => {
+  }, []);
+
+  const handleClearQuadrantTrigger = useCallback((type: QuadrantType) => {
       setConfirmData({ type: 'clearQuadrant', id: String(type) });
       setIsConfirmOpen(true);
-  };
+  }, []);
   
   const handleDeleteBoardTrigger = (id: string) => {
      if (boards.length <= 1) return; 
@@ -290,9 +397,26 @@ export default function App() {
               const remaining = boards.filter(b => b.id !== id);
               if (remaining.length > 0) setActiveBoardId(remaining[0].id);
           }
+      } else if (type === 'overwriteImport') {
+          runOverwriteImport();
       }
       setIsConfirmOpen(false);
       // Data persists for animation, will be overwritten next open
+  };
+
+  // Destructive overwrite, run only from the confirmation modal
+  const runOverwriteImport = () => {
+      if (!pendingImport) return;
+      setBoards(pendingImport.boards);
+      setTasks(pendingImport.tasks);
+      if (pendingImport.boards.length > 0) setActiveBoardId(pendingImport.boards[0].id);
+      if (pendingImport.settings) {
+          setTempSettings(pendingImport.settings);
+          setImportStage('settings-review');
+      } else {
+          closeImportFlow();
+          pushToast(t.importSuccess, 'success');
+      }
   };
 
   // Helper: Flatten grouped tasks into individuals
@@ -321,18 +445,18 @@ export default function App() {
   };
 
   // Helper: Execute batch decompose with provided list
-  const executeBatchDecompose = async (tasksToDecompose: Task[]) => {
+  const executeBatchDecompose = useCallback(async (tasksToDecompose: Task[]) => {
       if (tasksToDecompose.length === 0) return;
-      
+
       const titles = tasksToDecompose.map(t => t.title);
       const ids = new Set(tasksToDecompose.map(t => t.id));
-      
+
       try {
           const results = await decomposeTasksBatch(titles, aiConfig, appSettings.language);
-          
+
           setTasks(prev => prev.map(t => {
               if (!ids.has(t.id)) return t;
-              
+
               const result = results.find(r => r.originalTitle === t.title);
               if (result) {
                   const newSubs: SubTask[] = result.subtasks.map(st => ({
@@ -346,9 +470,9 @@ export default function App() {
           }));
       } catch (err) {
           console.error(err);
-          alert(t.error);
+          pushToast(err instanceof Error ? `${t.error}: ${err.message}` : t.error, 'error');
       }
-  };
+  }, [aiConfig, appSettings.language, pushToast]);
 
   // New consolidated process for adding analyzed tasks
   const processFinalTasks = async (incomingTasks: Task[]) => {
@@ -427,6 +551,7 @@ export default function App() {
         isLongTerm: res.isLongTerm,
         completed: false,
         createdAt: Date.now(),
+        reasoning: res.reasoning,
         subtasks: res.subtasks?.map(st => ({
           id: crypto.randomUUID(),
           title: st,
@@ -463,9 +588,10 @@ export default function App() {
       processFinalTasks(tasksForPhase3);
       
     } catch (err) {
-      alert(`${t.error}: ` + (err instanceof Error ? err.message : String(err)));
+      console.error(err);
+      pushToast(err instanceof Error ? `${t.error}: ${err.message}` : t.error, 'error');
       setIsProcessing(false);
-    } 
+    }
   };
 
   // Workflow: Handle Group Suggestion Decision
@@ -517,41 +643,43 @@ export default function App() {
   };
 
   // Individual Decompose (Manual trigger)
-  const handleManualDecompose = async (task: Task) => {
+  const handleManualDecompose = useCallback(async (task: Task) => {
       setSingleDecomposingTask(task);
       try {
          await executeBatchDecompose([task]);
       } catch (err) {
          console.error(err);
-         alert(t.error);
+         pushToast(t.error, 'error');
       } finally {
          setSingleDecomposingTask(null);
       }
-  };
+  }, [executeBatchDecompose, pushToast]);
 
   const handleManualAdd = () => {
     if (!inputText.trim()) return;
-    
-    const newTask: Task = {
+
+    // Split multi-line input into separate tasks, consistent with AI mode
+    const lines = inputText.split('\n').map(line => line.trim()).filter(Boolean);
+    const newTasks: Task[] = lines.map(line => ({
       id: crypto.randomUUID(),
       boardId: activeBoardId,
-      title: inputText,
-      quadrant: QuadrantType.Do, 
+      title: line,
+      quadrant: QuadrantType.Do,
       isLongTerm: false,
       completed: false,
       createdAt: Date.now(),
-    };
-    setTasks(prev => [newTask, ...prev]);
+    }));
+    setTasks(prev => [...newTasks, ...prev]);
     setInputText('');
     if (addModalOpen) setAddModalOpen(false);
   };
 
   // General Update Handler
-  const handleTaskUpdate = (updatedTask: Task) => {
+  const handleTaskUpdate = useCallback((updatedTask: Task) => {
     if (appSettings.autoCompleteParent && updatedTask.subtasks && updatedTask.subtasks.length > 0) {
         const total = updatedTask.subtasks.length;
         const completed = updatedTask.subtasks.filter(s => s.completed).length;
-        
+
         if (total > 0 && total === completed) {
              updatedTask.completed = true;
         } else if (updatedTask.completed && total !== completed) {
@@ -559,10 +687,10 @@ export default function App() {
         }
     }
     setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-  };
+  }, [appSettings.autoCompleteParent]);
 
   // Cascading Parent Checkbox Logic
-  const handleParentCheck = (task: Task) => {
+  const handleParentCheck = useCallback((task: Task) => {
     const newStatus = !task.completed;
     const updatedSubtasks = task.subtasks?.map(s => ({
       ...s,
@@ -575,7 +703,7 @@ export default function App() {
       subtasks: updatedSubtasks
     };
     setTasks(prev => prev.map(t => t.id === newTask.id ? newTask : t));
-  };
+  }, []);
 
   // Selection & Grouping Handlers
   const toggleSelectionMode = () => {
@@ -583,12 +711,12 @@ export default function App() {
     setSelectedTaskIds(new Set());
   };
 
-  const handleToggleSelect = (id: string) => {
+  const handleToggleSelect = useCallback((id: string) => {
     const newSet = new Set(selectedTaskIds);
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
     setSelectedTaskIds(newSet);
-  };
+  }, [selectedTaskIds]);
 
   const openGroupModal = () => {
       if (selectedTaskIds.size < 2) return;
@@ -636,16 +764,17 @@ export default function App() {
 
   // --- Edit Logic Handlers ---
 
-  const openEditModal = (task: Task) => {
+  const openEditModal = useCallback((task: Task) => {
       setEditingTask(task);
       setEditGroupSelectedIds(new Set());
       setInlineEditId(null);
       setShowDatePicker(false);
+      setEditQuadrant(task.quadrant);
 
       // Single task init
       setEditTitleInput(task.title);
-      setEditDateInput(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
-  };
+      setEditDateInput(formatDateLocal(task.deadline));
+  }, []);
 
   const handleEditGroupSelect = (id: string) => {
       const newSet = new Set(editGroupSelectedIds);
@@ -679,7 +808,8 @@ export default function App() {
 
   const applyGroupDeadline = (dateStr: string) => {
       if (!editingTask || !dateStr) return;
-      const timestamp = new Date(dateStr).getTime();
+      const timestamp = parseDateInput(dateStr);
+      if (timestamp === undefined) return;
       
       let updatedTask = { ...editingTask };
       
@@ -700,12 +830,12 @@ export default function App() {
 
   const saveSingleEdit = () => {
       if (!editingTask) return;
-      const timestamp = editDateInput ? new Date(editDateInput).getTime() : undefined;
+      const timestamp = parseDateInput(editDateInput);
       const newTitle = editTitleInput.trim();
-      
+
       if (!newTitle) return;
 
-      handleTaskUpdate({ ...editingTask, title: newTitle, deadline: timestamp });
+      handleTaskUpdate({ ...editingTask, title: newTitle, deadline: timestamp, quadrant: editQuadrant });
       setEditingTask(null);
   };
 
@@ -779,21 +909,21 @@ export default function App() {
               const json = JSON.parse(content);
 
               if (!Array.isArray(json.boards) || !Array.isArray(json.tasks)) {
-                  alert(t.importError);
+                  pushToast(t.importError, 'error');
                   return;
               }
-              
+
               setPendingImport(json);
               setImportSelection(new Set([
-                'language', 'theme', 'themeColor', 'inputMode', 'aiProvider', 
+                'language', 'theme', 'themeColor', 'inputMode', 'aiProvider', 'hideCompleted',
                 'autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'autoCompleteParent', 'urgencyThresholdDays'
               ]));
-              
+
               setImportStage('mode-select');
 
           } catch (err) {
               console.error(err);
-              alert(t.importError);
+              pushToast(t.importError, 'error');
           } finally {
               e.target.value = '';
           }
@@ -805,23 +935,30 @@ export default function App() {
       if (!pendingImport) return;
 
       if (mode === 'overwrite') {
-          setBoards(pendingImport.boards);
-          setTasks(pendingImport.tasks);
-          if (pendingImport.boards.length > 0) setActiveBoardId(pendingImport.boards[0].id);
-      } else {
-          const existingBoardIds = new Set(boards.map(b => b.id));
-          const newBoards = pendingImport.boards.filter(b => !existingBoardIds.has(b.id));
-          
-          setBoards(prev => [...prev, ...newBoards]);
-          setTasks(prev => [...prev, ...pendingImport.tasks]);
+          // Destructive: close mode selection and require explicit confirmation
+          setImportStage('none');
+          setConfirmData({ type: 'overwriteImport', id: 'overwriteImport' });
+          setIsConfirmOpen(true);
+          return;
       }
+
+      const existingBoardIds = new Set(boards.map(b => b.id));
+      const newBoards = pendingImport.boards.filter(b => !existingBoardIds.has(b.id));
+
+      setBoards(prev => [...prev, ...newBoards]);
+
+      // Deduplicate by id and drop tasks whose board no longer exists
+      const seenTaskIds = new Set(tasks.map(t => t.id));
+      const validBoardIds = new Set([...existingBoardIds, ...newBoards.map(b => b.id)]);
+      const incoming = pendingImport.tasks.filter(t => !seenTaskIds.has(t.id) && validBoardIds.has(t.boardId));
+      setTasks(prev => [...prev, ...incoming]);
 
       if (pendingImport.settings) {
           setTempSettings(pendingImport.settings);
           setImportStage('settings-review');
       } else {
           closeImportFlow();
-          alert(t.importSuccess);
+          pushToast(t.importSuccess, 'success');
       }
   };
 
@@ -840,7 +977,8 @@ export default function App() {
               if (importSelection.has('suppressGroupPrompt')) next.suppressGroupPrompt = tempSettings.suppressGroupPrompt;
               if (importSelection.has('autoCompleteParent')) next.autoCompleteParent = tempSettings.autoCompleteParent;
               if (importSelection.has('urgencyThresholdDays')) next.urgencyThresholdDays = tempSettings.urgencyThresholdDays;
-              
+      if (importSelection.has('hideCompleted')) next.hideCompleted = tempSettings.hideCompleted;
+
               return next;
           });
       }
@@ -848,7 +986,7 @@ export default function App() {
           setAiConfig(pendingImport.aiConfig);
       }
       closeImportFlow();
-      alert(t.importSuccess);
+      pushToast(t.importSuccess, 'success');
   };
 
   const closeImportFlow = () => {
@@ -924,16 +1062,16 @@ export default function App() {
         
         <div className="flex items-center gap-2">
             {/* Selection Mode Toggle */}
-            <button 
+            <button
               onClick={toggleSelectionMode}
               className={`neu-btn px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${isSelectionMode ? 'text-primary ring-1 ring-primary' : 'text-slate-500 dark:text-slate-400'}`}
             >
               <LayersIcon size={18} />
               <span className="hidden md:inline text-xs font-bold">{isSelectionMode ? t.cancelSelection : t.selectionMode}</span>
             </button>
-            
+
             {isSelectionMode && selectedTaskIds.size >= 2 && (
-               <button 
+               <button
                  onClick={openGroupModal}
                  className="neu-btn px-3 py-2 rounded-lg text-primary font-bold text-xs animate-pop-in"
                >
@@ -941,8 +1079,21 @@ export default function App() {
                </button>
             )}
 
-            <button 
+            {/* Hide Completed Toggle */}
+            <button
+              onClick={() => setAppSettings(s => ({ ...s, hideCompleted: !s.hideCompleted }))}
+              className={`neu-btn p-3 rounded-full transition-colors active:scale-95 ${appSettings.hideCompleted ? 'text-primary ring-1 ring-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
+              title={t.hideCompleted}
+              aria-label={t.hideCompleted}
+              aria-pressed={appSettings.hideCompleted}
+            >
+              {appSettings.hideCompleted ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+            </button>
+
+            <button
               onClick={() => setSettingsOpen(true)}
+              aria-label={t.settings}
+              title={t.settings}
               className="neu-btn p-3 rounded-full text-slate-500 dark:text-slate-400 hover:text-primary transition-colors active:scale-95"
             >
               <SettingsIcon />
@@ -971,11 +1122,13 @@ export default function App() {
 
         {/* The Matrix Grid */}
         <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-3 md:gap-6 h-full">
-          <Quadrant 
-            type={QuadrantType.Do} 
+          <Quadrant
+            type={QuadrantType.Do}
             title={t.q1} shortTitle={t.q1Short} colorCode="q1"
-            tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Do)}
+            tasks={doTasks}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            isDragOver={dragOverQuadrant === QuadrantType.Do}
             onDelete={handleDeleteTaskTrigger}
             onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
@@ -987,11 +1140,13 @@ export default function App() {
             onToggleSelect={handleToggleSelect}
             onEdit={openEditModal}
           />
-          <Quadrant 
-            type={QuadrantType.Plan} 
+          <Quadrant
+            type={QuadrantType.Plan}
             title={t.q2} shortTitle={t.q2Short} colorCode="q2"
-            tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Plan)}
+            tasks={planTasks}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            isDragOver={dragOverQuadrant === QuadrantType.Plan}
             onDelete={handleDeleteTaskTrigger}
             onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
@@ -1003,11 +1158,13 @@ export default function App() {
             onToggleSelect={handleToggleSelect}
             onEdit={openEditModal}
           />
-          <Quadrant 
-            type={QuadrantType.Delegate} 
+          <Quadrant
+            type={QuadrantType.Delegate}
             title={t.q3} shortTitle={t.q3Short} colorCode="q3"
-            tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Delegate)}
+            tasks={delegateTasks}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            isDragOver={dragOverQuadrant === QuadrantType.Delegate}
             onDelete={handleDeleteTaskTrigger}
             onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
@@ -1019,11 +1176,13 @@ export default function App() {
             onToggleSelect={handleToggleSelect}
             onEdit={openEditModal}
           />
-          <Quadrant 
-            type={QuadrantType.Eliminate} 
+          <Quadrant
+            type={QuadrantType.Eliminate}
             title={t.q4} shortTitle={t.q4Short} colorCode="q4"
-            tasks={activeTasks.filter(t => t.quadrant === QuadrantType.Eliminate)}
+            tasks={eliminateTasks}
             onDrop={handleDrop} onDragOver={handleDragOver} onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            isDragOver={dragOverQuadrant === QuadrantType.Eliminate}
             onDelete={handleDeleteTaskTrigger}
             onClear={handleClearQuadrantTrigger}
             onDecompose={handleManualDecompose}
@@ -1040,22 +1199,27 @@ export default function App() {
       </div>
 
       {/* Mobile FAB */}
-      <button 
+      <button
         onClick={openAddModal}
+        aria-label={t.addBtn}
         className="md:hidden absolute bottom-8 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/40 flex items-center justify-center active:scale-90 transition-transform z-30 animate-pop-in"
       >
         <PlusIcon size={28} />
       </button>
 
+      {/* Toasts */}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
+
       {/* --- Modals --- */}
 
       {/* Confirmation Modal - Using stable data */}
-      <Modal 
-          isOpen={isConfirmOpen} 
-          onClose={() => setIsConfirmOpen(false)} 
+      <Modal
+          isOpen={isConfirmOpen}
+          onClose={() => setIsConfirmOpen(false)}
           title={
               confirmData?.type === 'deleteTask' ? t.deleteTaskTitle :
               confirmData?.type === 'deleteBoard' ? t.deleteBoardTitle :
+              confirmData?.type === 'overwriteImport' ? t.importModeOverwrite :
               t.clearQuadrantTitle
           }
       >
@@ -1067,18 +1231,22 @@ export default function App() {
                   <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
                       {confirmData?.type === 'deleteTask' ? t.deleteTaskConfirm :
                        confirmData?.type === 'deleteBoard' ? t.confirmDeleteBoard :
+                       confirmData?.type === 'overwriteImport' ? t.confirmImport :
                        t.confirmClearQuadrant}
                   </p>
               </div>
-              
+
               <div className="flex gap-4">
-                  <button 
-                      onClick={() => setIsConfirmOpen(false)}
+                  <button
+                      onClick={() => {
+                          if (confirmData?.type === 'overwriteImport') setImportStage('mode-select');
+                          setIsConfirmOpen(false);
+                      }}
                       className="neu-btn flex-1 py-3 rounded-xl text-slate-500 font-bold text-sm hover:text-slate-700 dark:hover:text-slate-200 active:scale-95 transition-all"
                   >
                       {t.cancel}
                   </button>
-                  <button 
+                  <button
                       onClick={executeConfirmAction}
                       className="neu-btn flex-1 py-3 rounded-xl text-red-500 font-bold text-sm hover:text-red-600 active:scale-95 transition-all"
                   >
@@ -1208,12 +1376,30 @@ export default function App() {
                          <div className="space-y-2">
                               <label className="text-xs font-bold text-slate-500 ml-1">{t.setDeadline}</label>
                               <div className="neu-flat rounded-xl p-1 flex items-center bg-white dark:bg-slate-700">
-                                 <input 
-                                   type="date" 
+                                 <input
+                                   type="date"
                                    value={editDateInput}
                                    onChange={(e) => setEditDateInput(e.target.value)}
                                    className="w-full bg-transparent outline-none p-2 text-sm text-slate-600 dark:text-slate-300 font-bold"
                                  />
+                              </div>
+                         </div>
+
+                         {/* Quadrant Picker Card */}
+                         <div className="space-y-2">
+                              <label className="text-xs font-bold text-slate-500 ml-1">{t.quadrant}</label>
+                              <div className="grid grid-cols-2 gap-2">
+                                  {([QuadrantType.Do, QuadrantType.Plan, QuadrantType.Delegate, QuadrantType.Eliminate] as const).map(q => (
+                                      <button
+                                          key={q}
+                                          onClick={() => setEditQuadrant(q)}
+                                          aria-pressed={editQuadrant === q}
+                                          className={`flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-bold transition-all ${editQuadrant === q ? 'neu-pressed ring-1 ring-primary text-slate-700 dark:text-slate-200' : 'neu-flat text-slate-500'}`}
+                                      >
+                                          <span className={`w-2 h-2 rounded-full flex-none ${q === QuadrantType.Do ? 'bg-q1' : q === QuadrantType.Plan ? 'bg-q2' : q === QuadrantType.Delegate ? 'bg-q3' : 'bg-q4'}`} />
+                                          {q === QuadrantType.Do ? t.q1Short : q === QuadrantType.Plan ? t.q2Short : q === QuadrantType.Delegate ? t.q3Short : t.q4Short}
+                                      </button>
+                                  ))}
                               </div>
                          </div>
                      </div>
@@ -1292,6 +1478,8 @@ export default function App() {
                   <button
                     key={color}
                     onClick={() => setAppSettings(s => ({ ...s, themeColor: color }))}
+                    aria-label={color === 'blue' ? t.colorBlue : color === 'purple' ? t.colorPurple : color === 'green' ? t.colorGreen : color === 'orange' ? t.colorOrange : t.colorPink}
+                    title={color === 'blue' ? t.colorBlue : color === 'purple' ? t.colorPurple : color === 'green' ? t.colorGreen : color === 'orange' ? t.colorOrange : t.colorPink}
                     className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${appSettings.themeColor === color ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-105'}`}
                     style={{ backgroundColor: color === 'blue' ? '#3b82f6' : color === 'purple' ? '#8b5cf6' : color === 'green' ? '#10b981' : color === 'orange' ? '#f97316' : '#ec4899' }}
                   />
@@ -1362,52 +1550,72 @@ export default function App() {
           {/* AI Provider Config */}
           <div>
             <label className="block text-sm font-bold text-slate-500 mb-2">{t.provider}</label>
-            <div className="flex gap-2 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               <button
-                onClick={() => setAiConfig(c => ({ ...c, provider: AIProvider.Gemini }))}
-                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${aiConfig.provider === AIProvider.Gemini ? 'neu-pressed text-primary' : 'neu-flat text-slate-500'}`}
+                onClick={() => setAiConfig(c => ({ ...c, provider: AIProvider.OpenAI }))}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${aiConfig.provider === AIProvider.OpenAI ? 'neu-pressed text-green-500' : 'neu-flat text-slate-500'}`}
               >
-                Gemini
+                {t.providerOpenAI}
               </button>
               <button
-                onClick={() => setAiConfig(c => ({ ...c, provider: AIProvider.Custom }))}
-                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${aiConfig.provider === AIProvider.Custom ? 'neu-pressed text-green-500' : 'neu-flat text-slate-500'}`}
+                onClick={() => setAiConfig(c => ({ ...c, provider: AIProvider.OpenAIResponses }))}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${aiConfig.provider === AIProvider.OpenAIResponses ? 'neu-pressed text-green-500' : 'neu-flat text-slate-500'}`}
               >
-                Custom API
+                {t.providerOpenAIResponses}
+              </button>
+              <button
+                onClick={() => setAiConfig(c => ({ ...c, provider: AIProvider.Anthropic }))}
+                className={`col-span-2 py-2 rounded-lg text-xs font-bold transition-all ${aiConfig.provider === AIProvider.Anthropic ? 'neu-pressed text-orange-500' : 'neu-flat text-slate-500'}`}
+              >
+                {t.providerAnthropic}
               </button>
             </div>
 
-            {aiConfig.provider === AIProvider.Custom && (
-              <div className="space-y-3 p-3 neu-concave rounded-xl animate-fade-in">
-                <div>
-                  <label className="text-xs font-bold text-slate-400">{t.customBaseUrl}</label>
-                  <input 
-                    type="text" 
-                    value={aiConfig.customBaseUrl}
-                    onChange={(e) => setAiConfig(c => ({ ...c, customBaseUrl: e.target.value }))}
-                    className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400">{t.customApiKey}</label>
-                  <input 
-                    type="password" 
-                    value={aiConfig.customApiKey}
-                    onChange={(e) => setAiConfig(c => ({ ...c, customApiKey: e.target.value }))}
-                    className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400">{t.customModel}</label>
-                  <input 
-                    type="text" 
-                    value={aiConfig.customModel}
-                    onChange={(e) => setAiConfig(c => ({ ...c, customModel: e.target.value }))}
-                    className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
-                  />
-                </div>
+            <div className="space-y-3 p-3 neu-concave rounded-xl animate-fade-in mb-3">
+              <div>
+                <label htmlFor="customBaseUrlInput" className="text-xs font-bold text-slate-400">{t.customBaseUrl}</label>
+                <input
+                  id="customBaseUrlInput"
+                  type="text"
+                  value={aiConfig.customBaseUrl}
+                  onChange={(e) => setAiConfig(c => ({ ...c, customBaseUrl: e.target.value }))}
+                  className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
+                />
               </div>
-            )}
+              <div>
+                <label htmlFor="customApiKeyInput" className="text-xs font-bold text-slate-400">{t.customApiKey}</label>
+                <input
+                  id="customApiKeyInput"
+                  type="password"
+                  value={aiConfig.customApiKey}
+                  onChange={(e) => setAiConfig(c => ({ ...c, customApiKey: e.target.value }))}
+                  className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="customModelInput" className="text-xs font-bold text-slate-400">{t.customModel}</label>
+                <input
+                  id="customModelInput"
+                  type="text"
+                  value={aiConfig.customModel}
+                  onChange={(e) => setAiConfig(c => ({ ...c, customModel: e.target.value }))}
+                  className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 leading-snug">{t.customUrlHint}</p>
+            </div>
+
+            {/* Connection Test */}
+            <button
+              onClick={handleTestConnection}
+              disabled={testingConnection}
+              className="w-full mt-3 neu-btn py-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+            >
+              {testingConnection
+                ? <LoaderIcon size={14} className="animate-spin" />
+                : <SparklesIcon size={14} />}
+              {testingConnection ? t.processing : t.testConnection}
+            </button>
           </div>
         </div>
       </Modal>
@@ -1582,9 +1790,9 @@ export default function App() {
       </Modal>
 
       {/* Single Task Decompose Modal (Immediate Feedback) */}
-      <Modal isOpen={!!singleDecomposingTask} onClose={() => {}} hideClose={true}>
+      <Modal isOpen={!!singleDecomposingTask} onClose={() => setSingleDecomposingTask(null)}>
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
-             <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{singleDecomposingTask?.title}</p>
+             <p className="text-xl font-bold text-slate-700 dark:text-slate-200 text-center">{singleDecomposingTask?.title}</p>
              <LoaderIcon className="animate-spin text-primary" size={48} />
              <p className="text-sm text-slate-500 dark:text-slate-400 font-bold animate-pulse">{t.decomposingSingle}</p>
           </div>

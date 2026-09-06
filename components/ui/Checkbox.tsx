@@ -9,10 +9,12 @@ interface CheckboxProps {
 
 export const Checkbox: React.FC<CheckboxProps> = ({ checked, onChange, className }) => (
   <button
+    role="checkbox"
+    aria-checked={checked}
     onClick={(e) => { e.stopPropagation(); onChange(); }}
     className={`rounded-md border-2 transition-all duration-200 flex-none flex items-center justify-center ${
-      checked 
-        ? 'bg-primary border-primary text-white' 
+      checked
+        ? 'bg-primary border-primary text-white'
         : 'bg-transparent border-slate-300 dark:border-slate-500 hover:border-primary text-transparent'
     } ${className || 'w-5 h-5'}`}
   >

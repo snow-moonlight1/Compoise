@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MatrixFlow AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -137,32 +137,28 @@
         box-shadow: inset 5px 5px 10px #1f2632, inset -5px -5px 10px #3b485e;
       }
 
-      /* Scrollbar Hidden Globally */
-      *::-webkit-scrollbar {
-        display: none;
+      /* Thin, subtle scrollbar shown on elements marked custom-scrollbar */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
       }
-      * {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
       }
-      
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(100, 116, 139, 0.35);
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 116, 139, 0.55);
+      }
+
       /* Optimization Utilities */
       .will-change-transform {
         will-change: transform, opacity, height, margin, padding;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
+  </head>
   <body class="bg-bgLight dark:bg-bgDark text-slate-700 dark:text-slate-200">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>

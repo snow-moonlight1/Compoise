@@ -6,11 +6,12 @@ import { Checkbox } from './ui/Checkbox';
 interface TaskCardProps {
   task: Task;
   onDragStart: (e: React.DragEvent, task: Task) => void;
+  onDragEnd: () => void;
   onDelete: (id: string) => void;
   onDecompose: (task: Task) => void;
   onUpdate: (task: Task) => void;
   onParentCheck: (task: Task) => void;
-  colors: { border: string, text: string };
+  colors: { border: string, text: string, hex: string };
   t: any;
   isSelectionMode: boolean;
   isSelected: boolean;
@@ -18,10 +19,11 @@ interface TaskCardProps {
   onEdit: (task: Task, subTaskId?: string) => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ 
-  task, 
-  onDragStart, 
-  onDelete, 
+const TaskCardImpl: React.FC<TaskCardProps> = ({
+  task,
+  onDragStart,
+  onDragEnd,
+  onDelete,
   onDecompose,
   onUpdate,
   onParentCheck,
@@ -32,7 +34,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onToggleSelect,
   onEdit
 }) => {
-  
+
   const [newSubtask, setNewSubtask] = useState('');
   const [isAddingSub, setIsAddingSub] = useState(false);
 
@@ -42,7 +44,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const daysLeft = calculateDaysLeft(task.deadline);
-  
+
   const getDeadlineColor = (days: number) => {
     if (days < 0) return 'text-red-500 font-bold';
     if (days <= 2) return 'text-orange-500 font-bold';
@@ -68,7 +70,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const updatedSubs = task.subtasks.filter(s => s.id !== subId);
     onUpdate({ ...task, subtasks: updatedSubs });
   };
-  
+
   const toggleLongTerm = () => {
      onUpdate({ ...task, isLongTerm: !task.isLongTerm });
   };
@@ -77,46 +79,56 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     <div
       draggable={!isSelectionMode}
       onDragStart={(e) => onDragStart(e, task)}
+      onDragEnd={onDragEnd}
       onClick={() => isSelectionMode && onToggleSelect(task.id)}
-      className={`neu-btn cursor-grab active:cursor-grabbing group relative overflow-hidden flex flex-col gap-2 rounded-2xl
-        mb-3 p-3 border border-slate-200/50 dark:border-slate-700/50 max-h-96
+      style={{ borderLeft: `3px solid ${colors.hex}` }}
+      className={`neu-btn cursor-grab active:cursor-grabbing group relative flex flex-col gap-2 rounded-2xl
+        mb-3 p-3 border border-slate-200/50 dark:border-slate-700/50
         ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}
       `}
     >
       {task.isLongTerm && !task.subtasks?.length && (
         <div className="absolute top-0 left-0 w-1 h-full bg-yellow-400/50" />
       )}
-      
-      {/* Parent Task Header */}
-      <div className="flex justify-between items-start gap-3 w-full">
+
+      {/* Parent Task Header: title keeps a readable min width, meta wraps below on narrow screens */}
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-2 w-full">
         {isSelectionMode ? (
           <div className={`w-6 h-6 rounded border-2 flex-none flex items-center justify-center transition-colors mt-[1.5px] ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-400'}`}>
              {isSelected && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
           </div>
         ) : (
-          <Checkbox 
-            checked={task.completed} 
+          <Checkbox
+            checked={task.completed}
             onChange={() => onParentCheck(task)}
-            className="w-6 h-6 mt-[1.5px]" 
+            className="w-6 h-6 mt-[1.5px]"
           />
         )}
-        
-        <div className="flex-1 min-w-0">
+
+        <div className="flex-1 min-w-[120px]">
            <div className="relative inline-block">
                <span className={`text-sm font-bold break-words leading-tight transition-colors duration-500 ease-in-out relative z-0
                   ${task.completed ? 'text-gray-400 dark:text-gray-600' : 'text-slate-700 dark:text-slate-200'}
                `}>
                 {task.title}
                </span>
-               <span 
+               <span
                  className={`absolute left-0 top-1/2 h-[2px] bg-slate-400/80 dark:bg-slate-500/80 block transition-all duration-500 ease-out z-10 pointer-events-none`}
                  style={{ width: task.completed ? '100%' : '0%' }}
                />
            </div>
+           {task.reasoning && !task.completed && (
+             <p
+               title={task.reasoning}
+               className="text-[11px] italic text-slate-400 dark:text-slate-500 leading-snug mt-0.5 break-words"
+             >
+               {task.reasoning}
+             </p>
+           )}
         </div>
 
         {/* Meta Section: Deadline + Actions */}
-        <div className="flex items-center gap-2 flex-none pt-0.5">
+        <div className="flex items-center gap-2 flex-none pt-0.5 ml-auto">
             {/* Right-aligned deadline */}
             {daysLeft !== null && !task.completed && (
              <div className={`text-xs flex items-center gap-1 ${getDeadlineColor(daysLeft)} whitespace-nowrap`}>
@@ -128,7 +140,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {!isSelectionMode && (
               <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity ml-1">
                 {task.isLongTerm && !task.subtasks?.length && (
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); onDecompose(task); }}
                     className="text-yellow-500 hover:scale-110 transition-transform p-1"
                     title={t.decompose}
@@ -136,31 +148,31 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     <SplitIcon size={14} />
                   </button>
                 )}
-                 <button 
+                 <button
                   onClick={(e) => { e.stopPropagation(); toggleLongTerm(); }}
                   className={`hover:text-primary transition-colors p-1 ${task.isLongTerm ? 'text-yellow-500' : 'text-slate-400'}`}
                   title={t.toggleLongTerm}
                 >
                   <FlagIcon size={14} />
                 </button>
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); onEdit(task); }}
                   className="text-slate-400 hover:text-primary transition-colors p-1"
                   title={t.editTask}
                 >
                   <PencilIcon size={14} />
                 </button>
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); setIsAddingSub(!isAddingSub); }}
                   className="text-slate-400 hover:text-primary transition-colors p-1"
                   title={t.addSubtask}
                 >
                   <PlusIcon size={14} />
                 </button>
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
                   className="text-red-400 hover:scale-110 transition-transform p-1"
-                  title={t.deleteBoard}
+                  title={t.delete}
                 >
                   <TrashIcon size={14} />
                 </button>
@@ -175,23 +187,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {task.subtasks.map(sub => {
              const subDays = calculateDaysLeft(sub.deadline);
              return (
-                <div 
-                  key={sub.id} 
+                <div
+                  key={sub.id}
                   className="flex items-start gap-2 text-xs group/sub transition-all duration-300 ease-in-out overflow-hidden opacity-100"
                 >
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); toggleSubtask(sub.id); }}
+                    aria-label={sub.title}
                     className={`w-4 h-4 mt-0.5 rounded border transition-colors flex-none flex items-center justify-center ${
-                      sub.completed 
-                        ? 'bg-slate-400 border-slate-400' 
+                      sub.completed
+                        ? 'bg-slate-400 border-slate-400'
                         : 'bg-transparent border-slate-400 hover:border-primary'
                     }`}
                   >
-                     <svg 
-                      className={`w-3 h-3 text-white transition-transform duration-200 ${sub.completed ? 'scale-100' : 'scale-0'}`} 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor" 
+                     <svg
+                      className={`w-3 h-3 text-white transition-transform duration-200 ${sub.completed ? 'scale-100' : 'scale-0'}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                       strokeWidth={4}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -205,28 +218,30 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         `}>
                           {sub.title}
                         </span>
-                        <span 
+                        <span
                            className={`absolute left-0 top-1/2 h-[1.5px] bg-slate-400/80 dark:bg-slate-500/80 block transition-all duration-500 ease-out z-10 pointer-events-none`}
                            style={{ width: sub.completed ? '100%' : '0%' }}
                          />
                     </span>
                   </div>
-                  
+
                   {subDays !== null && !sub.completed && (
                      <span className={`text-[10px] mt-0.5 ${getDeadlineColor(subDays)}`}>
-                        {subDays}d
+                        {subDays < 0 ? t.overdue : subDays === 0 ? t.today : `${subDays}${t.daysLeft}`}
                      </span>
                   )}
-                  
-                  <button 
+
+                  <button
                      onClick={(e) => { e.stopPropagation(); onEdit(task, sub.id); }}
-                     className="opacity-0 group-hover/sub:opacity-100 text-slate-400 hover:text-primary p-0.5 transition-opacity"
+                     aria-label={t.editTask}
+                     className="opacity-60 hover:opacity-100 text-slate-400 hover:text-primary p-0.5 transition-opacity"
                   >
                     <PencilIcon size={10} />
                   </button>
-                  <button 
+                  <button
                      onClick={(e) => { e.stopPropagation(); deleteSubtask(sub.id); }}
-                     className="opacity-0 group-hover/sub:opacity-100 text-red-400 p-0.5 transition-opacity"
+                     aria-label={t.delete}
+                     className="opacity-60 hover:opacity-100 text-red-400 p-0.5 transition-opacity"
                   >
                     <XIcon size={10} />
                   </button>
@@ -239,7 +254,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {/* Add Subtask Input */}
       {isAddingSub && (
         <div className="mt-2 flex gap-1 items-center animate-fade-in">
-          <input 
+          <input
             autoFocus
             value={newSubtask}
             onChange={(e) => setNewSubtask(e.target.value)}
@@ -253,3 +268,5 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     </div>
   );
 };
+
+export const TaskCard = React.memo(TaskCardImpl);

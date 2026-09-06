@@ -9,12 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "react": "^19.2.0",
-    "@google/genai": "^1.30.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.1",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

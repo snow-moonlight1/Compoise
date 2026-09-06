@@ -20,9 +20,10 @@ export const SettingsControls: React.FC<SettingsControlsProps> = ({ settings, se
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoDecomposeAI}</p>
                   <p className="text-xs text-slate-500">{t.autoDecomposeDesc}</p>
               </div>
-              <ToggleSwitch 
-                  checked={settings.autoDecomposeAI} 
+              <ToggleSwitch
+                  checked={settings.autoDecomposeAI}
                   onChange={() => !readOnly && setSettings(s => ({ ...s, autoDecomposeAI: !s.autoDecomposeAI }))}
+                  ariaLabel={t.autoDecomposeAI}
               />
           </div>
 
@@ -31,9 +32,10 @@ export const SettingsControls: React.FC<SettingsControlsProps> = ({ settings, se
               <div>
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressLongTermPrompt}</p>
               </div>
-              <ToggleSwitch 
-                  checked={settings.suppressLongTermPrompt} 
+              <ToggleSwitch
+                  checked={settings.suppressLongTermPrompt}
                   onChange={() => !readOnly && setSettings(s => ({ ...s, suppressLongTermPrompt: !s.suppressLongTermPrompt }))}
+                  ariaLabel={t.suppressLongTermPrompt}
               />
           </div>
 
@@ -45,9 +47,10 @@ export const SettingsControls: React.FC<SettingsControlsProps> = ({ settings, se
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoGroupAI}</p>
                   <p className="text-xs text-slate-500">{t.autoGroupDesc}</p>
               </div>
-              <ToggleSwitch 
-                  checked={settings.autoGroupAI} 
+              <ToggleSwitch
+                  checked={settings.autoGroupAI}
                   onChange={() => !readOnly && setSettings(s => ({ ...s, autoGroupAI: !s.autoGroupAI }))}
+                  ariaLabel={t.autoGroupAI}
               />
           </div>
 
@@ -56,9 +59,10 @@ export const SettingsControls: React.FC<SettingsControlsProps> = ({ settings, se
               <div>
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.suppressGroupPrompt}</p>
               </div>
-              <ToggleSwitch 
-                  checked={settings.suppressGroupPrompt} 
+              <ToggleSwitch
+                  checked={settings.suppressGroupPrompt}
                   onChange={() => !readOnly && setSettings(s => ({ ...s, suppressGroupPrompt: !s.suppressGroupPrompt }))}
+                  ariaLabel={t.suppressGroupPrompt}
               />
           </div>
 
@@ -70,9 +74,10 @@ export const SettingsControls: React.FC<SettingsControlsProps> = ({ settings, se
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.autoCompleteParent}</p>
                   <p className="text-xs text-slate-500">{t.autoCompleteParentDesc}</p>
               </div>
-              <ToggleSwitch 
-                  checked={settings.autoCompleteParent} 
+              <ToggleSwitch
+                  checked={settings.autoCompleteParent}
                   onChange={() => !readOnly && setSettings(s => ({ ...s, autoCompleteParent: !s.autoCompleteParent }))}
+                  ariaLabel={t.autoCompleteParent}
               />
           </div>
           
@@ -82,13 +87,14 @@ export const SettingsControls: React.FC<SettingsControlsProps> = ({ settings, se
           <div>
              <div className="flex justify-between mb-1">
                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.urgencyThreshold}</p>
-               <span className="text-xs font-bold text-primary bg-primary/10 px-2 rounded">{settings.urgencyThresholdDays} {t.daysLeft.split(' ')[0]}</span>
+               <span className="text-xs font-bold text-primary bg-primary/10 px-2 rounded">{settings.urgencyThresholdDays}{t.daysLeft}</span>
              </div>
-             <input 
-               type="range" 
-               min="1" max="14" 
-               value={settings.urgencyThresholdDays} 
+             <input
+               type="range"
+               min="1" max="14"
+               value={settings.urgencyThresholdDays}
                onChange={(e) => !readOnly && setSettings(s => ({ ...s, urgencyThresholdDays: parseInt(e.target.value) }))}
+               aria-label={t.urgencyThreshold}
                className="w-full accent-primary h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
                disabled={readOnly}
              />

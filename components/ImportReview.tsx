@@ -13,7 +13,7 @@ interface ImportReviewProps {
 }
 
 export const ImportReview: React.FC<ImportReviewProps> = ({ settings, pendingImport, importSelection, setImportSelection, t }) => {
-    const boolText = (val: boolean) => val ? 'ON' : 'OFF';
+    const boolText = (val: boolean) => val ? t.on : t.off;
       
     // Automation Group Logic
     const automationKeys = ['autoDecomposeAI', 'suppressLongTermPrompt', 'autoGroupAI', 'suppressGroupPrompt', 'urgencyThresholdDays', 'autoCompleteParent'];
@@ -69,6 +69,7 @@ export const ImportReview: React.FC<ImportReviewProps> = ({ settings, pendingImp
                  </div>
              ))}
              {renderImportRow('inputMode', t.defaultMode, settings.defaultInputMode === 'single' ? t.modeManual : t.modeAI)}
+             {renderImportRow('hideCompleted', t.hideCompleted, boolText(settings.hideCompleted))}
              
              {pendingImport?.aiConfig && (
                  renderImportRow('aiProvider', t.provider, <span className="capitalize">{pendingImport.aiConfig.provider}</span>)
@@ -90,7 +91,7 @@ export const ImportReview: React.FC<ImportReviewProps> = ({ settings, pendingImp
                       {renderImportRow('autoGroupAI', t.autoGroupAI, boolText(settings.autoGroupAI))}
                       {renderImportRow('suppressGroupPrompt', t.suppressGroupPrompt, boolText(settings.suppressGroupPrompt))}
                       {renderImportRow('autoCompleteParent', t.autoCompleteParent, boolText(settings.autoCompleteParent))}
-                      {renderImportRow('urgencyThresholdDays', t.urgencyThreshold, `${settings.urgencyThresholdDays} d`)}
+                      {renderImportRow('urgencyThresholdDays', t.urgencyThreshold, `${settings.urgencyThresholdDays}${t.daysLeft}`)}
                  </div>
              </div>
 

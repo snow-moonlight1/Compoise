@@ -30,6 +30,7 @@ export interface Task {
   createdAt: number;
   deadline?: number; // Timestamp
   subtasks?: SubTask[];
+  reasoning?: string; // AI classification rationale (display only)
 }
 
 export interface AIAnalysisResult {
@@ -41,10 +42,12 @@ export interface AIAnalysisResult {
 }
 
 export enum AIProvider {
-  Gemini = 'gemini',
-  Custom = 'custom'
+  OpenAI = 'openai',                    // POST {baseUrl}/chat/completions
+  OpenAIResponses = 'openai-responses', // POST {baseUrl}/responses
+  Anthropic = 'anthropic'               // POST {baseUrl}/v1/messages
 }
 
+// Legacy stored values map on load: 'custom' → openai, 'gemini' → openai
 export type Language = 'en' | 'zh' | 'ja';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ThemeColor = 'blue' | 'purple' | 'green' | 'orange' | 'pink';
@@ -60,6 +63,7 @@ export interface AppSettings {
   autoCompleteParent: boolean; // New: Auto complete parent when subtasks done
   suppressGroupPrompt: boolean; // New: Don't show group prompt (default to split)
   suppressLongTermPrompt: boolean; // New: Don't show long-term prompt (default to keep)
+  hideCompleted: boolean; // Hide completed tasks in the matrix
   urgencyThresholdDays: number; 
 }
 

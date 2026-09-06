@@ -12,8 +12,10 @@ interface QuadrantProps {
   colorCode: string;
   tasks: Task[];
   onDrop: (e: React.DragEvent, quadrant: QuadrantType) => void;
-  onDragOver: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent, quadrant: QuadrantType) => void;
   onDragStart: (e: React.DragEvent, task: Task) => void;
+  onDragEnd: () => void;
+  isDragOver: boolean;
   onDelete: (id: string) => void;
   onClear: (type: QuadrantType) => void;
   onDecompose: (task: Task) => void;
@@ -26,15 +28,17 @@ interface QuadrantProps {
   onEdit: (task: Task, subTaskId?: string) => void;
 }
 
-export const Quadrant: React.FC<QuadrantProps> = ({ 
-  type, 
-  title, 
-  shortTitle, 
-  colorCode, 
-  tasks, 
-  onDrop, 
-  onDragOver, 
+const QuadrantImpl: React.FC<QuadrantProps> = ({
+  type,
+  title,
+  shortTitle,
+  colorCode,
+  tasks,
+  onDrop,
+  onDragOver,
   onDragStart,
+  onDragEnd,
+  isDragOver,
   onDelete,
   onClear,
   onDecompose,
@@ -48,20 +52,20 @@ export const Quadrant: React.FC<QuadrantProps> = ({
 }) => {
   const getColorStyles = (code: string) => {
     switch(code) {
-      case 'q1': return { border: 'border-q1', text: 'text-q1' };
-      case 'q2': return { border: 'border-q2', text: 'text-q2' };
-      case 'q3': return { border: 'border-q3', text: 'text-q3' };
-      case 'q4': return { border: 'border-q4', text: 'text-q4' };
-      default: return { border: 'border-slate-400', text: 'text-slate-400' };
+      case 'q1': return { border: 'border-q1', text: 'text-q1', hex: '#ff6b6b' };
+      case 'q2': return { border: 'border-q2', text: 'text-q2', hex: '#4ecdc4' };
+      case 'q3': return { border: 'border-q3', text: 'text-q3', hex: '#ffbe0b' };
+      case 'q4': return { border: 'border-q4', text: 'text-q4', hex: '#a0aec0' };
+      default: return { border: 'border-slate-400', text: 'text-slate-400', hex: '#94a3b8' };
     }
   };
-  
+
   const styles = getColorStyles(colorCode);
 
   return (
-    <div 
+    <div
       onDrop={(e) => onDrop(e, type)}
-      onDragOver={onDragOver}
+      onDragOver={(e) => onDragOver(e, type)}
       className="flex flex-col h-full gap-3 min-h-0"
     >
       {/* Header Outside the Box */}
@@ -73,14 +77,15 @@ export const Quadrant: React.FC<QuadrantProps> = ({
         </div>
         <div className="flex items-center gap-2">
             {tasks.length > 0 && (
-               <button 
-                 onClick={(e) => { 
-                   e.stopPropagation(); 
+               <button
+                 onClick={(e) => {
+                   e.stopPropagation();
                    e.preventDefault();
-                   onClear(type); 
+                   onClear(type);
                  }}
                  className="p-1 text-slate-400 hover:text-red-400 transition-colors"
                  title={t.clearQuadrant}
+                 aria-label={t.clearQuadrant}
                >
                  <TrashIcon size={16} />
                </button>
@@ -90,9 +95,10 @@ export const Quadrant: React.FC<QuadrantProps> = ({
             </span>
         </div>
       </div>
-      
+
       {/* Task Container */}
-      <div className="neu-pressed rounded-2xl flex-1 overflow-hidden relative">
+      <div className={`neu-pressed rounded-2xl flex-1 overflow-hidden relative transition-shadow duration-200 ${isDragOver ? 'ring-2 ring-primary/60' : ''}`}>
+        <div className={`absolute top-0 left-0 right-0 h-1 bg-${colorCode} opacity-50`} />
         <div className="h-full overflow-y-auto custom-scrollbar p-2">
           {tasks.length === 0 ? (
             <div className="h-full flex items-center justify-center text-slate-400 text-xs italic select-none animate-fade-in">
@@ -100,10 +106,11 @@ export const Quadrant: React.FC<QuadrantProps> = ({
             </div>
           ) : (
             tasks.map(task => (
-              <TaskCard 
-                key={task.id} 
-                task={task} 
-                onDragStart={onDragStart} 
+              <TaskCard
+                key={task.id}
+                task={task}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
                 onDelete={onDelete}
                 onDecompose={onDecompose}
                 onUpdate={onUpdate}
@@ -122,3 +129,5 @@ export const Quadrant: React.FC<QuadrantProps> = ({
     </div>
   );
 };
+
+export const Quadrant = React.memo(QuadrantImpl);
