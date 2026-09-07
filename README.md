@@ -96,5 +96,6 @@ flutter build windows         # Windows 桌面应用 → build/windows/x64/runne
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构、数据模型、状态管理、AI 服务与关键流程 |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发环境、命令、代码约定与常见扩展任务 |
 | [matrixflow-native/README.md](matrixflow-native/README.md) | Flutter 原生跨平台版架构、开发与构建指南 |
+| [HANDOFF.md](HANDOFF.md) | 项目交接文档、当前实机测试状态与下轮任务提示词 |
 | [CHANGELOG.md](CHANGELOG.md) | 依据 Git 历史重建的版本演进记录 |
 | [AGENTS.md](AGENTS.md) | AI 协作会话的规则与边界 |

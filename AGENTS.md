@@ -1,6 +1,6 @@
 # AGENTS.md — MatrixFlow AI（四象限待办）
 
-AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（React 19 + Vite 6 + Tauri v2 + Capacitor）与原生跨平台端（Flutter 3 + Dart，位于 `matrixflow-native/`，自绘引擎，Android + Windows）。两者数据模型与 AI 三协议完全互通。完整文档索引见 [README.md](README.md)。
+AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（React 19 + Vite 6 + Tauri v2 + Capacitor）与原生跨平台端（Flutter 3 + Dart，位于 `matrixflow-native/`，自绘引擎，Android + Windows）。两者数据模型与 AI 三协议完全互通。完整文档索引见 [README.md](README.md)，当前交接与下轮任务见 [HANDOFF.md](HANDOFF.md)。
 
 ## 运行与验证
 
