@@ -22,7 +22,7 @@ MatrixFlow AI 是 AI 驱动的艾森豪威尔矩阵任务管理应用，当前�
    - `docs/ARCHITECTURE.md`：修正三协议架构、更新体积（288 KB）并移除已解决的 Rollup 警告，记录 Web 与 Native 同构数据模型。
    - `docs/DEVELOPMENT.md`：补充 Flutter 命令、本机 SDK 路径说明、修正 subst 盘符路径。
    - `matrixflow-native/README.md`：修复失效相对路径。
-   - `CHANGELOG.md`：在顶部追加 2026-09-07 原生跨平台版集成与文档体系全量对齐记录。
+   - `docs/CHANGELOG.md`：在顶部追加 2026-09-07 原生跨平台版集成与文档体系全量对齐记录。
 
 ---
 
@@ -67,10 +67,10 @@ MatrixFlow AI 是 AI 驱动的艾森豪威尔矩阵任务管理应用，当前�
 ## 5. 下一轮启动提示词（可以直接发送给下一轮 Agent）
 
 ```markdown
-/fable-mode 请阅读 HANDOFF.md 并接管 MatrixFlow AI 项目。
+/fable-mode 请阅读 docs/HANDOFF.md 并接管 MatrixFlow AI 项目。
 
 当前任务：对工程中的 Flutter Android 原生端（`matrixflow-native/`）进行一轮系统性的 Bug 审查与集中修复。
-用户实机测试反馈细节问题较多，请按照 HANDOFF.md 第 4 节列出的 6 个核心维度（键盘遮挡、手势冲突、安全区与PopScope、异步mounted生命周期、AI异常友好反馈、文字截断），主动走查代码并就地修复第一批问题。
+用户实机测试反馈细节问题较多，请按照 docs/HANDOFF.md 第 4 节列出的 6 个核心维度（键盘遮挡、手势冲突、安全区与PopScope、异步mounted生命周期、AI异常友好反馈、文字截断），主动走查代码并就地修复第一批问题。
 
 修复后请运行：
 1. & "D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat" analyze （保持 0 issues）

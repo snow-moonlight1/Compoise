@@ -1,6 +1,6 @@
 # 开发指南
 
-最后核对：2026-09-07。架构与数据模型见 [ARCHITECTURE.md](ARCHITECTURE.md)，历史演进见 [../CHANGELOG.md](../CHANGELOG.md)。
+最后核对：2026-09-07。架构与数据模型见 [ARCHITECTURE.md](ARCHITECTURE.md)，历史演进见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 环境与命令
 
@@ -91,4 +91,4 @@ MatrixFlow 支持 Web、混合打包壳以及 Flutter 原生多种形态：
 
 ## Git 工作流现状
 
-`main` 单分支直线历史，无远端、无标签、无分支保护。建议后续：功能改动开分支或至少保持现有 conventional commits 风格（`feat(模块): 描述`，正文列要点），并在每个可交付节点打 tag；每合并一批功能就更新 CHANGELOG.md 顶部新增条目（不要改写历史条目）。
+`main` 单分支直线历史，无远端、无标签、无分支保护。建议后续：功能改动开分支或至少保持现有 conventional commits 风格（`feat(模块): 描述`，正文列要点），并在每个可交付节点打 tag；每合并一批功能就更新 docs/CHANGELOG.md 顶部新增条目（不要改写历史条目）。

@@ -1,6 +1,6 @@
 # AGENTS.md — MatrixFlow AI（四象限待办）
 
-AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（React 19 + Vite 6 + Tauri v2 + Capacitor）与原生跨平台端（Flutter 3 + Dart，位于 `matrixflow-native/`，自绘引擎，Android + Windows）。两者数据模型与 AI 三协议完全互通。完整文档索引见 [README.md](README.md)，当前交接与下轮任务见 [HANDOFF.md](HANDOFF.md)。
+AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（React 19 + Vite 6 + Tauri v2 + Capacitor）与原生跨平台端（Flutter 3 + Dart，位于 `matrixflow-native/`，自绘引擎，Android + Windows）。两者数据模型与 AI 三协议完全互通。完整文档索引见 [README.md](README.md)，当前交接与下轮任务见 [docs/HANDOFF.md](docs/HANDOFF.md)。
 
 ## 运行与验证
 
@@ -25,7 +25,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（
 
 ## 当前状态（2026-09-07）
 
-- 功能完整的本地应用：双轨架构（Web/混合打包 + Flutter 原生），共享 ExportData v1 数据备份格式与 AI 三协议。Web 端构建体积已瘦身至 288 KB。演进史见 CHANGELOG.md。
+- 功能完整的本地应用：双轨架构（Web/混合打包 + Flutter 原生），共享 ExportData v1 数据备份格式与 AI 三协议。Web 端构建体积已瘦身至 288 KB。演进史见 docs/CHANGELOG.md。
 - 已知技术债清单在 docs/ARCHITECTURE.md「已知问题」；本机打包要点在 docs/DEVELOPMENT.md「打包」。
 - 验证命令：Web 端 `npm run build` + `npx tsc --noEmit`；原生端 `cd matrixflow-native && flutter test && flutter analyze`。
 - 下一步候选：安卓 release 签名与应用图标、App.tsx 状态层拆分、Web 端引入自动化测试、本地存储版本平滑迁移。
@@ -34,5 +34,5 @@ AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（
 
 - 不要引入后端、数据库或云同步，除非用户明确要求——本项目的设计前提是纯前端 + 本地存储。
 - 不要把备份 JSON 的内容（含自定义 API 密钥）写入文档、提交或日志。
-- CHANGELOG.md 依据 Git 历史重建：新增条目追加在顶部，不要改写既有条目；新功能合并后同步更新。
+- docs/CHANGELOG.md 依据 Git 历史重建：新增条目追加在顶部，不要改写既有条目；新功能合并后同步更新。
 - docs/ARCHITECTURE.md 的「已知问题」修复后应从清单移除，保持文档与代码一致。
