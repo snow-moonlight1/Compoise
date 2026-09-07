@@ -29,7 +29,7 @@ Web 改动后的最低验证组合：`npm run build` + `npx tsc --noEmit`。
 
 原生端改动后的最低验证组合：`flutter test` + `flutter analyze`。
 
-2026-09-07 原生审查后：Android debug、Windows release 构建通过；Android release 仍存在 integration_test 自动注册编译阻塞，见 [报告 B01](NATIVE_BUG_REVIEW_2026-09-07.md)。Flutter 构建和测试会重生成平台插件文件，建议同一工作区内顺序运行。
+2026-09-07 原生审查与构建修复：Android debug、Android release（22.8MB APK）及 Windows release 构建全部通过（B01 已解决关闭，见 [报告 B01](NATIVE_BUG_REVIEW_2026-09-07.md)）。Flutter 构建和测试会重生成平台插件文件，建议同一工作区内顺序运行。
 
 ## 环境变量
 

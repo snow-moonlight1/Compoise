@@ -42,3 +42,32 @@ android {
 flutter {
     source = "../.."
 }
+
+// In Flutter, when building with `--no-pub`, Flutter skips regenerating GeneratedPluginRegistrant.java
+// (due to `if (!shouldRunPub) return;` in Flutter SDK's `regeneratePlatformSpecificToolingIfApplicable`).
+// If a prior `flutter pub get` or `flutter test` generated the registrant in debug mode, it contains
+// `dev.flutter.plugins.integration_test.IntegrationTestPlugin`. However, Gradle strips dev_dependencies
+// from release builds, causing javac to fail on the missing package.
+// This task cleans up dev-only plugins from GeneratedPluginRegistrant.java during release builds.
+tasks.register("cleanDevPluginsFromReleaseRegistrant") {
+    doLast {
+        val registrantFile = file("src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java")
+        if (registrantFile.exists()) {
+            val content = registrantFile.readText()
+            if (content.contains("dev.flutter.plugins.integration_test.IntegrationTestPlugin")) {
+                val cleaned = content.replace(
+                    Regex("""\r?\n\s*try\s*\{\s*flutterEngine\.getPlugins\(\)\.add\(new dev\.flutter\.plugins\.integration_test\.IntegrationTestPlugin\(\)\);\s*\}\s*catch\s*\(Exception e\)\s*\{\s*Log\.e\(TAG,\s*"Error registering plugin integration_test[^"]*",\s*e\);\s*\}"""),
+                    ""
+                )
+                if (cleaned != content) {
+                    registrantFile.writeText(cleaned)
+                    logger.lifecycle("Cleaned integration_test dev plugin from GeneratedPluginRegistrant.java for release build.")
+                }
+            }
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" || it.name == "compileReleaseJavaWithJavac" }.configureEach {
+    dependsOn("cleanDevPluginsFromReleaseRegistrant")
+}

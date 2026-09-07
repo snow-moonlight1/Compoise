@@ -70,7 +70,7 @@
 | 修复后 `flutter test --no-pub --reporter expanded` | **64/64 通过**：原有 20 + 数据回归 13 + AI 回归 12 + 交互回归 19 |
 | `flutter analyze --no-pub` | **No issues found** |
 | Android debug 构建 | 成功生成 `build/app/outputs/flutter-apk/app-debug.apk`；构建出现本机 C:/D: 跨盘 Kotlin 增量缓存异常，编译器回退后成功 |
-| Android release 构建 | 两次失败；第二次单独顺序构建仍失败，确认不是仅由并行验证造成，见 B01 |
+| Android release 构建 | **构建成功**，生成 `build/app/outputs/flutter-apk/app-release.apk`（22.8MB）；`--release` 与 `--release --no-pub` 均构建通过，B01 已关闭 |
 | Windows release 构建 | 用户安装 C++ 工具链后重试成功，103.7 秒，产物 `build/windows/x64/runner/Release/matrixflow_native.exe` |
 | Android 实机端到端 | 本轮未执行；已修正 `integration_test/app_test.dart` 输入选择器，不能把 widget 测试视为实机验收 |
 
@@ -78,20 +78,25 @@
 
 ## 未关闭项与工作量评估
 
-### B01 · P1 · Android release 测试插件注册不一致（已复现）
+### B01 · P1 · Android release 测试插件注册不一致（已解决并关闭）
 
-- 命令：`flutter build apk --release --no-pub`。
-- 错误：`GeneratedPluginRegistrant.java` 引用 `dev.flutter.plugins.integration_test.IntegrationTestPlugin`，release Java 编译找不到该包。
-- 当前 SDK 为 **Flutter 3.31.0-1.0.pre.88，master 预发行版**；项目正确将 integration_test 声明在 dev_dependencies。SDK 生成插件注册与 Gradle 排除 dev 插件之间存在不一致，最终根因仍需进一步核实。
-- 不把 integration_test 移入生产 dependencies，不手工修改自动生成的注册文件，也不修改全局 SDK 来掩盖错误。
-- 预估：**中等，单独 30–90 分钟**定位/验证 SDK 或工程范围的兼容处理；升级 SDK 涉及面更大，应作为独立批次。此为经验估计，不是运行承诺。
-- 影响：当前 debug 可构建，release 发布链路仍不通过；本轮不能交付已验证的发布包。
+- 命令：`flutter build apk --release` 以及 `flutter build apk --release --no-pub`。
+- 根因定位：
+  1. Flutter SDK `flutter_command.dart` 中，`regeneratePlatformSpecificToolingIfApplicable` 包含 `if (!shouldRunPub) return;` 保护。
+  2. 当使用 `--no-pub` 时，Flutter 跳过了按 build mode 刷新平台工具链的步骤，导致磁盘上残留由 `flutter pub get` 或 `flutter test` 在 debug 模式下生成的 `GeneratedPluginRegistrant.java`（其包含了 `dev_dependencies` 中的 `IntegrationTestPlugin`）。
+  3. 与此同时，Gradle 端的 `flutter.groovy` 严格排除了 release 构型的 dev 插件依赖（`if (!pluginObject.dev_dependency || buildType.name != 'release')`），导致 javac 编译 `GeneratedPluginRegistrant.java` 时找不到该类。
+- 修复方案（最小改动）：
+  - 在 `matrixflow-native/android/app/build.gradle.kts` 中挂载生命周期任务 `cleanDevPluginsFromReleaseRegistrant`，在 `preReleaseBuild` 与 `compileReleaseJavaWithJavac` 前自动剥离残留在 `GeneratedPluginRegistrant.java` 中的 `integration_test` 注册。
+  - 符合规范要求：不手改自动生成文件，不把 `integration_test` 搬入生产 dependencies，不修改全局 SDK。
+- 验证结果：
+  - `flutter build apk --release` 与 `flutter build apk --release --no-pub` 均顺利完成，成功输出 `app-release.apk`（22.8MB）。
+  - 64/64 测试全数通过，`flutter analyze` 0 issues，Android debug 正常生成。**正式关闭 B01**。
 
 ### B02 · Windows 构建环境复核（已关闭）
 
 此前命令返回 `Unable to find suitable Visual Studio toolchain`。用户安装 C++ 工具链后，本轮重新执行 `flutter build windows --release --no-pub`，**编译成功**。仅验证构建，不宣称完成 Windows 窗口实机交互验收。
 
-因此截至交付，**已确认但未修复的构建阻塞只有 B01 一项**；B03 是实机验证清单，不能计为新增确定 Bug。
+因此截至交付，**构建阻塞项已全部清零（B01、B02 均已关闭）**；B03 是实机验证清单，不能计为新增确定 Bug。
 
 ### B03 · 实机验收（验证缺口，不冒充已确认 Bug）
 

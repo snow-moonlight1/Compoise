@@ -28,7 +28,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（
 - 功能完整的本地应用：双轨架构（Web/混合打包 + Flutter 原生），共享 ExportData v1 数据备份格式与 AI 三协议。Web 端构建体积已瘦身至 288 KB。演进史见 docs/CHANGELOG.md。
 - 已知技术债清单在 docs/ARCHITECTURE.md「已知问题」；本机打包要点在 docs/DEVELOPMENT.md「打包」。
 - 验证命令：Web 端 `npm run build` + `npx tsc --noEmit`；原生端 `cd matrixflow-native && flutter test && flutter analyze`。
-- 当前优先项：原生端 Android release 的 integration_test 注册编译错误，以及本轮修复后的实机复测，见 [审查报告](docs/NATIVE_BUG_REVIEW_2026-09-07.md)。Android debug 和 Windows release 已构建通过。后续候选仍含 release 签名与图标、Web 状态拆分和存储版本迁移。
+- 当前优先项：按审查报告 B03 进行原生端 Android 实机复测，见 [审查报告](docs/NATIVE_BUG_REVIEW_2026-09-07.md)。Android debug/release（B01 已解决关闭）和 Windows release 构建均已通过。后续候选仍含 release 签名与图标、Web 状态拆分和存储版本迁移。
 
 ## 边界
 

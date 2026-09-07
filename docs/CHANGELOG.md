@@ -6,6 +6,12 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-07 · 解决 Android Release 构建 integration_test 插件注册编译阻塞 (B01)
+
+- **定位根因**：Flutter CLI (`flutter_command.dart`) 在执行 `flutter build apk --release --no-pub` 时因 `--no-pub` 抑制了 `regeneratePlatformSpecificTooling`，残留 debug 阶段由 `pub get` / `test` 生成的 `GeneratedPluginRegistrant.java`（包含 `IntegrationTestPlugin`），而 Gradle 的 `flutter.groovy` 在 release 构建中剥离了 `dev_dependencies`，导致 Java 编译找不到类。
+- **最小安全修复**：在 `matrixflow-native/android/app/build.gradle.kts` 配置 Gradle 预构建任务 `cleanDevPluginsFromReleaseRegistrant`，在 release 编译前自动清理 `GeneratedPluginRegistrant.java` 中的测试插件注册，不手改生成文件、不把测试依赖移入生产依赖、不修改全局 SDK。
+- **发布验证**：Android release APK 成功构建（`app-release.apk` 22.8MB，`--release` 与 `--release --no-pub` 均通过）；Android debug 构建通过；64 项测试通过，`flutter analyze` 0 issues。正式关闭 B01。
+
 ## 2026-09-07 · 原生端深度 Bug 审查与集中修复
 
 - 归纳并处理 29 类问题：启动容错、导入原子校验/去重、编组保留子任务、父子完成状态、活动板恢复、唯一 id、截止日期更新、Android 文件导出和 release 网络权限。

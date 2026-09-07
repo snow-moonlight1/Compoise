@@ -18,23 +18,22 @@
 | `flutter test --no-pub --reporter expanded` | 64/64 通过，含原有 20 项与新增 44 项 |
 | `flutter analyze --no-pub` | 0 issues |
 | Android debug | 构建成功，`matrixflow-native/build/app/outputs/flutter-apk/app-debug.apk` |
-| Windows release | 用户装好 C++ 工具链后重试成功，`matrixflow-native/build/windows/x64/runner/Release/`；运行/分发需要整个目录，不能只拷贝 exe |
-| Android release | 未通过，见下文 B01 |
+| Windows release | 构建成功，`matrixflow-native/build/windows/x64/runner/Release/`；运行/分发需要整个目录，不能只拷贝 exe |
+| Android release | **构建成功**，`matrixflow-native/build/app/outputs/flutter-apk/app-release.apk`（22.8MB），B01 已关闭 |
 | Android 实机 E2E | 本轮未执行；默认 flutter test 不包括 integration_test |
 
 首批新增 7 个回归用例在原代码上全部失败，修复后通过。输入选择器已改为稳定 key，供下轮设备集成测试使用。
 
 ## 剩余范围与用户偏好
 
-用户最新指示：额度有限，先归纳全部已发现 Bug、评估剩余工作量；只顺手处理小问题，大范围继续修改前先交报告。**本轮应用层修复已收敛，不应重新无界审查或重做已修复功能。**
+用户最新指示：额度有限，先归纳全部已发现 Bug、评估剩余工作量；只顺手处理小问题，大范围继续修改前先交报告。**本轮应用层修复已收敛，构建阻塞项已全部清零。**
 
-### B01：唯一已确认的剩余构建阻塞
+### B01：构建阻塞（已解决并关闭）
 
-`flutter build apk --release --no-pub` 两次失败，顺序重跑仍报：
-
-`GeneratedPluginRegistrant.java` 引用 `dev.flutter.plugins.integration_test.IntegrationTestPlugin`，但 release Java 编译找不到该包。
-
-本机 Flutter 是 `3.31.0-1.0.pre.88 / Dart 3.8.0 开发版`。integration_test 正确位于 dev_dependencies。需要进一步定位生成注册与 Gradle 排除 dev 插件的不一致。预估中等工作量 30–90 分钟；暂未改全局 SDK、未把测试依赖放入生产 dependencies、未手改生成注册文件。
+- **现象**：`flutter build apk --release --no-pub` 失败，报 `GeneratedPluginRegistrant.java: 错误: 程序包dev.flutter.plugins.integration_test不存在`。
+- **根因**：Flutter CLI 在传入 `--no-pub` 时受 `regeneratePlatformSpecificToolingIfApplicable` 内 `if (!shouldRunPub) return;` 保护，跳过了按 release 构型重生成平台插件文件；此前 `pub get` 或 `flutter test` 在 debug 模式下写入的 `GeneratedPluginRegistrant.java` 保留了 `dev_dependencies` 中的 `integration_test` 插件注册，而 Gradle 的 `flutter.groovy` 在 release 构建中剥离了测试依赖，javac 编译找不到该类。
+- **方案**：在 `matrixflow-native/android/app/build.gradle.kts` 添加 Gradle 任务 `cleanDevPluginsFromReleaseRegistrant`，在 `preReleaseBuild` 与 `compileReleaseJavaWithJavac` 前自动剥离残留在生成文件中的测试插件注册。不手改生成文件，不修改生产 dependencies，不改动全局 SDK。
+- **验证**：`flutter build apk --release` 与 `flutter build apk --release --no-pub` 均顺序构建成功，产出 22.8MB APK；64/64 测试全过，`flutter analyze` 0 警告，Android debug 构建通过。
 
 ### 后续验收
 
@@ -44,19 +43,9 @@
 
 ## 下一轮启动提示词
 
-接手 MatrixFlow AI（纯本地四象限待办，Web + Flutter Android/Windows 双端）。先读 AGENTS.md、docs/NATIVE_BUG_REVIEW_2026-09-07.md 的 B01 和本交接。上一轮 29 类修复已完成并收尾提交，64 项测试和静态分析通过，Android debug 与 Windows release 构建成功；Windows C++ 工具链已经可用。
+接手 MatrixFlow AI（纯本地四象限待办，Web + Flutter Android/Windows 双端）。先读 AGENTS.md、docs/NATIVE_BUG_REVIEW_2026-09-07.md 和本交接。上一轮 29 类交互/数据修复已完成，B01（Android release 编译）与 B02（Windows 工具链）已全部解决关闭。当前 64 项测试与静态分析通过，Android debug/release 及 Windows release 构建全部成功。
 
-本轮唯一开发目标：**定位并尝试解决 B01：Android release 编译时 GeneratedPluginRegistrant 引用了找不到的 integration_test 插件。用户已授权必要的最小修复，不要停留在方案或再次请求执行许可。** 优先核实事实、选择工程范围内可复现的处理方式，再验证 release 构建。额度优先，不重复全工程审查或扩展到其他特性。
-
-建议顺序：
-
-1. `git status` / `git log -1` 确认接手基线；读取 `matrixflow-native/pubspec.yaml`、`android/app/build.gradle.kts`、`android/settings.gradle.kts` 和本地 `docs/native-release-build-final.log`（日志被 Git 忽略，缺失时重新复现）。
-2. 定位 Flutter 插件发现/注册与 Gradle dev_dependency 过滤的不一致。已查看过 SDK 的 `packages/flutter_tools/lib/src/flutter_plugins.dart` 中 `findPlugins` / `injectPlugins(releaseMode)`、`lib/src/project.dart`、`gradle/src/main/groovy/flutter.groovy`；它们是排查线索，尚未证明最终根因。两次 release 失败，第二次已顺序单独构建。
-3. 尝试最小修复并解释依据；不手改自动生成注册文件，不把 integration_test 搬进生产 dependencies 来掩盖错误，不直接修改全局 SDK。若证据指向需更换 SDK，先明确版本兼容影响和项目隔离方案。
-4. 同一工程的 Flutter 构建/测试顺序运行，避免生成文件互相覆盖。先验证 Android release；若改代码/依赖，跑 `flutter test` 和 `flutter analyze`，需要时验证 debug。不要无故重复 Windows 构建。
-5. 更新报告 B01、CHANGELOG 和本交接。只有实际 release 构建通过才关闭 B01；若无法解决，记录已尝试方式、真实错误和下一步，保留现有成果。
-
-环境：Flutter SDK `D:\Dev_SDKs\Flutter_SDK`，Android SDK `D:\Dev_SDKs\Android_studio_SDK`，JDK `D:\Dev_SDKs\jdk-21.0.12.1+1`。构建仍使用既有 debug 签名，正式签名不在本轮任务内。
+下一轮核心目标：**按 B03 进行 Android 实机交互与端到端复测（键盘避让、跨象限拖拽、批量选择、系统文件选择器、AI 取消/重试等）**，或根据用户需求推进正式签名/图标或存储迁移。保持纯前端 + 本地存储设计前提，不引入后端。
 
 ## 收尾与工作区
 

@@ -108,8 +108,6 @@ InputArea 收集输入 → `handleAISort` 调用 `analyzeTasks` → 结果进入
 
 ## 已知问题 / 技术债
 
-- 原生 Android release 构建未通过：本机 Flutter 预发行 SDK 下 GeneratedPluginRegistrant 仍引用被 release 排除的 integration_test 插件，见报告 B01。Android debug 与 Windows release 已通过，实机验收待执行。
-
 - Tailwind 通过 CDN 运行时编译（index.html:7），官方不建议生产使用；2026-09-06 移除 Gemini 依赖后 Web 构建产物降至约 288 KB（gzip 87 KB），Rollup 500 KB 分包警告已消除。
 - App.tsx 仍承担 Web 端全部业务逻辑（约 1672 行），是维护热点；50c70cc 与 2026-09-03 批次分别做过组件与渲染优化（React.memo + useCallback），但状态层未做更深度的模块化拆分。
 - Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备 64 项单元/Widget 测试；设备集成测试不包含在默认 `flutter test` 中。
