@@ -17,8 +17,13 @@ const Map<int, int> quadrantColors = {
 };
 
 int normalizeQuadrant(dynamic value) {
-  final s = value.toString();
-  final m = RegExp(r'[1-4]').firstMatch(s);
-  if (m != null) return int.parse(m.group(0)!);
+  if (value is num &&
+      value.isFinite &&
+      value == value.toInt() &&
+      allQuadrants.contains(value.toInt())) {
+    return value.toInt();
+  }
+  final m = RegExp(r'^[Qq]?([1-4])$').firstMatch(value.toString().trim());
+  if (m != null) return int.parse(m.group(1)!);
   return qEliminate;
 }

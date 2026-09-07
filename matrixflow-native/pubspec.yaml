@@ -9,8 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   provider: ^6.1.2
-  http: ^1.2.2
+  http: ^1.6.0
   shared_preferences: ^2.3.4
   path_provider: ^2.1.5
   file_picker: ^8.1.7

@@ -1,80 +1,66 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-07 16:10 | 当前基线 Commit：`378003d`
+最后更新：2026-09-07。本轮审查基线：`e3856349f11fd06a44bff053c05406facc9c9e8b`。本轮修复与交接一并纳入收尾提交 `fix(native): 修复原生端交互与数据缺陷并交接B01`；接手时以 `git log -1` 核对实际提交。
 
----
+## 当前交付
 
-## 1. 项目全貌与当前状态
+已先阅读全部项目 docs，再走查 Flutter 原生端的全部原有 Dart 文件及平台关键配置，集中处理 29 类已确认问题。完整问题、触发路径、修复位置、验证边界见 [Flutter 原生端 Bug 探查报告](NATIVE_BUG_REVIEW_2026-09-07.md)。
 
-MatrixFlow AI 是 AI 驱动的艾森豪威尔矩阵任务管理应用，当前为**双轨架构**，共享同一套数据备份模型（`ExportData` v1）与 AI 三协议：
-- **Web / 混合端**：React 19 + Vite 6 + Tailwind CSS + Tauri v2 / Capacitor，产物体积已优化至 288.5 KB（gzip 87 KB），`npm run build` + `npx tsc --noEmit` 通过。
-- **原生跨平台端（`matrixflow-native/`）**：Flutter 3 + Dart，Impeller / Skia 自绘引擎，无需 WebView，直接编译为 Android APK 与 Windows 原生桌面应用。20 项自动化测试（`flutter test`）与静态分析（`flutter analyze`）已全量通过。
+- 数据：启动损坏记录容错、导入预校验和批内去重、编组保留原子项、父子完成同步、活动板恢复、唯一 id、截止日期及时检查、写入异常提示。
+- 交互：键盘与安全区、窄屏布局、长按拖拽、批量选择和返回、路由控制器释放、单/批拆解生命周期、连续 AI 提交与原任务板绑定。
+- AI/平台：总超时和取消、异常结果保留输入、分组与拆解区分、Anthropic 地址、JSON 对象提示、Material 三语本地化、Android 导出和联网权限。
+- 保留纯本地设计及 ExportData v1。未修改 Web 应用逻辑，未使用真实 AI 密钥或读取真实备份。
 
----
+## 已验证
 
-## 2. 本轮已完成工作（2026-09-07）
+| 检查 | 结果 |
+|---|---|
+| `flutter test --no-pub --reporter expanded` | 64/64 通过，含原有 20 项与新增 44 项 |
+| `flutter analyze --no-pub` | 0 issues |
+| Android debug | 构建成功，`matrixflow-native/build/app/outputs/flutter-apk/app-debug.apk` |
+| Windows release | 用户装好 C++ 工具链后重试成功，`matrixflow-native/build/windows/x64/runner/Release/`；运行/分发需要整个目录，不能只拷贝 exe |
+| Android release | 未通过，见下文 B01 |
+| Android 实机 E2E | 本轮未执行；默认 flutter test 不包括 integration_test |
 
-1. **Matrix Native 正式纳入主仓库**：
-   - 移除了 `matrixflow-native` 内部的独立临时 `.git`，将 53 个源代码与配置文件通过主仓库 Git 统一纳管（`378003d`），工作区保持 clean。
-2. **全量文档体系核验与对齐（Neat Freak）**：
-   - `README.md`：更新双轨架构、快速开始、构建命令及文档全索引。
-   - `AGENTS.md`：更新 Monorepo 定位、双端验证命令及 App.tsx 实际行数（1672 行）。
-   - `docs/ARCHITECTURE.md`：修正三协议架构、更新体积（288 KB）并移除已解决的 Rollup 警告，记录 Web 与 Native 同构数据模型。
-   - `docs/DEVELOPMENT.md`：补充 Flutter 命令、本机 SDK 路径说明、修正 subst 盘符路径。
-   - `matrixflow-native/README.md`：修复失效相对路径。
-   - `docs/CHANGELOG.md`：在顶部追加 2026-09-07 原生跨平台版集成与文档体系全量对齐记录。
+首批新增 7 个回归用例在原代码上全部失败，修复后通过。输入选择器已改为稳定 key，供下轮设备集成测试使用。
 
----
+## 剩余范围与用户偏好
 
-## 3. 当前焦点与待解决问题（Backlog）
+用户最新指示：额度有限，先归纳全部已发现 Bug、评估剩余工作量；只顺手处理小问题，大范围继续修改前先交报告。**本轮应用层修复已收敛，不应重新无界审查或重做已修复功能。**
 
-### 🚨 核心痛点：Android 原生实机体验有待打磨
-- **用户实测反馈**：用户在 Android 真实设备上运行了 `matrixflow-native`，反馈整体可用但**交互、布局与体验细节上的问题较多**（未逐一详述，需 Agent 主动做第一轮静态审查与缺陷收敛）。
-- **定位范围**：`matrixflow-native/lib/`（主要是 `widgets/`、`screens/` 与 `ai_service.dart`）。
+### B01：唯一已确认的剩余构建阻塞
 
----
+`flutter build apk --release --no-pub` 两次失败，顺序重跑仍报：
 
-## 4. 下一轮 Agent 接手指南
+`GeneratedPluginRegistrant.java` 引用 `dev.flutter.plugins.integration_test.IntegrationTestPlugin`，但 release Java 编译找不到该包。
 
-下一轮主要任务：**对 `matrixflow-native` 进行深入的 Android 体验与 Bug 专项排查，主动修复第一批问题并交付自查清单，供用户二次实机复测。**
+本机 Flutter 是 `3.31.0-1.0.pre.88 / Dart 3.8.0 开发版`。integration_test 正确位于 dev_dependencies。需要进一步定位生成注册与 Gradle 排除 dev 插件的不一致。预估中等工作量 30–90 分钟；暂未改全局 SDK、未把测试依赖放入生产 dependencies、未手改生成注册文件。
 
-### 审查与排查维度
-1. **键盘遮挡与 Inset 适配**：
-   - `widgets/input_sheet.dart` 和编辑弹层在软键盘弹起时是否被遮挡，检查 `resizeToAvoidBottomInset`、`MediaQuery.viewInsets` 及 `SingleChildScrollView`。
-2. **触屏手势与滚动冲突**：
-   - 四象限列表（`quadrant_pane.dart`）中的拖拽（`Draggable` / `LongPressDraggable`）与上下滑动是否打架，移动端小屏拖拽放置区域边界。
-3. **安全区与 Android 返回键**：
-   - 检查顶部状态栏、底部手势导航条是否使用了 `SafeArea` 防遮挡；
-   - 检查弹窗和 Sheet 是否适配现代 Android 返回导航（推荐 `PopScope` 而非过期的 `WillPopScope`）。
-4. **异步生命周期安全（Mounted Check）**：
-   - 检查 `screens/` 与 `widgets/` 中所有 `await` 异步调用之后，访问 `context` 或调用 `setState` 前是否加入了 `if (!mounted) return;` 保护。
-5. **AI 异常捕获与用户提示**：
-   - `ai_service.dart` 网络超时、未配置 key、服务商 4xx/5xx 报错或非法 JSON 时，杜绝出现底层异常红屏，确保通过友好 SnackBar 告知。
-6. **文字截断与排版**：
-   - `task_card.dart`、象限标签在小屏或多语（中/英/日）长文本下的 RenderFlex overflow 风险。
+### 后续验收
 
-### 必跑门禁
-```bash
-# 原生端静态检查（必须 0 警告）
-& "D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat" analyze
+按报告 B03 在 Android 实机复测键盘、返回、拖拽、文件选择器、AI 取消和三语日期。构建成功不等于实机验收完成。Windows 工具链阻塞已经关闭，不要重复报告缺少 Visual Studio。
 
-# 原生端测试（必须全部通过）
-& "D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat" test
-```
+正式签名/图标、存储逐版迁移与跨键事务仍是既有后续工作，不属于本轮继续扩改范围。
 
----
+## 下一轮启动提示词
 
-## 5. 下一轮启动提示词（可以直接发送给下一轮 Agent）
+接手 MatrixFlow AI（纯本地四象限待办，Web + Flutter Android/Windows 双端）。先读 AGENTS.md、docs/NATIVE_BUG_REVIEW_2026-09-07.md 的 B01 和本交接。上一轮 29 类修复已完成并收尾提交，64 项测试和静态分析通过，Android debug 与 Windows release 构建成功；Windows C++ 工具链已经可用。
 
-```markdown
-/fable-mode 请阅读 docs/HANDOFF.md 并接管 MatrixFlow AI 项目。
+本轮唯一开发目标：**定位并尝试解决 B01：Android release 编译时 GeneratedPluginRegistrant 引用了找不到的 integration_test 插件。用户已授权必要的最小修复，不要停留在方案或再次请求执行许可。** 优先核实事实、选择工程范围内可复现的处理方式，再验证 release 构建。额度优先，不重复全工程审查或扩展到其他特性。
 
-当前任务：对工程中的 Flutter Android 原生端（`matrixflow-native/`）进行一轮系统性的 Bug 审查与集中修复。
-用户实机测试反馈细节问题较多，请按照 docs/HANDOFF.md 第 4 节列出的 6 个核心维度（键盘遮挡、手势冲突、安全区与PopScope、异步mounted生命周期、AI异常友好反馈、文字截断），主动走查代码并就地修复第一批问题。
+建议顺序：
 
-修复后请运行：
-1. & "D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat" analyze （保持 0 issues）
-2. & "D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat" test （保持全部测试通过）
+1. `git status` / `git log -1` 确认接手基线；读取 `matrixflow-native/pubspec.yaml`、`android/app/build.gradle.kts`、`android/settings.gradle.kts` 和本地 `docs/native-release-build-final.log`（日志被 Git 忽略，缺失时重新复现）。
+2. 定位 Flutter 插件发现/注册与 Gradle dev_dependency 过滤的不一致。已查看过 SDK 的 `packages/flutter_tools/lib/src/flutter_plugins.dart` 中 `findPlugins` / `injectPlugins(releaseMode)`、`lib/src/project.dart`、`gradle/src/main/groovy/flutter.groovy`；它们是排查线索，尚未证明最终根因。两次 release 失败，第二次已顺序单独构建。
+3. 尝试最小修复并解释依据；不手改自动生成注册文件，不把 integration_test 搬进生产 dependencies 来掩盖错误，不直接修改全局 SDK。若证据指向需更换 SDK，先明确版本兼容影响和项目隔离方案。
+4. 同一工程的 Flutter 构建/测试顺序运行，避免生成文件互相覆盖。先验证 Android release；若改代码/依赖，跑 `flutter test` 和 `flutter analyze`，需要时验证 debug。不要无故重复 Windows 构建。
+5. 更新报告 B01、CHANGELOG 和本交接。只有实际 release 构建通过才关闭 B01；若无法解决，记录已尝试方式、真实错误和下一步，保留现有成果。
 
-最后输出已修复的问题清单与建议用户真机复测的要点。
-```
+环境：Flutter SDK `D:\Dev_SDKs\Flutter_SDK`，Android SDK `D:\Dev_SDKs\Android_studio_SDK`，JDK `D:\Dev_SDKs\jdk-21.0.12.1+1`。构建仍使用既有 debug 签名，正式签名不在本轮任务内。
+
+## 收尾与工作区
+
+- 会话最初工作区干净，无 pre-existing 用户改动；仅显式暂存本轮原生代码、回归测试和受影响文档。
+- 本次 closeout 只更新交接任务及提交状态，没有继续修 B01，没有删除文件，没有重跑已经通过且代码未改变的测试。
+- 重要文件：`lib/storage.dart`、`lib/ai_service.dart`、`lib/widgets/input_sheet.dart`、`lib/screens/`、三份新增 `test/*regression_test.dart` 及审查报告。
+- APK、Windows Release 整目录及 `docs/native-*.log` 属于本地产物/忽略文件，不提交。它们保留用于复测与排查，不是删除候选。

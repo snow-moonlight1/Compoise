@@ -5,7 +5,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（
 ## 运行与验证
 
 - **Web 端**：`npm install` → `npm run dev`（http://localhost:3000，端口被系统保留时加 `-- --port 3456`）；改动后用 `npm run build` + `npx tsc --noEmit` 验证。
-- **原生端（`matrixflow-native/`）**：`flutter test`（20 项测试）+ `flutter analyze`（0 警告）；Flutter SDK 位于 `D:\Dev_SDKs\Flutter_SDK`。
+- **原生端（`matrixflow-native/`）**：`flutter test`（64 项单元/Widget 测试）+ `flutter analyze`（0 警告）；Flutter SDK 位于 `D:\Dev_SDKs\Flutter_SDK`。设备集成测试需单独运行。
 - AI 密钥由用户在设置面板填写（存 localStorage / SharedPreferences）；不要把任何密钥值写死进代码、文档或日志。项目已无 `.env` 依赖。
 - 主分支 `main`，无远端；提交遵循现有风格 `feat(模块): 描述`。
 
@@ -28,7 +28,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（
 - 功能完整的本地应用：双轨架构（Web/混合打包 + Flutter 原生），共享 ExportData v1 数据备份格式与 AI 三协议。Web 端构建体积已瘦身至 288 KB。演进史见 docs/CHANGELOG.md。
 - 已知技术债清单在 docs/ARCHITECTURE.md「已知问题」；本机打包要点在 docs/DEVELOPMENT.md「打包」。
 - 验证命令：Web 端 `npm run build` + `npx tsc --noEmit`；原生端 `cd matrixflow-native && flutter test && flutter analyze`。
-- 下一步候选：安卓 release 签名与应用图标、App.tsx 状态层拆分、Web 端引入自动化测试、本地存储版本平滑迁移。
+- 当前优先项：原生端 Android release 的 integration_test 注册编译错误，以及本轮修复后的实机复测，见 [审查报告](docs/NATIVE_BUG_REVIEW_2026-09-07.md)。Android debug 和 Windows release 已构建通过。后续候选仍含 release 签名与图标、Web 状态拆分和存储版本迁移。
 
 ## 边界
 

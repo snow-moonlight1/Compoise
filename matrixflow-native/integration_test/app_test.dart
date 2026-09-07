@@ -61,7 +61,7 @@ Future<void> main() async {
     // 1) Manual add via FAB
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Manual Flutter Task');
+    await tester.enterText(find.byKey(const ValueKey('task-input')), 'Manual Flutter Task');
     await tester.tap(find.text('Add Task').last);
     await tester.pumpAndSettle();
     expect(find.text('Manual Flutter Task'), findsOneWidget);
@@ -71,7 +71,7 @@ Future<void> main() async {
     await tester.pumpAndSettle();
     await tester.tap(find.text('AI Sort'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'anything');
+    await tester.enterText(find.byKey(const ValueKey('task-input')), 'anything');
     await tester.tap(find.text('Analyze & Sort'));
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle(const Duration(seconds: 3));

@@ -9,8 +9,17 @@ import 'task_card.dart';
 /// One quadrant column: header (dot, title, count, clear) + drag target list.
 class QuadrantPane extends StatefulWidget {
   final int quadrant;
+  final bool selecting;
+  final Set<String> selectedIds;
+  final ValueChanged<String>? onSelect;
 
-  const QuadrantPane({super.key, required this.quadrant});
+  const QuadrantPane({
+    super.key,
+    required this.quadrant,
+    this.selecting = false,
+    this.selectedIds = const {},
+    this.onSelect,
+  });
 
   @override
   State<QuadrantPane> createState() => _QuadrantPaneState();
@@ -36,7 +45,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     final shortKey = '${titleKey}Short';
 
     return DragTarget<Task>(
-      onWillAcceptWithDetails: (_) => true,
+      onWillAcceptWithDetails:
+          (details) =>
+              !widget.selecting && details.data.boardId == store.activeBoardId,
       onMove: (_) {
         if (!_hovering) setState(() => _hovering = true);
       },
@@ -53,15 +64,19 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: highlighted
-                ? theme.colorScheme.primary.withValues(alpha: 0.06)
-                : theme.colorScheme.onSurface.withValues(alpha: isDark(theme) ? 0.04 : 0.03),
+            color:
+                highlighted
+                    ? theme.colorScheme.primary.withValues(alpha: 0.06)
+                    : theme.colorScheme.onSurface.withValues(
+                      alpha: isDark(theme) ? 0.04 : 0.03,
+                    ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               width: highlighted ? 2 : 1,
-              color: highlighted
-                  ? theme.colorScheme.primary.withValues(alpha: 0.55)
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              color:
+                  highlighted
+                      ? theme.colorScheme.primary.withValues(alpha: 0.55)
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.06),
             ),
           ),
           child: Column(
@@ -74,7 +89,10 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: accent,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -82,22 +100,33 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                         t[shortKey]!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
-                      transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                      transitionBuilder:
+                          (child, anim) =>
+                              ScaleTransition(scale: anim, child: child),
                       child: Container(
                         key: ValueKey(tasks.length),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.08,
+                          ),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           '${tasks.length}',
-                          style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
@@ -105,38 +134,54 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         tooltip: t['clearQuadrant'],
-                        icon: Icon(Icons.delete_sweep_outlined,
-                            size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.45)),
+                        icon: Icon(
+                          Icons.delete_sweep_outlined,
+                          size: 16,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.45,
+                          ),
+                        ),
                         onPressed: () => _confirmClear(context, store, q),
                       ),
                   ],
                 ),
               ),
               Expanded(
-                child: tasks.isEmpty
-                    ? Center(
-                        child: Text(
-                          t['empty']!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontStyle: FontStyle.italic,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                child:
+                    tasks.isEmpty
+                        ? Center(
+                          child: Text(
+                            t['empty']!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
                           ),
+                        )
+                        : ListView.builder(
+                          key: PageStorageKey('${store.activeBoardId}-$q'),
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding: const EdgeInsets.fromLTRB(8, 2, 8, 80),
+                          itemCount: tasks.length,
+                          itemBuilder: (context, i) {
+                            final task = tasks[i];
+                            return LongPressDraggable<Task>(
+                              key: ValueKey(task.id),
+                              maxSimultaneousDrags: widget.selecting ? 0 : 1,
+                              data: task,
+                              feedback: _dragFeedback(context, task),
+                              dragAnchorStrategy: pointerDragAnchorStrategy,
+                              childWhenDragging: Opacity(
+                                opacity: 0.35,
+                                child: _card(context, task, i),
+                              ),
+                              child: _card(context, task, i),
+                            );
+                          },
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(8, 2, 8, 10),
-                        itemCount: tasks.length,
-                        itemBuilder: (context, i) {
-                          final task = tasks[i];
-                          return Draggable<Task>(
-                            data: task,
-                            feedback: _dragFeedback(context, task),
-                            dragAnchorStrategy: pointerDragAnchorStrategy,
-                            childWhenDragging: Opacity(opacity: 0.35, child: _card(context, task, i)),
-                            child: _card(context, task, i),
-                          );
-                        },
-                      ),
               ),
             ],
           ),
@@ -150,6 +195,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       key: ValueKey(task.id),
       task: task,
       entranceIndex: index,
+      selecting: widget.selecting,
+      selected: widget.selectedIds.contains(task.id),
+      onSelect: () => widget.onSelect?.call(task.id),
       onChanged: () {},
       onEdit: () => showTaskEditSheet(context, task),
       onDelete: () => _confirmDelete(context, task),
@@ -167,30 +215,43 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 260),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Text(task.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+        child: Text(
+          task.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
 
   Future<void> _confirmClear(BuildContext context, Store store, int q) async {
     final t = store.t;
+    final boardId = store.activeBoardId;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(t['clearQuadrantTitle']!),
-        content: Text(t['confirmClearQuadrant']!),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(t['cancel']!)),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(t['confirm']!),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(t['clearQuadrantTitle']!),
+            content: Text(t['confirmClearQuadrant']!),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(t['cancel']!),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(t['confirm']!),
+              ),
+            ],
           ),
-        ],
-      ),
     );
-    if (ok == true) store.clearQuadrant(q);
+    if (ok == true && context.mounted) store.clearQuadrant(q, boardId: boardId);
   }
 
   Future<void> _confirmDelete(BuildContext context, Task task) async {
@@ -198,72 +259,29 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     final t = store.t;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(t['deleteTaskTitle']!),
-        content: Text(t['deleteTaskConfirm']!),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(t['cancel']!)),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(t['confirm']!),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(t['deleteTaskTitle']!),
+            content: Text(t['deleteTaskConfirm']!),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(t['cancel']!),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(t['confirm']!),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     if (ok == true && context.mounted) store.deleteTask(task.id);
   }
 
-  Future<void> _decomposeSingle(BuildContext context, Task task) async {
-    final store = context.read<Store>();
-    final t = store.t;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(task.title, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
-            const SizedBox(height: 18),
-            const CircularProgressIndicator(),
-            const SizedBox(height: 12),
-            Text(t['decomposingSingle']!),
-          ],
-        ),
-      ),
-    );
-    try {
-      final results = await store.ai.decomposeBatch(
-        taskTitles: [task.title],
-        config: store.aiConfig,
-        language: store.settings.language,
-      );
-      if (results.isNotEmpty && results.first.subtasks.isNotEmpty) {
-        store.appendSubtasks(
-          task.id,
-          results.first.subtasks
-              .map((s) => SubTask(id: '${task.id}-${s.hashCode}-${DateTime.now().microsecondsSinceEpoch}', title: s))
-              .toList(),
-        );
-      } else if (context.mounted) {
-        _snack(context, t['error']!);
-      }
-    } catch (e) {
-      if (context.mounted) _snack(context, '${t['error']}: ${_message(e)}');
-    } finally {
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-    }
-  }
-
-  void _snack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), width: 420));
-  }
-
-  String _message(Object e) {
-    final s = e.toString();
-    return s.length > 120 ? s.substring(0, 120) : s;
-  }
-
+  Future<void> _decomposeSingle(BuildContext context, Task task) =>
+      showBatchDecomposeSheet(context, [task], autoStart: true);
   bool isDark(ThemeData theme) => theme.brightness == Brightness.dark;
 }

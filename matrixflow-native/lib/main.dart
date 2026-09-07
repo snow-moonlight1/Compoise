@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/matrix_screen.dart';
@@ -21,9 +22,25 @@ class MatrixFlowApp extends StatelessWidget {
       child: Consumer<Store>(
         builder: (context, store, _) {
           if (!store.ready) {
-            return const MaterialApp(
+            return MaterialApp(
               debugShowCheckedModeBanner: false,
-              home: Scaffold(body: Center(child: CircularProgressIndicator())),
+              home: Scaffold(
+                body: Center(
+                  child:
+                      store.startupError == null
+                          ? const CircularProgressIndicator()
+                          : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(store.startupError!),
+                              TextButton(
+                                onPressed: store.init,
+                                child: Text(store.t['retry']!),
+                              ),
+                            ],
+                          ),
+                ),
+              ),
             );
           }
           return MaterialApp(
@@ -42,6 +59,7 @@ class MatrixFlowApp extends StatelessWidget {
               Language.en => const Locale('en'),
             },
             supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: const MatrixHome(),
           );
         },

@@ -21,7 +21,7 @@ MatrixFlow AI 的原生渲染版本：**不经过 WebView**，用 Flutter（Impe
 ```bash
 flutter pub get
 flutter analyze              # 0 issues
-flutter test                 # 单元测试：模型往返 / 三协议解析 / 导入去重 / 截止升级
+flutter test                 # 64 项单元/Widget 测试：模型 / AI / 存储 / 交互回归
 flutter run                  # 开发运行（选设备）
 ```
 
@@ -50,6 +50,8 @@ lib/
 ```
 
 ## 已知差异（相对 Web 版）
+
+2026-09-07 深度审查修复及剩余问题见 [Bug 探查报告](../docs/NATIVE_BUG_REVIEW_2026-09-07.md)。当前 Android debug、Windows release 构建通过；Android release 存在 integration_test 自动注册错误，尚不可视为已验证发布包。
 
 - 导入预览为「合并 / 覆盖」两步确认，暂无逐字段勾选
 - 桌面端窗口尺寸调整与托盘等深度集成未做

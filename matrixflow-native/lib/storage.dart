@@ -5,23 +5,28 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai_service.dart';
 import 'l10n.dart';
 import 'models.dart';
 
-class Store extends ChangeNotifier {
+class Store extends ChangeNotifier with WidgetsBindingObserver {
   static const _kTasks = 'matrixflow-tasks';
   static const _kBoards = 'matrixflow-boards';
   static const _kConfig = 'matrixflow-config';
   static const _kSettings = 'matrixflow-settings';
+  static const _kActiveBoard = 'matrixflow-active-board';
 
   final AIService ai;
   late SharedPreferences _prefs;
 
   bool ready = false;
+  bool _disposed = false;
+  String? startupError;
+  String? persistenceError;
+  Future<void> _pendingWrites = Future.value();
   List<Board> boards = [];
   List<Task> tasks = [];
   String activeBoardId = '';
@@ -36,57 +41,87 @@ class Store extends ChangeNotifier {
   Store({AIService? aiService}) : ai = aiService ?? AIService();
 
   Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    startupError = null;
+    try {
+      _prefs = await SharedPreferences.getInstance();
+    } catch (_) {
+      if (_disposed) return;
+      startupError = t['storageReadError'];
+      notifyListeners();
+      return;
+    }
+    if (_disposed) return;
     var corrupted = 0;
 
-    final cfg = _loadJson(_kConfig);
-    if (cfg is Map<String, dynamic>) {
-      aiConfig = AIConfig.fromJson(cfg);
-    } else if (cfg != null) {
-      corrupted++;
-    }
-
-    final st = _loadJson(_kSettings);
-    if (st is Map<String, dynamic>) {
-      settings = AppSettings.fromJson(st);
-    } else if (st != null) {
-      corrupted++;
-    }
-
-    final boardsRaw = _loadJson(_kBoards);
-    if (boardsRaw is List) {
-      boards = boardsRaw
-          .whereType<Map<String, dynamic>>()
-          .map(Board.fromJson)
-          .toList();
-    } else if (boardsRaw != null) {
-      corrupted++;
-    }
-
-    final tasksRaw = _loadJson(_kTasks);
-    if (tasksRaw is List) {
-      var loaded = tasksRaw
-          .whereType<Map<String, dynamic>>()
-          .map(Task.fromJson)
-          .toList();
-      if (loaded.isNotEmpty && loaded.first.boardId.isEmpty) {
-        // Pre-boards export: fold every task into the first board.
-        if (boards.isEmpty) {
-          boards = [Board(id: _uuid(), name: t['defaultBoardName']!, createdAt: _now())];
-        }
-        final target = boards.first.id;
-        loaded = [
-          for (final task in loaded) task..boardId = task.boardId.isEmpty ? target : task.boardId
-        ];
+    T read<T>(String key, T fallback, T Function(dynamic) parse) {
+      final raw = _loadJson(key);
+      if (raw == null) return fallback;
+      try {
+        return parse(raw);
+      } catch (_) {
+        corrupted++;
+        return fallback;
       }
-      tasks = loaded;
-    } else if (tasksRaw != null) {
-      corrupted++;
     }
+
+    List<T> records<T>(
+      dynamic raw,
+      T Function(Map<String, dynamic>) parse,
+      String Function(T) id,
+    ) {
+      if (raw is! List) throw const FormatException('Invalid list');
+      final result = <T>[];
+      final seen = <String>{};
+      for (final item in raw) {
+        try {
+          final record = parse(item as Map<String, dynamic>);
+          if (seen.add(id(record))) {
+            result.add(record);
+          } else {
+            corrupted++;
+          }
+        } catch (_) {
+          corrupted++;
+        }
+      }
+      return result;
+    }
+
+    aiConfig = read(
+      _kConfig,
+      AIConfig(),
+      (raw) => AIConfig.fromJson(raw as Map<String, dynamic>),
+    );
+    settings = read(
+      _kSettings,
+      AppSettings(),
+      (raw) => AppSettings.fromJson(raw as Map<String, dynamic>),
+    );
+    boards = read(
+      _kBoards,
+      <Board>[],
+      (raw) => records(raw, Board.fromJson, (b) => b.id),
+    );
+    tasks = read(
+      _kTasks,
+      <Task>[],
+      (raw) => records(raw, Task.fromJson, (task) => task.id),
+    );
 
     if (boards.isEmpty) {
-      boards = [Board(id: _uuid(), name: t['defaultBoardName']!, createdAt: _now())];
+      boards = [
+        Board(id: newId(), name: t['defaultBoardName']!, createdAt: _now()),
+      ];
     }
+    final validIds = boards.map((b) => b.id).toSet();
+    for (final task in tasks) {
+      if (!validIds.contains(task.boardId)) {
+        if (task.boardId.isNotEmpty) corrupted++;
+        task.boardId = boards.first.id;
+      }
+    }
+    final savedActive = _prefs.get(_kActiveBoard);
+    activeBoardId = savedActive is String ? savedActive : '';
     if (!boards.any((b) => b.id == activeBoardId)) {
       activeBoardId = boards.first.id;
     }
@@ -97,13 +132,28 @@ class Store extends ChangeNotifier {
     _applyDeadlinePromotion();
     notifyListeners();
 
-    _deadlineTimer = Timer.periodic(const Duration(hours: 1), (_) => _applyDeadlinePromotion());
+    _deadlineTimer = Timer.periodic(
+      const Duration(hours: 1),
+      (_) => _applyDeadlinePromotion(),
+    );
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _deadlineTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    ai.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && ready && !_disposed) {
+      _applyDeadlinePromotion();
+      notifyListeners(); // refresh calendar badges after midnight
+    }
   }
 
   // --- derived ---
@@ -112,10 +162,11 @@ class Store extends ChangeNotifier {
       boards.where((b) => b.id == activeBoardId).firstOrNull;
 
   List<Task> get visibleTasks {
-    final list = tasks
-        .where((task) => task.boardId == activeBoardId)
-        .where((task) => !settings.hideCompleted || !task.completed)
-        .toList();
+    final list =
+        tasks
+            .where((task) => task.boardId == activeBoardId)
+            .where((task) => !settings.hideCompleted || !task.completed)
+            .toList();
     return list;
   }
 
@@ -123,24 +174,38 @@ class Store extends ChangeNotifier {
       visibleTasks.where((task) => task.quadrant == quadrant).toList();
 
   List<Task> longTermPending() =>
-      visibleTasks.where((task) => task.isLongTerm && !task.hasSubtasks && !task.completed).toList();
+      visibleTasks
+          .where(
+            (task) => task.isLongTerm && !task.hasSubtasks && !task.completed,
+          )
+          .toList();
 
   // --- mutations ---
 
   void setActiveBoard(String id) {
+    if (!boards.any((b) => b.id == id)) return;
     activeBoardId = id;
     _saveBoardsMeta();
     notifyListeners();
   }
 
   void addTasks(List<Task> newTasks) {
-    tasks.insertAll(0, newTasks);
+    final seen = tasks.map((task) => task.id).toSet();
+    final boardIds = boards.map((board) => board.id).toSet();
+    tasks.insertAll(
+      0,
+      newTasks.where(
+        (task) => boardIds.contains(task.boardId) && seen.add(task.id),
+      ),
+    );
+    _applyDeadlinePromotion();
     _saveTasks();
     notifyListeners();
   }
 
-  Task newTask(String title, {int quadrant = qDo, bool isLongTerm = false}) => Task(
-        id: _uuid(),
+  Task newTask(String title, {int quadrant = qDo, bool isLongTerm = false}) =>
+      Task(
+        id: newId(),
         boardId: activeBoardId,
         title: title,
         quadrant: quadrant,
@@ -149,16 +214,17 @@ class Store extends ChangeNotifier {
       );
 
   void updateTask(Task updated) {
-    if (settings.autoCompleteParent &&
-        updated.subtasks.isNotEmpty) {
+    final i = tasks.indexWhere((t) => t.id == updated.id);
+    if (i == -1) return;
+    if (settings.autoCompleteParent && updated.subtasks.isNotEmpty) {
       final allDone = updated.subtasks.every((s) => s.completed);
       if (allDone) updated.completed = true;
       if (updated.completed && updated.subtasks.any((s) => !s.completed)) {
         updated.completed = false;
       }
     }
-    final i = tasks.indexWhere((t) => t.id == updated.id);
-    if (i != -1) tasks[i] = updated;
+    tasks[i] = updated;
+    _applyDeadlinePromotion();
     _saveTasks();
     notifyListeners();
   }
@@ -180,13 +246,14 @@ class Store extends ChangeNotifier {
   void appendSubtasks(String taskId, List<SubTask> subs) {
     final i = tasks.indexWhere((t) => t.id == taskId);
     if (i == -1) return;
-    tasks[i].subtasks = [...tasks[i].subtasks, ...subs];
-    _saveTasks();
-    notifyListeners();
+    final updated = Task.fromJson(tasks[i].toJson())..subtasks.addAll(subs);
+    updateTask(updated);
   }
 
-  void clearQuadrant(int quadrant) {
-    tasks.removeWhere((t) => t.boardId == activeBoardId && t.quadrant == quadrant);
+  void clearQuadrant(int quadrant, {String? boardId}) {
+    tasks.removeWhere(
+      (t) => t.boardId == (boardId ?? activeBoardId) && t.quadrant == quadrant,
+    );
     _saveTasks();
     notifyListeners();
   }
@@ -201,25 +268,44 @@ class Store extends ChangeNotifier {
   }
 
   Task groupTasks(Iterable<String> ids, String title) {
-    final selected = tasks.where((t) => ids.contains(t.id)).toList();
-    if (selected.isEmpty) throw StateError('no tasks selected');
+    final selected =
+        tasks
+            .where((t) => ids.contains(t.id) && t.boardId == activeBoardId)
+            .toList();
+    if (selected.length < 2 || title.trim().isEmpty) {
+      throw StateError('Select at least two tasks on the active board');
+    }
+    final selectedIds = selected.map((t) => t.id).toSet();
+    final deadlines =
+        selected.map((t) => t.deadline).whereType<int>().toList()..sort();
     final parent = Task(
-      id: _uuid(),
+      id: newId(),
       boardId: selected.first.boardId,
       title: title,
       quadrant: selected.first.quadrant,
+      completed: selected.every((t) => t.completed),
+      isLongTerm: selected.any((t) => t.isLongTerm),
+      deadline: deadlines.firstOrNull,
       createdAt: _now(),
       subtasks: [
-        for (final t in selected)
+        for (final t in selected) ...[
           SubTask(
-            id: _uuid(),
+            id: newId(),
             title: t.title,
             completed: t.completed,
             deadline: t.deadline,
           ),
+          for (final child in t.subtasks)
+            SubTask(
+              id: newId(),
+              title: '${t.title} / ${child.title}',
+              completed: child.completed,
+              deadline: child.deadline,
+            ),
+        ],
       ],
     );
-    tasks.removeWhere((t) => ids.contains(t.id));
+    tasks.removeWhere((t) => selectedIds.contains(t.id));
     tasks.insert(0, parent);
     _saveTasks();
     notifyListeners();
@@ -227,7 +313,7 @@ class Store extends ChangeNotifier {
   }
 
   void createBoard(String name) {
-    final board = Board(id: _uuid(), name: name, createdAt: _now());
+    final board = Board(id: newId(), name: name, createdAt: _now());
     boards.add(board);
     activeBoardId = board.id;
     _saveBoardsMeta();
@@ -253,6 +339,8 @@ class Store extends ChangeNotifier {
 
   void updateSettings(AppSettings Function(AppSettings) change) {
     settings = change(settings);
+    settings.urgencyThresholdDays = settings.urgencyThresholdDays.clamp(1, 14);
+    _applyDeadlinePromotion();
     _saveSettings();
     notifyListeners();
   }
@@ -265,40 +353,67 @@ class Store extends ChangeNotifier {
 
   // --- import / export (web-compatible ExportData v1) ---
 
-  String exportJson() => jsonEncode(ExportData(
-        boards: boards,
-        tasks: tasks,
-        settings: settings,
-        aiConfig: aiConfig,
-      ).toJson());
+  String exportJson() => jsonEncode(
+    ExportData(
+      boards: boards,
+      tasks: tasks,
+      settings: settings,
+      aiConfig: aiConfig,
+    ).toJson(),
+  );
 
   /// Returns the number of tasks imported. [mode] is 'merge' or 'overwrite'.
   int importData(Map<String, dynamic> json, String mode) {
-    if (json['boards'] is! List || json['tasks'] is! List) {
+    if (!['merge', 'overwrite'].contains(mode) ||
+        (json.containsKey('version') &&
+            json['version'] != ExportData.version) ||
+        json['boards'] is! List ||
+        json['tasks'] is! List) {
       throw const FormatException('bad export shape');
     }
-    final incomingBoards = (json['boards'] as List)
-        .whereType<Map<String, dynamic>>()
-        .map(Board.fromJson)
-        .toList();
-    final incomingTasks = (json['tasks'] as List)
-        .whereType<Map<String, dynamic>>()
-        .map(Task.fromJson)
-        .toList();
+    final incomingBoards =
+        (json['boards'] as List)
+            .cast<Map<String, dynamic>>()
+            .map(Board.fromJson)
+            .toList();
+    final incomingTasks =
+        (json['tasks'] as List)
+            .cast<Map<String, dynamic>>()
+            .map(Task.fromJson)
+            .toList();
+    // Parse every imported field before mutating live state.
+    final incomingSettings =
+        json['settings'] == null
+            ? null
+            : AppSettings.fromJson(json['settings'] as Map<String, dynamic>);
+    final incomingConfig =
+        json['aiConfig'] == null
+            ? null
+            : AIConfig.fromJson(json['aiConfig'] as Map<String, dynamic>);
+    final seenBoards = <String>{};
+    incomingBoards.removeWhere((b) => !seenBoards.add(b.id));
+    final seenTasks = <String>{};
+    incomingTasks.removeWhere((task) => !seenTasks.add(task.id));
 
     if (mode == 'overwrite') {
+      if (incomingBoards.isEmpty) {
+        incomingBoards.add(
+          Board(id: newId(), name: t['defaultBoardName']!, createdAt: _now()),
+        );
+      }
+      final validIds = incomingBoards.map((b) => b.id).toSet();
+      for (final task in incomingTasks) {
+        if (task.boardId.isEmpty) task.boardId = incomingBoards.first.id;
+        if (!validIds.contains(task.boardId)) {
+          throw const FormatException('Task references a missing board');
+        }
+      }
       boards = incomingBoards;
       tasks = incomingTasks;
-      if (json['settings'] is Map<String, dynamic>) {
-        settings = AppSettings.fromJson(json['settings'] as Map<String, dynamic>);
-      }
-      if (json['aiConfig'] is Map<String, dynamic>) {
-        aiConfig = AIConfig.fromJson(json['aiConfig'] as Map<String, dynamic>);
-      }
-      if (boards.isEmpty) {
-        boards = [Board(id: _uuid(), name: t['defaultBoardName']!, createdAt: _now())];
-      }
+      settings = incomingSettings ?? settings;
+      aiConfig = incomingConfig ?? aiConfig;
       activeBoardId = boards.first.id;
+      _applyDeadlinePromotion();
       _persistAll();
       notifyListeners();
       return incomingTasks.length;
@@ -312,10 +427,16 @@ class Store extends ChangeNotifier {
 
     final seenTaskIds = tasks.map((t) => t.id).toSet();
     final validBoardIds = {...existingBoardIds, ...newBoards.map((b) => b.id)};
-    final incoming = incomingTasks
-        .where((task) => !seenTaskIds.contains(task.id) && validBoardIds.contains(task.boardId))
-        .toList();
+    final incoming =
+        incomingTasks
+            .where(
+              (task) =>
+                  validBoardIds.contains(task.boardId) &&
+                  seenTaskIds.add(task.id),
+            )
+            .toList();
     tasks.addAll(incoming);
+    _applyDeadlinePromotion();
     _saveBoardsMeta();
     _saveTasks();
     notifyListeners();
@@ -353,9 +474,9 @@ class Store extends ChangeNotifier {
   // --- persistence ---
 
   dynamic _loadJson(String key) {
-    final raw = _prefs.getString(key);
-    if (raw == null) return null;
     try {
+      final raw = _prefs.getString(key);
+      if (raw == null) return null;
       return jsonDecode(raw);
     } catch (_) {
       return '<<corrupt>>'; // non-null sentinel marks corruption
@@ -369,18 +490,33 @@ class Store extends ChangeNotifier {
     _saveSettings();
   }
 
+  void _write(String key, String value) {
+    if (!ready || _disposed) return;
+    _pendingWrites = _pendingWrites.then((_) async {
+      try {
+        if (!await _prefs.setString(key, value)) {
+          throw StateError('Save failed');
+        }
+      } catch (_) {
+        if (!_disposed) {
+          persistenceError = t['storageWriteError'];
+          notifyListeners();
+        }
+      }
+    });
+  }
+
+  Future<void> flush() => _pendingWrites;
+
   void _saveTasks() =>
-      _prefs.setString(_kTasks, jsonEncode(tasks.map((t) => t.toJson()).toList()));
-  void _saveBoardsMeta() =>
-      _prefs.setString(_kBoards, jsonEncode(boards.map((b) => b.toJson()).toList()));
-  void _saveConfig() => _prefs.setString(_kConfig, jsonEncode(aiConfig.toJson()));
-  void _saveSettings() => _prefs.setString(_kSettings, jsonEncode(settings.toJson()));
+      _write(_kTasks, jsonEncode(tasks.map((t) => t.toJson()).toList()));
+  void _saveBoardsMeta() {
+    _write(_kBoards, jsonEncode(boards.map((b) => b.toJson()).toList()));
+    _write(_kActiveBoard, activeBoardId);
+  }
+
+  void _saveConfig() => _write(_kConfig, jsonEncode(aiConfig.toJson()));
+  void _saveSettings() => _write(_kSettings, jsonEncode(settings.toJson()));
 }
 
 int _now() => DateTime.now().millisecondsSinceEpoch;
-
-String _uuid() {
-  // crypto.randomUUID is available on all Flutter targets via Random.secure.
-  final rnd = DateTime.now().microsecondsSinceEpoch;
-  return 'mf-$rnd-${(rnd * 31) & 0x7fffffff}';
-}

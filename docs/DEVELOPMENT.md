@@ -23,11 +23,13 @@ Web 改动后的最低验证组合：`npm run build` + `npx tsc --noEmit`。
 | 命令 | 说明 |
 |---|---|
 | `flutter pub get` | 安装 Dart/Flutter 依赖 |
-| `flutter test` | 运行单元与集成测试（20 项测试覆盖模型、协议、导入去重、截止升级等） |
+| `flutter test` | 运行 64 项单元/Widget 测试；设备集成测试需另行 `flutter test integration_test/app_test.dart -d <device>` |
 | `flutter analyze` | 静态代码分析（当前 0 告警） |
 | `flutter run` | 本地启动（支持连接 Android 调试或 Windows 原生窗口） |
 
 原生端改动后的最低验证组合：`flutter test` + `flutter analyze`。
+
+2026-09-07 原生审查后：Android debug、Windows release 构建通过；Android release 仍存在 integration_test 自动注册编译阻塞，见 [报告 B01](NATIVE_BUG_REVIEW_2026-09-07.md)。Flutter 构建和测试会重生成平台插件文件，建议同一工作区内顺序运行。
 
 ## 环境变量
 

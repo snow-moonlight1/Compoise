@@ -55,7 +55,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用：输入任务后由 AI 自�
 ```bash
 cd matrixflow-native
 flutter pub get
-flutter test     # 运行 20 项自动化测试
+flutter test     # 运行 64 项单元/Widget 测试；设备集成测试单独执行
 flutter run      # 启动应用（按提示选择 Android 设备或 Windows 桌面）
 ```
 
@@ -96,6 +96,7 @@ flutter build windows         # Windows 桌面应用 → build/windows/x64/runne
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构、数据模型、状态管理、AI 服务与关键流程 |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发环境、命令、代码约定与常见扩展任务 |
 | [docs/HANDOFF.md](docs/HANDOFF.md) | 项目交接文档、当前实机测试状态与下轮任务提示词 |
+| [docs/NATIVE_BUG_REVIEW_2026-09-07.md](docs/NATIVE_BUG_REVIEW_2026-09-07.md) | 原生端深度 Bug 审查、29 类修复、64 项验证与剩余构建阻塞 |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | 依据 Git 历史重建的版本演进记录 |
 | [matrixflow-native/README.md](matrixflow-native/README.md) | Flutter 原生跨平台版架构、开发与构建指南 |
 | [AGENTS.md](AGENTS.md) | AI 协作会话的规则与边界 |
