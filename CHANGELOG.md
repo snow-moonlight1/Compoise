@@ -6,6 +6,26 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-07 · 原生跨平台版集成与文档体系全量对齐
+
+### 新增
+
+- **MatrixFlow Native（Flutter 原生跨平台版）正式集成至主仓库**：
+  - 采用 Flutter 3 + Dart 开发，Impeller / Skia 自绘引擎，无需 WebView，提供丝滑的原生系统交互与动效
+  - 同一套 Dart 代码直接编译为 **Android APK** 与 **Windows 原生桌面应用**
+  - **数据完全互通**：同构数据模型（`models.dart`），与 Web 端共享 `ExportData` v1 格式与 SharedPreferences 本地持久化（键名对齐 `matrixflow-*`），支持去重合并
+  - **三协议 AI 客户端**：原生 HTTP 实现 OpenAI Compatible、OpenAI Responses 与 Anthropic Messages 三协议，多级 JSON 容错剥离与探活检测
+  - **工程化质量保障**：配备 20 项完备的单元与集成测试（`flutter test`），并通过 `flutter analyze` 零告警静态检查
+
+### 改进
+
+- **文档体系全面核验与对齐**：
+  - 修复 `matrixflow-native/README.md` 指向 Web 版的失效相对路径
+  - 更新 `README.md`、`AGENTS.md`、`docs/ARCHITECTURE.md` 与 `docs/DEVELOPMENT.md`，完整记录双轨（Web / Native）架构
+  - 纠正 `ARCHITECTURE.md` 中历史残留的「AI 四协议」说法为三协议，更新 App.tsx 实际行数（1672 行）
+  - 从技术债清单移除已消除的 Rollup 500 KB 分包警告，记录当前 Web 构建产物实际体积为 288.5 KB（gzip 87 KB）
+  - `DEVELOPMENT.md` 补齐 Flutter 开发、构建、测试命令与本机 SDK 路径说明，修正 subst 映射路径
+
 ## 2026-09-06（二）· 移除 Gemini 协议
 
 ### 移除

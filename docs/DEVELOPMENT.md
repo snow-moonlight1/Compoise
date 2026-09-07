@@ -1,18 +1,33 @@
 # 开发指南
 
-最后核对：2026-08-30。架构与数据模型见 [ARCHITECTURE.md](ARCHITECTURE.md)，历史演进见 [../CHANGELOG.md](../CHANGELOG.md)。
+最后核对：2026-09-07。架构与数据模型见 [ARCHITECTURE.md](ARCHITECTURE.md)，历史演进见 [../CHANGELOG.md](../CHANGELOG.md)。
 
 ## 环境与命令
 
+### Web / 混合端
+
 | 命令 | 说明 |
 |---|---|
-| `npm install` | 安装依赖 |
-| `npm run dev` | 开发服务器，http://localhost:3000（host `0.0.0.0`，局域网可访问） |
-| `npm run build` | 生产构建，产物输出到 `dist/`（约 494 KB，gzip 121 KB） |
+| `npm install` | 安装 Node.js 依赖 |
+| `npm run dev` | 开发服务器，http://localhost:3000（端口冲突时加 `-- --port 3456`） |
+| `npm run build` | 生产构建，产物输出到 `dist/`（约 288 KB，gzip 87 KB，已消除分包警告） |
 | `npm run preview` | 本地预览构建产物 |
 | `npx tsc --noEmit` | 类型检查（构建脚本不含 tsc，需手动运行；当前通过） |
 
-无测试框架、无 lint 配置。改动后的最低验证组合：`npm run build` + `npx tsc --noEmit`。注意 `@types/react` / `@types/react-dom`（2026-09-03 补装）是 tsc 真实生效的前提，勿删。
+Web 改动后的最低验证组合：`npm run build` + `npx tsc --noEmit`。
+
+### 原生跨平台端（`matrixflow-native/`）
+
+前置：Flutter SDK（本机路径 `D:\Dev_SDKs\Flutter_SDK`）。
+
+| 命令 | 说明 |
+|---|---|
+| `flutter pub get` | 安装 Dart/Flutter 依赖 |
+| `flutter test` | 运行单元与集成测试（20 项测试覆盖模型、协议、导入去重、截止升级等） |
+| `flutter analyze` | 静态代码分析（当前 0 告警） |
+| `flutter run` | 本地启动（支持连接 Android 调试或 Windows 原生窗口） |
+
+原生端改动后的最低验证组合：`flutter test` + `flutter analyze`。
 
 ## 环境变量
 
@@ -55,22 +70,24 @@
 
 ## 打包
 
-同一份 `dist/` 产物，三种形态（详见 README「打包」）：
+MatrixFlow 支持 Web、混合打包壳以及 Flutter 原生多种形态：
 
 | 形态 | 工具 | 命令 |
 |---|---|---|
-| 桌面（Windows） | Tauri v2（`src-tauri/`，需 Rust） | `npm run tauri build` → `src-tauri/target/release/bundle/{msi,nsis}/` |
-| 安卓 | Capacitor（`android/`） | `npx cap sync` → `cd android && ./gradlew.bat assembleDebug` |
 | Web | Vite | `npm run build` → `dist/` |
+| 桌面混合壳（Windows） | Tauri v2（`src-tauri/`，需 Rust） | `npm run tauri build` → `src-tauri/target/release/bundle/{msi,nsis}/` |
+| 安卓混合壳 | Capacitor（`android/`） | `npx cap sync` → `cd android && ./gradlew.bat assembleDebug` |
+| 安卓原生应用（自绘） | Flutter（`matrixflow-native/`） | `cd matrixflow-native && flutter build apk --debug` |
+| Windows 原生桌面（自绘） | Flutter（`matrixflow-native/`） | `cd matrixflow-native && flutter build windows` |
 
-本机环境要点（2026-09-06 实测）：
+本机环境要点（2026-09-07 实测）：
 
-- **项目路径含中文**：AGP 先是直接拒绝（已加 `android.overridePathCheck=true` 绕过检查），依赖解析阶段仍会报「文件名、目录名或卷标语法不正确」。可靠做法是映射 ASCII 盘符后构建：`subst M: "D:\Dev_project\四象限待办"`，然后在 `M:/android` 下执行 gradle。
-- **Android SDK** 在 `D:\Dev_SDKs\Android_studio_SDK`（未设 ANDROID_HOME 环境变量），**JDK 21** 在 `D:\Dev_SDKs\jdk-21.0.12.1+1`（Capacitor 8 要求 Java 21，机器上的 JDK 17 会报「无效的源发行版：21」；已补装）。gradle 命令前需 `export JAVA_HOME`（指 JDK 21）与 `ANDROID_HOME`；`android/local.properties` 的 `sdk.dir` 必须用**正斜杠**（properties 文件里反斜杠是转义符，会被吞掉导致路径非法）。
+- **Flutter SDK**：位于 `D:\Dev_SDKs\Flutter_SDK`，PowerShell 终端若未配置环境变量，可调用 `& "D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat"`。
+- **Android SDK 与 JDK 21**：Android SDK 在 `D:\Dev_SDKs\Android_studio_SDK`，JDK 21 在 `D:\Dev_SDKs\jdk-21.0.12.1+1`。gradle 命令前需 `export JAVA_HOME`（指 JDK 21）与 `ANDROID_HOME`；`android/local.properties` 的 `sdk.dir` 必须用**正斜杠**。
+- **项目路径若含非 ASCII 字符或空格**：AGP 依赖解析可能异常，可靠做法是映射 ASCII 盘符后构建：`subst M: "D:\Dev_project\martix"`，然后在 `M:/android` 下执行 gradle。
 - **端口 3000 / 3100 落在 Windows 动态排除段**（2945-3044、3079-3178，`netsh interface ipv4 show excludedportrange` 可查），dev server 用 `npm run dev -- --port 3456` 或其他未排除端口。
-- **Maven 依赖走阿里云镜像**：`android/build.gradle` 的 buildscript 与 allprojects 仓库列表已把 `maven.aliyun.com`（google/central/public）放在 `google()`、`mavenCentral()` 之前——直连 `dl.google.com` 会 TLS 握手失败（Remote host terminated the handshake）。
-- Capacitor 8：`npx cap init/add/sync` 生成并同步 `android/`；WebView 默认 `https://localhost` 源（安全上下文，`crypto.randomUUID` 可用）。
-- Tauri 2：`npx tauri init` 生成 `src-tauri/`；窗口与标识配置在 `src-tauri/tauri.conf.json`（identifier `com.matrixflow.ai`）。
+- **Maven 依赖走阿里云镜像**：`android/build.gradle` 的 buildscript 与 allprojects 仓库列表已把 `maven.aliyun.com`（google/central/public）放在 `google()`、`mavenCentral()` 之前——直连 `dl.google.com` 会 TLS 握手失败。
+- **多端同步约定**：当在 Web 端扩展语言、AI 提供商、设置项或任务字段时，请同步在 `matrixflow-native/lib/`（`models.dart`、`l10n.dart`、`storage.dart`）补全对应实现，保持 ExportData v1 数据互通性。
 
 ## Git 工作流现状
 

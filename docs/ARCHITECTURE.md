@@ -1,31 +1,41 @@
 # 架构
 
-本文档描述 MatrixFlow AI 的代码结构与运行机制。最后核对：2026-09-03（基于 `main` 工作区，含当日修复批次）。
+本文档描述 MatrixFlow AI 的代码结构与运行机制。最后核对：2026-09-07（基于 `main` 工作区）。
 
 ## 总体结构
 
-纯前端单页应用，**无后端、无数据库**：全部状态在 React 内存中，持久化到浏览器 localStorage；AI 调用由浏览器/WebView 直接发起。同一份 `dist/` 产物以三种形态交付：浏览器（`npm run dev` / 静态托管）、桌面（Tauri v2，`src-tauri/`）、安卓（Capacitor，`android/`）。
+项目采用双轨实现，共享相同的数据模型、持久化设计与 AI 协议，**无后端、无数据库**：
+1. **Web / 混合端**：纯前端单页应用，全部状态在 React 内存中，持久化到浏览器 localStorage；AI 调用由浏览器/WebView 直接发起。同一份 `dist/` 产物以三种形态交付：浏览器（`npm run dev` / 静态托管）、桌面（Tauri v2，`src-tauri/`）、安卓（Capacitor，`android/`）。
+2. **原生跨平台端**（`matrixflow-native/`）：Flutter 3 原生渲染应用，不经过 WebView，采用自绘引擎（Impeller/Skia）直接编译为 Android APK 与 Windows 桌面应用，通过 SharedPreferences 本地持久化，与 Web 端备份数据互通。
 
 ```
-index.html            HTML 壳：Tailwind CDN、内联 tailwind.config 与主题 CSS 变量、
-                      Nunito 字体、custom-scrollbar 样式
-index.tsx             React 入口（ReactDOM.createRoot）
-App.tsx               唯一状态中心：全部 state、业务处理函数与页面布局（约 1850 行）
-├─ components/        功能组件
-│  ├─ Quadrant.tsx          单个象限列：任务列表、拖放目标（含拖拽高亮）、一键清空
-│  ├─ TaskCard.tsx          任务卡片：复选框、子任务、截止日期、AI 理由、象限色条
-│  ├─ InputArea.tsx         底部输入区：单条 / 头脑风暴两种输入模式
-│  ├─ SettingsControls.tsx  设置面板控件
-│  ├─ ImportReview.tsx      导入预览（逐项勾选）
-│  ├─ Icons.tsx             内联 SVG 图标集
-│  ├─ ErrorBoundary.tsx     渲染崩溃兜底（附清除本地数据逃生入口）
-│  └─ ui/                   基础 UI：Modal（Esc/遮罩关闭/焦点圈）、Toast、Checkbox、ToggleSwitch
-├─ services/
-│  └─ aiService.ts          AI 四协议服务（全项目唯一与网络交互的模块，30s 超时）
-├─ types.ts                 全部数据类型定义
-└─ translations.ts          三语字典（en / zh / ja），组件经 `t` 对象取词
-src-tauri/             Tauri v2 桌面壳（Rust；tauri.conf.json 指向 ../dist）
-android/               Capacitor 安卓壳（WebView 加载 dist/；gradle 工程）
+├── (Web / 混合端)
+│   ├── index.html            HTML 壳：Tailwind CDN、内联 tailwind.config 与主题 CSS 变量、
+│   │                         Nunito 字体、custom-scrollbar 样式
+│   ├── index.tsx             React 入口（ReactDOM.createRoot）
+│   ├── App.tsx               Web 唯一状态中心：全部 state、业务处理函数与页面布局（约 1672 行）
+│   ├── components/           功能组件（Quadrant, TaskCard, InputArea, SettingsControls, ImportReview 等）
+│   ├── services/
+│   │   └── aiService.ts      AI 三协议服务（全项目唯一与网络交互的模块，30s 超时）
+│   ├── types.ts              全部数据类型定义
+│   ├── translations.ts       Web 三语字典（en / zh / ja）
+│   ├── src-tauri/            Tauri v2 桌面壳（Rust；tauri.conf.json 指向 ../dist）
+│   └── android/              Capacitor 安卓壳（WebView 加载 dist/；gradle 工程）
+│
+└── matrixflow-native/        (Flutter 原生跨平台端)
+    ├── lib/
+    │   ├── main.dart         原生入口：Provider 依赖注入与主题/语言接线
+    │   ├── storage.dart      原生状态中心（ChangeNotifier）+ SharedPreferences 持久化
+    │   ├── models.dart       与 types.ts 同构的 Dart 数据模型（ExportData v1 兼容）
+    │   ├── quadrant.dart     四象限常量、颜色与字符串容错
+    │   ├── ai_service.dart   Dart 原生三协议 HTTP 客户端 + 多级 JSON 兜底解析
+    │   ├── l10n.dart         原生端三语本地化字典
+    │   ├── theme.dart        Material 3 动态取色主题系统
+    │   ├── screens/          矩阵主屏、设置面板
+    │   └── widgets/          任务卡、象限容器、输入弹层与动效组件
+    ├── test/                 单元测试（20 项测试：模型序列化、三协议解析、去重合并等）
+    ├── android/              Flutter Android 工程（原生 Gradle）
+    └── windows/              Flutter Windows 工程（原生 CMake/Runner）
 ```
 
 ## 数据模型（types.ts）
@@ -92,8 +102,8 @@ InputArea 收集输入 → `handleAISort` 调用 `analyzeTasks` → 结果进入
 
 ## 已知问题 / 技术债
 
-- Tailwind 通过 CDN 运行时编译（index.html:7），官方不建议生产使用；构建产物约 507 KB（gzip 125 KB），已越过 Rollup 500 KB 分包警告线。
-- App.tsx 仍承担全部业务逻辑（约 1850 行），是维护热点；50c70cc 与 2026-09-03 批次分别做过组件与渲染优化（React.memo + useCallback），但状态层未拆。
-- 无测试、无 lint 配置；`vite build` 不运行 tsc，类型检查需手动 `npx tsc --noEmit`（2026-09-03 起带真实 @types/react，检查真实有效）。
+- Tailwind 通过 CDN 运行时编译（index.html:7），官方不建议生产使用；2026-09-06 移除 Gemini 依赖后 Web 构建产物降至约 288 KB（gzip 87 KB），Rollup 500 KB 分包警告已消除。
+- App.tsx 仍承担 Web 端全部业务逻辑（约 1672 行），是维护热点；50c70cc 与 2026-09-03 批次分别做过组件与渲染优化（React.memo + useCallback），但状态层未做更深度的模块化拆分。
+- Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备针对数据往返、三协议请求构造、导入合并等场景的 20 项自动化测试。
 - 备份 JSON 明文包含自定义 AI 的 API 密钥（`aiConfig.customApiKey`）。
-- localStorage 读写无 schema 版本号（`ExportData.version` 存在但未用于本地迁移；字段级兜底 + safeParse 已覆盖常见损坏场景）。
+- 本地存储（localStorage / SharedPreferences）读写无显式 schema 版本迁移机制（`ExportData.version` 存在但未用于本地逐版升级；字段级兜底 + safeParse / 容错解析已覆盖当前绝大多数场景）。
