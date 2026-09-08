@@ -205,25 +205,39 @@ class AIConfig {
   String baseUrl;
   String apiKey;
   String model;
+  bool enableThinking;
   AIConfig({
     this.protocol = AIProtocol.openai,
-    this.baseUrl = '',
+    this.baseUrl = 'https://api.deepseek.com',
     this.apiKey = '',
-    this.model = 'gpt-4o-mini',
+    this.model = 'deepseek-v4-flash',
+    this.enableThinking = false,
   });
 
-  factory AIConfig.fromJson(Map<String, dynamic> j) => AIConfig(
-    protocol: AIProtocolX.fromString(j['provider'] as String?),
-    baseUrl: (j['customBaseUrl'] as String?) ?? '',
-    apiKey: (j['customApiKey'] as String?) ?? '',
-    model: (j['customModel'] as String?) ?? 'gpt-4o-mini',
-  );
+  factory AIConfig.fromJson(Map<String, dynamic> j) {
+    var base = (j['customBaseUrl'] as String?) ?? '';
+    var m = (j['customModel'] as String?) ?? '';
+    if (base.isEmpty) {
+      base = 'https://api.deepseek.com';
+    }
+    if (m.isEmpty || m == 'gpt-4o-mini') {
+      m = 'deepseek-v4-flash';
+    }
+    return AIConfig(
+      protocol: AIProtocolX.fromString(j['provider'] as String?),
+      baseUrl: base,
+      apiKey: (j['customApiKey'] as String?) ?? '',
+      model: m,
+      enableThinking: (j['enableThinking'] as bool?) ?? false,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'provider': AIProtocolX.toWire(protocol),
     'customBaseUrl': baseUrl,
     'customApiKey': apiKey,
     'customModel': model,
+    'enableThinking': enableThinking,
   };
 }
 

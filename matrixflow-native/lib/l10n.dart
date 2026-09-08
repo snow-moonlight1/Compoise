@@ -42,6 +42,10 @@ const Map<Language, Map<String, String>> _dicts = {
     'customModel': 'Model Name',
     'customUrlHint':
         'Site root only, no endpoint path — e.g. https://api.deepseek.com. Append /v1 if your provider requires it.',
+    'enableThinking': 'Thinking Mode',
+    'enableThinkingDesc': 'Enable model reasoning/thinking output.',
+    'aiRecommendTip':
+        'Tip: deepseek-v4-flash with Thinking Mode OFF is recommended for fastest response and highest sorting accuracy.',
     'empty': 'Empty',
     'processing': 'Processing…',
     'error': 'Error',
@@ -176,6 +180,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'customModel': '模型名称',
     'customUrlHint':
         '只填站点根地址，不含接口路径，如 https://api.deepseek.com；若服务商要求 /v1 请自行补上。',
+    'enableThinking': '思考模式',
+    'enableThinkingDesc': '开启模型深度思考/推理输出。',
+    'aiRecommendTip': '建议：推荐使用 deepseek-v4-flash 并关闭思考模式，响应最快且分类准确率最高。',
     'empty': '空空如也',
     'processing': '思考中…',
     'error': '错误',
@@ -303,6 +310,10 @@ const Map<Language, Map<String, String>> _dicts = {
     'customModel': 'モデル名',
     'customUrlHint':
         'サイトのルートURLのみ（パス不要）。例: https://api.deepseek.com。/v1 が必要な場合は追加してください。',
+    'enableThinking': '思考モード',
+    'enableThinkingDesc': 'モデルの推論/思考プロセスを有効にします。',
+    'aiRecommendTip':
+        '推奨：deepseek-v4-flash を使用し思考モードをオフに設定すると、最速かつ最高の精度で分類できます。',
     'empty': 'タスクなし',
     'processing': '処理中…',
     'error': 'エラー',

@@ -77,6 +77,6 @@ Future<void> main() async {
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
     expect(find.text('Mocked AI Task'), findsOneWidget);
-    expect(find.text('mock reasoning'), findsOneWidget);
+    expect(find.text('mock reasoning'), findsNothing);
   });
 }

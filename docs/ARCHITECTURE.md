@@ -33,7 +33,7 @@
     │   ├── theme.dart        Material 3 动态取色主题系统
     │   ├── screens/          矩阵主屏、设置面板
     │   └── widgets/          任务卡、象限容器、输入弹层与动效组件
-    ├── test/                 64 项单元/Widget 测试（模型、协议、存储、键盘/返回/拖拽/文件选择等）
+    ├── test/                 66 项单元/Widget 测试（模型、协议、存储、键盘/返回/拖拽/文件选择等）
     ├── android/              Flutter Android 工程（原生 Gradle）
     └── windows/              Flutter Windows 工程（原生 CMake/Runner）
 ```
@@ -46,9 +46,9 @@
 | `Board` | 任务板：id、名称、创建时间 |
 | `Task` | 任务：标题、所属任务板、象限、是否长期（isLongTerm）、完成状态、截止日期（deadline 时间戳）、子任务数组 |
 | `SubTask` | 子任务：标题、完成状态、可选截止日期 |
-| `AIAnalysisResult` | AI 返回的单条分析结果：标题、象限、是否长期、理由、子任务列表 |
+| `AIAnalysisResult` | AI 返回的单条分析结果：标题、象限、是否长期、子任务列表 |
 | `AIProvider` | AI 协议枚举：openai / openai-responses / anthropic（旧值 custom、gemini 加载时迁移为 openai） |
-| `AIConfig` | AI 配置：提供商 + 自定义接口的 baseUrl / apiKey / model |
+| `AIConfig` | AI 配置：提供商 + 自定义接口的 baseUrl / apiKey / model / enableThinking（思考模式开关） |
 | `AppSettings` | 应用设置：语言、主题、主题色、默认输入模式、5 个 AI 行为开关、紧急阈值天数（默认 3） |
 | `ExportData` | 备份文件格式：version（当前 1）、时间戳、任务板、任务、设置、AI 配置 |
 

@@ -72,6 +72,7 @@ export interface AIConfig {
   customBaseUrl?: string;
   customApiKey?: string;
   customModel?: string;
+  enableThinking?: boolean;
 }
 
 export interface ExportData {

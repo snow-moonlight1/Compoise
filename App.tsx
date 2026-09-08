@@ -13,6 +13,7 @@ import {
 // UI Components
 import { Modal } from './components/ui/Modal';
 import { Checkbox } from './components/ui/Checkbox';
+import { ToggleSwitch } from './components/ui/ToggleSwitch';
 import { ToastStack, ToastItem, ToastType } from './components/ui/Toast';
 
 // Feature Components
@@ -129,9 +130,10 @@ export default function App() {
   // Config & Settings State
   const [aiConfig, setAiConfig] = useState<AIConfig>({
     provider: AIProvider.OpenAI,
-    customBaseUrl: '',
+    customBaseUrl: 'https://api.deepseek.com',
     customApiKey: '',
-    customModel: 'gpt-4o-mini'
+    customModel: 'deepseek-v4-flash',
+    enableThinking: false
   });
 
   const [appSettings, setAppSettings] = useState<AppSettings>({
@@ -175,12 +177,18 @@ export default function App() {
       // Legacy providers map to the OpenAI-compatible protocol
       const legacy = (savedConfig as any).provider;
       if (legacy === 'custom' || legacy === 'gemini') savedConfig.provider = AIProvider.OpenAI;
-      setAiConfig({ ...{
-          provider: AIProvider.OpenAI,
-          customBaseUrl: '',
-          customApiKey: '',
-          customModel: 'gpt-4o-mini'
-        }, ...savedConfig });
+      let model = savedConfig.customModel;
+      if (!model || model === 'gpt-4o-mini') model = 'deepseek-v4-flash';
+      let baseUrl = savedConfig.customBaseUrl;
+      if (!baseUrl) baseUrl = 'https://api.deepseek.com';
+      setAiConfig({
+        provider: AIProvider.OpenAI,
+        customApiKey: '',
+        enableThinking: false,
+        ...savedConfig,
+        customBaseUrl: baseUrl,
+        customModel: model,
+      });
     }
 
     const savedSettings = safeParse<Partial<AppSettings>>('matrixflow-settings', null as unknown as Partial<AppSettings>, onCorrupt);
@@ -1577,6 +1585,7 @@ export default function App() {
                 <input
                   id="customBaseUrlInput"
                   type="text"
+                  placeholder="https://api.deepseek.com"
                   value={aiConfig.customBaseUrl}
                   onChange={(e) => setAiConfig(c => ({ ...c, customBaseUrl: e.target.value }))}
                   className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
@@ -1587,6 +1596,7 @@ export default function App() {
                 <input
                   id="customApiKeyInput"
                   type="password"
+                  placeholder="sk-..."
                   value={aiConfig.customApiKey}
                   onChange={(e) => setAiConfig(c => ({ ...c, customApiKey: e.target.value }))}
                   className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
@@ -1597,12 +1607,30 @@ export default function App() {
                 <input
                   id="customModelInput"
                   type="text"
+                  placeholder="deepseek-v4-flash"
                   value={aiConfig.customModel}
                   onChange={(e) => setAiConfig(c => ({ ...c, customModel: e.target.value }))}
                   className="w-full bg-transparent border-b border-slate-300 dark:border-slate-600 py-1 text-sm outline-none text-slate-700 dark:text-slate-200"
                 />
               </div>
               <p className="text-[11px] text-slate-400 leading-snug">{t.customUrlHint}</p>
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-300">{t.enableThinking}</p>
+                    <p className="text-[11px] text-slate-400 leading-snug">{t.enableThinkingDesc}</p>
+                  </div>
+                  <ToggleSwitch
+                    checked={Boolean(aiConfig.enableThinking)}
+                    onChange={() => setAiConfig(c => ({ ...c, enableThinking: !c.enableThinking }))}
+                    ariaLabel={t.enableThinking}
+                  />
+                </div>
+                <div className="mt-2.5 p-2 rounded-lg bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/50 text-[11px] text-blue-600 dark:text-blue-300 flex items-start gap-1.5 leading-snug">
+                  <SparklesIcon size={13} className="mt-0.5 flex-none" />
+                  <span>{t.aiRecommendTip}</span>
+                </div>
+              </div>
             </div>
 
             {/* Connection Test */}

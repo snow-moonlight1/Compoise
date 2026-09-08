@@ -84,28 +84,34 @@ async function requestCompletion(
   userPrompt: string,
   opts: { forceJsonObject: boolean }
 ): Promise<string> {
-  const base = normalizeBaseUrl(config.customBaseUrl || '');
+  const defaultBase = config.provider === AIProvider.Anthropic
+    ? 'https://api.anthropic.com'
+    : 'https://api.deepseek.com';
+  const base = normalizeBaseUrl(config.customBaseUrl || defaultBase);
   if (!base || !config.customApiKey) {
     throw new Error('Missing AI endpoint configuration');
   }
   const url = joinUrl(base, protocolPath(config.provider));
   const { signal, done } = createRequestSignal();
 
+  const enableThinking = Boolean(config.enableThinking);
   let body: Record<string, unknown>;
   if (config.provider === AIProvider.OpenAI) {
     body = {
-      model: config.customModel || 'gpt-4o-mini',
+      model: config.customModel || 'deepseek-v4-flash',
       messages: [
         { role: 'system', content: systemInstruction },
         { role: 'user', content: userPrompt }
-      ]
+      ],
+      thinking: { type: enableThinking ? 'enabled' : 'disabled' }
     };
     if (opts.forceJsonObject) body.response_format = { type: 'json_object' };
   } else if (config.provider === AIProvider.OpenAIResponses) {
     body = {
-      model: config.customModel || 'gpt-4o-mini',
+      model: config.customModel || 'deepseek-v4-flash',
       instructions: systemInstruction,
-      input: userPrompt
+      input: userPrompt,
+      reasoning: { effort: enableThinking ? 'high' : 'none' }
     };
     if (opts.forceJsonObject) body.text = { format: { type: 'json_object' } };
   } else {
@@ -113,7 +119,10 @@ async function requestCompletion(
       model: config.customModel || 'claude-3-5-haiku-latest',
       max_tokens: ANTHROPIC_MAX_TOKENS,
       system: systemInstruction,
-      messages: [{ role: 'user', content: userPrompt }]
+      messages: [{ role: 'user', content: userPrompt }],
+      ...(enableThinking
+        ? { output_config: { effort: 'high' } }
+        : { thinking: { type: 'disabled' } })
     };
   }
 
@@ -186,9 +195,10 @@ STRICT RULES:
 3. GROUPING LOGIC: Always look for multiple DISTINCT input lines that belong to the same project or category (e.g. inputs "Buy milk", "Buy eggs", "Buy soap"). Merge them into one task titled "Shopping" (or appropriate category) with subtasks ["Buy milk", "Buy eggs", "Buy soap"].
 4. If an input is a standalone short-term task, leave subtasks empty.
 5. The "quadrant" field MUST be the integer 1, 2, 3, or 4 — never a string like "Q1".
+6. DO NOT include opinions, advice, preaching, moralizing, or reasons to delete tasks. Keep titles factual and clean.
 
 Important: Respond with ONLY the JSON array, no markdown fences, no extra commentary.
-The "title", "reasoning", and "subtasks" fields MUST be in the user's language: ${lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English'}.
+The "title" and "subtasks" fields MUST be in the user's language: ${lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English'}.
 `;
 
 const getBatchDecomposeInstruction = (lang: Language) => `
@@ -264,7 +274,10 @@ export const testAIConnection = async (
   config: AIConfig,
   t: { error: string; testOk: string; testFail: string }
 ): Promise<{ ok: boolean; message: string }> => {
-  const base = normalizeBaseUrl(config.customBaseUrl || '');
+  const defaultBase = config.provider === AIProvider.Anthropic
+    ? 'https://api.anthropic.com'
+    : 'https://api.deepseek.com';
+  const base = normalizeBaseUrl(config.customBaseUrl || defaultBase);
   if (!base || !config.customApiKey) {
     return { ok: false, message: `${t.testFail}: URL / KEY` };
   }

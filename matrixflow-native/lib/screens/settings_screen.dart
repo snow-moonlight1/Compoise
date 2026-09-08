@@ -220,7 +220,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextField(
               autocorrect: false,
               keyboardType: TextInputType.url,
-              decoration: InputDecoration(labelText: t['customBaseUrl']),
+              decoration: InputDecoration(
+                labelText: t['customBaseUrl'],
+                hintText: 'https://api.deepseek.com',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
+              ),
               controller: _baseUrlController,
               onChanged:
                   (v) => store.updateAIConfig(store.aiConfig..baseUrl = v),
@@ -229,7 +233,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextField(
               autocorrect: false,
               enableSuggestions: false,
-              decoration: InputDecoration(labelText: t['customApiKey']),
+              decoration: InputDecoration(
+                labelText: t['customApiKey'],
+                hintText: 'sk-...',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
+              ),
               obscureText: true,
               controller: _apiKeyController,
               onChanged:
@@ -237,7 +245,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
-              decoration: InputDecoration(labelText: t['customModel']),
+              decoration: InputDecoration(
+                labelText: t['customModel'],
+                hintText: 'deepseek-v4-flash',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
+              ),
               controller: _modelController,
               onChanged: (v) => store.updateAIConfig(store.aiConfig..model = v),
             ),
@@ -246,6 +258,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
               t['customUrlHint']!,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(t['enableThinking']!),
+              subtitle: Text(
+                t['enableThinkingDesc']!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              value: store.aiConfig.enableThinking,
+              onChanged: (v) =>
+                  store.updateAIConfig(store.aiConfig..enableThinking = v),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              margin: const EdgeInsets.only(top: 4, bottom: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.tips_and_updates_outlined,
+                    size: 15,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t['aiRecommendTip']!,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 10),

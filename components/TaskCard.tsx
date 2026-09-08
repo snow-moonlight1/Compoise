@@ -117,14 +117,6 @@ const TaskCardImpl: React.FC<TaskCardProps> = ({
                  style={{ width: task.completed ? '100%' : '0%' }}
                />
            </div>
-           {task.reasoning && !task.completed && (
-             <p
-               title={task.reasoning}
-               className="text-[11px] italic text-slate-400 dark:text-slate-500 leading-snug mt-0.5 break-words"
-             >
-               {task.reasoning}
-             </p>
-           )}
         </div>
 
         {/* Meta Section: Deadline + Actions */}

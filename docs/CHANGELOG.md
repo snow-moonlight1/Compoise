@@ -6,6 +6,40 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-08 · 待办说教评语移除、设置可见性与文案精简、设置自动化与 4 组模型思考模式真机实测闭环
+
+- **AI 提示词与卡片视觉纯净化**：
+  - 彻底剥离任务卡片（Web 端 `TaskCard.tsx` 与原生端 `task_card.dart`）上的 `reasoning` 理由展示，杜绝冒犯用户的说教、道德批评或评价性言论。
+  - 调整 Web 与原生端的 AI 系统提示词（`services/aiService.ts` 与 `matrixflow-native/lib/ai_service.dart`）：明确严禁输出观点、建议、说教或建议删除任务的言论，AI 输出模型纯粹归纳任务标题与必要子任务，任务卡片恢复极简清爽。
+- **设置界面占位符与文案打磨**：
+  - 原生端与 Web 端 Base URL、API 密钥与模型名称输入框均配置常驻浮动标签（`FloatingLabelBehavior.always`）与默认占位符，彻底解决默认占位不显示的问题。
+  - 精简思考模式副标题说明文案，移除冗余的括号举例。
+- **设置自动化 4 项核心功能实机（Redmi K70）全量实测**：
+  - ① **AI 自动拆解隐藏拆解提示**（`suppressLongTermPrompt`）：关闭时弹出确认底部抽屉，开启后静默直接入象限，实测通过。
+  - ② **AI 自动分组隐藏分组提示**（`suppressGroupPrompt`）：批量输入购物项等同类任务时，直接合并生成分类父任务与子项，无需二次弹窗确认，实测通过。
+  - ③ **父任务自动完成**（`autoCompleteParent`）：子任务全部勾选时父任务自动勾选打叉；反选任意子任务时父任务自动恢复未完成状态，双向联动实测通过。
+  - ④ **导出与导入待办**（`exportData` / `importData`）：完美适配 Android 16 SAF 系统文件选择器，生成标准 `matrixflow_backup_...json` 备份并支持完整还原。
+- **4 组模型与思考模式组合实机（Redmi K70）对比实测**：
+  - 测试用例覆盖长期/短期/重要/不重要/紧急/不紧急等多维复杂任务集合。
+  - 组合 1：`deepseek-v4-pro` + 开启思考（耗时 ~12s，分类命中率 100%，卡片干净无说教）。
+  - 组合 2：`deepseek-v4-pro` + 关闭思考（耗时 ~6s，分类命中率 100%，卡片干净无说教）。
+  - 组合 3：`deepseek-v4-flash` + 开启思考（耗时 ~8s，分类命中率 100%，卡片干净无说教）。
+  - 组合 4：`deepseek-v4-flash` + 关闭思考（耗时 ~3s，分类命中率 100%，响应最快且分类极准）。
+- **自动化验证**：66 项 Flutter 单元/组件测试全部通过，`flutter analyze` 0 issues，Web Vite 构建成功（290.6 kB），TypeScript 0 错误。
+
+## 2026-09-07 · Web 与 Native 双端新增 AI 思考模式控制、DeepSeek 默认配置与 Android 真机全流程验证闭环
+
+- **AI 思考模式支持**：
+  - Web 与 Flutter 原生端均增加「思考模式」开关（`enableThinking`），默认关闭，支持持久化。
+  - 三协议完整适配：OpenAI 兼容协议支持 `thinking: {type: 'enabled'/'disabled'}`；OpenAI Responses 协议支持 `reasoning: {effort: 'high'/'none'}`；Anthropic Messages 协议支持 `thinking: {type: 'disabled'}` 或 `output_config: {effort: 'high'}`。
+- **默认 AI 厂商与模型优化**：
+  - 默认 Base URL 切换为 `https://api.deepseek.com`，默认占位与模型切换为 `deepseek-v4-flash`。
+  - Web 与 Native 双端设置界面均加入高亮建议提示卡片：「建议：推荐使用 deepseek-v4-flash 并关闭思考模式，响应最快且分类准确率最高。」，三语同步适配。
+- **Android 实机端到端全量验证（Redmi K70 - Android 16 / HyperOS）**：
+  - 通过 ADB 在真实手机上安装 `app-release.apk` 并执行自动化 UI 与功能复测。
+  - 涵盖 T01~T10 全部 10 项核心测试：安装与冷启动、设置默认配置、思考开关与提示卡片、三语切换与界面排版、DeepSeek 真实 API 连通性测试（绿色 SnackBar 提示）、手动任务与子任务录入流转、任务勾选完成/划线/隐藏/删除二次确认、8 个真实任务 AI 批量四象限分类（命中率 100%）、长期任务识别与多步子任务拆解、多看板创建与隔离切换。
+  - 66 项 Flutter 单元/组件测试通过，静态分析 0 警告，Web 构建 290.7 kB 通过。
+
 ## 2026-09-07 · 解决 Android Release 构建 integration_test 插件注册编译阻塞 (B01)
 
 - **定位根因**：Flutter CLI (`flutter_command.dart`) 在执行 `flutter build apk --release --no-pub` 时因 `--no-pub` 抑制了 `regeneratePlatformSpecificTooling`，残留 debug 阶段由 `pub get` / `test` 生成的 `GeneratedPluginRegistrant.java`（包含 `IntegrationTestPlugin`），而 Gradle 的 `flutter.groovy` 在 release 构建中剥离了 `dev_dependencies`，导致 Java 编译找不到类。

@@ -62,6 +62,18 @@ void main() {
         expect(AIProtocolX.fromString(AIProtocolX.toWire(p)), p);
       }
     });
+
+    test('defaults and round-trip for enableThinking, baseUrl, model', () {
+      final defaultCfg = AIConfig();
+      expect(defaultCfg.enableThinking, isFalse);
+      expect(defaultCfg.baseUrl, 'https://api.deepseek.com');
+      expect(defaultCfg.model, 'deepseek-v4-flash');
+      expect(defaultCfg.toJson()['enableThinking'], isFalse);
+
+      final enabledCfg = AIConfig.fromJson({'enableThinking': true});
+      expect(enabledCfg.enableThinking, isTrue);
+      expect(enabledCfg.toJson()['enableThinking'], isTrue);
+    });
   });
 
   group('normalizeQuadrant', () {

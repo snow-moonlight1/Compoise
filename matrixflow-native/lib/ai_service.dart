@@ -197,23 +197,26 @@ class AIService {
 
     Uri uri;
     Map<String, dynamic> body;
+    final enableThinking = config.enableThinking;
     switch (config.protocol) {
       case AIProtocol.openai:
         uri = Uri.parse('$base/chat/completions');
         body = {
-          'model': config.model.isEmpty ? 'gpt-4o-mini' : config.model,
+          'model': config.model.isEmpty ? 'deepseek-v4-flash' : config.model,
           'messages': [
             {'role': 'system', 'content': systemInstruction},
             {'role': 'user', 'content': userPrompt},
           ],
+          'thinking': {'type': enableThinking ? 'enabled' : 'disabled'},
           if (forceJsonObject) 'response_format': {'type': 'json_object'},
         };
       case AIProtocol.openaiResponses:
         uri = Uri.parse('$base/responses');
         body = {
-          'model': config.model.isEmpty ? 'gpt-4o-mini' : config.model,
+          'model': config.model.isEmpty ? 'deepseek-v4-flash' : config.model,
           'instructions': systemInstruction,
           'input': userPrompt,
+          'reasoning': {'effort': enableThinking ? 'high' : 'none'},
           if (forceJsonObject)
             'text': {
               'format': {'type': 'json_object'},
@@ -229,6 +232,10 @@ class AIService {
           'messages': [
             {'role': 'user', 'content': userPrompt},
           ],
+          if (enableThinking)
+            'output_config': {'effort': 'high'}
+          else
+            'thinking': {'type': 'disabled'},
         };
     }
 
@@ -361,9 +368,10 @@ STRICT RULES:
 3. GROUPING LOGIC: Always look for multiple DISTINCT input lines that belong to the same project or category (e.g. inputs "Buy milk", "Buy eggs", "Buy soap"). Merge them into one task titled "Shopping" (or appropriate category) with subtasks ["Buy milk", "Buy eggs", "Buy soap"]. Set isGrouped=true ONLY for merging distinct input lines; decomposition of one task must set isGrouped=false.
 4. If an input is a standalone short-term task, leave subtasks empty.
 5. The "quadrant" field MUST be the integer 1, 2, 3, or 4 — never a string like "Q1".
+6. DO NOT include opinions, advice, preaching, moralizing, or reasons to delete tasks. Keep titles factual and clean.
 
 Important: Respond with ONLY a JSON object {"tasks": [...]}, no markdown fences, no extra commentary.
-The "title", "reasoning", and "subtasks" fields MUST be in the user's language: ${_langName(lang)}.
+The "title" and "subtasks" fields MUST be in the user's language: ${_langName(lang)}.
 ''';
 
   String _batchInstruction(Language lang) => '''

@@ -11,6 +11,7 @@ AIConfig cfg([String protocol = 'openai']) => AIConfig.fromJson({
       'customBaseUrl': 'https://api.test.com',
       'customApiKey': 'k',
       'customModel': 'm',
+      'enableThinking': true,
     });
 
 http.Response jsonResp(Map<String, dynamic> json) =>
@@ -47,6 +48,7 @@ void main() {
       expect(captured.toString(), 'https://api.test.com/chat/completions');
       expect(headers['authorization'], 'Bearer k');
       expect(body['response_format'], {'type': 'json_object'});
+      expect(body['thinking'], {'type': 'enabled'});
       expect(body['messages'][0]['role'], 'system');
       expect(result.single.title, '买牛奶');
       expect(result.single.quadrant, 3);
@@ -82,6 +84,7 @@ void main() {
       expect(captured.toString(), 'https://api.test.com/responses');
       expect(body['instructions'], contains('Eisenhower'));
       expect(body['input'], contains('A'));
+      expect(body['reasoning'], {'effort': 'high'});
       expect(body['text']['format'], {'type': 'json_object'});
       expect(result.single.title, 'A');
     });
@@ -115,12 +118,48 @@ void main() {
       expect(headers['anthropic-version'], '2023-06-01');
       expect(body['system'], contains('Eisenhower'));
       expect(body['max_tokens'], 8192);
+      expect(body['output_config'], {'effort': 'high'});
       expect(body.containsKey('response_format'), isFalse);
       // fence stripping + Q-string quadrant + long-term flag all survive
       expect(result.single.title, 'B');
       expect(result.single.quadrant, 2);
       expect(result.single.isLongTerm, isTrue);
       expect(result.single.subtasks, ['s1']);
+    });
+
+    test('thinking disabled sends disabled payloads across protocols', () async {
+      late Map<String, dynamic> openAiBody;
+      late Map<String, dynamic> responsesBody;
+      late Map<String, dynamic> anthropicBody;
+
+      final service = AIService(
+        client: MockClient((req) async {
+          final body = jsonDecode(req.body) as Map<String, dynamic>;
+          if (req.url.path.contains('completions')) {
+            openAiBody = body;
+            return jsonResp({'choices': [{'message': {'content': '[{"title":"X","quadrant":1,"isLongTerm":false}]'}}]});
+          } else if (req.url.path.contains('responses')) {
+            responsesBody = body;
+            return jsonResp({'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': '[{"title":"X","quadrant":1,"isLongTerm":false}]'}]}]});
+          } else {
+            anthropicBody = body;
+            return jsonResp({'content': [{'type': 'text', 'text': '[{"title":"X","quadrant":1,"isLongTerm":false}]'}]});
+          }
+        }),
+      );
+
+      final disabledOpenAI = cfg('openai')..enableThinking = false;
+      await service.analyzeTasks(inputs: ['X'], config: disabledOpenAI, language: Language.en, autoDecompose: false);
+      expect(openAiBody['thinking'], {'type': 'disabled'});
+
+      final disabledResponses = cfg('openai-responses')..enableThinking = false;
+      await service.analyzeTasks(inputs: ['X'], config: disabledResponses, language: Language.en, autoDecompose: false);
+      expect(responsesBody['reasoning'], {'effort': 'none'});
+
+      final disabledAnthropic = cfg('anthropic')..enableThinking = false;
+      await service.analyzeTasks(inputs: ['X'], config: disabledAnthropic, language: Language.en, autoDecompose: false);
+      expect(anthropicBody['thinking'], {'type': 'disabled'});
+      expect(anthropicBody.containsKey('output_config'), isFalse);
     });
 
     test('decomposeBatch maps originalTitle/subtasks', () async {

@@ -5,7 +5,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（
 ## 运行与验证
 
 - **Web 端**：`npm install` → `npm run dev`（http://localhost:3000，端口被系统保留时加 `-- --port 3456`）；改动后用 `npm run build` + `npx tsc --noEmit` 验证。
-- **原生端（`matrixflow-native/`）**：`flutter test`（64 项单元/Widget 测试）+ `flutter analyze`（0 警告）；Flutter SDK 位于 `D:\Dev_SDKs\Flutter_SDK`。设备集成测试需单独运行。
+- **原生端（`matrixflow-native/`）**：`flutter test`（66 项单元/Widget 测试）+ `flutter analyze`（0 警告）；Flutter SDK 位于 `D:\Dev_SDKs\Flutter_SDK`。设备集成测试需单独运行。
 - AI 密钥由用户在设置面板填写（存 localStorage / SharedPreferences）；不要把任何密钥值写死进代码、文档或日志。项目已无 `.env` 依赖。
 - 主分支 `main`，无远端；提交遵循现有风格 `feat(模块): 描述`。
 

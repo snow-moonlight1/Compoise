@@ -85,23 +85,6 @@ class TaskCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (task.reasoning != null &&
-                            task.reasoning!.isNotEmpty &&
-                            !task.completed)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              task.reasoning!,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontStyle: FontStyle.italic,
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.45,
-                                ),
-                              ),
-                            ),
-                          ),
                         _DeadlineChip(
                           daysLeft: daysLeft,
                           done: task.completed,
