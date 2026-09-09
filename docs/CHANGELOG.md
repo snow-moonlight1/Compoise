@@ -6,6 +6,12 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-09 · WP21-N Flutter 四象限完整维度名与 AI 分类描述
+
+- **界面名称**：矩阵标题与编辑象限选项统一为 Q1 紧急且重要 / Q2 不紧急但重要 / Q3 紧急但不重要 / Q4 不紧急也不重要；英文、日文表达同一对维度。不再用马上做/计划做/授权做/不要做。窄屏标题最多两行，不省略“不”。内部 `qDo` 等枚举与 wire=1/2/3/4、象限位置未改。
+- **分类提示词**：去掉 `(Do First)/(Schedule)/(Delegate)/(Don't Do/Delete)`；保留紧急/重要定义、JSON/wire 契约、三协议、思考、分组/拆解与无说教。生活/娱乐任务不先验为不值得做，Q4 不是删除指令。
+- **验证**：`D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat test --no-pub` **77/77**；`analyze --no-pub` 0 issues。未做 Android/Windows 实机，未调用真实模型，未改 React。
+
 ## 2026-09-09 · WP20-N Flutter 完成/多选分离、独立子项展开、逐行删除线
 
 - **完成方框只表示 completed**：原生 `TaskCard` 不再用 `selecting ? selected : completed`。多选改为行高亮、「已选」标记和「多选任务 · 已选 N 项」；切多选/退出只改会话选择，不改完成数据。父子完成级联沿用 `setParentCompleted`。

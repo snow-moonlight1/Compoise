@@ -67,6 +67,35 @@ void main() {
     },
   );
 
+  test(
+    'classification prompt names urgency/importance and omits action labels',
+    () async {
+      late String system;
+      final service = AIService(
+        client: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          system = body['messages'][0]['content'] as String;
+          return reply(
+            '[{"title":"a","quadrant":1},{"title":"b","quadrant":2},{"title":"c","quadrant":3},{"title":"d","quadrant":4}]',
+          );
+        }),
+      );
+      addTearDown(service.close);
+      final results = await analyze(service);
+      expect(system, contains('Urgent and Important'));
+      expect(system, contains('Not Urgent but Important'));
+      expect(system, contains('Urgent but Not Important'));
+      expect(system, contains('Neither Urgent nor Important'));
+      expect(system, isNot(contains('Do First')));
+      expect(system, isNot(contains('(Schedule)')));
+      expect(system, isNot(contains('(Delegate)')));
+      expect(system, isNot(contains("Don't Do")));
+      expect(system, isNot(contains('Delete)')));
+      expect(system, contains('DO NOT include opinions, advice, preaching'));
+      expect(results.map((item) => item.quadrant), [1, 2, 3, 4]);
+    },
+  );
+
   test('automatic decomposition is distinct from grouping', () async {
     final service = AIService(
       client: MockClient((request) async {

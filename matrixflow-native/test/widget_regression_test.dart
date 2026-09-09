@@ -250,7 +250,8 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 600));
       await gesture.moveTo(
-        tester.getCenter(find.text('Plan')) + const Offset(0, 80),
+        tester.getCenter(find.text('Not Urgent but Important')) +
+            const Offset(0, 80),
       );
       await tester.pump();
       await gesture.up();
@@ -846,6 +847,39 @@ void main() {
         MaterialLocalizations.of(picker).cancelButtonLabel,
         isNot('CANCEL'),
       );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'matrix and editor show full dimension names and keep 不 at 360dp',
+    (tester) async {
+      viewport(tester, const Size(360, 780));
+      final store = await setup(tester);
+      store.settings.language = Language.zh;
+      store.addTasks([
+        store.newTask('q1 task', quadrant: qDo),
+        store.newTask('q2 task', quadrant: qPlan),
+        store.newTask('q3 task', quadrant: qDelegate),
+        store.newTask('q4 task', quadrant: qEliminate),
+      ]);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+      for (final label in [
+        '紧急且重要',
+        '不紧急但重要',
+        '紧急但不重要',
+        '不紧急也不重要',
+      ]) {
+        expect(find.text(label), findsWidgets);
+      }
+      expect(find.text('马上做'), findsNothing);
+      expect(find.text('不要做'), findsNothing);
+      await tester.tap(find.text('q1 task'));
+      await tester.pumpAndSettle();
+      expect(find.text('紧急且重要'), findsWidgets);
+      expect(find.text('不紧急也不重要'), findsWidgets);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

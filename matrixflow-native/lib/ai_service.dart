@@ -356,11 +356,11 @@ class AIService {
 
   String _sortInstruction(Language lang, bool autoDecompose) => '''
 You are an expert productivity assistant based on the Eisenhower Matrix.
-Analyze the user's tasks and categorize them into four quadrants:
-1. Urgent & Important (Do First)
-2. Not Urgent & Important (Schedule)
-3. Urgent & Not Important (Delegate)
-4. Not Urgent & Not Important (Don't Do/Delete)
+Analyze the user's tasks and categorize them into four quadrants by urgency and importance:
+1. Urgent and Important (quadrant 1)
+2. Not Urgent but Important (quadrant 2)
+3. Urgent but Not Important (quadrant 3)
+4. Neither Urgent nor Important (quadrant 4)
 
 STRICT RULES:
 1. Identify if a task is "Long Term" (requires breakdown). Set isLongTerm=true.
@@ -368,7 +368,7 @@ STRICT RULES:
 3. GROUPING LOGIC: Always look for multiple DISTINCT input lines that belong to the same project or category (e.g. inputs "Buy milk", "Buy eggs", "Buy soap"). Merge them into one task titled "Shopping" (or appropriate category) with subtasks ["Buy milk", "Buy eggs", "Buy soap"]. Set isGrouped=true ONLY for merging distinct input lines; decomposition of one task must set isGrouped=false.
 4. If an input is a standalone short-term task, leave subtasks empty.
 5. The "quadrant" field MUST be the integer 1, 2, 3, or 4 — never a string like "Q1".
-6. DO NOT include opinions, advice, preaching, moralizing, or reasons to delete tasks. Keep titles factual and clean.
+6. DO NOT include opinions, advice, preaching, moralizing, or reasons to delete tasks. Keep titles factual and clean. Life, leisure, or entertainment tasks are not a priori "not worth doing". Quadrant 4 is neither-urgent-nor-important, not a command to delete.
 
 Important: Respond with ONLY a JSON object {"tasks": [...]}, no markdown fences, no extra commentary.
 The "title" and "subtasks" fields MUST be in the user's language: ${_langName(lang)}.

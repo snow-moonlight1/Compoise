@@ -48,7 +48,6 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       qDelegate => 'q3',
       _ => 'q4',
     };
-    final shortKey = '${titleKey}Short';
 
     return DragTarget<Task>(
       onWillAcceptWithDetails:
@@ -103,11 +102,12 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        t[shortKey]!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        t[titleKey]!,
+                        maxLines: 2,
+                        overflow: TextOverflow.visible,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w800,
+                          height: 1.2,
                         ),
                       ),
                     ),

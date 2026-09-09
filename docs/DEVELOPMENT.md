@@ -1,10 +1,12 @@
 # 开发指南
 
-最后核对：2026-09-07。架构与数据模型见 [ARCHITECTURE.md](ARCHITECTURE.md)，历史演进见 [CHANGELOG.md](CHANGELOG.md)。
+命令历史核对：2026-09-07；平台范围更新：2026-09-09。架构与数据模型见 [ARCHITECTURE.md](ARCHITECTURE.md)，历史演进见 [CHANGELOG.md](CHANGELOG.md)。
+
+**当前只开发 `matrixflow-native/` 的 Flutter Android/Windows。** React/Tauri/Capacitor 冻结保留；本文 Web 命令、类型和扩展示例只用于旧版维护，不要求 Flutter 新功能同步修改或构建 Web。最新步骤以 [Implementation Plan](IMPLEMENTATION_PLAN_2026-09-08.md) 第 5 节为准，下一包 WP03-N，WP21-N 已完成，WP20-W 已取消。新设置只接 Flutter 模型/Store/导入白名单/字典；新任务字段走 WP11，保留旧 v1 迁入。
 
 ## 环境与命令
 
-### Web / 混合端
+### Web / 混合端（冻结版本）
 
 | 命令 | 说明 |
 |---|---|
@@ -14,7 +16,7 @@
 | `npm run preview` | 本地预览构建产物 |
 | `npx tsc --noEmit` | 类型检查（构建脚本不含 tsc，需手动运行；当前通过） |
 
-Web 改动后的最低验证组合：`npm run build` + `npx tsc --noEmit`。
+仅另行安排旧 Web 改动时的最低验证组合：`npm run build` + `npx tsc --noEmit`。
 
 ### 原生跨平台端（`matrixflow-native/`）
 
@@ -33,9 +35,9 @@ Web 改动后的最低验证组合：`npm run build` + `npx tsc --noEmit`。
 
 ## 环境变量
 
-无。2026-09-06 移除 Gemini 协议后，项目不再依赖任何环境变量或 `.env` 文件；AI 的地址 / 模型名 / 密钥全部由用户在设置面板填写并存于 localStorage。
+无。2026-09-06 移除 Gemini 协议后，项目不再依赖任何环境变量或 `.env` 文件；AI 的地址 / 模型名 / 密钥全部由用户在设置面板填写并存于 Flutter SharedPreferences（旧 Web 为 localStorage）。
 
-## 代码约定（从现有代码归纳）
+## 旧 Web 代码约定（冻结，仅供历史维护）
 
 - 函数组件 + React.FC，props 用 interface 声明；事件回调以 `on` 前缀命名，由 App.tsx 下传。
 - 业务逻辑集中在 App.tsx：新增功能一般先加 state（或复用既有 state）+ 处理函数，再经 props 接入组件。
@@ -43,36 +45,29 @@ Web 改动后的最低验证组合：`npm run build` + `npx tsc --noEmit`。
 - 类型集中定义在 `types.ts`；组件不自定义任务 / 设置相关类型。
 - 样式用 Tailwind 工具类；主题色经 `--primary` CSS 变量注入，自定义动画曲线与关键帧在 index.html 内联配置中。
 
-## 常见扩展任务
+## Flutter 主线的常见扩展任务
 
-### 新增一种界面语言
+以下文件均在 `matrixflow-native/lib/`，实际实施前按 Implementation Plan 领取一个子批次。
 
-1. `types.ts` 的 `Language` 联合类型增加值；`translations.ts` 增加对应完整字典。
-2. App.tsx 语言选择 UI 增加选项。
-3. `services/aiService.ts` 的 `getLanguagePromptSuffix` 与两处提示词里的语言映射增加分支。
+### 语言与文案
 
-### 新增一个 AI 提供商
+`l10n.dart` 补齐 en/zh/ja 字典，界面通过既有本地化入口读取；新增支持语言时同步模型/Store 默认解析与设置选项，以及 AI 提示词语言映射。WP21-N 已将已有三语象限名统一为完整紧急/重要维度，不增加语言种类。
 
-1. `types.ts` 的 `AIProvider` 枚举增加值，`AIConfig` 按需扩展字段。
-2. `aiService.ts` 两条管线（`analyzeTasks`、`decomposeTasksBatch`）各增加一个实现分支。
-3. 设置界面（App.tsx + SettingsControls.tsx）增加配置输入；注意自定义密钥会随备份 JSON 导出。
+### AI 服务商
 
-### 新增一个设置项
+按 WP01-N 建立预设与模型发现适配，服务商 ID 与三协议类型分开，不为每家兼容服务商增加一个协议枚举。复用 `ai_service.dart`、`models.dart` 与设置页，不改旧 Web。实时模型列表与 Key-only 可行性须逐家核验。
 
-1. `types.ts` 的 `AppSettings` 增加字段。
-2. App.tsx 补默认值与**加载兜底**（读取处有 `?? 缺省` 合并，旧 localStorage 数据才不会报错）。
-3. SettingsControls.tsx 增加控件；`translations.ts` 补三语文案。
-4. 若该设置需要随导入保留：确认 App.tsx 导入合并的字段白名单（约 789 行）已包含新字段。
+### 设置与任务字段
 
-### 新增一个任务字段
+设置字段接 `models.dart`、`storage.dart` 默认/加载/导入白名单、设置页和 `l10n.dart`；缺省回退保护已有数据。可忽略的可选显示偏好可保留当前版本。任务信息新增字段必须按 WP11 的 schema/导出版本契约和整份导入校验处理，验证旧 v1 迁入与新 Flutter Android/Windows 往返；不要只加字段就承诺旧 Web 无损理解。
 
-1. `types.ts` 对应类型增加可选字段（Task / SubTask）。
-2. localStorage 旧数据无该字段 → 所有读取处做可选链 / 缺省处理。
-3. 备份兼容：`ExportData` 中的 Task 结构随之变化，但 `version` 仍为 1——若做破坏性变更应升级 version 并在导入处做迁移分支。
+### 平台适配与验证
+
+共享业务命令放 Store/服务；布局按窗口宽度，触摸与鼠标/键盘都需可用。平台插件调用做能力隔离，Windows 插件不得在 Android 启动时调用。通常运行 Flutter test/analyze；涉及平台插件或基础闭环验收时按计划构建 Android/Windows。不要为了 Flutter 包运行 Web build/tsc。
 
 ## 打包
 
-MatrixFlow 支持 Web、混合打包壳以及 Flutter 原生多种形态：
+正式主线只发行 Flutter Android/Windows；表中 Web、Tauri、Capacitor 命令保留给冻结旧版：
 
 | 形态 | 工具 | 命令 |
 |---|---|---|
@@ -89,7 +84,7 @@ MatrixFlow 支持 Web、混合打包壳以及 Flutter 原生多种形态：
 - **项目路径若含非 ASCII 字符或空格**：AGP 依赖解析可能异常，可靠做法是映射 ASCII 盘符后构建：`subst M: "D:\Dev_project\martix"`，然后在 `M:/android` 下执行 gradle。
 - **端口 3000 / 3100 落在 Windows 动态排除段**（2945-3044、3079-3178，`netsh interface ipv4 show excludedportrange` 可查），dev server 用 `npm run dev -- --port 3456` 或其他未排除端口。
 - **Maven 依赖走阿里云镜像**：`android/build.gradle` 的 buildscript 与 allprojects 仓库列表已把 `maven.aliyun.com`（google/central/public）放在 `google()`、`mavenCentral()` 之前——直连 `dl.google.com` 会 TLS 握手失败。
-- **多端同步约定**：当在 Web 端扩展语言、AI 提供商、设置项或任务字段时，请同步在 `matrixflow-native/lib/`（`models.dart`、`l10n.dart`、`storage.dart`）补全对应实现，保持 ExportData v1 数据互通性。
+- **共享 Flutter 约定**：Android/Windows 共用 `models.dart`、`l10n.dart`、`storage.dart` 的演进实现。新 Flutter 继续读取旧 v1；不再给 React 派同功能包。任务备份格式按 WP11 演进，自动同步另属 WP18。
 
 ## Git 工作流现状
 

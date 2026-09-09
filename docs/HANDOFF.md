@@ -2,21 +2,22 @@
 
 最后更新：2026-09-09。
 
-## 最新任务：WP20-N 已完成（自动化），下一包 WP20-W
+## 最新任务：WP21-N 已完成（自动化），下一包 WP03-N
 
-- 用户决定继续 MatrixFlow 独立开发，只参考 Focus 已有交互；**不 fork、不复制其代码、不再跟踪其 issue/PR、不组织几十人试用**。
-- **本轮实施 WP20-N**：Flutter 完成方框与多选分离、独立子项展开、逐行删除线。未做 Web、后端、发布、WP21 或十字布局。
-- 契约落地：完成 Checkbox 始终 `task.completed` 并走 `setParentCompleted`；多选用行高亮 +「已选」+ 顶部「多选任务 · 已选 N 项」；展开按 `boardId/taskId` 会话状态，默认收起，切模式/切板保留；`StrikeThrough` 改为 `TextDecoration.lineThrough`。
-- 验证：`D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat test --no-pub` **74/74**；`analyze --no-pub` **0 issues**。未做 Android/Windows 实机，未跑 Web build/tsc。
-- 下一位实施助手只做 **WP20-W**，对齐上述 Flutter 契约；不因路线已确定而一次执行全部工作包。
-- [Implementation Plan](IMPLEMENTATION_PLAN_2026-09-08.md) 为 42 项、29 个工作包。目标形态仍是开源本地客户端 + GitHub Release/商店；保留 BYOK；后期可选 ¥9/月有额度托管 AI。多 Board、父子任务、三协议/思考、无说教、备份互通保留。
-- [昨日方向研究](STRATEGY_REVIEW_2026-09-08.md) 保留为历史证据；Focus 本地克隆仍在 `D:\Dev_project\martix-research\Focus`，不需重新克隆或查其 issue。
-- 用户 13 项样本：Pro 思考开 11/13、Pro 关 12/13、Flash 开 12/13、Flash 关 13/13。历史 66 项是 WP20-N 之前的基线。
+- Flutter Android/Windows 为唯一持续开发客户端；React/Tauri/Capacitor 冻结保留。依据见 [已采纳 ADR](ADR_FLUTTER_PRIMARY_2026-09-09.md)。旧 W 是 React Web，不是 Windows。WP20-W 未开工、已取消。
+- **本轮实施 WP21-N**：界面与编辑选项使用完整紧急/重要名称；分类提示词去掉 Do First/Schedule/Delegate/Don't Do 行动括号。未改 React、未做十字布局/日期/服务商/后端，未重做 WP20-N。
+- 中文：Q1 紧急且重要、Q2 不紧急但重要、Q3 紧急但不重要、Q4 不紧急也不重要；英文/日文同一对维度。wire=1/2/3/4 与左上/右上/左下/右下位置未改。
+- 验证：`D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat test --no-pub` **77/77**；`analyze --no-pub` **0 issues**。未做 Android/Windows 实机，未调用真实模型。
+- **下一助手只做 WP03-N**：十字无框矩阵与紧凑任务行。完成后交接 **WP04-N**。
+- WP20-N 继续保留：完成方框、多选高亮、子项展开、逐行删除线不能退化。
+- 全部 42 项需求 / 29 个工作包保留，客户端实现统一 Flutter。新 Flutter 继续读取旧 ExportData v1，后续字段按 WP11 演进，不要求冻结 React 理解未来新格式；Android/Windows 备份一致不等于云同步。
+- 路线仍为独立 MatrixFlow：不 fork/复制 Focus，不追踪其 issue/PR，不组织几十人试用。保留多 Board、父子任务、三协议/思考、无说教、BYOK；后期 GitHub Release/商店及可选 ¥9/月有额度托管服务，本轮未发布或搭建服务。
+- [早期方向研究](STRATEGY_REVIEW_2026-09-08.md) 与 [交互复核](UI_INTERACTION_REVIEW_2026-09-08.md) 仅作历史依据，其旧 Web 派单和 fork 比较不再执行。Focus 克隆保留在 `D:\Dev_project\martix-research\Focus`，无需重新研究。
 
-## 历史需求评估（已并入新版计划）
+## 历史需求评估（当时记录，已被新版计划覆盖）
 
-- 完整需求、优先级、代码依据、执行步骤与验收标准见 [执行计划](IMPLEMENTATION_PLAN_2026-09-08.md)。首组截图 31 条去重为 28 项；第二组实机反馈再补 7 项，现为 **35 项、22 个工作包**。父任务自动完成、换行批量添加是已有能力，但新交互仍需回归。
-- 本次只写计划，未修改应用代码、未运行构建/测试、未提交；代码基线仍为 `6e30502`。以下“当前交付”和“已验证”为前一实现轮及用户确认的成果。
+- 2026-09-08 首组截图 31 条去重为 28 项，第二组实机反馈再补 7 项，当时为 **35 项、22 个工作包**；现已扩展至 42 项、29 包，见 [执行计划](IMPLEMENTATION_PLAN_2026-09-08.md)。父任务自动完成、换行批量添加是已有能力，新交互仍需回归。
+- 该次历史规划基于 `6e30502`，仅写文档、未运行构建/测试。此后 WP20-N 已落地到 `747eb35`；当前基线与下一包以本文件顶部为准。
 - 用户明确 **custom API 目前没有故障**；真实需求是内置服务商 Base URL，用户选服务商、填写 Key 后实时获取模型列表，参考 Cherry Studio / Chatbox，不能硬编码候选模型清单。默认 DeepSeek，候选包括火山引擎和阿里云百炼；每家模型发现 API 单独核验。
 - “一键清除”是从主界面一次删除四象限全部任务，不是完成/归档；计划按当前 board 处理，包含已完成任务，保留其他 board 和配置。系统待办导入以厂商系统笔记为目标，先验证小米 `com.miui.notes` 的公开接口/分享/导出路径。
 - 早期优先级以 WP20-N 完成/选择混淆、子任务展开和多行删除线起步；现在由新版计划第 3 节统一派单，新增聚焦/搜索等已有明确位置。
@@ -26,8 +27,9 @@
 - B01 已关闭，VS C++ 工具链可用；不再优先做旧提示词中的 B01、发布签名/图标或无关重构。
 - 本交接曾引用 `real_device_test_plan.md`，当前工作区未找到该文件；既有实机通过结论来自前轮交接和用户确认，不要求接手 Agent 反复寻找或伪造历史报告。
 
-## 当前交付
+## 已实现功能（历史实现事实）
 
+- **WP21-N 四象限名称与分类描述**：`l10n.dart` 的 q1–q4 与 q1Short–q4Short 均为完整维度名；`quadrant_pane.dart` / `input_sheet.dart` 不再展示行动短名；`ai_service.dart` 分类定义按紧急/重要，无行动括号。测试：`test/models_test.dart`、`test/ai_regression_test.dart`、`test/widget_regression_test.dart`。
 - **WP20-N Flutter 交互语义**：完成方框、多选高亮、子项展开三者独立；多行标题走逐行删除线。改动文件：`matrixflow-native/lib/widgets/task_card.dart`、`anim.dart`、`quadrant_pane.dart`、`screens/matrix_screen.dart`、`l10n.dart`，以及 `test/widget_regression_test.dart`、`test/bug_regression_test.dart`。
 - **纯净化待办卡片与 AI 输出**：移除了卡片上的 `reasoning` 理由展示；提示词严禁道德批评与说教评语，任务卡片纯粹简洁。
 - **设置界面占位与文案精简**：输入框常驻浮动标签与占位符（`FloatingLabelBehavior.always`）；思考模式副标题精简，去除多余举例。
@@ -44,28 +46,36 @@
 
 | 检查 | 结果 |
 |---|---|
-| `flutter test --no-pub`（2026-09-09 WP20-N） | **74/74** 通过，含完成/多选分离、展开、逐行删除线、多板 hideCompleted 与既有回归 |
+| `flutter test --no-pub`（2026-09-09 WP21-N） | **77/77**，含三语维度名、提示词无行动括号、360dp 中文「不」、WP20 回归 |
 | `flutter analyze --no-pub`（同轮） | 0 issues |
-| Android / Windows 实机（WP20-N 新交互） | **未测** |
-| Web `npm run build` / `tsc` | 本轮未跑；WP20-W 再验 |
-| 历史 Android release APK / Redmi K70 E2E | 前轮通过，不能代替本轮交互验收 |
-| 历史 Web Vite 构建 | 前轮 `npm run build` 成功（290.6 kB），`npx tsc --noEmit` 0 错误 |
+| Android / Windows 实机（WP21-N 名称与 WP20-N 交互） | **未测** |
+| 真实模型分类 | **未测**；mock 只证明请求契约 |
+| Web `npm run build` / `tsc` | 本轮未跑；WP20-W 已取消 |
+| 历史 Android release / Redmi K70 E2E | 前轮通过，不能代替本轮验收 |
 
-## 下一轮启动提示词（可直接复制）
+## 下一轮启动提示词
 
 ```text
-接手 D:\Dev_project\martix 的 MatrixFlow AI，只实施 docs/IMPLEMENTATION_PLAN_2026-09-08.md 的 WP20-W。先读 AGENTS.md、本 HANDOFF、计划第 1/3/5 节和 WP20、docs/UI_INTERACTION_REVIEW_2026-09-08.md 第 1–2 节，并对齐 Flutter 已落地契约。
+接手 D:\Dev_project\martix，只实施 docs/IMPLEMENTATION_PLAN_2026-09-08.md 的 WP03-N。先读 AGENTS.md、本 HANDOFF、计划第 1/3/5 节和 WP03-N，以及 docs/UI_INTERACTION_REVIEW_2026-09-08.md 第 3 节。
 
-路线已定：独立参考交互，不 fork/复制 Focus。本批只修 Web 完成/多选分离、独立子项展开、多行删除线，不做后端、发布、WP21 或十字布局。
+Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。先 git status 保护未提交文档。不改 React，不重做 WP20-N/WP21-N。
 
-WP20-N 已完成：完成方框始终 completed；多选为行高亮+已选标记+顶部计数；展开按 boardId/taskId 会话保存；删除线为 TextDecoration.lineThrough。Web 当前多选时用选择框替换完成方框，子项始终展开，标题用中线横条。先 git status 保护未提交文档。跑 npm run build 与 npx tsc --noEmit，未测项写明。完成后交接 WP21，不自行展开全部 29 包。
+本包只做十字无框矩阵与紧凑任务行：去象限圆角框和任务白底卡片，中央十字，完成方框与标题首行对齐，任务行只留完成/标题/日期/子项展开。继承完成/多选/展开契约和完整维度名。不为 WP23 造假按钮，详情留给 WP04。
+
+用 D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat 在 matrixflow-native/ 跑 test --no-pub 与 analyze --no-pub。77/77 是 WP21-N 基线。未测实机写明。完成后交接 WP04-N，停止。
 ```
 
-## 本轮收尾（WP20-N）
+## 本轮收尾（WP21-N）
+
+- Flutter 字典、矩阵标题、编辑象限选项、分类提示词与对应测试已改；未改 React，未建 UI 实验分支。
+- 未测：Android/Windows 实机上的两行标题与「不」字可见性、真实模型分类。
+- Pre-existing 未跟踪文档仍在：`docs/STRATEGY_REVIEW_2026-09-08.md`、`docs/UI_INTERACTION_REVIEW_2026-09-08.md`、`docs/AI_UNIT_ECONOMICS_2026-09-08.csv`、`docs/ADR_FLUTTER_PRIMARY_2026-09-09.md`。
+
+## 历史收尾（WP20-N）
 
 - 本轮修改：Flutter 任务卡/矩阵/删除线/三语文案与对应测试，以及计划/交接/CHANGELOG/测试数量同步。
 - Pre-existing 未提交文档仍在工作区：`docs/STRATEGY_REVIEW_2026-09-08.md`、`docs/UI_INTERACTION_REVIEW_2026-09-08.md`、`docs/AI_UNIT_ECONOMICS_2026-09-08.csv`（本轮未改）。
-- 未测：Android/Windows 实机上的完成/多选/展开/删除线、读屏实际播报、进程级冷启动（Widget 仅重建 `MatrixHome`）、Web 端（WP20-W）。
+- 未测：Android/Windows 实机上的完成/多选/展开/删除线、读屏实际播报、进程级冷启动（Widget 仅重建 `MatrixHome`）；当时未测 Web，后续 WP20-W 已取消。
 - 没有删除文件，没有改 Web 应用代码，没有引入后端。
 
 ## 历史收尾记录（原生审查轮）

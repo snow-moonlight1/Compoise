@@ -1,40 +1,39 @@
 # AGENTS.md — MatrixFlow AI（四象限待办）
 
-AI 驱动的艾森豪威尔矩阵任务管理应用，现包含 Web/混合端（React 19 + Vite 6 + Tauri v2 + Capacitor）与原生跨平台端（Flutter 3 + Dart，位于 `matrixflow-native/`，自绘引擎，Android + Windows）。两者数据模型与 AI 三协议完全互通。完整文档索引见 [README.md](README.md)，当前交接与下轮任务见 [docs/HANDOFF.md](docs/HANDOFF.md)。
+AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)。
 
 ## 运行与验证
 
-- **Web 端**：`npm install` → `npm run dev`（http://localhost:3000，端口被系统保留时加 `-- --port 3456`）；改动后用 `npm run build` + `npx tsc --noEmit` 验证。
-- **原生端（`matrixflow-native/`）**：`flutter test`（74 项单元/Widget 测试）+ `flutter analyze`（0 警告）；Flutter SDK 位于 `D:\Dev_SDKs\Flutter_SDK`。设备集成测试需单独运行。
-- AI 密钥由用户在设置面板填写（存 localStorage / SharedPreferences）；不要把任何密钥值写死进代码、文档或日志。项目已无 `.env` 依赖。
-- 主分支 `main`，无远端；提交遵循现有风格 `feat(模块): 描述`。
+- **Flutter 主线**：在 `matrixflow-native/` 运行 `flutter test --no-pub` + `flutter analyze --no-pub`。SDK：`D:\Dev_SDKs\Flutter_SDK`；新增或未解析依赖先 `flutter pub get`。WP21-N 后为 77 项通过、analyze 0 issues，设备集成测试需单独运行，不能当作新包验收。
+- Android 与 Windows 共用业务实现，分别验收触摸/软键盘与鼠标/键盘/焦点/窗口缩放；Windows 工程和 VS C++ 工具链已存在，不从零移植。
+- **冻结的 Web**：仅用户另行安排 legacy 修复时，在根目录 `npm install` → `npm run dev`（端口 3000，冲突用 `-- --port 3456`），用 `npm run build` + `npx tsc --noEmit` 验证。Flutter 功能包不运行这组检查、不追求 Web 功能对齐。
+- AI 密钥由用户填写并本地保存；不要把密钥、备份内容或令牌写入代码、文档、日志。项目无 `.env` 依赖。
+- 主分支 `main`，无远端；提交遵循现有风格 `feat(模块): 描述`，保护其他助手和用户未提交改动。
 
-## 技术栈
+## 技术栈与目录约定
 
-- **Web / 混合端**：React 19 · TypeScript 5.8 · Vite 6 · Tailwind CSS（CDN 版，配置内联在 index.html）· 自定义 AI 三协议（OpenAI Compatible / OpenAI Responses / Anthropic Messages，Gemini 已按用户决定移除）· localStorage 持久化，无后端。桌面打包用 Tauri v2（`src-tauri/`），安卓打包用 Capacitor（`android/`）。
-- **原生跨平台端**：Flutter 3 · Dart · Impeller / Skia 自绘引擎 · SharedPreferences 持久化 · HTTP AI 三协议客户端 · Android APK + Windows 桌面原生应用。
+- **主线**：Flutter 3 / Dart，自绘引擎 Impeller/Skia，SharedPreferences，本地任务，无已实施后端。Android APK + Windows 原生桌面。
+- `matrixflow-native/lib/main.dart` 为入口；`storage.dart` 为状态与持久化中心；`models.dart` 是今后演进的数据模型，`l10n.dart` 为 en/zh/ja 三语字典。通用业务只在 Store/服务中实现一次，平台差异放适配层。
+- `matrixflow-native/lib/ai_service.dart` 支持 OpenAI Compatible / OpenAI Responses / Anthropic Messages 三协议及思考控制；保留现有无说教、分类、分组和拆解契约。
+- **legacy 只读参考**：React 19 / Vite 6 / TypeScript 5.8 / Tailwind CDN；`App.tsx` 为旧状态中心，`types.ts`、`translations.ts`、`services/aiService.ts` 为旧模型/字典/服务，`src-tauri/` 与根目录 `android/` 为旧壳。不因 Flutter 新字段同步修改这些文件，不移动/删除现有目录。
+- 本地核心存储键保持 `matrixflow-tasks` / `matrixflow-boards` / `matrixflow-config` / `matrixflow-settings`；读取处必须做缺省兜底。
+- 新增 AppSettings 字段时同步 Flutter 模型、Store 默认/加载/导入白名单、设置页和三语字典；不再要求 React 三处同步。新任务字段先按 WP11 迁移契约演进。
+- 新 Flutter 继续读取旧 Web/Native ExportData v1；Android/Windows 备份格式一致。未来新字段不承诺旧 React 无损读回，冻结旧版不为此更新。备份互通不等于自动同步。
 
-## 目录与约定
+## 当前状态（代码基线 main / 747eb35 + WP21-N；路线更新 2026-09-09）
 
-- `App.tsx` 是 Web 端唯一状态中心（约 1672 行）：全部 state 与业务处理函数都在这里，组件经 props 接收回调。
-- `matrixflow-native/` 是原生端独立工程（lib/main.dart、storage.dart 为状态中心，models.dart 与 types.ts 同构）。
-- `types.ts` 集中定义 Web 全部类型；`translations.ts` 是 Web 三语字典（en / zh / ja）；原生端分别对应 `models.dart` 与 `l10n.dart`。
-- `services/aiService.ts` 是 Web 端唯一网络模块（原生端为 `ai_service.dart`）：支持三协议（OpenAI 兼容 / OpenAI Responses / Anthropic Messages）。
-- 本地存储键统一为：`matrixflow-tasks` / `matrixflow-boards` / `matrixflow-config` / `matrixflow-settings`；读取处必须做缺省兜底。
-- 新增 `AppSettings` 字段时三处同步：App.tsx 默认值与加载兜底、导入合并字段白名单（约 789 行）、translations.ts 三语文案（原生端同步 models.dart、storage.dart 与 l10n.dart）。
-
-## 当前状态（代码基线 2026-09-07；路线更新 2026-09-09）
-
-- 功能完整的本地应用：双轨架构（Web/混合打包 + Flutter 原生），共享 ExportData v1 数据备份格式与 AI 三协议。Web 端构建体积已瘦身至 288 KB。演进史见 docs/CHANGELOG.md。
-- 已知技术债清单在 docs/ARCHITECTURE.md「已知问题」；本机打包要点在 docs/DEVELOPMENT.md「打包」。
-- 验证命令：Web 端 `npm run build` + `npx tsc --noEmit`；原生端 `cd matrixflow-native && flutter test && flutter analyze`。
-- 当前计划见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)：独立开发 MatrixFlow，参考交互但不 fork/复制 Focus、不跟进其 issue/PR，不组织几十人试用。WP20-N 已完成（Flutter 完成/多选分离、子项展开、逐行删除线；`flutter test` 74/74）。下一实施包 WP20-W。保留多 Board、父子任务、AI 与备份互通。Android debug/release（B01 已关闭）和 Windows release 曾通过；新场景须自行验证，历史通过不是新功能验收。
-- 目标路线为开源客户端、GitHub Release/商店发行、BYOK 和后续可选 ¥9/月有额度托管 AI；本轮仅完善文档，未发布或实现服务。各实施助手只领取一个子批次，按 HANDOFF 接手。
+- 独立开发 MatrixFlow，参考 Focus 交互但不 fork/复制、不跟进其 issue/PR，不组织几十人试用；保留多 Board、父子任务、AI、BYOK 与本地数据。
+- **WP20-N、WP21-N 已完成（自动化）**：完成/多选/展开/逐行删除线；完整紧急/重要象限名与分类提示词。`flutter test` 77/77。**WP20-W 未开工，已取消；下一实施包 WP03-N。** 每位助手只领取一个子批次，以计划第 3/4/5/9 节与 HANDOFF 为准。
+- `docs/ARCHITECTURE.md` 的已知问题修复后及时更新，未实现的 WP03 十字布局/后续 UI 不提前写成完成。
+- N 表示共享 Flutter；旧 W 表示 React Web，**不是 Windows**。所有未实施 W 子批次取消，对应功能保留在 Flutter 包中。Flutter Web 暂不纳入；介绍/下载页独立于完整待办应用。
+- Android debug/release（B01 已关闭）和 Windows release 曾通过；新场景须自行验证。已知问题见 `docs/ARCHITECTURE.md`，打包见 `docs/DEVELOPMENT.md`。
+- 产品路线：开源客户端、GitHub Release/商店发行、BYOK，后续可选 ¥9/月有额度托管 AI；服务和发布均未实施。
+- UI 实验分支需待基础包与 Android/Windows 检查完成后另领计划第 10 节；当前不创建分支、不尝试全局拟态重画。
 
 ## 边界
 
-- 不要引入后端、数据库或云同步，除非用户明确要求——本项目的设计前提是纯前端 + 本地存储。
-- 2026-09-09 用户已将可选托管 AI 纳入产品路线，对应 WP29；只有该工作包实施时才增加独立账号/订阅/额度服务，不把任务库迁到服务器、不让普通待办或 BYOK 依赖登录。云同步仍是独立的 WP18，不能混入托管服务。
-- 不要把备份 JSON 的内容（含自定义 API 密钥）写入文档、提交或日志。
-- docs/CHANGELOG.md 依据 Git 历史重建：新增条目追加在顶部，不要改写既有条目；新功能合并后同步更新。
-- docs/ARCHITECTURE.md 的「已知问题」修复后应从清单移除，保持文档与代码一致。
+- 不引入后端、数据库或云同步，除非进入用户明确安排的对应工作包；普通待办坚持本地保存。
+- WP29 是已纳入路线的可选账号/订阅/额度服务，只有实施该包才增加独立后端，不把任务库迁到服务器、不让普通待办或 BYOK 依赖登录。云同步仍是独立 WP18。
+- 不把备份 JSON 内容（含自定义 API 密钥）写入文档、提交或日志；测试使用无密钥合成数据。
+- `docs/CHANGELOG.md` 新条目追加顶部，不改写既有历史；代码/功能改变后同步，纯计划调整不冒充功能发布。
+

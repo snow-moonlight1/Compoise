@@ -1,12 +1,14 @@
 # 架构
 
-本文档描述 MatrixFlow AI 的代码结构与运行机制。最后核对：2026-09-09（测试数量随 WP20-N 更新；结构仍基于 `main`）。
+本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35`（WP20-N）。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
+
+下一包 WP21-N，WP20-W 未开工并取消。执行步骤以 [Implementation Plan](IMPLEMENTATION_PLAN_2026-09-08.md) 与 [HANDOFF](HANDOFF.md) 为准；完整名称/后续 UI 尚未实现，不提前记为已完成。新 Flutter 保持旧 v1 导入，新字段走 WP11；不再要求冻结 React 理解新字段。
 
 ## 总体结构
 
-项目采用双轨实现，共享相同的数据模型、持久化设计与 AI 协议，**无后端、无数据库**：
-1. **Web / 混合端**：纯前端单页应用，全部状态在 React 内存中，持久化到浏览器 localStorage；AI 调用由浏览器/WebView 直接发起。同一份 `dist/` 产物以三种形态交付：浏览器（`npm run dev` / 静态托管）、桌面（Tauri v2，`src-tauri/`）、安卓（Capacitor，`android/`）。
-2. **原生跨平台端**（`matrixflow-native/`）：Flutter 3 原生渲染应用，不经过 WebView，采用自绘引擎（Impeller/Skia）直接编译为 Android APK 与 Windows 桌面应用，通过 SharedPreferences 本地持久化，与 Web 端备份数据互通。
+仓库现存两套实现，历史基线共享 ExportData v1 与 AI 三协议，**当前无后端、无数据库**；今后只演进 Flutter，WP29 独立托管服务仍在计划中：
+1. **Web / 混合端（冻结）**：纯前端单页应用，全部状态在 React 内存中，持久化到浏览器 localStorage；AI 调用由浏览器/WebView 直接发起。同一份 `dist/` 产物以三种形态交付：浏览器（`npm run dev` / 静态托管）、桌面（Tauri v2，`src-tauri/`）、安卓（Capacitor，`android/`）。
+2. **原生跨平台端（唯一开发主线）**（`matrixflow-native/`）：Flutter 3 原生渲染应用，不经过 WebView，采用自绘引擎（Impeller/Skia）直接编译为 Android APK 与 Windows 桌面应用，通过 SharedPreferences 本地持久化，与 Web 端备份数据互通。
 
 ```
 ├── (Web / 混合端)
@@ -16,7 +18,7 @@
 │   ├── App.tsx               Web 唯一状态中心：全部 state、业务处理函数与页面布局（约 1672 行）
 │   ├── components/           功能组件（Quadrant, TaskCard, InputArea, SettingsControls, ImportReview 等）
 │   ├── services/
-│   │   └── aiService.ts      AI 三协议服务（全项目唯一与网络交互的模块，30s 超时）
+│   │   └── aiService.ts      AI 三协议服务（旧 Web 唯一与网络交互的模块，30s 超时）
 │   ├── types.ts              全部数据类型定义
 │   ├── translations.ts       Web 三语字典（en / zh / ja）
 │   ├── src-tauri/            Tauri v2 桌面壳（Rust；tauri.conf.json 指向 ../dist）
@@ -26,23 +28,23 @@
     ├── lib/
     │   ├── main.dart         原生入口：Provider 依赖注入与主题/语言接线
     │   ├── storage.dart      原生状态中心（ChangeNotifier）+ SharedPreferences 持久化
-    │   ├── models.dart       与 types.ts 同构的 Dart 数据模型（ExportData v1 兼容）
+    │   ├── models.dart       Flutter 演进模型（兼容旧 ExportData v1，不再与 types.ts 同步新字段）
     │   ├── quadrant.dart     四象限常量、颜色与字符串容错
     │   ├── ai_service.dart   Dart 原生三协议 HTTP 客户端 + 多级 JSON 兜底解析
     │   ├── l10n.dart         原生端三语本地化字典
     │   ├── theme.dart        Material 3 动态取色主题系统
     │   ├── screens/          矩阵主屏、设置面板
     │   └── widgets/          任务卡、象限容器、输入弹层与动效组件
-    ├── test/                 74 项单元/Widget 测试（模型、协议、存储、完成/多选、展开、键盘/返回/拖拽/文件选择等）
+    ├── test/                 77 项单元/Widget 测试（模型、协议、存储、完成/多选、展开、象限名称、键盘/返回/拖拽/文件选择等）
     ├── android/              Flutter Android 工程（原生 Gradle）
     └── windows/              Flutter Windows 工程（原生 CMake/Runner）
 ```
 
-## 数据模型（types.ts）
+## 数据模型（当前 v1；旧 types.ts / Flutter models.dart）
 
 | 类型 | 说明 |
 |---|---|
-| `QuadrantType` | 四象限枚举：1=Do（紧急重要）、2=Plan（不紧急重要）、3=Delegate（紧急不重要）、4=Eliminate（不紧急不重要） |
+| `QuadrantType` | 四象限：1 紧急且重要、2 不紧急但重要、3 紧急但不重要、4 不紧急也不重要（内部枚举名 qDo/qPlan/qDelegate/qEliminate 仍保留） |
 | `Board` | 任务板：id、名称、创建时间 |
 | `Task` | 任务：标题、所属任务板、象限、是否长期（isLongTerm）、完成状态、截止日期（deadline 时间戳）、子任务数组 |
 | `SubTask` | 子任务：标题、完成状态、可选截止日期 |
@@ -98,7 +100,7 @@ InputArea 收集输入 → `handleAISort` 调用 `analyzeTasks` → 结果进入
 
 ### 导入 / 导出
 
-导出：`handleExport` 把 boards + tasks + settings + aiConfig 序列化为带版本号的 JSON 下载。导入：选择文件 → 校验 → 选择模式（合并 / 覆盖）→ 覆盖需经确认弹窗 → 逐项勾选设置预览 → 执行导入。合并模式按 id 去重任务并过滤孤儿任务；设置合并走字段白名单（App.tsx `importSelection` 默认集），新增设置字段时需同步该白名单。
+旧 Web 导出：`handleExport` 把 boards + tasks + settings + aiConfig 序列化为带版本号的 JSON 下载。导入：选择文件 → 校验 → 选择模式（合并 / 覆盖）→ 覆盖需经确认弹窗 → 逐项勾选设置预览 → 执行导入。合并模式按 id 去重任务并过滤孤儿任务；旧设置白名单位于 App.tsx。今后新增设置仅接 Flutter 模型、Store 加载/导入白名单和字典，不更新冻结 Web；新任务字段按 WP11 迁移契约处理。
 
 ## 原生端本轮修复约定（2026-09-07）
 
@@ -108,8 +110,10 @@ InputArea 收集输入 → `handleAISort` 调用 `analyzeTasks` → 结果进入
 
 ## 已知问题 / 技术债
 
+下列 Web 债务随旧版冻结保留，不自动派发整改；本节列出问题不代表要求恢复双轨开发。
+
 - Tailwind 通过 CDN 运行时编译（index.html:7），官方不建议生产使用；2026-09-06 移除 Gemini 依赖后 Web 构建产物降至约 288 KB（gzip 87 KB），Rollup 500 KB 分包警告已消除。
 - App.tsx 仍承担 Web 端全部业务逻辑（约 1672 行），是维护热点；50c70cc 与 2026-09-03 批次分别做过组件与渲染优化（React.memo + useCallback），但状态层未做更深度的模块化拆分。
-- Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备 74 项单元/Widget 测试；设备集成测试不包含在默认 `flutter test` 中。
+- Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备 77 项单元/Widget 测试；设备集成测试不包含在默认 `flutter test` 中。
 - 备份 JSON 明文包含自定义 AI 的 API 密钥（`aiConfig.customApiKey`）。
 - 本地存储（localStorage / SharedPreferences）读写无显式 schema 版本迁移机制（`ExportData.version` 存在但未用于本地逐版升级；字段级兜底 + safeParse / 容错解析已覆盖当前绝大多数场景）。

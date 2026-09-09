@@ -546,7 +546,7 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
                 children: [
                   for (final q in allQuadrants)
                     ChoiceChip(
-                      label: Text(t['q${q}Short']!),
+                      label: Text(t['q$q']!),
                       selected: _quadrant == q,
                       onSelected: (_) => setState(() => _quadrant = q),
                     ),

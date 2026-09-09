@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:matrixflow_native/l10n.dart';
 import 'package:matrixflow_native/models.dart';
 
 void main() {
@@ -83,6 +84,44 @@ void main() {
       expect(normalizeQuadrant('Q2'), qPlan);
       expect(normalizeQuadrant(9), qEliminate);
       expect(normalizeQuadrant(null), qEliminate);
+    });
+  });
+
+  group('quadrant labels', () {
+    test('keep urgency and importance in zh/en/ja without action short names', () {
+      const expected = {
+        Language.zh: {
+          'q1': '紧急且重要',
+          'q2': '不紧急但重要',
+          'q3': '紧急但不重要',
+          'q4': '不紧急也不重要',
+        },
+        Language.en: {
+          'q1': 'Urgent and Important',
+          'q2': 'Not Urgent but Important',
+          'q3': 'Urgent but Not Important',
+          'q4': 'Neither Urgent nor Important',
+        },
+        Language.ja: {
+          'q1': '緊急かつ重要',
+          'q2': '緊急でないが重要',
+          'q3': '緊急だが重要ではない',
+          'q4': '緊急でも重要でもない',
+        },
+      };
+      for (final language in Language.values) {
+        final t = dictOf(language);
+        expected[language]!.forEach((key, value) {
+          expect(t[key], value);
+          expect(t['${key}Short'], value);
+        });
+        expect(t['q1Short'], isNot(anyOf('Do', '马上做', 'すぐやる')));
+        expect(t['q4'], isNot(contains('不要做')));
+        expect(t['q4'], isNot(contains("Don't Do")));
+        expect(t['q2'], contains(language == Language.en ? 'Not' : language == Language.zh ? '不' : 'ない'));
+        expect(t['q3'], contains(language == Language.en ? 'Not' : language == Language.zh ? '不' : 'ない'));
+        expect(t['q4'], contains(language == Language.en ? 'nor' : language == Language.zh ? '不' : 'ない'));
+      }
     });
   });
 

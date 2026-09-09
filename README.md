@@ -2,22 +2,24 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理应用：输入任务后由 AI 自动分类到四象限、合并同类项、拆解长期目标。支持多任务板、截止日期自动升级象限、数据导入导出与三语界面。
 
-提供两种端实现，数据备份格式与 AI 三协议完全互通：
-1. **Web / 混合端**：React 19 + Vite 6 + TypeScript，支持浏览器、Tauri v2 桌面壳与 Capacitor 安卓壳。
-2. **原生跨平台端**（`matrixflow-native/`）：Flutter 3 + Dart，Impeller / Skia 自绘引擎，无需 WebView，直接编译为 Android APK 与 Windows 原生桌面应用。
+**当前开发主线：Flutter Android + Windows**（`matrixflow-native/`），共用 Dart 业务与 UI，分别适配手机和桌面。React 19 / Vite 6 旧 Web 及 Tauri/Capacitor 壳冻结保留，不再对齐新功能；Flutter Web 暂不纳入。
+
+现有 ExportData v1 可从旧 Web/Native 迁入 Flutter；未来字段按迁移契约演进，不承诺冻结 Web 理解新格式。WP20-N、WP21-N 已完成；下一包 **WP03-N**。WP20-W 未开工并取消。执行依据见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md) 和 [HANDOFF](docs/HANDOFF.md)。
 
 > 本项目起步于 Google AI Studio 生成原型，后在本地持续演进（2025-11-22 ~ 至今）。
 
 ## 功能特性
 
-- **四象限矩阵**：立即做 / 计划做 / 授权做 / 消除，任务卡片支持拖拽换象限，象限可一键清空
-- **AI 智能分类**：单条输入或「头脑风暴」批量输入，AI 自动判定象限并给出理由
+以下为已有功能概览，旧 Web 的入口可能不同；完整维度名称、十字布局等以计划实施状态为准，不把未来 UI 当作现状。
+
+- **四象限矩阵**：紧急且重要 / 不紧急但重要 / 紧急但不重要 / 不紧急也不重要；任务卡片支持拖拽换象限，象限可一键清空
+- **AI 智能分类**：单条输入或「头脑风暴」批量输入，AI 自动判定象限；卡片不展示说教评语或理由
 - **AI 自动分组**：多条零散输入自动合并为一个任务（如「买牛奶 + 买鸡蛋 → 购物」），合并前弹窗确认
 - **AI 长期目标拆解**：识别长期任务并打标记，可自动或手动拆解为 3–5 个可执行子任务
-- **截止日期自动升级**：临近截止的任务自动从「计划做」升到「立即做」、从「消除」升到「授权做」（阈值默认 3 天，每小时检查，可在设置调整，按本地时区计算）
+- **截止日期自动升级**：临近截止的未完成主任务自动从不紧急升到紧急（Q2→Q1、Q4→Q3；阈值默认 3 天，每小时检查，可在设置调整，按本地时区计算）
 - **多任务板**：创建 / 重命名 / 删除多个独立任务板
 - **任务编辑**：行内编辑、批量编辑模态框、子任务与截止日期管理、象限选择器；全部子任务完成时自动勾选父任务（可设置）
-- **数据备份**：导出 / 导入 JSON（导入支持合并自动去重或覆盖需二次确认，导入前可逐项勾选预览；Web 与 Native 版备份文件互通）
+- **数据备份**：导出 / 导入 JSON（导入支持合并自动去重或覆盖需二次确认，导入前可逐项勾选预览；当前 v1 备份可迁入 Flutter，新字段兼容性以 WP11 为准）
 - **个性化**：亮 / 暗 / 跟随系统主题 × 5 种主题色；英文 / 简体中文 / 日文界面；隐藏已完成任务开关
 - **AI 配置健康度**：设置页一键测试连接；所有请求 30 秒超时保护
 
@@ -32,7 +34,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用：输入任务后由 AI 自�
 - **Web 端**：Node.js（建议 ≥ 20）。
 - **原生跨平台端**：Flutter SDK 3.x，Android SDK / VS C++ 构建套件（按需）。
 
-### Web 端
+### 旧 Web 端（冻结版本，仅维护参考）
 
 1. 安装依赖：
    ```bash
@@ -55,7 +57,7 @@ AI 驱动的艾森豪威尔矩阵任务管理应用：输入任务后由 AI 自�
 ```bash
 cd matrixflow-native
 flutter pub get
-flutter test     # 运行 74 项单元/Widget 测试；设备集成测试单独执行
+flutter test     # 运行 77 项单元/Widget 测试；设备集成测试单独执行
 flutter run      # 启动应用（按提示选择 Android 设备或 Windows 桌面）
 ```
 
@@ -73,7 +75,7 @@ flutter run      # 启动应用（按提示选择 Android 设备或 Windows 桌�
 
 ## 打包
 
-支持多种形态产物构建：
+正式发行目标为 Flutter Android/Windows；下面保留旧壳构建命令供历史版本使用，不要求 Flutter 包同时打包旧壳：
 
 ```bash
 # 1. Web 产物与混合打包壳
@@ -96,7 +98,8 @@ flutter build windows         # Windows 桌面应用 → build/windows/x64/runne
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构、数据模型、状态管理、AI 服务与关键流程 |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发环境、命令、代码约定与常见扩展任务 |
 | [docs/HANDOFF.md](docs/HANDOFF.md) | 项目交接文档、当前实机测试状态与下轮任务提示词 |
-| [docs/IMPLEMENTATION_PLAN_2026-09-08.md](docs/IMPLEMENTATION_PLAN_2026-09-08.md) | 2026-09-09 更新：独立开发路线、交互完善、Focus 功能参考、开源发行与可选托管 AI 的分包计划（待实施） |
+| [docs/IMPLEMENTATION_PLAN_2026-09-08.md](docs/IMPLEMENTATION_PLAN_2026-09-08.md) | 2026-09-09 更新：Flutter 单主线，WP20-W 取消、下一包 WP21-N；所有包的步骤、依赖、验证与 UI 实验时机 |
+| [docs/ADR_FLUTTER_PRIMARY_2026-09-09.md](docs/ADR_FLUTTER_PRIMARY_2026-09-09.md) | 已采纳的 Flutter 主线决策、React 冻结与桌面/UI 实验约束 |
 | [docs/NATIVE_BUG_REVIEW_2026-09-07.md](docs/NATIVE_BUG_REVIEW_2026-09-07.md) | 原生端深度 Bug 审查、29 类修复、64 项验证与剩余构建阻塞 |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | 依据 Git 历史重建的版本演进记录 |
 | [matrixflow-native/README.md](matrixflow-native/README.md) | Flutter 原生跨平台版架构、开发与构建指南 |
