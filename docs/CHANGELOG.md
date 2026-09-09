@@ -6,6 +6,13 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-09 · WP20-N Flutter 完成/多选分离、独立子项展开、逐行删除线
+
+- **完成方框只表示 completed**：原生 `TaskCard` 不再用 `selecting ? selected : completed`。多选改为行高亮、「已选」标记和「多选任务 · 已选 N 项」；切多选/退出只改会话选择，不改完成数据。父子完成级联沿用 `setParentCompleted`。
+- **子项独立展开**：删除「非 selecting 才渲染子项」门禁；显示「子任务 已完成数/总数」入口，按 `boardId/taskId` 保存本会话展开状态，默认收起，切模式/切板/重排按 ID 保留；新增子项自动展开该父任务。
+- **逐行删除线**：`StrikeThrough` 改为文字自身 `TextDecoration.lineThrough`，不再在文本块垂直中线叠一条横条。
+- **验证**：`D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat test --no-pub` **74/74**；`analyze --no-pub` 0 issues。未做 Android/Windows 实机，未改 Web（WP20-W）。
+
 ## 2026-09-08 · 待办说教评语移除、设置可见性与文案精简、设置自动化与 4 组模型思考模式真机实测闭环
 
 - **AI 提示词与卡片视觉纯净化**：

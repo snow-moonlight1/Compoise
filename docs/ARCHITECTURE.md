@@ -1,6 +1,6 @@
 # 架构
 
-本文档描述 MatrixFlow AI 的代码结构与运行机制。最后核对：2026-09-07（基于 `main` 工作区）。
+本文档描述 MatrixFlow AI 的代码结构与运行机制。最后核对：2026-09-09（测试数量随 WP20-N 更新；结构仍基于 `main`）。
 
 ## 总体结构
 
@@ -33,7 +33,7 @@
     │   ├── theme.dart        Material 3 动态取色主题系统
     │   ├── screens/          矩阵主屏、设置面板
     │   └── widgets/          任务卡、象限容器、输入弹层与动效组件
-    ├── test/                 66 项单元/Widget 测试（模型、协议、存储、键盘/返回/拖拽/文件选择等）
+    ├── test/                 74 项单元/Widget 测试（模型、协议、存储、完成/多选、展开、键盘/返回/拖拽/文件选择等）
     ├── android/              Flutter Android 工程（原生 Gradle）
     └── windows/              Flutter Windows 工程（原生 CMake/Runner）
 ```
@@ -110,6 +110,6 @@ InputArea 收集输入 → `handleAISort` 调用 `analyzeTasks` → 结果进入
 
 - Tailwind 通过 CDN 运行时编译（index.html:7），官方不建议生产使用；2026-09-06 移除 Gemini 依赖后 Web 构建产物降至约 288 KB（gzip 87 KB），Rollup 500 KB 分包警告已消除。
 - App.tsx 仍承担 Web 端全部业务逻辑（约 1672 行），是维护热点；50c70cc 与 2026-09-03 批次分别做过组件与渲染优化（React.memo + useCallback），但状态层未做更深度的模块化拆分。
-- Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备 64 项单元/Widget 测试；设备集成测试不包含在默认 `flutter test` 中。
+- Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备 74 项单元/Widget 测试；设备集成测试不包含在默认 `flutter test` 中。
 - 备份 JSON 明文包含自定义 AI 的 API 密钥（`aiConfig.customApiKey`）。
 - 本地存储（localStorage / SharedPreferences）读写无显式 schema 版本迁移机制（`ExportData.version` 存在但未用于本地逐版升级；字段级兜底 + safeParse / 容错解析已覆盖当前绝大多数场景）。

@@ -18,6 +18,29 @@ class MatrixHome extends StatefulWidget {
 class _MatrixHomeState extends State<MatrixHome> {
   bool _selecting = false;
   final Set<String> _selectedIds = {};
+  final Set<String> _expandedKeys = {};
+
+  String _expandKey(Task task) => '${task.boardId}/${task.id}';
+
+  Set<String> _expandedIdsFor(Store store) => {
+    for (final task in store.visibleTasks)
+      if (_expandedKeys.contains(_expandKey(task))) task.id,
+  };
+
+  void _toggleExpand(Store store, String id) {
+    final task = store.tasks.where((item) => item.id == id).firstOrNull;
+    if (task == null) return;
+    setState(() {
+      final key = _expandKey(task);
+      if (!_expandedKeys.add(key)) _expandedKeys.remove(key);
+    });
+  }
+
+  void _ensureExpanded(Store store, String id) {
+    final task = store.tasks.where((item) => item.id == id).firstOrNull;
+    if (task == null) return;
+    setState(() => _expandedKeys.add(_expandKey(task)));
+  }
 
   @override
   void initState() {
@@ -41,6 +64,9 @@ class _MatrixHomeState extends State<MatrixHome> {
     final theme = Theme.of(context);
     final board = store.activeBoard;
     _selectedIds.retainAll(store.visibleTasks.map((task) => task.id));
+    _expandedKeys.retainAll(
+      store.tasks.map(_expandKey),
+    );
 
     return PopScope(
       canPop: !_selecting,
@@ -73,6 +99,22 @@ class _MatrixHomeState extends State<MatrixHome> {
                       child: Text(
                         store.persistenceError!,
                         style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
+                  if (_selecting)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          t['multiSelectStatus']!.replaceAll(
+                            '{n}',
+                            '${_selectedIds.length}',
+                          ),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                   if (_selecting && _selectedIds.length >= 2)
@@ -129,10 +171,13 @@ class _MatrixHomeState extends State<MatrixHome> {
       quadrant: q,
       selecting: _selecting,
       selectedIds: _selectedIds,
+      expandedIds: _expandedIdsFor(context.read<Store>()),
       onSelect:
           (id) => setState(() {
             if (!_selectedIds.add(id)) _selectedIds.remove(id);
           }),
+      onToggleExpand: (id) => _toggleExpand(context.read<Store>(), id),
+      onEnsureExpanded: (id) => _ensureExpanded(context.read<Store>(), id),
     );
     return LayoutBuilder(
       builder: (context, constraints) {

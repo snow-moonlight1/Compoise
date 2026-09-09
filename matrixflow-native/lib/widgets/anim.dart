@@ -47,7 +47,7 @@ class _StaggerInState extends State<StaggerIn> with SingleTickerProviderStateMix
   }
 }
 
-/// Animated strikethrough bar over completed titles (mirrors the web card).
+/// Per-line strikethrough for completed titles (follows each wrapped line).
 class StrikeThrough extends StatelessWidget {
   final Widget child;
   final bool crossed;
@@ -61,28 +61,31 @@ class StrikeThrough extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(end: crossed ? 1.0 : 0.0),
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, text) {
-        return Stack(
-          alignment: Alignment.centerLeft,
-          children: [
-            text!,
-            // Bar sweeps from 0 to full width of the text box.
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: value,
-                  child: Container(height: 1.8, color: color),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    final child = this.child;
+    if (child is Text) {
+      final base = child.style ?? DefaultTextStyle.of(context).style;
+      return Text(
+        child.data ?? '',
+        key: child.key,
+        maxLines: child.maxLines,
+        overflow: child.overflow,
+        softWrap: child.softWrap,
+        textAlign: child.textAlign,
+        textDirection: child.textDirection,
+        locale: child.locale,
+        style: base.copyWith(
+          decoration:
+              crossed ? TextDecoration.lineThrough : TextDecoration.none,
+          decorationColor: crossed ? color : base.decorationColor,
+          decorationThickness: crossed ? 1.6 : base.decorationThickness,
+        ),
+      );
+    }
+    return DefaultTextStyle.merge(
+      style: TextStyle(
+        decoration: crossed ? TextDecoration.lineThrough : TextDecoration.none,
+        decorationColor: color,
+      ),
       child: child,
     );
   }

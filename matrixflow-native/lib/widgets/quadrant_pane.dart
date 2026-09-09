@@ -11,14 +11,20 @@ class QuadrantPane extends StatefulWidget {
   final int quadrant;
   final bool selecting;
   final Set<String> selectedIds;
+  final Set<String> expandedIds;
   final ValueChanged<String>? onSelect;
+  final ValueChanged<String>? onToggleExpand;
+  final ValueChanged<String>? onEnsureExpanded;
 
   const QuadrantPane({
     super.key,
     required this.quadrant,
     this.selecting = false,
     this.selectedIds = const {},
+    this.expandedIds = const {},
     this.onSelect,
+    this.onToggleExpand,
+    this.onEnsureExpanded,
   });
 
   @override
@@ -197,7 +203,10 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       entranceIndex: index,
       selecting: widget.selecting,
       selected: widget.selectedIds.contains(task.id),
+      expanded: widget.expandedIds.contains(task.id),
       onSelect: () => widget.onSelect?.call(task.id),
+      onToggleExpand: () => widget.onToggleExpand?.call(task.id),
+      onEnsureExpanded: () => widget.onEnsureExpanded?.call(task.id),
       onChanged: () {},
       onEdit: () => showTaskEditSheet(context, task),
       onDelete: () => _confirmDelete(context, task),

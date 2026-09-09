@@ -12,6 +12,7 @@ import 'package:matrixflow_native/screens/matrix_screen.dart';
 import 'package:matrixflow_native/screens/settings_screen.dart';
 import 'package:matrixflow_native/storage.dart';
 import 'package:matrixflow_native/theme.dart';
+import 'package:matrixflow_native/widgets/anim.dart';
 import 'package:matrixflow_native/widgets/input_sheet.dart';
 import 'package:matrixflow_native/widgets/task_card.dart';
 import 'package:provider/provider.dart';
@@ -433,12 +434,25 @@ void main() {
     store.addTasks([a, b]);
     await tester.pumpWidget(app(store, const MatrixHome()));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Select'));
+    await tester.tap(find.byTooltip('Multi-select'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('alpha'));
     await tester.tap(find.text('beta'));
     await tester.pumpAndSettle();
     expect(a.completed, isFalse);
+    expect(b.completed, isFalse);
+    final alphaCard = find.ancestor(
+      of: find.text('alpha'),
+      matching: find.byType(TaskCard),
+    );
+    expect(
+      tester
+          .widget<Checkbox>(
+            find.descendant(of: alphaCard, matching: find.byType(Checkbox)),
+          )
+          .value,
+      isFalse,
+    );
     await tester.tap(find.text('Group (2)'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'combined');
@@ -446,11 +460,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.tasks.single.title, 'combined');
     expect(store.tasks.single.subtasks, hasLength(2));
-    await tester.tap(find.byTooltip('Select'));
+    await tester.tap(find.byTooltip('Multi-select'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Select'), findsOneWidget);
+    expect(find.byTooltip('Multi-select'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -509,6 +523,296 @@ void main() {
       expect(find.byType(MatrixHome), findsOneWidget);
       expect(tester.takeException(), isNull);
       expect(store.tasks.single.subtasks, isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  Widget pumpTaskCard(
+    Store store,
+    Task task, {
+    bool selecting = false,
+    bool selected = false,
+    VoidCallback? onSelect,
+  }) => app(
+    store,
+    Scaffold(
+      body: TaskCard(
+        task: task,
+        entranceIndex: 0,
+        onChanged: () {},
+        onEdit: () {},
+        onDelete: () {},
+        onDecompose: () {},
+        onDecomposeStart: () {},
+        selecting: selecting,
+        selected: selected,
+        onSelect: onSelect,
+      ),
+    ),
+  );
+
+  testWidgets(
+    'complete checkbox stays completed in multi-select even when the row is unselected',
+    (tester) async {
+      final store = await setup(tester);
+      final task = store.newTask('already done')..completed = true;
+      store.addTasks([task]);
+      await tester.pumpWidget(
+        pumpTaskCard(store, task, selecting: true, selected: false),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+      final title = tester.widget<Text>(find.text('already done'));
+      expect(title.style?.decoration, TextDecoration.lineThrough);
+      expect(
+        find.descendant(
+          of: find.byType(StrikeThrough),
+          matching: find.byType(FractionallySizedBox),
+        ),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'selecting an incomplete task does not check the box or strike the title',
+    (tester) async {
+      var selects = 0;
+      final store = await setup(tester);
+      final task = store.newTask('still open');
+      store.addTasks([task]);
+      await tester.pumpWidget(
+        pumpTaskCard(
+          store,
+          task,
+          selecting: true,
+          selected: true,
+          onSelect: () => selects++,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+      expect(
+        tester.widget<Text>(find.text('still open')).style?.decoration,
+        isNot(TextDecoration.lineThrough),
+      );
+      expect(find.text('Selected'), findsOneWidget);
+      expect(task.completed, isFalse);
+      expect(selects, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'checkbox in multi-select completes the task and does not toggle selection',
+    (tester) async {
+      var selects = 0;
+      final store = await setup(tester);
+      final task = store.newTask('tap complete')
+        ..subtasks = [
+          SubTask(id: 'c1', title: 'child one'),
+          SubTask(id: 'c2', title: 'child two'),
+        ];
+      store.addTasks([task]);
+      await tester.pumpWidget(
+        pumpTaskCard(
+          store,
+          task,
+          selecting: true,
+          selected: false,
+          onSelect: () => selects++,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      expect(task.completed, isTrue);
+      expect(task.subtasks.every((sub) => sub.completed), isTrue);
+      expect(selects, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'multiline completed titles use per-line text decoration',
+    (tester) async {
+      final store = await setup(tester);
+      final task = store.newTask('first line\nsecond line\nthird line')
+        ..completed = true;
+      store.addTasks([task]);
+      await tester.pumpWidget(pumpTaskCard(store, task));
+      await tester.pumpAndSettle();
+      final title = tester.widget<Text>(
+        find.text('first line\nsecond line\nthird line'),
+      );
+      expect(title.style?.decoration, TextDecoration.lineThrough);
+      expect(
+        find.descendant(
+          of: find.byType(StrikeThrough),
+          matching: find.byType(FractionallySizedBox),
+        ),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'subtasks stay collapsed by default and expand in browse and multi-select',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      store.createBoard('other board');
+      final boardA = store.boards.first.id;
+      final boardB = store.boards.last.id;
+      store.setActiveBoard(boardA);
+      final parent = store.newTask('expand parent')
+        ..subtasks = [
+          SubTask(id: 's1', title: 'hidden child', completed: true),
+          SubTask(id: 's2', title: 'open child'),
+        ];
+      store.addTasks([parent]);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+      expect(find.text('hidden child'), findsNothing);
+      expect(find.textContaining('Subtasks 1/2'), findsOneWidget);
+
+      await tester.tap(find.textContaining('Subtasks 1/2'));
+      await tester.pumpAndSettle();
+      expect(find.text('hidden child'), findsOneWidget);
+      expect(parent.completed, isFalse);
+
+      await tester.tap(find.byTooltip('Multi-select'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Multi-select · 0 selected'), findsOneWidget);
+      expect(find.text('hidden child'), findsOneWidget);
+      expect(parent.completed, isFalse);
+      await tester.tap(find.textContaining('Subtasks 1/2'));
+      await tester.pumpAndSettle();
+      expect(find.text('hidden child'), findsNothing);
+      expect(find.textContaining('Multi-select · 0 selected'), findsOneWidget);
+      expect(parent.completed, isFalse);
+      await tester.tap(find.textContaining('Subtasks 1/2'));
+      await tester.pumpAndSettle();
+      expect(find.text('hidden child'), findsOneWidget);
+
+      store.setActiveBoard(boardB);
+      await tester.pumpAndSettle();
+      expect(find.text('hidden child'), findsNothing);
+      store.setActiveBoard(boardA);
+      await tester.pumpAndSettle();
+      expect(find.text('hidden child'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('hidden child'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('adding a subtask expands that parent only', (tester) async {
+    viewport(tester, const Size(390, 844));
+    final store = await setup(tester);
+    final parent = store.newTask('needs children');
+    final other = store.newTask('other parent', quadrant: qPlan)
+      ..subtasks = [SubTask(id: 'o1', title: 'other child')];
+    store.addTasks([parent, other]);
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
+    expect(find.text('other child'), findsNothing);
+    final parentCard = find.ancestor(
+      of: find.text('needs children'),
+      matching: find.byType(TaskCard),
+    );
+    await tester.enterText(
+      find.descendant(of: parentCard, matching: find.byType(TextField)),
+      'brand new child',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('brand new child'), findsOneWidget);
+    expect(find.text('other child'), findsNothing);
+    expect(
+      store.tasks
+          .firstWhere((task) => task.id == parent.id)
+          .subtasks
+          .single
+          .title,
+      'brand new child',
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'complete then multi-select then hide stays completed; select-only does not complete',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      final done = store.newTask('finish me');
+      final open = store.newTask('leave open', quadrant: qPlan);
+      store.addTasks([done, open]);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+
+      final doneCard = find.ancestor(
+        of: find.text('finish me'),
+        matching: find.byType(TaskCard),
+      );
+      await tester.tap(
+        find.descendant(of: doneCard, matching: find.byType(Checkbox)),
+      );
+      await tester.pumpAndSettle();
+      expect(done.completed, isTrue);
+      expect(open.completed, isFalse);
+
+      await tester.tap(find.byTooltip('Multi-select'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.descendant(of: doneCard, matching: find.byType(Checkbox)),
+            )
+            .value,
+        isTrue,
+      );
+      expect(
+        tester.widget<Text>(find.text('finish me')).style?.decoration,
+        TextDecoration.lineThrough,
+      );
+
+      await tester.tap(find.text('leave open'));
+      await tester.pumpAndSettle();
+      expect(open.completed, isFalse);
+      expect(find.textContaining('Multi-select · 1 selected'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Hide Completed'));
+      await tester.pumpAndSettle();
+      expect(find.text('finish me'), findsNothing);
+      expect(find.text('leave open'), findsOneWidget);
+      expect(done.completed, isTrue);
+      expect(open.completed, isFalse);
+      expect(find.textContaining('Multi-select · 1 selected'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Cancel'));
+      await tester.pumpAndSettle();
+      expect(open.completed, isFalse);
+      expect(done.completed, isTrue);
+
+      await tester.tap(find.byTooltip('Hide Completed'));
+      await tester.pumpAndSettle();
+      expect(find.text('finish me'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('finish me')).style?.decoration,
+        TextDecoration.lineThrough,
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+      expect(done.completed, isTrue);
+      expect(open.completed, isFalse);
+      expect(find.textContaining('Subtasks'), findsNothing);
       await tester.pumpWidget(const SizedBox());
     },
   );

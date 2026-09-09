@@ -17,6 +17,9 @@ class TaskCard extends StatelessWidget {
   final bool selecting;
   final bool selected;
   final VoidCallback? onSelect;
+  final bool expanded;
+  final VoidCallback? onToggleExpand;
+  final VoidCallback? onEnsureExpanded;
 
   const TaskCard({
     super.key,
@@ -30,6 +33,9 @@ class TaskCard extends StatelessWidget {
     this.selecting = false,
     this.selected = false,
     this.onSelect,
+    this.expanded = false,
+    this.onToggleExpand,
+    this.onEnsureExpanded,
   });
 
   @override
@@ -46,6 +52,12 @@ class TaskCard extends StatelessWidget {
       child: Card(
         margin: const EdgeInsets.only(bottom: 10),
         clipBehavior: Clip.antiAlias,
+        color:
+            selected
+                ? (theme.brightness == Brightness.light
+                    ? const Color(0xFFE6EEFF)
+                    : theme.colorScheme.primary.withValues(alpha: 0.18))
+                : null,
         child: InkWell(
           onTap: selecting ? onSelect : onEdit,
           child: Padding(
@@ -57,15 +69,17 @@ class TaskCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Checkbox(
-                      value: selecting ? selected : task.completed,
-                      onChanged:
-                          selecting
-                              ? (_) => onSelect?.call()
-                              : (_) {
-                                store.setParentCompleted(task, !task.completed);
-                                onChanged();
-                              },
+                    Semantics(
+                      label: t['markTaskComplete'],
+                      button: true,
+                      child: Checkbox(
+                        key: ValueKey('complete-${task.id}'),
+                        value: task.completed,
+                        onChanged: (_) {
+                          store.setParentCompleted(task, !task.completed);
+                          onChanged();
+                        },
+                      ),
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,6 +99,17 @@ class TaskCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (selected)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              t['selectedMark']!,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         _DeadlineChip(
                           daysLeft: daysLeft,
                           done: task.completed,
@@ -106,11 +131,52 @@ class TaskCard extends StatelessWidget {
                       onDecomposeStart: onDecomposeStart,
                     ),
                   ),
-                if (!selecting) ..._subtasks(context, t, theme),
+                if (task.subtasks.isNotEmpty) _expandToggle(t, theme),
+                if (expanded)
+                  GestureDetector(
+                    onTap: () {},
+                    child: Column(children: _subtasks(context, t, theme)),
+                  ),
                 if (!selecting && !task.completed)
                   _addSubtaskField(context, t, theme),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _expandToggle(Map<String, String> t, ThemeData theme) {
+    final done = task.subtasks.where((sub) => sub.completed).length;
+    final label = (t['subtaskProgress'] ?? 'Subtasks {done}/{total}')
+        .replaceAll('{done}', '$done')
+        .replaceAll('{total}', '${task.subtasks.length}');
+    return Semantics(
+      button: true,
+      label: expanded ? t['collapseSubtasks'] : t['expandSubtasks'],
+      child: InkWell(
+        key: ValueKey('expand-${task.id}'),
+        onTap: onToggleExpand,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+              Icon(
+                expanded ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ],
           ),
         ),
       ),
@@ -174,31 +240,34 @@ class TaskCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    children: [
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.edit_outlined, size: 15),
-                        tooltip: t['editTask'],
-                        onPressed: () => _editSubtask(context, sub),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        tooltip: t['delete'],
-                        icon: Icon(
-                          Icons.close,
-                          size: 15,
-                          color: theme.colorScheme.error.withValues(alpha: 0.7),
+                  if (!selecting)
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      children: [
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.edit_outlined, size: 15),
+                          tooltip: t['editTask'],
+                          onPressed: () => _editSubtask(context, sub),
                         ),
-                        onPressed: () {
-                          task.subtasks.remove(sub);
-                          context.read<Store>().updateTask(task);
-                          onChanged();
-                        },
-                      ),
-                    ],
-                  ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: t['delete'],
+                          icon: Icon(
+                            Icons.close,
+                            size: 15,
+                            color: theme.colorScheme.error.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                          onPressed: () {
+                            task.subtasks.remove(sub);
+                            context.read<Store>().updateTask(task);
+                            onChanged();
+                          },
+                        ),
+                      ],
+                    ),
                 ],
               ),
           ],
@@ -220,6 +289,7 @@ class TaskCard extends StatelessWidget {
           context.read<Store>().appendSubtasks(task.id, [
             SubTask(id: newId(), title: text),
           ]);
+          onEnsureExpanded?.call();
           onChanged();
         },
       ),

@@ -124,6 +124,55 @@ void main() {
   );
 
   test(
+    'hideCompleted filters by completed across boards and never rewrites flags',
+    () async {
+      final (store, _) = await makeStore(
+        boards: [
+          Board(id: 'a', name: 'A', createdAt: 1),
+          Board(id: 'b', name: 'B', createdAt: 2),
+        ],
+        tasks: [
+          Task(
+            id: 'a-done',
+            boardId: 'a',
+            title: 'done a',
+            quadrant: qDo,
+            completed: true,
+            createdAt: 1,
+          ),
+          Task(
+            id: 'a-open',
+            boardId: 'a',
+            title: 'open a',
+            quadrant: qDo,
+            createdAt: 1,
+          ),
+          Task(
+            id: 'b-done',
+            boardId: 'b',
+            title: 'done b',
+            quadrant: qDo,
+            completed: true,
+            createdAt: 1,
+          ),
+        ],
+      );
+      addTearDown(store.dispose);
+      store.setActiveBoard('a');
+      store.updateSettings((s) => s..hideCompleted = true);
+      expect(store.visibleTasks.map((task) => task.id), ['a-open']);
+      expect(store.tasks.firstWhere((task) => task.id == 'a-done').completed, isTrue);
+      expect(store.tasks.firstWhere((task) => task.id == 'b-done').completed, isTrue);
+      store.setActiveBoard('b');
+      expect(store.visibleTasks, isEmpty);
+      expect(store.tasks.where((task) => task.completed).map((task) => task.id), [
+        'a-done',
+        'b-done',
+      ]);
+    },
+  );
+
+  test(
     'generated task and repeated child titles have unique identifiers',
     () async {
       final (store, _) = await makeStore();
