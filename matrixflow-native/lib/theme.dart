@@ -14,7 +14,76 @@ const themeSeedColors = <ThemeColor, Color>{
   ThemeColor.pink: Color(0xFFEC4899),
 };
 
-ThemeData buildTheme(Brightness brightness, ThemeColor colorPref) {
+double fontScaleFactor(FontSizePref pref) {
+  switch (pref) {
+    case FontSizePref.small:
+      return 0.88;
+    case FontSizePref.standard:
+      return 1.0;
+    case FontSizePref.large:
+      return 1.16;
+  }
+}
+
+List<String>? fontFallbackFor(FontFamilyPref pref) {
+  switch (pref) {
+    case FontFamilyPref.system:
+      return null;
+    case FontFamilyPref.sansSerif:
+      return const [
+        'Segoe UI',
+        'Roboto',
+        'PingFang SC',
+        'Microsoft YaHei',
+        'sans-serif',
+      ];
+    case FontFamilyPref.serif:
+      return const [
+        'Georgia',
+        'Times New Roman',
+        'Songti SC',
+        'SimSun',
+        'serif',
+      ];
+    case FontFamilyPref.monospace:
+      return const ['Consolas', 'Roboto Mono', 'Courier New', 'monospace'];
+  }
+}
+
+String? fontFamilyFor(FontFamilyPref pref) {
+  final list = fontFallbackFor(pref);
+  return list?.first;
+}
+
+/// Composes the system [TextScaler] with an application-level scale factor.
+/// Preserves system accessibility text scaling while honoring user preference.
+class CombinedTextScaler extends TextScaler {
+  final TextScaler systemScaler;
+  final double appScale;
+  const CombinedTextScaler(this.systemScaler, this.appScale);
+
+  @override
+  double get textScaleFactor => scale(1.0);
+
+  @override
+  double scale(double fontSize) => systemScaler.scale(fontSize) * appScale;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CombinedTextScaler &&
+          other.systemScaler == systemScaler &&
+          other.appScale == appScale;
+
+  @override
+  int get hashCode => Object.hash(systemScaler, appScale);
+}
+
+ThemeData buildTheme(
+  Brightness brightness,
+  ThemeColor colorPref, {
+  FontFamilyPref fontFamilyPref = FontFamilyPref.system,
+}) {
   final scheme = ColorScheme.fromSeed(
     seedColor: themeSeedColors[colorPref]!,
     brightness: brightness,
@@ -26,7 +95,8 @@ ThemeData buildTheme(Brightness brightness, ThemeColor colorPref) {
     useMaterial3: true,
     colorScheme: scheme.copyWith(surface: bg),
     scaffoldBackgroundColor: bg,
-    fontFamily: null, // platform default; Nunito is bundled optionally
+    fontFamily: fontFamilyFor(fontFamilyPref),
+    fontFamilyFallback: fontFallbackFor(fontFamilyPref),
     cardTheme: CardThemeData(
       elevation: 0,
       color: isDark ? const Color(0xFF37475C) : Colors.white.withValues(alpha: 0.72),

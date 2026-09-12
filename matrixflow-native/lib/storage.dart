@@ -11,6 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'ai_service.dart';
 import 'l10n.dart';
 import 'models.dart';
+import 'task_commands.dart';
+
+export 'task_commands.dart';
 
 class Store extends ChangeNotifier with WidgetsBindingObserver {
   static const _kTasks = 'matrixflow-tasks';
@@ -38,14 +41,22 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   Timer? _deadlineTimer;
 
-  Store({AIService? aiService}) : ai = aiService ?? AIService();
+  final List<Locale>? initialDeviceLocales;
 
-  Future<void> init() async {
+  Store({AIService? aiService, List<Locale>? deviceLocales})
+      : ai = aiService ?? AIService(),
+        initialDeviceLocales = deviceLocales;
+
+  Future<void> init({List<Locale>? deviceLocales}) async {
     startupError = null;
+    final resolvedDeviceLang = resolveDeviceLanguage(
+      deviceLocales ?? initialDeviceLocales ?? _resolvePlatformLocales(),
+    );
     try {
       _prefs = await SharedPreferences.getInstance();
     } catch (_) {
       if (_disposed) return;
+      settings = AppSettings(language: resolvedDeviceLang);
       startupError = t['storageReadError'];
       notifyListeners();
       return;
@@ -92,11 +103,21 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       AIConfig(),
       (raw) => AIConfig.fromJson(raw as Map<String, dynamic>),
     );
-    settings = read(
-      _kSettings,
-      AppSettings(),
-      (raw) => AppSettings.fromJson(raw as Map<String, dynamic>),
-    );
+    final rawSettings = _loadJson(_kSettings);
+    if (rawSettings == null) {
+      settings = AppSettings(language: resolvedDeviceLang);
+    } else {
+      try {
+        final map = rawSettings as Map<String, dynamic>;
+        settings = AppSettings.fromJson(
+          map,
+          defaultLanguage: resolvedDeviceLang,
+        );
+      } catch (_) {
+        corrupted++;
+        settings = AppSettings(language: resolvedDeviceLang);
+      }
+    }
     boards = read(
       _kBoards,
       <Board>[],
@@ -180,7 +201,52 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           )
           .toList();
 
+  /// Direct query for completed tasks without copying or synthetic timestamps.
+  /// If [boardId] is specified, returns completed tasks on that board;
+  /// otherwise returns completed tasks across all boards.
+  /// Unaffected by [settings.hideCompleted].
+  List<Task> completedTasks({String? boardId}) =>
+      tasks
+          .where((t) => t.completed && (boardId == null || t.boardId == boardId))
+          .toList();
+
+  /// Total number of completed tasks on [boardId] (or across all boards if null).
+  int completedTaskCount({String? boardId}) =>
+      tasks
+          .where((t) => t.completed && (boardId == null || t.boardId == boardId))
+          .length;
+
   // --- mutations ---
+
+  void setViewMode(ViewMode mode) {
+    if (settings.viewMode == mode) return;
+    updateSettings((s) => s..viewMode = mode);
+  }
+
+  void toggleViewMode() {
+    final next =
+        settings.viewMode == ViewMode.grid ? ViewMode.list : ViewMode.grid;
+    setViewMode(next);
+  }
+
+  void setFontSize(FontSizePref size) {
+    if (settings.fontSize == size) return;
+    updateSettings((s) => s..fontSize = size);
+  }
+
+  void setFontFamily(FontFamilyPref family) {
+    if (settings.fontFamily == family) return;
+    updateSettings((s) => s..fontFamily = family);
+  }
+
+  void resetDisplayPreferences() {
+    updateSettings(
+      (s) => s
+        ..fontSize = FontSizePref.standard
+        ..fontFamily = FontFamilyPref.system
+        ..viewMode = ViewMode.grid,
+    );
+  }
 
   void setActiveBoard(String id) {
     if (!boards.any((b) => b.id == id)) return;
@@ -203,7 +269,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Task newTask(String title, {int quadrant = qDo, bool isLongTerm = false}) =>
+  Task newTask(
+    String title, {
+    int quadrant = qDo,
+    bool isLongTerm = false,
+    int? deadline,
+  }) =>
       Task(
         id: newId(),
         boardId: activeBoardId,
@@ -211,11 +282,33 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         quadrant: quadrant,
         isLongTerm: isLongTerm,
         createdAt: _now(),
+        deadline: deadline,
       );
+
+  void _insertAtFrontOfQuadrant(Task task) {
+    final firstTargetIndex = tasks.indexWhere(
+      (t) => t.boardId == task.boardId && t.quadrant == task.quadrant,
+    );
+    if (firstTargetIndex != -1) {
+      tasks.insert(firstTargetIndex, task);
+    } else {
+      final firstBoardIndex = tasks.indexWhere(
+        (t) => t.boardId == task.boardId,
+      );
+      if (firstBoardIndex != -1) {
+        tasks.insert(firstBoardIndex, task);
+      } else {
+        tasks.insert(0, task);
+      }
+    }
+  }
 
   void updateTask(Task updated) {
     final i = tasks.indexWhere((t) => t.id == updated.id);
     if (i == -1) return;
+    final oldQuadrant = tasks[i].quadrant;
+    final quadrantChanged = oldQuadrant != updated.quadrant;
+
     if (settings.autoCompleteParent && updated.subtasks.isNotEmpty) {
       final allDone = updated.subtasks.every((s) => s.completed);
       if (allDone) updated.completed = true;
@@ -223,7 +316,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         updated.completed = false;
       }
     }
-    tasks[i] = updated;
+
+    if (quadrantChanged) {
+      tasks.removeAt(i);
+      _insertAtFrontOfQuadrant(updated);
+    } else {
+      tasks[i] = updated;
+    }
+
     _applyDeadlinePromotion();
     _saveTasks();
     notifyListeners();
@@ -238,7 +338,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   void moveTask(String id, int quadrant) {
     final i = tasks.indexWhere((t) => t.id == id);
     if (i == -1) return;
-    tasks[i] = Task.fromJson(tasks[i].toJson())..quadrant = quadrant;
+    if (tasks[i].quadrant == quadrant) {
+      // Same quadrant: do not reorder
+      return;
+    }
+    final task = Task.fromJson(tasks[i].toJson())..quadrant = quadrant;
+    tasks.removeAt(i);
+    _insertAtFrontOfQuadrant(task);
     _saveTasks();
     notifyListeners();
   }
@@ -250,9 +356,47 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     updateTask(updated);
   }
 
+  final Map<String, int> _boardEpoch = {};
+
+  /// Returns the current mutation generation/epoch for the given board.
+  int boardEpoch(String boardId) => _boardEpoch[boardId] ?? 0;
+
+  /// Explicitly bumps the mutation generation/epoch for [boardId].
+  void bumpBoardEpoch(String boardId) {
+    _boardEpoch[boardId] = boardEpoch(boardId) + 1;
+  }
+
+  /// Explicitly bumps the mutation generation/epoch for all known boards.
+  void bumpAllBoardEpochs() {
+    for (final b in boards) {
+      bumpBoardEpoch(b.id);
+    }
+  }
+
+  /// Returns the total number of tasks (across all quadrants, completed or not) for [boardId].
+  int boardTaskCount(String boardId) =>
+      tasks.where((t) => t.boardId == boardId).length;
+
+  /// Atomically removes all tasks on [boardId] across all four quadrants,
+  /// including completed and hidden tasks. Bumps [boardEpoch] to invalidate
+  /// in-flight async results and undo snapshots. Returns the number of removed tasks.
+  int clearBoard(String boardId) {
+    bumpBoardEpoch(boardId);
+    final before = tasks.length;
+    tasks.removeWhere((t) => t.boardId == boardId);
+    final removed = before - tasks.length;
+    if (removed > 0) {
+      _saveTasks();
+      notifyListeners();
+    }
+    return removed;
+  }
+
   void clearQuadrant(int quadrant, {String? boardId}) {
+    final bId = boardId ?? activeBoardId;
+    bumpBoardEpoch(bId);
     tasks.removeWhere(
-      (t) => t.boardId == (boardId ?? activeBoardId) && t.quadrant == quadrant,
+      (t) => t.boardId == bId && t.quadrant == quadrant,
     );
     _saveTasks();
     notifyListeners();
@@ -265,6 +409,125 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       s.completed = completed;
     }
     updateTask(task);
+  }
+
+  /// Restores a completed task back to active state.
+  /// Uses existing parent-child cascade rule ([setParentCompleted]) so all subtasks
+  /// are reset to incomplete as well, preventing [autoCompleteParent] from immediately
+  /// marking the parent task as completed again.
+  void restoreTask(Task task) {
+    setParentCompleted(task, false);
+  }
+
+  /// Restores a completed task by ID.
+  void restoreTaskById(String id) {
+    final task = tasks.where((t) => t.id == id).firstOrNull;
+    if (task != null) {
+      restoreTask(task);
+    }
+  }
+
+  /// Deletes a task by ID and returns a [TaskUndoSnapshot] capturing its state
+  /// for a 5-second undo window. Immediately persists deletion.
+  TaskUndoSnapshot? deleteTaskWithUndo(String id) {
+    final i = tasks.indexWhere((t) => t.id == id);
+    if (i == -1) return null;
+    final task = tasks[i];
+    final snapshot = TaskUndoSnapshot.capture(
+      actionType: TaskUndoType.delete,
+      task: task,
+      boardEpoch: boardEpoch(task.boardId),
+      originalIndex: i,
+    );
+    tasks.removeAt(i);
+    _saveTasks();
+    notifyListeners();
+    return snapshot;
+  }
+
+  /// Toggles task completion state (cascading to all subtasks via [setParentCompleted])
+  /// and returns a [TaskUndoSnapshot] capturing the previous state for undo.
+  TaskUndoSnapshot? toggleCompleteWithUndo(Task task) {
+    final i = tasks.indexWhere((t) => t.id == task.id);
+    if (i == -1) return null;
+    final current = tasks[i];
+    final nextState = !current.completed;
+    final snapshot = TaskUndoSnapshot.capture(
+      actionType: nextState ? TaskUndoType.complete : TaskUndoType.restore,
+      task: current,
+      boardEpoch: boardEpoch(current.boardId),
+      originalIndex: i,
+    );
+    setParentCompleted(current, nextState);
+    return snapshot;
+  }
+
+  /// Checks if [snapshot] is still valid according to the invalidation contract:
+  /// 1. Target board must exist.
+  /// 2. Board epoch must match snapshot.boardEpoch (invalidated if clearBoard, clearQuadrant,
+  ///    or overwrite import occurred).
+  /// 3. For complete/restore: task must still exist and must not have been modified
+  ///    by subsequent commands (e.g. title or quadrant changed).
+  /// 4. For delete: task must not already exist.
+  bool canApplyUndo(TaskUndoSnapshot snapshot) {
+    if (!boards.any((b) => b.id == snapshot.boardId)) {
+      return false;
+    }
+    if (boardEpoch(snapshot.boardId) != snapshot.boardEpoch) {
+      return false;
+    }
+    if (snapshot.actionType == TaskUndoType.complete ||
+        snapshot.actionType == TaskUndoType.restore) {
+      final current = tasks.where((t) => t.id == snapshot.taskId).firstOrNull;
+      if (current == null) return false;
+      if (current.title != snapshot.task.title ||
+          current.quadrant != snapshot.task.quadrant) {
+        return false;
+      }
+    } else if (snapshot.actionType == TaskUndoType.delete) {
+      if (tasks.any((t) => t.id == snapshot.taskId)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Reverses the mutation represented by [snapshot] if valid.
+  /// Returns true on success, or false if rejected due to conflict or epoch invalidation.
+  bool applyUndo(TaskUndoSnapshot snapshot) {
+    if (!canApplyUndo(snapshot)) {
+      return false;
+    }
+
+    switch (snapshot.actionType) {
+      case TaskUndoType.delete:
+        final restored = Task.fromJson(snapshot.task.toJson());
+        final insertIndex = snapshot.originalIndex.clamp(0, tasks.length);
+        tasks.insert(insertIndex, restored);
+        _applyDeadlinePromotion();
+        _saveTasks();
+        notifyListeners();
+        return true;
+
+      case TaskUndoType.complete:
+      case TaskUndoType.restore:
+        final i = tasks.indexWhere((t) => t.id == snapshot.taskId);
+        if (i == -1) return false;
+        final current = tasks[i];
+        current.completed = snapshot.task.completed;
+        final subMap = {
+          for (final s in snapshot.task.subtasks) s.id: s.completed,
+        };
+        for (final sub in current.subtasks) {
+          if (subMap.containsKey(sub.id)) {
+            sub.completed = subMap[sub.id]!;
+          }
+        }
+        _applyDeadlinePromotion();
+        _saveTasks();
+        notifyListeners();
+        return true;
+    }
   }
 
   Task groupTasks(Iterable<String> ids, String title) {
@@ -329,6 +592,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   void deleteBoard(String id) {
     if (boards.length <= 1) return;
+    bumpBoardEpoch(id);
     boards.removeWhere((b) => b.id == id);
     tasks.removeWhere((t) => t.boardId == id);
     if (activeBoardId == id) activeBoardId = boards.first.id;
@@ -396,6 +660,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     incomingTasks.removeWhere((task) => !seenTasks.add(task.id));
 
     if (mode == 'overwrite') {
+      bumpAllBoardEpochs();
+      for (final b in incomingBoards) {
+        bumpBoardEpoch(b.id);
+      }
       if (incomingBoards.isEmpty) {
         incomingBoards.add(
           Board(id: newId(), name: t['defaultBoardName']!, createdAt: _now()),
@@ -517,6 +785,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   void _saveConfig() => _write(_kConfig, jsonEncode(aiConfig.toJson()));
   void _saveSettings() => _write(_kSettings, jsonEncode(settings.toJson()));
+
+  List<Locale> _resolvePlatformLocales() {
+    try {
+      return WidgetsBinding.instance.platformDispatcher.locales;
+    } catch (_) {
+      return const [];
+    }
+  }
 }
 
 int _now() => DateTime.now().millisecondsSinceEpoch;

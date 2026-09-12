@@ -140,4 +140,170 @@ void main() {
       expect(json['aiConfig'], isA<Map>());
     });
   });
+
+  group('WP06-N resolveDeviceLanguage & AppSettings language resolution', () {
+    test('resolves zh variants to Language.zh', () {
+      expect(resolveDeviceLanguage([const Locale('zh')]), Language.zh);
+      expect(resolveDeviceLanguage([const Locale('zh', 'CN')]), Language.zh);
+      expect(resolveDeviceLanguage([const Locale('zh', 'TW')]), Language.zh);
+      expect(resolveDeviceLanguage([const Locale('zh', 'HK')]), Language.zh);
+      expect(resolveDeviceLanguage([const Locale('zh-CN')]), Language.zh);
+      expect(resolveDeviceLanguage([const Locale('zh_TW')]), Language.zh);
+      expect(
+        resolveDeviceLanguage([
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN'),
+        ]),
+        Language.zh,
+      );
+    });
+
+    test('resolves ja variants to Language.ja', () {
+      expect(resolveDeviceLanguage([const Locale('ja')]), Language.ja);
+      expect(resolveDeviceLanguage([const Locale('ja', 'JP')]), Language.ja);
+      expect(resolveDeviceLanguage([const Locale('ja-JP')]), Language.ja);
+    });
+
+    test('resolves en variants to Language.en', () {
+      expect(resolveDeviceLanguage([const Locale('en')]), Language.en);
+      expect(resolveDeviceLanguage([const Locale('en', 'US')]), Language.en);
+      expect(resolveDeviceLanguage([const Locale('en', 'GB')]), Language.en);
+    });
+
+    test('falls back to Language.en for unsupported locales or empty/null list', () {
+      expect(resolveDeviceLanguage([const Locale('fr', 'FR')]), Language.en);
+      expect(resolveDeviceLanguage([const Locale('de', 'DE')]), Language.en);
+      expect(resolveDeviceLanguage([const Locale('ru')]), Language.en);
+      expect(resolveDeviceLanguage([]), Language.en);
+      expect(resolveDeviceLanguage(null), Language.en);
+    });
+
+    test('picks the first supported language according to priority order', () {
+      expect(
+        resolveDeviceLanguage([
+          const Locale('fr', 'FR'),
+          const Locale('zh', 'CN'),
+          const Locale('en', 'US'),
+        ]),
+        Language.zh,
+      );
+      expect(
+        resolveDeviceLanguage([
+          const Locale('de', 'DE'),
+          const Locale('ja', 'JP'),
+          const Locale('zh', 'CN'),
+        ]),
+        Language.ja,
+      );
+      expect(
+        resolveDeviceLanguage([
+          const Locale('ko', 'KR'),
+          const Locale('en', 'US'),
+          const Locale('zh', 'CN'),
+        ]),
+        Language.en,
+      );
+    });
+
+    test('AppSettings.fromJson preserves explicit language even when defaultLanguage differs', () {
+      // Explicit en on zh device
+      final enSettings = AppSettings.fromJson(
+        {'language': 'en'},
+        defaultLanguage: Language.zh,
+      );
+      expect(enSettings.language, Language.en);
+
+      // Explicit zh on en device
+      final zhSettings = AppSettings.fromJson(
+        {'language': 'zh'},
+        defaultLanguage: Language.en,
+      );
+      expect(zhSettings.language, Language.zh);
+
+      // Explicit ja on zh device
+      final jaSettings = AppSettings.fromJson(
+        {'language': 'ja'},
+        defaultLanguage: Language.zh,
+      );
+      expect(jaSettings.language, Language.ja);
+    });
+
+    test('AppSettings.fromJson uses defaultLanguage when language key is missing or invalid', () {
+      final missingSettings = AppSettings.fromJson(
+        {'theme': 'dark'},
+        defaultLanguage: Language.zh,
+      );
+      expect(missingSettings.language, Language.zh);
+
+      final nullSettings = AppSettings.fromJson(
+        {'language': null},
+        defaultLanguage: Language.ja,
+      );
+      expect(nullSettings.language, Language.ja);
+
+      final invalidSettings = AppSettings.fromJson(
+        {'language': 'fr'},
+        defaultLanguage: Language.zh,
+      );
+      expect(invalidSettings.language, Language.zh);
+    });
+  });
+
+  group('WP08-V-N ViewMode', () {
+    test('default viewMode is grid', () {
+      final s = AppSettings();
+      expect(s.viewMode, ViewMode.grid);
+      expect(s.toJson()['viewMode'], 'grid');
+    });
+
+    test('fromJson deserializes grid and list correctly', () {
+      final gridSettings = AppSettings.fromJson({'viewMode': 'grid'});
+      expect(gridSettings.viewMode, ViewMode.grid);
+
+      final listSettings = AppSettings.fromJson({'viewMode': 'list'});
+      expect(listSettings.viewMode, ViewMode.list);
+      expect(listSettings.toJson()['viewMode'], 'list');
+    });
+
+    test('fromJson falls back to grid when viewMode is missing or invalid', () {
+      final missing = AppSettings.fromJson({});
+      expect(missing.viewMode, ViewMode.grid);
+
+      final invalid = AppSettings.fromJson({'viewMode': 'unknown_mode'});
+      expect(invalid.viewMode, ViewMode.grid);
+    });
+  });
+
+  group('WP08-T-N FontSize and FontFamily', () {
+    test('default fontSize is standard and fontFamily is system', () {
+      final s = AppSettings();
+      expect(s.fontSize, FontSizePref.standard);
+      expect(s.fontFamily, FontFamilyPref.system);
+      expect(s.toJson()['fontSize'], 'standard');
+      expect(s.toJson()['fontFamily'], 'system');
+    });
+
+    test('fromJson deserializes fontSize and fontFamily correctly', () {
+      final s = AppSettings.fromJson({
+        'fontSize': 'large',
+        'fontFamily': 'serif',
+      });
+      expect(s.fontSize, FontSizePref.large);
+      expect(s.fontFamily, FontFamilyPref.serif);
+      expect(s.toJson()['fontSize'], 'large');
+      expect(s.toJson()['fontFamily'], 'serif');
+    });
+
+    test('fromJson falls back to standard and system when keys are missing or invalid', () {
+      final missing = AppSettings.fromJson({});
+      expect(missing.fontSize, FontSizePref.standard);
+      expect(missing.fontFamily, FontFamilyPref.system);
+
+      final invalid = AppSettings.fromJson({
+        'fontSize': 'huge',
+        'fontFamily': 'comic-sans',
+      });
+      expect(invalid.fontSize, FontSizePref.standard);
+      expect(invalid.fontFamily, FontFamilyPref.system);
+    });
+  });
 }

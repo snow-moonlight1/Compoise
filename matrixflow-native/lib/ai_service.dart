@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'ai_presets.dart';
 import 'models.dart';
 
 class TestResult {
@@ -142,14 +143,99 @@ class AIService {
     return results;
   }
 
+  final _modelCache = <String, List<String>>{};
+
+  void clearModelCache() => _modelCache.clear();
+
+  /// Dynamically fetches available models from the provider's discovery API.
+  Future<List<String>> fetchModels({
+    required AIConfig config,
+    bool forceRefresh = false,
+    AICancellation? cancellation,
+  }) async {
+    final base = _normalizeBase(config.baseUrl);
+    final key = config.apiKey.trim();
+    if (base.isEmpty || key.isEmpty) {
+      throw const AIException('aiMissingConfig');
+    }
+
+    final cacheKey = '${config.provider}|$base|$key';
+    if (!forceRefresh && _modelCache.containsKey(cacheKey)) {
+      return List<String>.from(_modelCache[cacheKey]!);
+    }
+
+    final preset = getAIProviderPreset(config.provider);
+    final path = preset.modelsPath.isNotEmpty ? preset.modelsPath : '/models';
+
+    http.Response res;
+    if (config.protocol == AIProtocol.anthropic) {
+      res = await _send(
+        _get('${_anthropicBase(base)}$path', config),
+        cancellation: cancellation,
+      );
+    } else {
+      res = await _send(
+        _get('$base$path', config),
+        cancellation: cancellation,
+      );
+    }
+
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw AIException('aiUnauthorized', res.statusCode);
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AIException('aiHttpError', res.statusCode);
+    }
+
+    try {
+      final json = jsonDecode(utf8.decode(res.bodyBytes));
+      final models = _parseModelList(json);
+      _modelCache[cacheKey] = models;
+      return models;
+    } catch (e) {
+      if (e is AIException) rethrow;
+      throw const AIException('aiInvalidResponse');
+    }
+  }
+
+  static List<String> _parseModelList(dynamic json) {
+    if (json == null) return [];
+    List items = [];
+    if (json is List) {
+      items = json;
+    } else if (json is Map) {
+      if (json['data'] is List) {
+        items = json['data'] as List;
+      } else if (json['models'] is List) {
+        items = json['models'] as List;
+      }
+    }
+    final result = <String>[];
+    final seen = <String>{};
+    for (final item in items) {
+      String? id;
+      if (item is String) {
+        id = item.trim();
+      } else if (item is Map && item['id'] != null) {
+        id = item['id'].toString().trim();
+      }
+      if (id != null && id.isNotEmpty && seen.add(id)) {
+        result.add(id);
+      }
+    }
+    return result;
+  }
+
   Future<TestResult> testConnection(AIConfig config) async {
     try {
       final base = _normalizeBase(config.baseUrl);
       if (base.isEmpty || config.apiKey.trim().isEmpty) {
         return TestResult(false, 'aiMissingConfig');
       }
+      final preset = getAIProviderPreset(config.provider);
+      final path = preset.modelsPath.isNotEmpty ? preset.modelsPath : '/models';
       if (config.protocol == AIProtocol.anthropic) {
-        var res = await _send(_get('${_anthropicBase(base)}/models', config));
+        var res = await _send(_get('${_anthropicBase(base)}$path', config));
         if (res.statusCode == 404 || res.statusCode == 405) {
           // Proxy without a models list: prove liveness with a 1-token completion.
           res = await _send(
@@ -167,7 +253,7 @@ class AIService {
         }
         return _fromStatus(res, 'Anthropic');
       }
-      final res = await _send(_get('$base/models', config));
+      final res = await _send(_get('$base$path', config));
       return _fromStatus(res, AIProtocolX.toWire(config.protocol));
     } catch (e) {
       return TestResult(
@@ -201,13 +287,16 @@ class AIService {
     switch (config.protocol) {
       case AIProtocol.openai:
         uri = Uri.parse('$base/chat/completions');
+        final isStandardWithoutThinking =
+            config.provider == 'volcengine' || config.provider == 'bailian';
         body = {
           'model': config.model.isEmpty ? 'deepseek-v4-flash' : config.model,
           'messages': [
             {'role': 'system', 'content': systemInstruction},
             {'role': 'user', 'content': userPrompt},
           ],
-          'thinking': {'type': enableThinking ? 'enabled' : 'disabled'},
+          if (!isStandardWithoutThinking)
+            'thinking': {'type': enableThinking ? 'enabled' : 'disabled'},
           if (forceJsonObject) 'response_format': {'type': 'json_object'},
         };
       case AIProtocol.openaiResponses:

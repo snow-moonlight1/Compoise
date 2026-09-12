@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:matrixflow_native/ai_presets.dart';
 import 'package:matrixflow_native/ai_service.dart';
 import 'package:matrixflow_native/models.dart';
 
@@ -247,5 +248,175 @@ void main() {
     await tester.pump();
     await pending;
     service.close();
+  });
+
+  group('WP01-N: dynamic model discovery and provider adaptation', () {
+    test('fetchModels parses data[].id, dedupes, trims and handles empty/null', () async {
+      int requestCount = 0;
+      final service = AIService(
+        client: MockClient((request) async {
+          requestCount++;
+          expect(request.url.path, '/models');
+          expect(request.headers['authorization'], 'Bearer ds-key');
+          return http.Response(
+            jsonEncode({
+              'data': [
+                {'id': 'deepseek-chat'},
+                {'id': '  deepseek-reasoner  '},
+                {'id': 'deepseek-chat'}, // duplicate
+                {'id': ''}, // empty
+                {'other': 123}, // missing id
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(service.close);
+
+      final cfg = AIConfig(
+        provider: 'deepseek',
+        baseUrl: 'https://api.deepseek.com',
+        apiKey: 'ds-key',
+      );
+
+      final models = await service.fetchModels(config: cfg);
+      expect(models, ['deepseek-chat', 'deepseek-reasoner']);
+      expect(requestCount, 1);
+
+      // Verify cache hit: second call does not fire HTTP request
+      final cachedModels = await service.fetchModels(config: cfg);
+      expect(cachedModels, ['deepseek-chat', 'deepseek-reasoner']);
+      expect(requestCount, 1);
+
+      // forceRefresh: true triggers network request again
+      final refreshed = await service.fetchModels(config: cfg, forceRefresh: true);
+      expect(refreshed, ['deepseek-chat', 'deepseek-reasoner']);
+      expect(requestCount, 2);
+    });
+
+    test('fetchModels surfaces 401/403 as aiUnauthorized, other HTTP as aiHttpError', () async {
+      int callIdx = 0;
+      final service = AIService(
+        client: MockClient((request) async {
+          callIdx++;
+          if (callIdx == 1) return http.Response('Unauthorized', 401);
+          if (callIdx == 2) return http.Response('Forbidden', 403);
+          return http.Response('Rate limited', 429);
+        }),
+      );
+      addTearDown(service.close);
+
+      final cfg = AIConfig(
+        provider: 'volcengine',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+        apiKey: 'bad-key',
+      );
+
+      await expectLater(
+        service.fetchModels(config: cfg, forceRefresh: true),
+        throwsA(predicate((e) => e is AIException && e.code == 'aiUnauthorized' && e.status == 401)),
+      );
+
+      await expectLater(
+        service.fetchModels(config: cfg, forceRefresh: true),
+        throwsA(predicate((e) => e is AIException && e.code == 'aiUnauthorized' && e.status == 403)),
+      );
+
+      await expectLater(
+        service.fetchModels(config: cfg, forceRefresh: true),
+        throwsA(predicate((e) => e is AIException && e.code == 'aiHttpError' && e.status == 429)),
+      );
+    });
+
+    test('provider thinking adaptation: DeepSeek sends thinking, Volcengine/Bailian do NOT', () async {
+      Map<String, dynamic>? lastBody;
+      final service = AIService(
+        client: MockClient((request) async {
+          lastBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {
+                    'content': '[{"title":"Test","quadrant":1,"isLongTerm":false}]',
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(service.close);
+
+      // 1. DeepSeek with thinking enabled sends {'type': 'enabled'}
+      final dsEnabled = AIConfig(
+        provider: 'deepseek',
+        baseUrl: 'https://api.deepseek.com',
+        apiKey: 'k',
+        enableThinking: true,
+      );
+      await service.analyzeTasks(inputs: ['Test'], config: dsEnabled, language: Language.en, autoDecompose: false);
+      expect(lastBody!['thinking'], {'type': 'enabled'});
+
+      // 2. DeepSeek with thinking disabled sends {'type': 'disabled'}
+      final dsDisabled = AIConfig(
+        provider: 'deepseek',
+        baseUrl: 'https://api.deepseek.com',
+        apiKey: 'k',
+        enableThinking: false,
+      );
+      await service.analyzeTasks(inputs: ['Test'], config: dsDisabled, language: Language.en, autoDecompose: false);
+      expect(lastBody!['thinking'], {'type': 'disabled'});
+
+      // 3. Volcengine (Doubao) NEVER sends thinking parameter even when enableThinking is true
+      final volc = AIConfig(
+        provider: 'volcengine',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+        apiKey: 'k',
+        enableThinking: true,
+      );
+      await service.analyzeTasks(inputs: ['Test'], config: volc, language: Language.en, autoDecompose: false);
+      expect(lastBody!.containsKey('thinking'), isFalse);
+
+      // 4. Aliyun Bailian (Qwen) NEVER sends thinking parameter even when enableThinking is true
+      final bailian = AIConfig(
+        provider: 'bailian',
+        baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        apiKey: 'k',
+        enableThinking: true,
+      );
+      await service.analyzeTasks(inputs: ['Test'], config: bailian, language: Language.en, autoDecompose: false);
+      expect(lastBody!.containsKey('thinking'), isFalse);
+    });
+
+    test('pickPreferredModel selects deepseek-v4-flash or chat when available', () {
+      expect(
+        pickPreferredModel('deepseek', ['deepseek-reasoner', 'deepseek-v4-flash', 'deepseek-chat']),
+        'deepseek-v4-flash',
+      );
+      expect(
+        pickPreferredModel('deepseek', ['deepseek-reasoner', 'deepseek-chat']),
+        'deepseek-chat',
+      );
+      expect(
+        pickPreferredModel('deepseek', ['unknown-model-1', 'unknown-model-2']),
+        'unknown-model-1',
+      );
+      expect(
+        pickPreferredModel('volcengine', ['doubao-pro-32k', 'doubao-lite-32k']),
+        'doubao-pro-32k',
+      );
+      expect(
+        pickPreferredModel('bailian', ['qwen-max', 'qwen-plus', 'qwen-turbo']),
+        'qwen-plus',
+      );
+      // Preserves current model if it exists in the list
+      expect(
+        pickPreferredModel('bailian', ['qwen-max', 'qwen-plus', 'qwen-turbo'], currentModel: 'qwen-turbo'),
+        'qwen-turbo',
+      );
+    });
   });
 }

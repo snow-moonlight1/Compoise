@@ -309,4 +309,161 @@ void main() {
     expect(Task.fromJson({'id': 't', 'quadrant': 'Q2'}).quadrant, qPlan);
     expect(normalizeQuadrant(12), qEliminate);
   });
+
+  test(
+    'WP07-N: query completed tasks directly, unaffected by hideCompleted, scope filtering by board or all boards',
+    () async {
+      final (store, _) = await makeStore(
+        boards: [
+          Board(id: 'b1', name: 'Board 1', createdAt: 100),
+          Board(id: 'b2', name: 'Board 2', createdAt: 200),
+        ],
+        tasks: [
+          Task(
+            id: 't1',
+            boardId: 'b1',
+            title: 'B1 Done',
+            quadrant: qDo,
+            completed: true,
+            createdAt: 101,
+          ),
+          Task(
+            id: 't2',
+            boardId: 'b1',
+            title: 'B1 Active',
+            quadrant: qPlan,
+            completed: false,
+            createdAt: 102,
+          ),
+          Task(
+            id: 't3',
+            boardId: 'b2',
+            title: 'B2 Done',
+            quadrant: qDelegate,
+            completed: true,
+            createdAt: 201,
+          ),
+          Task(
+            id: 't4',
+            boardId: 'b2',
+            title: 'B2 Active',
+            quadrant: qEliminate,
+            completed: false,
+            createdAt: 202,
+          ),
+        ],
+      );
+      addTearDown(store.dispose);
+
+      // Default active board is b1
+      expect(store.activeBoardId, 'b1');
+
+      // Unfiltered (boardId == null) gives all completed tasks
+      final allCompleted = store.completedTasks();
+      expect(allCompleted.map((t) => t.id).toList(), ['t1', 't3']);
+      expect(store.completedTaskCount(), 2);
+
+      // Filtered to current board (b1)
+      final b1Completed = store.completedTasks(boardId: 'b1');
+      expect(b1Completed.map((t) => t.id).toList(), ['t1']);
+      expect(store.completedTaskCount(boardId: 'b1'), 1);
+
+      // Filtered to b2
+      final b2Completed = store.completedTasks(boardId: 'b2');
+      expect(b2Completed.map((t) => t.id).toList(), ['t3']);
+      expect(store.completedTaskCount(boardId: 'b2'), 1);
+
+      // Now toggle hideCompleted = true
+      store.updateSettings((s) => s..hideCompleted = true);
+      // visibleTasks on b1 now excludes t1
+      expect(store.visibleTasks.map((t) => t.id).toList(), ['t2']);
+
+      // But completedTasks query is NOT affected by hideCompleted
+      expect(store.completedTasks().map((t) => t.id).toList(), ['t1', 't3']);
+      expect(store.completedTasks(boardId: 'b1').map((t) => t.id).toList(), ['t1']);
+    },
+  );
+
+  test(
+    'WP07-N: restore completed task cascades to subtasks and prevents autoCompleteParent from immediately re-marking complete',
+    () async {
+      final (store, _) = await makeStore(
+        settings: AppSettings(autoCompleteParent: true, hideCompleted: true),
+        boards: [Board(id: 'b1', name: 'Board 1', createdAt: 100)],
+        tasks: [
+          Task(
+            id: 'parent1',
+            boardId: 'b1',
+            title: 'Parent Task',
+            quadrant: qDo,
+            completed: true,
+            createdAt: 101,
+            subtasks: [
+              SubTask(id: 's1', title: 'Sub 1', completed: true),
+              SubTask(id: 's2', title: 'Sub 2', completed: true),
+            ],
+          ),
+        ],
+      );
+      addTearDown(store.dispose);
+
+      // Initially, because hideCompleted is true and task is completed, visibleTasks is empty
+      expect(store.visibleTasks, isEmpty);
+      expect(store.completedTasks(boardId: 'b1').length, 1);
+
+      // Restore the task
+      final task = store.tasks.firstWhere((t) => t.id == 'parent1');
+      store.restoreTask(task);
+
+      // Task is restored (completed == false)
+      expect(task.completed, isFalse);
+      // Subtasks cascade to completed == false
+      expect(task.subtasks.every((s) => !s.completed), isTrue);
+
+      // autoCompleteParent did NOT re-mark it complete
+      expect(store.tasks.firstWhere((t) => t.id == 'parent1').completed, isFalse);
+
+      // Because it is now active, it immediately reappears in visibleTasks at its original quadrant
+      expect(store.visibleTasks.length, 1);
+      expect(store.visibleTasks.first.id, 'parent1');
+      expect(store.visibleTasks.first.quadrant, qDo);
+      expect(store.visibleTasks.first.boardId, 'b1');
+
+      // Now it's no longer in completedTasks
+      expect(store.completedTasks(boardId: 'b1'), isEmpty);
+
+      // Flush and reopen: persists uncompleted state
+      await store.flush();
+      final reopened = Store();
+      addTearDown(reopened.dispose);
+      await reopened.init();
+      final reopenedTask = reopened.tasks.firstWhere((t) => t.id == 'parent1');
+      expect(reopenedTask.completed, isFalse);
+      expect(reopenedTask.subtasks.every((s) => !s.completed), isTrue);
+    },
+  );
+
+  test(
+    'WP07-N: deleting a task in completed view does not leak to other boards',
+    () async {
+      final (store, _) = await makeStore(
+        boards: [
+          Board(id: 'b1', name: 'Board 1', createdAt: 100),
+          Board(id: 'b2', name: 'Board 2', createdAt: 200),
+        ],
+        tasks: [
+          Task(id: 't1', boardId: 'b1', title: 'B1 Done', quadrant: qDo, completed: true, createdAt: 1),
+          Task(id: 't2', boardId: 'b2', title: 'B2 Done', quadrant: qPlan, completed: true, createdAt: 2),
+        ],
+      );
+      addTearDown(store.dispose);
+
+      // Delete t1
+      store.deleteTask('t1');
+
+      expect(store.tasks.any((t) => t.id == 't1'), isFalse);
+      expect(store.tasks.any((t) => t.id == 't2'), isTrue);
+      expect(store.completedTasks().map((t) => t.id).toList(), ['t2']);
+    },
+  );
 }

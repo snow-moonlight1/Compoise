@@ -2,8 +2,10 @@
 library;
 
 import 'dart:math';
+import 'dart:ui' show Locale;
 import 'quadrant.dart';
 
+export 'dart:ui' show Locale;
 export 'quadrant.dart';
 
 final _idRandom = Random.secure();
@@ -182,6 +184,7 @@ class AIAnalysisResult {
     required String id,
     required String boardId,
     required int createdAt,
+    int? deadline,
   }) => Task(
     id: id,
     boardId: boardId,
@@ -189,6 +192,7 @@ class AIAnalysisResult {
     quadrant: quadrant,
     isLongTerm: isLongTerm,
     createdAt: createdAt,
+    deadline: deadline,
     reasoning: reasoning,
     subtasks: subtasks.map((s) => SubTask(id: newId(), title: s)).toList(),
   );
@@ -201,12 +205,15 @@ class DecomposeResult {
 }
 
 class AIConfig {
+  String provider;
   AIProtocol protocol;
   String baseUrl;
   String apiKey;
   String model;
   bool enableThinking;
+
   AIConfig({
+    this.provider = 'deepseek',
     this.protocol = AIProtocol.openai,
     this.baseUrl = 'https://api.deepseek.com',
     this.apiKey = '',
@@ -223,8 +230,28 @@ class AIConfig {
     if (m.isEmpty || m == 'gpt-4o-mini') {
       m = 'deepseek-v4-flash';
     }
+
+    String pId;
+    if (j['providerId'] is String && (j['providerId'] as String).isNotEmpty) {
+      pId = j['providerId'] as String;
+    } else {
+      // Legacy configs (prior to WP01-N) migration:
+      if (base.contains('volces.com')) {
+        pId = 'volcengine';
+      } else if (base.contains('dashscope') || base.contains('aliyun')) {
+        pId = 'bailian';
+      } else if (base.contains('deepseek.com') || base.isEmpty) {
+        pId = 'deepseek';
+      } else {
+        pId = 'custom';
+      }
+    }
+
     return AIConfig(
-      protocol: AIProtocolX.fromString(j['provider'] as String?),
+      provider: pId,
+      protocol: AIProtocolX.fromString(
+        (j['protocol'] ?? j['provider']) as String?,
+      ),
       baseUrl: base,
       apiKey: (j['customApiKey'] as String?) ?? '',
       model: m,
@@ -234,6 +261,8 @@ class AIConfig {
 
   Map<String, dynamic> toJson() => {
     'provider': AIProtocolX.toWire(protocol),
+    'providerId': provider,
+    'protocol': AIProtocolX.toWire(protocol),
     'customBaseUrl': baseUrl,
     'customApiKey': apiKey,
     'customModel': model,
@@ -243,17 +272,48 @@ class AIConfig {
 
 enum Language { en, zh, ja }
 
+/// Resolves the preferred [Language] from a prioritized list of device [locales].
+/// Matches 'zh', 'ja', and 'en' in order of system priority. Subtags like
+/// 'zh-CN', 'zh-TW', and 'zh-HK' map to [Language.zh].
+/// If no supported language matches or [locales] is null/empty, returns [Language.en].
+Language resolveDeviceLanguage(Iterable<Locale>? locales) {
+  if (locales == null) return Language.en;
+  for (final loc in locales) {
+    final code = loc.languageCode.toLowerCase().replaceAll('-', '_');
+    final primary = code.split('_').first;
+    if (primary == 'zh') {
+      return Language.zh;
+    }
+    if (primary == 'ja') {
+      return Language.ja;
+    }
+    if (primary == 'en') {
+      return Language.en;
+    }
+  }
+  return Language.en;
+}
+
 enum ThemeModePref { system, light, dark }
 
 enum ThemeColor { blue, purple, green, orange, pink }
 
 enum InputModePref { single, brainDump }
 
+enum ViewMode { grid, list }
+
+enum FontSizePref { small, standard, large }
+
+enum FontFamilyPref { system, sansSerif, serif, monospace }
+
 class AppSettings {
   Language language;
   ThemeModePref theme;
   ThemeColor themeColor;
   InputModePref defaultInputMode;
+  ViewMode viewMode;
+  FontSizePref fontSize;
+  FontFamilyPref fontFamily;
   bool autoGroupAI;
   bool autoDecomposeAI;
   bool autoCompleteParent;
@@ -261,11 +321,16 @@ class AppSettings {
   bool suppressLongTermPrompt;
   bool hideCompleted;
   int urgencyThresholdDays;
+  bool closeToTray;
+  String globalShortcut;
   AppSettings({
     this.language = Language.en,
     this.theme = ThemeModePref.system,
     this.themeColor = ThemeColor.blue,
     this.defaultInputMode = InputModePref.single,
+    this.viewMode = ViewMode.grid,
+    this.fontSize = FontSizePref.standard,
+    this.fontFamily = FontFamilyPref.system,
     this.autoGroupAI = false,
     this.autoDecomposeAI = false,
     this.autoCompleteParent = false,
@@ -273,12 +338,17 @@ class AppSettings {
     this.suppressLongTermPrompt = false,
     this.hideCompleted = false,
     this.urgencyThresholdDays = 3,
+    this.closeToTray = false,
+    this.globalShortcut = 'Ctrl+Alt+M',
   });
 
-  factory AppSettings.fromJson(Map<String, dynamic> j) => AppSettings(
+  factory AppSettings.fromJson(
+    Map<String, dynamic> j, {
+    Language defaultLanguage = Language.en,
+  }) => AppSettings(
     language: Language.values.firstWhere(
       (v) => v.name == (j['language'] as String?),
-      orElse: () => Language.en,
+      orElse: () => defaultLanguage,
     ),
     theme: ThemeModePref.values.firstWhere(
       (v) => v.name == (j['theme'] as String?),
@@ -292,6 +362,18 @@ class AppSettings {
       (v) => v.name == (j['defaultInputMode'] as String?),
       orElse: () => InputModePref.single,
     ),
+    viewMode: ViewMode.values.firstWhere(
+      (v) => v.name == (j['viewMode'] as String?),
+      orElse: () => ViewMode.grid,
+    ),
+    fontSize: FontSizePref.values.firstWhere(
+      (v) => v.name == (j['fontSize'] as String?),
+      orElse: () => FontSizePref.standard,
+    ),
+    fontFamily: FontFamilyPref.values.firstWhere(
+      (v) => v.name == (j['fontFamily'] as String?),
+      orElse: () => FontFamilyPref.system,
+    ),
     autoGroupAI: (j['autoGroupAI'] as bool?) ?? false,
     autoDecomposeAI: (j['autoDecomposeAI'] as bool?) ?? false,
     autoCompleteParent: (j['autoCompleteParent'] as bool?) ?? false,
@@ -300,6 +382,8 @@ class AppSettings {
     hideCompleted: (j['hideCompleted'] as bool?) ?? false,
     urgencyThresholdDays: ((j['urgencyThresholdDays'] as num?)?.toInt() ?? 3)
         .clamp(1, 14),
+    closeToTray: (j['closeToTray'] as bool?) ?? false,
+    globalShortcut: (j['globalShortcut'] as String?) ?? 'Ctrl+Alt+M',
   );
 
   Map<String, dynamic> toJson() => {
@@ -307,6 +391,9 @@ class AppSettings {
     'theme': theme.name,
     'themeColor': themeColor.name,
     'defaultInputMode': defaultInputMode.name,
+    'viewMode': viewMode.name,
+    'fontSize': fontSize.name,
+    'fontFamily': fontFamily.name,
     'autoGroupAI': autoGroupAI,
     'autoDecomposeAI': autoDecomposeAI,
     'autoCompleteParent': autoCompleteParent,
@@ -314,6 +401,8 @@ class AppSettings {
     'suppressLongTermPrompt': suppressLongTermPrompt,
     'hideCompleted': hideCompleted,
     'urgencyThresholdDays': urgencyThresholdDays,
+    'closeToTray': closeToTray,
+    'globalShortcut': globalShortcut,
   };
 }
 
