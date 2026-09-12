@@ -7,23 +7,20 @@ import '../storage.dart';
 import 'input_sheet.dart';
 import 'task_card.dart';
 
-/// One quadrant column: header (dot, title, count, clear) + drag target list.
-class QuadrantPane extends StatefulWidget {
-  final int quadrant;
+/// List view presentation of tasks grouped by quadrant sections.
+/// Reuses the same TaskCard items, callbacks, DragTarget, and store mutations.
+class TaskListView extends StatefulWidget {
   final bool selecting;
   final Set<String> selectedIds;
   final Set<String> expandedIds;
   final ValueChanged<String>? onSelect;
   final ValueChanged<String>? onToggleExpand;
   final ValueChanged<String>? onEnsureExpanded;
-  final VoidCallback? onQuadrantTap;
+  final ValueChanged<int>? onQuadrantTap;
   final ValueChanged<Task>? onEdit;
-  final bool isFocused;
-  final ScrollController? scrollController;
 
-  const QuadrantPane({
+  const TaskListView({
     super.key,
-    required this.quadrant,
     this.selecting = false,
     this.selectedIds = const {},
     this.expandedIds = const {},
@@ -32,65 +29,26 @@ class QuadrantPane extends StatefulWidget {
     this.onEnsureExpanded,
     this.onQuadrantTap,
     this.onEdit,
-    this.isFocused = false,
-    this.scrollController,
   });
 
   @override
-  State<QuadrantPane> createState() => _QuadrantPaneState();
+  State<TaskListView> createState() => _TaskListViewState();
 }
 
-class _QuadrantPaneState extends State<QuadrantPane> {
-  bool _hovering = false;
-  ScrollController? _internalScrollController;
+class _TaskListViewState extends State<TaskListView> {
+  int? _hoveringQuadrant;
 
-  ScrollController get _scrollController =>
-      widget.scrollController ??
-      (_internalScrollController ??= ScrollController());
-
-  @override
-  void dispose() {
-    _internalScrollController?.dispose();
-    super.dispose();
-  }
-
-  void _scrollToTopIfNeeded() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients && _scrollController.offset > 0) {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  void _showMovedNotice(
-    BuildContext context,
-    String title,
-    int targetQuadrant,
-  ) {
-    final t = context.read<Store>().t;
-    final qName = switch (targetQuadrant) {
-      qDo => t['q1']!,
-      qPlan => t['q2']!,
-      qDelegate => t['q3']!,
-      _ => t['q4']!,
-    };
-    final msg = (t['taskMoved'] ?? 'Moved to {quadrant}').replaceAll(
+  void _showMovedNotice(BuildContext context, String taskTitle, int targetQ) {
+    final store = context.read<Store>();
+    final qName = store.t['q$targetQ'] ?? 'Q$targetQ';
+    final msg = (store.t['taskMoved'] ?? 'Moved to {quadrant}').replaceAll(
       '{quadrant}',
       qName,
     );
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('$title: $msg'),
-          duration: const Duration(milliseconds: 1800),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(milliseconds: 1400)),
+    );
   }
 
   @override
@@ -98,7 +56,35 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     final store = context.watch<Store>();
     final t = store.t;
     final theme = Theme.of(context);
-    final q = widget.quadrant;
+
+    return ListView(
+      key: PageStorageKey('${store.activeBoardId}-task-list-view'),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 32),
+      children: [
+        for (final q in allQuadrants) ...[
+          _buildQuadrantSection(context, store, t, theme, q),
+          if (q != allQuadrants.last)
+            Divider(
+              height: 16,
+              thickness: 1,
+              color:
+                  theme.brightness == Brightness.light
+                      ? const Color(0xFFE5E9F0)
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQuadrantSection(
+    BuildContext context,
+    Store store,
+    Map<String, String> t,
+    ThemeData theme,
+    int q,
+  ) {
     final tasks = store.tasksIn(q);
     final accent = Color(quadrantColors[q]!);
     final titleKey = switch (q) {
@@ -107,29 +93,34 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       qDelegate => 'q3',
       _ => 'q4',
     };
+    final isHovered = _hoveringQuadrant == q;
 
     return DragTarget<Task>(
       onWillAcceptWithDetails:
           (details) =>
               !widget.selecting && details.data.boardId == store.activeBoardId,
       onMove: (_) {
-        if (!_hovering) setState(() => _hovering = true);
+        if (_hoveringQuadrant != q) {
+          setState(() => _hoveringQuadrant = q);
+        }
       },
       onLeave: (_) {
-        if (_hovering) setState(() => _hovering = false);
+        if (_hoveringQuadrant == q) {
+          setState(() => _hoveringQuadrant = null);
+        }
       },
       onAcceptWithDetails: (details) {
-        setState(() => _hovering = false);
+        setState(() => _hoveringQuadrant = null);
         final task = details.data;
         if (task.quadrant != q) {
           HapticFeedback.mediumImpact();
           store.moveTask(task.id, q);
-          _scrollToTopIfNeeded();
           _showMovedNotice(context, task.title, q);
         }
       },
       builder: (context, candidate, _) {
-        final highlighted = _hovering || candidate.isNotEmpty;
+        final highlighted = isHovered || candidate.isNotEmpty;
+
         return AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
@@ -138,6 +129,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                 highlighted
                     ? accent.withValues(alpha: 0.10)
                     : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
             border:
                 highlighted
                     ? Border.all(
@@ -149,50 +141,58 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Quadrant Section Header
               InkWell(
-                key: ValueKey('quadrant-header-$q'),
-                onTap: widget.onQuadrantTap,
+                key: ValueKey('list-quadrant-header-$q'),
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => widget.onQuadrantTap?.call(q),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 8, 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Container(
-                        width: 8,
-                        height: 8,
+                        width: 10,
+                        height: 10,
                         decoration: BoxDecoration(
                           color: accent,
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           t[titleKey]!,
-                          maxLines: 2,
-                          overflow: TextOverflow.visible,
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w800,
-                            height: 1.2,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${tasks.length}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.55,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${tasks.length}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: accent,
+                            fontWeight: FontWeight.w700,
                           ),
-                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       if (widget.onQuadrantTap != null) ...[
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         Icon(
-                          widget.isFocused
-                              ? Icons.close_fullscreen
-                              : Icons.open_in_full,
-                          size: 14,
+                          Icons.open_in_full,
+                          size: 15,
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.45,
                           ),
@@ -202,48 +202,49 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                   ),
                 ),
               ),
-              Expanded(
-                child:
-                    tasks.isEmpty
-                        ? Center(
-                          child: Text(
-                            t['empty']!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontStyle: FontStyle.italic,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.35,
-                              ),
-                            ),
-                          ),
-                        )
-                        : ListView.builder(
-                          key: PageStorageKey('${store.activeBoardId}-$q'),
-                          controller: _scrollController,
-                          keyboardDismissBehavior:
-                              ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: const EdgeInsets.fromLTRB(4, 2, 4, 16),
-                          itemCount: tasks.length,
-                          itemBuilder: (context, i) {
-                            final task = tasks[i];
-                            return LongPressDraggable<Task>(
-                              key: ValueKey(task.id),
-                              maxSimultaneousDrags: widget.selecting ? 0 : 1,
-                              data: task,
-                              hapticFeedbackOnStart: true,
-                              onDragStarted: () => HapticFeedback.lightImpact(),
-                              onDraggableCanceled:
-                                  (_, __) => HapticFeedback.selectionClick(),
-                              feedback: _dragFeedback(context, task),
-                              dragAnchorStrategy: pointerDragAnchorStrategy,
-                              childWhenDragging: Opacity(
-                                opacity: 0.35,
-                                child: _card(context, task, i),
-                              ),
-                              child: _card(context, task, i),
-                            );
-                          },
-                        ),
-              ),
+
+              // Tasks or Empty State
+              if (tasks.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    t['noTasksInQuadrant'] ?? t['empty'] ?? 'No tasks',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.35,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: tasks.length,
+                  itemBuilder: (context, i) {
+                    final task = tasks[i];
+                    return LongPressDraggable<Task>(
+                      key: ValueKey('list-drag-${task.id}'),
+                      maxSimultaneousDrags: widget.selecting ? 0 : 1,
+                      data: task,
+                      hapticFeedbackOnStart: true,
+                      onDragStarted: () => HapticFeedback.lightImpact(),
+                      onDraggableCanceled:
+                          (_, __) => HapticFeedback.selectionClick(),
+                      feedback: _dragFeedback(context, task),
+                      dragAnchorStrategy: pointerDragAnchorStrategy,
+                      childWhenDragging: Opacity(
+                        opacity: 0.35,
+                        child: _taskCard(context, store, task, i),
+                      ),
+                      child: _taskCard(context, store, task, i),
+                    );
+                  },
+                ),
             ],
           ),
         );
@@ -251,7 +252,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     );
   }
 
-  Widget _card(BuildContext context, Task task, int index) {
+  Widget _taskCard(BuildContext context, Store store, Task task, int index) {
     return TaskCard(
       key: ValueKey(task.id),
       task: task,
@@ -270,7 +271,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           showTaskEditSheet(context, task);
         }
       },
-      onDelete: () => _confirmDelete(context, task),
+      onDelete: () => _confirmDelete(context, store, task),
       onDecompose: () => _decomposeSingle(context, task),
       onDecomposeStart: () {},
     );
@@ -297,9 +298,11 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     );
   }
 
-
-  Future<void> _confirmDelete(BuildContext context, Task task) async {
-    final store = context.read<Store>();
+  Future<void> _confirmDelete(
+    BuildContext context,
+    Store store,
+    Task task,
+  ) async {
     final t = store.t;
     final ok = await showDialog<bool>(
       context: context,
@@ -322,10 +325,11 @@ class _QuadrantPaneState extends State<QuadrantPane> {
             ],
           ),
     );
-    if (ok == true && context.mounted) store.deleteTask(task.id);
+    if (ok == true && context.mounted) {
+      store.deleteTask(task.id);
+    }
   }
 
   Future<void> _decomposeSingle(BuildContext context, Task task) =>
       showBatchDecomposeSheet(context, [task], autoStart: true);
-  bool isDark(ThemeData theme) => theme.brightness == Brightness.dark;
 }

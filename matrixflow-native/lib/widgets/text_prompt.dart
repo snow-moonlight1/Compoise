@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// The route owns its controller through the closing animation.
 Future<String?> askText(
@@ -41,25 +42,34 @@ class _TextPromptState extends State<_TextPrompt> {
     super.dispose();
   }
 
+  void _submit() => Navigator.pop(context, _controller.text);
+
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    scrollable: true,
-    title: Text(widget.title),
-    content: TextField(
-      controller: _controller,
-      autofocus: true,
-      decoration: InputDecoration(labelText: widget.label),
-      onSubmitted: (text) => Navigator.pop(context, text),
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.enter, control: true): _submit,
+      const SingleActivator(LogicalKeyboardKey.enter, meta: true): _submit,
+    },
+    child: AlertDialog(
+      scrollable: true,
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLines: 1,
+        decoration: InputDecoration(labelText: widget.label),
+        onSubmitted: (text) => Navigator.pop(context, text),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(widget.cancel),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(widget.confirm),
+        ),
+      ],
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: Text(widget.cancel),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.pop(context, _controller.text),
-        child: Text(widget.confirm),
-      ),
-    ],
   );
 }

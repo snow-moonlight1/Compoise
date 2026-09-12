@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../ai_service.dart';
 import '../models.dart';
 import '../storage.dart';
+import 'task_detail_panel.dart';
 
 class InputSheet extends StatefulWidget {
   final InputModePref initialMode;
@@ -25,6 +26,7 @@ class _InputSheetState extends State<InputSheet> {
   bool _busy = false;
   bool _closed = false;
   String? _error;
+  DateTime? _selectedDeadline;
 
   @override
   void dispose() {
@@ -101,6 +103,8 @@ class _InputSheetState extends State<InputSheet> {
                     style: Theme.of(context).textTheme.labelSmall,
                     textAlign: TextAlign.center,
                   ),
+                const SizedBox(height: 8),
+                _buildDeadlineRow(context, t),
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -154,6 +158,117 @@ class _InputSheetState extends State<InputSheet> {
     );
   }
 
+  bool _isSameDay(DateTime? a, DateTime? b) {
+    if (a == null || b == null) return false;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Widget _buildDeadlineRow(BuildContext context, Map<String, String> t) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final isCustom =
+        _selectedDeadline != null &&
+        !_isSameDay(_selectedDeadline, today) &&
+        !_isSameDay(_selectedDeadline, tomorrow);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            ChoiceChip(
+              key: const ValueKey('deadline-today'),
+              avatar: const Icon(Icons.today, size: 16),
+              label: Text(t['today']!),
+              selected: _isSameDay(_selectedDeadline, today),
+              onSelected:
+                  _busy
+                      ? null
+                      : (selected) {
+                        setState(() {
+                          _selectedDeadline = selected ? today : null;
+                        });
+                      },
+            ),
+            ChoiceChip(
+              key: const ValueKey('deadline-tomorrow'),
+              avatar: const Icon(Icons.event, size: 16),
+              label: Text(t['tomorrow']!),
+              selected: _isSameDay(_selectedDeadline, tomorrow),
+              onSelected:
+                  _busy
+                      ? null
+                      : (selected) {
+                        setState(() {
+                          _selectedDeadline = selected ? tomorrow : null;
+                        });
+                      },
+            ),
+            ChoiceChip(
+              key: const ValueKey('deadline-custom'),
+              avatar: const Icon(Icons.calendar_month, size: 16),
+              label: Text(
+                isCustom
+                    ? '${_selectedDeadline!.year}-${_selectedDeadline!.month.toString().padLeft(2, '0')}-${_selectedDeadline!.day.toString().padLeft(2, '0')}'
+                    : t['pickDate']!,
+              ),
+              selected: isCustom,
+              onSelected: _busy ? null : (_) => _pickCustomDate(today),
+            ),
+            if (_selectedDeadline != null)
+              IconButton(
+                key: const ValueKey('deadline-clear'),
+                tooltip: t['clearDate']!,
+                icon: const Icon(Icons.close, size: 18),
+                visualDensity: VisualDensity.compact,
+                onPressed:
+                    _busy
+                        ? null
+                        : () => setState(() => _selectedDeadline = null),
+              ),
+          ],
+        ),
+        if (_selectedDeadline != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Text(
+              t['deadlineBatchScope']!,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickCustomDate(DateTime today) async {
+    final first = DateTime(1900);
+    final last = DateTime(2200, 12, 31);
+    final initial = _selectedDeadline ?? today;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate:
+          initial.isBefore(first)
+              ? first
+              : initial.isAfter(last)
+              ? last
+              : initial,
+      firstDate: first,
+      lastDate: last,
+    );
+    if (mounted && picked != null) {
+      setState(() {
+        _selectedDeadline = DateTime(picked.year, picked.month, picked.day);
+      });
+    }
+  }
+
   Future<void> _submit() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _busy || _closed) return;
@@ -167,9 +282,26 @@ class _InputSheetState extends State<InputSheet> {
             .map((s) => s.trim())
             .where((s) => s.isNotEmpty)
             .toList();
+
+    final deadlineSnapshot =
+        _selectedDeadline == null
+            ? null
+            : DateTime(
+              _selectedDeadline!.year,
+              _selectedDeadline!.month,
+              _selectedDeadline!.day,
+              23,
+              59,
+              59,
+            ).millisecondsSinceEpoch;
+
     if (_mode == InputModePref.single) {
-      store.addTasks([for (final line in inputs) store.newTask(line)]);
+      store.addTasks([
+        for (final line in inputs)
+          store.newTask(line, deadline: deadlineSnapshot),
+      ]);
       _controller.clear();
+      setState(() => _selectedDeadline = null);
       if (!widget.embedded) Navigator.pop(context);
       return;
     }
@@ -178,6 +310,7 @@ class _InputSheetState extends State<InputSheet> {
       _error = null;
     });
     final request = _request = AICancellation();
+    final startEpoch = store.boardEpoch(boardId);
     try {
       final results = await store.ai.analyzeTasks(
         inputs: inputs,
@@ -208,7 +341,8 @@ class _InputSheetState extends State<InputSheet> {
         }
         accepted.add(result);
       }
-      if (!store.boards.any((b) => b.id == boardId)) {
+      if (!store.boards.any((b) => b.id == boardId) ||
+          store.boardEpoch(boardId) != startEpoch) {
         throw const AIException('boardUnavailable');
       }
       final tasks = [
@@ -217,10 +351,12 @@ class _InputSheetState extends State<InputSheet> {
             id: newId(),
             boardId: boardId,
             createdAt: DateTime.now().millisecondsSinceEpoch,
+            deadline: deadlineSnapshot,
           ),
       ];
       store.addTasks(tasks);
       _controller.clear();
+      setState(() => _selectedDeadline = null);
       final longTerm =
           !settings.autoDecomposeAI && !settings.suppressLongTermPrompt
               ? tasks
@@ -461,149 +597,4 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
 }
 
 Future<void> showTaskEditSheet(BuildContext context, Task task) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _TaskEditSheet(task: task),
-    );
-
-class _TaskEditSheet extends StatefulWidget {
-  final Task task;
-  const _TaskEditSheet({required this.task});
-  @override
-  State<_TaskEditSheet> createState() => _TaskEditSheetState();
-}
-
-class _TaskEditSheetState extends State<_TaskEditSheet> {
-  late final _title = TextEditingController(text: widget.task.title);
-  late int _quadrant = widget.task.quadrant;
-  late DateTime? _deadline =
-      widget.task.deadline == null
-          ? null
-          : DateTime.fromMillisecondsSinceEpoch(widget.task.deadline!);
-  @override
-  void dispose() {
-    _title.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final store = context.watch<Store>();
-    final t = store.t;
-    final d = _deadline;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                t['editTask']!,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('edit-title'),
-                controller: _title,
-                autofocus: true,
-                minLines: 1,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.calendar_month, size: 18),
-                      label: Text(
-                        d == null
-                            ? t['setDeadline']!
-                            : '${d.year}-${d.month}-${d.day}',
-                      ),
-                      onPressed: _pickDate,
-                    ),
-                  ),
-                  if (d != null)
-                    IconButton(
-                      tooltip: t['cancel'],
-                      onPressed: () => setState(() => _deadline = null),
-                      icon: const Icon(Icons.clear),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(t['quadrant']!),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final q in allQuadrants)
-                    ChoiceChip(
-                      label: Text(t['q$q']!),
-                      selected: _quadrant == q,
-                      onSelected: (_) => setState(() => _quadrant = q),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                key: const ValueKey('save-task'),
-                icon: const Icon(Icons.check),
-                label: Text(t['confirm']!),
-                onPressed: () {
-                  if (_title.text.trim().isEmpty) return;
-                  final current =
-                      store.tasks
-                          .where((task) => task.id == widget.task.id)
-                          .firstOrNull;
-                  if (current != null) {
-                    final updated =
-                        Task.fromJson(current.toJson())
-                          ..title = _title.text.trim()
-                          ..quadrant = _quadrant
-                          ..deadline =
-                              d == null
-                                  ? null
-                                  : DateTime(
-                                    d.year,
-                                    d.month,
-                                    d.day,
-                                  ).millisecondsSinceEpoch;
-                    store.updateTask(updated);
-                  }
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickDate() async {
-    final first = DateTime(1900);
-    final last = DateTime(2200, 12, 31);
-    final date = _deadline ?? DateTime.now();
-    final initial =
-        date.isBefore(first)
-            ? first
-            : date.isAfter(last)
-            ? last
-            : date;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: first,
-      lastDate: last,
-    );
-    if (mounted && picked != null) setState(() => _deadline = picked);
-  }
-}
+    showTaskDetailSheet(context, task);

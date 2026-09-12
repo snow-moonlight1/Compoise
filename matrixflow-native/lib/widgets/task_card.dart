@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
+import '../task_query.dart' show calendarDaysLeft;
 import 'anim.dart';
-import 'text_prompt.dart';
+
+export '../task_query.dart' show calendarDaysLeft;
 
 class TaskCard extends StatelessWidget {
   final Task task;
@@ -46,58 +49,194 @@ class TaskCard extends StatelessWidget {
     final daysLeft =
         task.deadline == null ? null : calendarDaysLeft(task.deadline!);
 
+    final disableAnimations =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
     return StaggerIn(
       key: ValueKey('stagger-${task.id}'),
       index: entranceIndex,
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        clipBehavior: Clip.antiAlias,
-        color:
-            selected
-                ? (theme.brightness == Brightness.light
-                    ? const Color(0xFFE6EEFF)
-                    : theme.colorScheme.primary.withValues(alpha: 0.18))
-                : null,
-        child: InkWell(
-          onTap: selecting ? onSelect : onEdit,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      label: t['markTaskComplete'],
-                      button: true,
-                      child: Checkbox(
-                        key: ValueKey('complete-${task.id}'),
-                        value: task.completed,
-                        onChanged: (_) {
-                          store.setParentCompleted(task, !task.completed);
-                          onChanged();
-                        },
+      child: Dismissible(
+        key: ValueKey('dismiss-${task.id}'),
+        direction: selecting ? DismissDirection.none : DismissDirection.horizontal,
+        movementDuration:
+            disableAnimations ? Duration.zero : const Duration(milliseconds: 200),
+        resizeDuration:
+            disableAnimations ? Duration.zero : const Duration(milliseconds: 200),
+        background: _buildSwipeBackground(
+          context: context,
+          alignment: Alignment.centerLeft,
+          color:
+              task.completed
+                  ? (theme.brightness == Brightness.light
+                      ? const Color(0xFFE0E7FF)
+                      : const Color(0xFF312E81))
+                  : (theme.brightness == Brightness.light
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFF14532D)),
+          iconColor:
+              task.completed
+                  ? (theme.brightness == Brightness.light
+                      ? const Color(0xFF4F46E5)
+                      : const Color(0xFF818CF8))
+                  : (theme.brightness == Brightness.light
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFF4ADE80)),
+          icon: task.completed ? Icons.undo : Icons.check_circle_outline,
+          label:
+              task.completed
+                  ? (t['restoreTask'] ?? 'Restore')
+                  : (t['complete'] ?? 'Complete'),
+        ),
+        secondaryBackground: _buildSwipeBackground(
+          context: context,
+          alignment: Alignment.centerRight,
+          color:
+              theme.brightness == Brightness.light
+                  ? const Color(0xFFFEE2E2)
+                  : const Color(0xFF7F1D1D),
+          iconColor:
+              theme.brightness == Brightness.light
+                  ? const Color(0xFFDC2626)
+                  : const Color(0xFFF87171),
+          icon: Icons.delete_outline,
+          label: t['delete'] ?? 'Delete',
+        ),
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.startToEnd) {
+            // Swipe right: toggle complete / restore
+            HapticFeedback.lightImpact();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                final snapshot = store.toggleCompleteWithUndo(task);
+                onChanged();
+                if (snapshot != null) {
+                  _showUndoSnackBar(
+                    context,
+                    msg:
+                        '${task.title}: ${task.completed ? (t['taskCompleted'] ?? 'Task completed') : (t['taskRestored'] ?? 'Task restored')}',
+                    snapshot: snapshot,
+                    store: store,
+                  );
+                }
+              }
+            });
+            return false;
+          } else if (direction == DismissDirection.endToStart) {
+            // Swipe left: delete
+            HapticFeedback.lightImpact();
+            return true;
+          }
+          return false;
+        },
+        onDismissed: (direction) {
+          if (direction == DismissDirection.endToStart) {
+            final snapshot = store.deleteTaskWithUndo(task.id);
+            onChanged();
+            if (snapshot != null) {
+              _showUndoSnackBar(
+                context,
+                msg: '${task.title}: ${t['taskDeleted'] ?? 'Task deleted'}',
+                snapshot: snapshot,
+                store: store,
+              );
+            }
+          }
+        },
+        child: Material(
+          color:
+              selected
+                  ? (theme.brightness == Brightness.light
+                      ? const Color(0xFFE6EEFF)
+                      : theme.colorScheme.primary.withValues(alpha: 0.18))
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: selecting ? onSelect : onEdit,
+            onSecondaryTapDown:
+                selecting
+                    ? null
+                    : (details) =>
+                        _showContextMenu(context, details.globalPosition),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    label: t['markTaskComplete'],
+                    button: true,
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Checkbox(
+                            key: ValueKey('complete-${task.id}'),
+                            value: task.completed,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            onChanged: (_) {
+                              store.setParentCompleted(task, !task.completed);
+                              onChanged();
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                    Column(
+                  ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 13, right: 8, bottom: 8),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        StrikeThrough(
-                          crossed: task.completed,
-                          child: Text(
-                            task.title,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color:
-                                  task.completed
-                                      ? theme.colorScheme.onSurface.withValues(
-                                        alpha: 0.38,
-                                      )
-                                      : null,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: StrikeThrough(
+                                crossed: task.completed,
+                                child: Text(
+                                  task.title,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    fontSize: 16,
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w500,
+                                    color:
+                                        task.completed
+                                            ? theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.38)
+                                            : (theme.brightness ==
+                                                    Brightness.light
+                                                ? const Color(0xFF242A32)
+                                                : null),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            if (task.isLongTerm &&
+                                !task.hasSubtasks &&
+                                !selecting)
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: t['decomposingSingle'],
+                                icon: const Icon(
+                                  Icons.call_split,
+                                  size: 16,
+                                  color: Color(0xFFF59E0B),
+                                ),
+                                onPressed: () {
+                                  onDecomposeStart();
+                                  onDecompose();
+                                },
+                              ),
+                          ],
                         ),
                         if (selected)
                           Padding(
@@ -115,36 +254,30 @@ class TaskCard extends StatelessWidget {
                           done: task.completed,
                           t: t,
                         ),
+                        if (task.subtasks.isNotEmpty) _expandToggle(t, theme),
+                        if (expanded)
+                          GestureDetector(
+                            onTap: () {},
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ..._subtasks(context, t, theme),
+                                if (!selecting && !task.completed)
+                                  _addSubtaskField(context, t, theme),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-                // Action row sits under the title so half-width quadrants never overflow.
-                if (!selecting)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _ActionRow(
-                      task: task,
-                      onEdit: onEdit,
-                      onDelete: onDelete,
-                      onDecompose: onDecompose,
-                      onDecomposeStart: onDecomposeStart,
-                    ),
-                  ),
-                if (task.subtasks.isNotEmpty) _expandToggle(t, theme),
-                if (expanded)
-                  GestureDetector(
-                    onTap: () {},
-                    child: Column(children: _subtasks(context, t, theme)),
-                  ),
-                if (!selecting && !task.completed)
-                  _addSubtaskField(context, t, theme),
               ],
             ),
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _expandToggle(Map<String, String> t, ThemeData theme) {
@@ -159,18 +292,21 @@ class TaskCard extends StatelessWidget {
         key: ValueKey('expand-${task.id}'),
         onTap: onToggleExpand,
         child: Padding(
-          padding: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.only(top: 4, bottom: 2),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
+              Flexible(
                 child: Text(
                   label,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
               Icon(
                 expanded ? Icons.expand_less : Icons.expand_more,
                 size: 18,
@@ -190,85 +326,57 @@ class TaskCard extends StatelessWidget {
   ) {
     if (task.subtasks.isEmpty) return [];
     return [
-      const SizedBox(height: 6),
-      Container(
-        margin: const EdgeInsets.only(left: 8),
-        padding: const EdgeInsets.only(left: 10),
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              width: 2,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
-            ),
-          ),
-        ),
+      const SizedBox(height: 4),
+      Padding(
+        padding: const EdgeInsets.only(left: 4),
         child: Column(
           children: [
             for (final sub in task.subtasks)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: Checkbox(
-                          value: sub.completed,
-                          onChanged: (_) {
-                            sub.completed = !sub.completed;
-                            context.read<Store>().updateTask(task);
-                            onChanged();
-                          },
-                        ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: Checkbox(
+                        value: sub.completed,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        onChanged: (_) {
+                          sub.completed = !sub.completed;
+                          context.read<Store>().updateTask(task);
+                          onChanged();
+                        },
                       ),
-                      Expanded(
-                        child: StrikeThrough(
-                          crossed: sub.completed,
-                          child: Text(
-                            sub.title,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color:
-                                  sub.completed
-                                      ? theme.colorScheme.onSurface.withValues(
-                                        alpha: 0.38,
-                                      )
-                                      : null,
-                            ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: StrikeThrough(
+                        crossed: sub.completed,
+                        child: Text(
+                          sub.title,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color:
+                                sub.completed
+                                    ? theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.38,
+                                    )
+                                    : null,
                           ),
                         ),
+                      ),
+                    ),
+                    if (sub.deadline != null) ...[
+                      const SizedBox(width: 4),
+                      _DeadlineChip(
+                        daysLeft: calendarDaysLeft(sub.deadline!),
+                        done: sub.completed,
+                        t: t,
                       ),
                     ],
-                  ),
-                  if (!selecting)
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      children: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.edit_outlined, size: 15),
-                          tooltip: t['editTask'],
-                          onPressed: () => _editSubtask(context, sub),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: t['delete'],
-                          icon: Icon(
-                            Icons.close,
-                            size: 15,
-                            color: theme.colorScheme.error.withValues(
-                              alpha: 0.7,
-                            ),
-                          ),
-                          onPressed: () {
-                            task.subtasks.remove(sub);
-                            context.read<Store>().updateTask(task);
-                            onChanged();
-                          },
-                        ),
-                      ],
-                    ),
-                ],
+                  ],
+                ),
               ),
           ],
         ),
@@ -296,23 +404,239 @@ class TaskCard extends StatelessWidget {
     );
   }
 
-  Future<void> _editSubtask(BuildContext context, SubTask sub) async {
-    final store = context.read<Store>();
-    final newName = await askText(
-      context,
-      title: store.t['editTask']!,
-      label: store.t['addSubtask']!,
-      initial: sub.title,
-      cancel: store.t['cancel']!,
-      confirm: store.t['confirm']!,
+  static Widget _buildSwipeBackground({
+    required BuildContext context,
+    required Alignment alignment,
+    required Color color,
+    required Color iconColor,
+    required IconData icon,
+    required String label,
+  }) {
+    final isLeft = alignment == Alignment.centerLeft;
+    return Container(
+      alignment: alignment,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLeft) ...[
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: iconColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ] else ...[
+            Text(
+              label,
+              style: TextStyle(
+                color: iconColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(icon, color: iconColor, size: 20),
+          ],
+        ],
+      ),
     );
-    if (context.mounted && newName != null && newName.trim().isNotEmpty) {
-      final current = store.tasks.where((t) => t.id == task.id).firstOrNull;
-      final child = current?.subtasks.where((s) => s.id == sub.id).firstOrNull;
-      if (current == null || child == null) return;
-      child.title = newName.trim();
-      store.updateTask(current);
-      onChanged();
+  }
+
+  static void _showUndoSnackBar(
+    BuildContext context, {
+    required String msg,
+    required TaskUndoSnapshot snapshot,
+    required Store store,
+  }) {
+    final t = store.t;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('task-undo-snackbar'),
+          content: Text(msg),
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            key: const ValueKey('undo-action-btn'),
+            label: t['undo'] ?? 'Undo',
+            onPressed: () {
+              final ok = store.applyUndo(snapshot);
+              if (ok) {
+                HapticFeedback.lightImpact();
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(t['actionUndone'] ?? 'Action undone'),
+                      duration: const Duration(milliseconds: 1500),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+              } else {
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        t['undoUnavailable'] ?? 'Cannot undo this action',
+                      ),
+                      duration: const Duration(milliseconds: 1800),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+              }
+            },
+          ),
+        ),
+      );
+  }
+
+  Future<void> _showContextMenu(BuildContext context, Offset position) async {
+    if (selecting) return;
+    final store = context.read<Store>();
+    final t = store.t;
+    final theme = Theme.of(context);
+    final target = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx + 1,
+        position.dy + 1,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          key: ValueKey('context-complete-${task.id}'),
+          value: 'toggle_complete',
+          child: Row(
+            children: [
+              Icon(
+                task.completed ? Icons.undo : Icons.check_circle_outline,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                task.completed
+                    ? (t['restoreTask'] ?? 'Restore')
+                    : (t['complete'] ?? 'Complete'),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Text(
+            t['moveTo'] ?? 'Move to',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        for (final q in allQuadrants)
+          if (q != task.quadrant)
+            PopupMenuItem<String>(
+              key: ValueKey('move-to-q$q-${task.id}'),
+              value: 'move_to_$q',
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: Color(quadrantColors[q]!),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t['q$q']!,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          key: ValueKey('context-delete-${task.id}'),
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                size: 18,
+                color: theme.colorScheme.error,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                t['delete'] ?? 'Delete',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (target != null && context.mounted) {
+      if (target == 'toggle_complete') {
+        HapticFeedback.lightImpact();
+        final snapshot = store.toggleCompleteWithUndo(task);
+        onChanged();
+        if (snapshot != null) {
+          _showUndoSnackBar(
+            context,
+            msg:
+                '${task.title}: ${task.completed ? (t['taskCompleted'] ?? 'Task completed') : (t['taskRestored'] ?? 'Task restored')}',
+            snapshot: snapshot,
+            store: store,
+          );
+        }
+      } else if (target == 'delete') {
+        HapticFeedback.lightImpact();
+        final snapshot = store.deleteTaskWithUndo(task.id);
+        onChanged();
+        if (snapshot != null) {
+          _showUndoSnackBar(
+            context,
+            msg: '${task.title}: ${t['taskDeleted'] ?? 'Task deleted'}',
+            snapshot: snapshot,
+            store: store,
+          );
+        }
+      } else if (target.startsWith('move_to_')) {
+        final targetQuadrant = int.parse(target.substring(8));
+        HapticFeedback.selectionClick();
+        store.moveTask(task.id, targetQuadrant);
+        final qName = switch (targetQuadrant) {
+          qDo => t['q1']!,
+          qPlan => t['q2']!,
+          qDelegate => t['q3']!,
+          _ => t['q4']!,
+        };
+        final msg = (t['taskMoved'] ?? 'Moved to {quadrant}')
+            .replaceAll('{quadrant}', qName);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('${task.title}: $msg'),
+              duration: const Duration(milliseconds: 1800),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
     }
   }
 }
@@ -363,95 +687,6 @@ class _DeadlineChip extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ActionRow extends StatelessWidget {
-  final Task task;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onDecompose;
-  final VoidCallback onDecomposeStart;
-  const _ActionRow({
-    required this.task,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onDecompose,
-    required this.onDecomposeStart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.read<Store>().t;
-    return Wrap(
-      alignment: WrapAlignment.end,
-      children: [
-        if (task.isLongTerm && !task.hasSubtasks)
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            tooltip: t['decomposingSingle'],
-            icon: const Icon(
-              Icons.call_split,
-              size: 16,
-              color: Color(0xFFF59E0B),
-            ),
-            onPressed: () {
-              onDecomposeStart();
-              onDecompose();
-            },
-          ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: t['toggleLongTerm'],
-          icon: Icon(
-            Icons.flag_outlined,
-            size: 16,
-            color:
-                task.isLongTerm
-                    ? const Color(0xFFF59E0B)
-                    : Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.4),
-          ),
-          onPressed: () {
-            task.isLongTerm = !task.isLongTerm;
-            context.read<Store>().updateTask(task);
-          },
-        ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: t['editTask'],
-          icon: Icon(
-            Icons.edit_outlined,
-            size: 16,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.55),
-          ),
-          onPressed: onEdit,
-        ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: t['delete'],
-          icon: Icon(
-            Icons.delete_outline,
-            size: 16,
-            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.7),
-          ),
-          onPressed: onDelete,
-        ),
-      ],
-    );
-  }
-}
-
-int calendarDaysLeft(int deadline, {DateTime? now}) {
-  final date = DateTime.fromMillisecondsSinceEpoch(deadline);
-  final today = now ?? DateTime.now();
-  return DateTime.utc(
-    date.year,
-    date.month,
-    date.day,
-  ).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
 }
 
 class _AddSubtaskField extends StatefulWidget {

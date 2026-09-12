@@ -6,6 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../ai_presets.dart';
+import '../ai_service.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../theme.dart';
@@ -21,19 +23,130 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _baseUrlController = TextEditingController();
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
+  final _apiKeyFocusNode = FocusNode();
   bool _fileBusy = false;
+
+  List<String> _discoveredModels = [];
+  bool _fetchingModels = false;
+  String? _discoveryError;
+  AICancellation? _discoveryCancellation;
+  String? _lastFetchedKey;
+  bool _customModelMode = false;
+  String? _lastSyncedBaseUrl;
+  String? _lastSyncedModel;
 
   @override
   void initState() {
     super.initState();
     final store = context.read<Store>();
+    _lastSyncedBaseUrl = store.aiConfig.baseUrl;
+    _lastSyncedModel = store.aiConfig.model;
     _baseUrlController.text = store.aiConfig.baseUrl;
     _apiKeyController.text = store.aiConfig.apiKey;
     _modelController.text = store.aiConfig.model;
+
+    _apiKeyFocusNode.addListener(_handleApiKeyFocusChange);
+  }
+
+  void _handleApiKeyFocusChange() {
+    if (!_apiKeyFocusNode.hasFocus) {
+      final store = context.read<Store>();
+      _onApiKeySubmittedOrBlurred(store);
+    }
+  }
+
+  void _onProviderChanged(String newProvider, Store store) {
+    _discoveryCancellation?.cancel();
+    _discoveryCancellation = null;
+    final preset = getAIProviderPreset(newProvider);
+    _apiKeyController.clear();
+    _lastFetchedKey = null;
+    _discoveredModels.clear();
+    _discoveryError = null;
+    _customModelMode = false;
+
+    store.aiConfig.provider = newProvider;
+    store.aiConfig.apiKey = '';
+    if (!preset.isCustom) {
+      store.aiConfig.baseUrl = preset.defaultBaseUrl;
+      store.aiConfig.protocol = preset.defaultProtocol;
+      store.aiConfig.model = preset.defaultModel;
+      _baseUrlController.text = preset.defaultBaseUrl;
+      _modelController.text = preset.defaultModel;
+    }
+    store.updateAIConfig(store.aiConfig);
+
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(store.t['providerSwitchedTip']!),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _onApiKeySubmittedOrBlurred(Store store) {
+    final key = _apiKeyController.text.trim();
+    if (key.isNotEmpty && key != _lastFetchedKey && !_fetchingModels) {
+      _fetchModels(store);
+    }
+  }
+
+  Future<void> _fetchModels(Store store, {bool forceRefresh = false}) async {
+    final key = _apiKeyController.text.trim();
+    if (key.isEmpty) return;
+
+    _discoveryCancellation?.cancel();
+    final cancel = _discoveryCancellation = AICancellation();
+    _lastFetchedKey = key;
+
+    setState(() {
+      _fetchingModels = true;
+      _discoveryError = null;
+    });
+
+    try {
+      final models = await store.ai.fetchModels(
+        config: store.aiConfig,
+        forceRefresh: forceRefresh,
+        cancellation: cancel,
+      );
+      if (!mounted || cancel.isCancelled) return;
+
+      setState(() {
+        _fetchingModels = false;
+        _discoveredModels = models;
+        _lastFetchedKey = key;
+        if (models.isEmpty) {
+          _discoveryError = store.t['noModelsFound'];
+          _customModelMode = true;
+        } else {
+          final best = pickPreferredModel(
+            store.aiConfig.provider,
+            models,
+            currentModel: store.aiConfig.model,
+          );
+          store.aiConfig.model = best;
+          _modelController.text = best;
+          store.updateAIConfig(store.aiConfig);
+          _customModelMode = false;
+        }
+      });
+    } catch (e) {
+      if (!mounted || cancel.isCancelled) return;
+      setState(() {
+        _fetchingModels = false;
+        _discoveryError = aiErrorMessage(e, store.t);
+        _customModelMode = true;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _discoveryCancellation?.cancel();
+    _apiKeyFocusNode.removeListener(_handleApiKeyFocusChange);
+    _apiKeyFocusNode.dispose();
     _baseUrlController.dispose();
     _apiKeyController.dispose();
     _modelController.dispose();
@@ -45,6 +158,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final store = context.watch<Store>();
     final t = store.t;
     final theme = Theme.of(context);
+    final preset = getAIProviderPreset(store.aiConfig.provider);
+
+    if (_lastSyncedBaseUrl != store.aiConfig.baseUrl) {
+      _lastSyncedBaseUrl = store.aiConfig.baseUrl;
+      _baseUrlController.text = store.aiConfig.baseUrl;
+    }
+    if (_lastSyncedModel != store.aiConfig.model) {
+      _lastSyncedModel = store.aiConfig.model;
+      _modelController.text = store.aiConfig.model;
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(t['settings']!)),
@@ -184,96 +307,307 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
 
             _sectionTitle(theme, t['provider']!, Icons.smart_toy_outlined),
-            DropdownButton<AIProtocol>(
+            DropdownButton<String>(
+              key: const ValueKey('provider-selector'),
               isExpanded: true,
+              value: store.aiConfig.provider,
               items: [
-                DropdownMenuItem(
-                  value: AIProtocol.openai,
-                  child: Text(
-                    t['providerOpenAI']!,
-                    overflow: TextOverflow.ellipsis,
+                for (final p in aiProviderPresets)
+                  DropdownMenuItem(
+                    value: p.id,
+                    child: Text(p.name(t)),
                   ),
-                ),
-                DropdownMenuItem(
-                  value: AIProtocol.openaiResponses,
-                  child: Text(
-                    t['providerOpenAIResponses']!,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: AIProtocol.anthropic,
-                  child: Text(
-                    t['providerAnthropic']!,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
               ],
-              value: store.aiConfig.protocol,
-              onChanged: (value) {
-                if (value != null) {
-                  store.updateAIConfig(store.aiConfig..protocol = value);
+              onChanged: (newProvider) {
+                if (newProvider != null &&
+                    newProvider != store.aiConfig.provider) {
+                  _onProviderChanged(newProvider, store);
                 }
               },
             ),
             const SizedBox(height: 12),
             TextField(
-              autocorrect: false,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                labelText: t['customBaseUrl'],
-                hintText: 'https://api.deepseek.com',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-              ),
-              controller: _baseUrlController,
-              onChanged:
-                  (v) => store.updateAIConfig(store.aiConfig..baseUrl = v),
-            ),
-            const SizedBox(height: 10),
-            TextField(
+              key: const ValueKey('api-key-input'),
               autocorrect: false,
               enableSuggestions: false,
               decoration: InputDecoration(
                 labelText: t['customApiKey'],
-                hintText: 'sk-...',
+                hintText: preset.keyHint,
                 floatingLabelBehavior: FloatingLabelBehavior.always,
+                suffixIcon:
+                    _fetchingModels
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                        : IconButton(
+                          key: const ValueKey('refresh-models-btn'),
+                          icon: const Icon(Icons.refresh, size: 20),
+                          tooltip: t['refreshModels'],
+                          onPressed:
+                              _apiKeyController.text.trim().isEmpty
+                                  ? null
+                                  : () =>
+                                      _fetchModels(store, forceRefresh: true),
+                        ),
               ),
               obscureText: true,
+              focusNode: _apiKeyFocusNode,
               controller: _apiKeyController,
-              onChanged:
-                  (v) => store.updateAIConfig(store.aiConfig..apiKey = v),
+              onSubmitted: (_) => _onApiKeySubmittedOrBlurred(store),
+              onChanged: (v) {
+                store.aiConfig.apiKey = v;
+                store.updateAIConfig(store.aiConfig);
+              },
             ),
-            const SizedBox(height: 10),
-            TextField(
-              decoration: InputDecoration(
-                labelText: t['customModel'],
-                hintText: 'deepseek-v4-flash',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
+            if (_fetchingModels) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    t['fetchingModels']!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
               ),
-              controller: _modelController,
-              onChanged: (v) => store.updateAIConfig(store.aiConfig..model = v),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              t['customUrlHint']!,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+            ] else if (_discoveryError != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 14,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _discoveryError!,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _fetchModels(store, forceRefresh: true),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(t['retry']!),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(t['enableThinking']!),
-              subtitle: Text(
-                t['enableThinkingDesc']!,
+            ] else if (_apiKeyController.text.trim().isEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                t['enterApiKeyFirst']!,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
-              value: store.aiConfig.enableThinking,
-              onChanged: (v) =>
-                  store.updateAIConfig(store.aiConfig..enableThinking = v),
-            ),
+            ],
+            const SizedBox(height: 10),
+            if (_discoveredModels.isNotEmpty && !_customModelMode) ...[
+              DropdownButtonFormField<String>(
+                key: const ValueKey('model-selector'),
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: t['customModel'],
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                ),
+                value:
+                    _discoveredModels.contains(store.aiConfig.model)
+                        ? store.aiConfig.model
+                        : '__custom__',
+                items: [
+                  for (final m in _discoveredModels)
+                    DropdownMenuItem(
+                      value: m,
+                      child: Text(m, overflow: TextOverflow.ellipsis),
+                    ),
+                  DropdownMenuItem(
+                    value: '__custom__',
+                    child: Text(
+                      t['customModelOption']!,
+                      style: TextStyle(color: theme.colorScheme.primary),
+                    ),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val == '__custom__') {
+                    setState(() {
+                      _customModelMode = true;
+                    });
+                  } else if (val != null) {
+                    _modelController.text = val;
+                    store.updateAIConfig(store.aiConfig..model = val);
+                  }
+                },
+              ),
+            ] else ...[
+              TextField(
+                key: const ValueKey('model-input'),
+                decoration: InputDecoration(
+                  labelText: t['customModel'],
+                  hintText:
+                      preset.defaultModel.isNotEmpty
+                          ? preset.defaultModel
+                          : 'deepseek-v4-flash',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  suffixIcon:
+                      _discoveredModels.isNotEmpty
+                          ? IconButton(
+                            icon: const Icon(Icons.list, size: 20),
+                            tooltip: t['selectModel'],
+                            onPressed: () {
+                              setState(() {
+                                _customModelMode = false;
+                              });
+                            },
+                          )
+                          : null,
+                ),
+                controller: _modelController,
+                onChanged:
+                    (v) => store.updateAIConfig(store.aiConfig..model = v),
+              ),
+            ],
+            if (preset.supportsThinking) ...[
+              const SizedBox(height: 8),
+              SwitchListTile(
+                key: const ValueKey('thinking-switch'),
+                contentPadding: EdgeInsets.zero,
+                title: Text(t['enableThinking']!),
+                subtitle: Text(
+                  t['enableThinkingDesc']!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                value: store.aiConfig.enableThinking,
+                onChanged:
+                    (v) => store.updateAIConfig(
+                      store.aiConfig..enableThinking = v,
+                    ),
+              ),
+            ],
+            if (preset.isCustom) ...[
+              const SizedBox(height: 10),
+              DropdownButton<AIProtocol>(
+                key: const ValueKey('protocol-selector'),
+                isExpanded: true,
+                items: [
+                  DropdownMenuItem(
+                    value: AIProtocol.openai,
+                    child: Text(
+                      t['providerOpenAI']!,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: AIProtocol.openaiResponses,
+                    child: Text(
+                      t['providerOpenAIResponses']!,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: AIProtocol.anthropic,
+                    child: Text(
+                      t['providerAnthropic']!,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+                value: store.aiConfig.protocol,
+                onChanged: (value) {
+                  if (value != null) {
+                    store.updateAIConfig(store.aiConfig..protocol = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('base-url-input'),
+                autocorrect: false,
+                keyboardType: TextInputType.url,
+                decoration: InputDecoration(
+                  labelText: t['customBaseUrl'],
+                  hintText: 'https://api.deepseek.com',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                ),
+                controller: _baseUrlController,
+                onChanged:
+                    (v) => store.updateAIConfig(store.aiConfig..baseUrl = v),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                t['customUrlHint']!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 6),
+              Theme(
+                data: theme.copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  key: const ValueKey('advanced-settings-tile'),
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  title: Text(
+                    t['advancedSettings']!,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  children: [
+                    const SizedBox(height: 8),
+                    TextField(
+                      key: const ValueKey('base-url-input'),
+                      autocorrect: false,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: t['customBaseUrl'],
+                        hintText: preset.defaultBaseUrl,
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
+                      ),
+                      controller: _baseUrlController,
+                      onChanged:
+                          (v) =>
+                              store.updateAIConfig(store.aiConfig..baseUrl = v),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      t['customUrlHint']!,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.45,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            ],
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               margin: const EdgeInsets.only(top: 4, bottom: 4),
@@ -329,6 +663,173 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: const Icon(Icons.upload_outlined, size: 18),
                     label: Text(t['importData']!),
                     onPressed: _fileBusy ? null : () => _import(context, store),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            _sectionTitle(
+              theme,
+              t['fontAndDisplay'] ?? 'Font & Display',
+              Icons.format_size,
+            ),
+            Text(
+              t['fontSize'] ?? 'Font Size',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final size in FontSizePref.values)
+                  ChoiceChip(
+                    key: ValueKey('font-size-${size.name}'),
+                    label: Text(
+                      t[switch (size) {
+                        FontSizePref.small => 'fontSizeSmall',
+                        FontSizePref.standard => 'fontSizeStandard',
+                        FontSizePref.large => 'fontSizeLarge',
+                      }] ?? size.name,
+                    ),
+                    selected: store.settings.fontSize == size,
+                    onSelected: (_) => store.setFontSize(size),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            Text(
+              t['fontFamily'] ?? 'Font Family',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final family in FontFamilyPref.values)
+                  ChoiceChip(
+                    key: ValueKey('font-family-${family.name}'),
+                    label: Text(
+                      t[switch (family) {
+                        FontFamilyPref.system => 'fontSystem',
+                        FontFamilyPref.sansSerif => 'fontSansSerif',
+                        FontFamilyPref.serif => 'fontSerif',
+                        FontFamilyPref.monospace => 'fontMonospace',
+                      }] ?? family.name,
+                    ),
+                    selected: store.settings.fontFamily == family,
+                    onSelected: (_) => store.setFontFamily(family),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            Container(
+              key: const ValueKey('font-preview-card'),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t['fontPreview'] ?? 'Preview',
+                      style: TextStyle(
+                        fontFamily: fontFamilyFor(store.settings.fontFamily),
+                        fontFamilyFallback: fontFallbackFor(store.settings.fontFamily),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14 * fontScaleFactor(store.settings.fontSize),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey('reset-display-btn'),
+                icon: const Icon(Icons.restore, size: 16),
+                label: Text(t['resetDisplay'] ?? 'Reset Display Defaults'),
+                onPressed: () => store.resetDisplayPreferences(),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            _sectionTitle(
+              theme,
+              t['desktopSection'] ?? 'Desktop & System',
+              Icons.desktop_windows_outlined,
+            ),
+            _toggle(
+              context,
+              t['closeToTray'] ?? 'Minimize / Close to System Tray',
+              t['closeToTraySubtitle'] ??
+                  'Keep app running in system tray when window is closed',
+              store.settings.closeToTray,
+              (v) {
+                store.updateSettings((s) => s..closeToTray = v);
+                if (v && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        t['closeToTrayNotice'] ??
+                            'When enabled, closing the window minimizes to the system tray. Right-click the tray icon to exit.',
+                      ),
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    t['globalHotkey'] ?? 'Global Shortcut',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Text(
+                    store.settings.globalShortcut,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
