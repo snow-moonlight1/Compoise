@@ -1,8 +1,8 @@
 # 架构
 
-本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35`（WP20-N）。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
+本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 
-下一包 WP21-N，WP20-W 未开工并取消。执行步骤以 [Implementation Plan](IMPLEMENTATION_PLAN_2026-09-08.md) 与 [HANDOFF](HANDOFF.md) 为准；完整名称/后续 UI 尚未实现，不提前记为已完成。新 Flutter 保持旧 v1 导入，新字段走 WP11；不再要求冻结 React 理解新字段。
+WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N 已完成；下一包 WP11-N，WP20-W 未开工并取消。执行步骤以 [Implementation Plan](IMPLEMENTATION_PLAN_2026-09-08.md) 与 [HANDOFF](HANDOFF.md) 为准；集中详情、单象限聚焦、本地搜索、新建任务与子项截止日期独立编辑、跨象限置顶、多语言优先匹配、一键清空看板、服务商预设与动态发现、已完成集中查看、宫格/列表视图切换、字号与字体偏好、滑动操作/5秒撤销/失效契约、应用内命令面板与快捷键体系、Windows 桌面壳与托盘、当前任务完成进度统计已实现。新 Flutter 保持旧 v1 导入，新字段走 WP11；不再要求冻结 React 理解新字段。
 
 ## 总体结构
 
@@ -29,13 +29,18 @@
     │   ├── main.dart         原生入口：Provider 依赖注入与主题/语言接线
     │   ├── storage.dart      原生状态中心（ChangeNotifier）+ SharedPreferences 持久化
     │   ├── models.dart       Flutter 演进模型（兼容旧 ExportData v1，不再与 types.ts 同步新字段）
+    │   ├── shortcuts.dart    快捷键映射与意图管理（Ctrl+K、Esc、原生文本焦点优先）
+    │   ├── task_query.dart   纯 Dart 任务搜索与过滤模块（中英日关键词、日历边界、去重）
+    │   ├── task_commands.dart 任务撤销快照与命令模型（深拷贝、位置索引、代数失效）
+    │   ├── task_stats.dart   当前任务进度与完成统计纯计算模型（父子独立、逾期、0%兜底）
     │   ├── quadrant.dart     四象限常量、颜色与字符串容错
     │   ├── ai_service.dart   Dart 原生三协议 HTTP 客户端 + 多级 JSON 兜底解析
     │   ├── l10n.dart         原生端三语本地化字典
     │   ├── theme.dart        Material 3 动态取色主题系统
-    │   ├── screens/          矩阵主屏、设置面板
-    │   └── widgets/          任务卡、象限容器、输入弹层与动效组件
-    ├── test/                 77 项单元/Widget 测试（模型、协议、存储、完成/多选、展开、象限名称、键盘/返回/拖拽/文件选择等）
+    │   ├── services/         桌面抽象服务（DesktopShellService 托盘/热键/平台隔离）
+    │   ├── screens/          矩阵主屏、已完成任务集中查看屏、搜索筛选屏、设置面板
+    │   └── widgets/          任务卡、象限容器、单象限聚焦、任务详情面板、命令面板、统计条、输入弹层
+    ├── test/                 182 项单元/Widget 测试（模型、协议、存储、完成/多选、展开、象限名称、十字矩阵、集中详情面板、单象限聚焦与下方卡片、本地搜索与筛选、新建/子任务截止日期与草稿保护、子任务CRUD与级联、键盘/返回/拖拽/文件选择、已完成集中查看与级联恢复、宫格/列表切换、字号与字体偏好、滑动操作与5秒撤销、命令面板与快捷键、桌面壳抽象与托盘、任务统计计算与统计条UI等）
     ├── android/              Flutter Android 工程（原生 Gradle）
     └── windows/              Flutter Windows 工程（原生 CMake/Runner）
 ```
@@ -114,6 +119,6 @@ InputArea 收集输入 → `handleAISort` 调用 `analyzeTasks` → 结果进入
 
 - Tailwind 通过 CDN 运行时编译（index.html:7），官方不建议生产使用；2026-09-06 移除 Gemini 依赖后 Web 构建产物降至约 288 KB（gzip 87 KB），Rollup 500 KB 分包警告已消除。
 - App.tsx 仍承担 Web 端全部业务逻辑（约 1672 行），是维护热点；50c70cc 与 2026-09-03 批次分别做过组件与渲染优化（React.memo + useCallback），但状态层未做更深度的模块化拆分。
-- Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备 77 项单元/Widget 测试；设备集成测试不包含在默认 `flutter test` 中。
+- Web 端暂无自动化测试与 lint 配置；构建脚本不运行 tsc，类型检查需手动执行 `npx tsc --noEmit`。原生端（matrixflow-native）已配备 80 项单元/Widget 测试；设备集成测试不包含在默认 `flutter test` 中。
 - 备份 JSON 明文包含自定义 AI 的 API 密钥（`aiConfig.customApiKey`）。
 - 本地存储（localStorage / SharedPreferences）读写无显式 schema 版本迁移机制（`ExportData.version` 存在但未用于本地逐版升级；字段级兜底 + safeParse / 容错解析已覆盖当前绝大多数场景）。
