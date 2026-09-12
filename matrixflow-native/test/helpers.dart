@@ -10,6 +10,7 @@ Future<(Store, Map<String, Object>)> makeStore({
   List<Task>? tasks,
   AppSettings? settings,
   AIConfig? aiConfig,
+  List<Locale>? deviceLocales,
 }) async {
   final backend = <String, Object>{
     if (boards != null) 'matrixflow-boards': jsonEncode(boards.map((b) => b.toJson()).toList()),
@@ -18,7 +19,7 @@ Future<(Store, Map<String, Object>)> makeStore({
     if (aiConfig != null) 'matrixflow-config': jsonEncode(aiConfig.toJson()),
   };
   SharedPreferences.setMockInitialValues(backend);
-  final store = Store();
+  final store = Store(deviceLocales: deviceLocales);
   await store.init();
   return (store, backend);
 }
