@@ -11,6 +11,11 @@ import 'theme.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   DesktopShellService.instance.init();
+  ReminderService.instance.init(
+    onNotificationSelected: (payload) {
+      // Notification tapped
+    },
+  );
   runApp(const MatrixFlowApp());
 }
 

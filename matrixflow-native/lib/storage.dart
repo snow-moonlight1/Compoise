@@ -9,10 +9,16 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai_service.dart';
+import 'data_migrations.dart';
+import 'deadline_policy.dart';
 import 'l10n.dart';
 import 'models.dart';
+import 'services/reminder_service.dart';
 import 'task_commands.dart';
 
+export 'data_migrations.dart';
+export 'deadline_policy.dart';
+export 'services/reminder_service.dart';
 export 'task_commands.dart';
 
 class Store extends ChangeNotifier with WidgetsBindingObserver {
@@ -151,6 +157,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     ready = true;
     _persistAll();
     _applyDeadlinePromotion();
+    ReminderService.instance.rescheduleAllFuture(tasks);
     notifyListeners();
 
     _deadlineTimer = Timer.periodic(
@@ -258,12 +265,38 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   void addTasks(List<Task> newTasks) {
     final seen = tasks.map((task) => task.id).toSet();
     final boardIds = boards.map((board) => board.id).toSet();
-    tasks.insertAll(
-      0,
-      newTasks.where(
-        (task) => boardIds.contains(task.boardId) && seen.add(task.id),
-      ),
-    );
+    final added = newTasks
+        .where((task) => boardIds.contains(task.boardId) && seen.add(task.id))
+        .toList();
+    tasks.insertAll(0, added);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final task in added) {
+      if (!task.completed &&
+          task.reminderAt != null &&
+          task.reminderAt! > now) {
+        ReminderService.instance.scheduleReminder(
+          boardId: task.boardId,
+          taskId: task.id,
+          title: task.title,
+          body: task.notesMarkdown,
+          triggerAtMs: task.reminderAt!,
+        );
+      }
+      for (final sub in task.subtasks) {
+        if (!sub.completed &&
+            sub.reminderAt != null &&
+            sub.reminderAt! > now) {
+          ReminderService.instance.scheduleReminder(
+            boardId: task.boardId,
+            taskId: task.id,
+            subtaskId: sub.id,
+            title: sub.title,
+            body: task.title,
+            triggerAtMs: sub.reminderAt!,
+          );
+        }
+      }
+    }
     _applyDeadlinePromotion();
     _saveTasks();
     notifyListeners();
@@ -309,6 +342,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final oldQuadrant = tasks[i].quadrant;
     final quadrantChanged = oldQuadrant != updated.quadrant;
 
+    if (quadrantChanged &&
+        isUrgentQuadrant(oldQuadrant) != isUrgentQuadrant(updated.quadrant) &&
+        tasks[i].urgencyMode == updated.urgencyMode) {
+      updated.urgencyMode = UrgencyMode.manual;
+    }
+
     if (settings.autoCompleteParent && updated.subtasks.isNotEmpty) {
       final allDone = updated.subtasks.every((s) => s.completed);
       if (allDone) updated.completed = true;
@@ -324,12 +363,53 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       tasks[i] = updated;
     }
 
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (updated.completed) {
+      ReminderService.instance.cancelReminder(updated.id);
+      for (final sub in updated.subtasks) {
+        ReminderService.instance.cancelReminder(updated.id, subtaskId: sub.id);
+      }
+    } else {
+      if (updated.reminderAt != null && updated.reminderAt! > now) {
+        ReminderService.instance.scheduleReminder(
+          boardId: updated.boardId,
+          taskId: updated.id,
+          title: updated.title,
+          body: updated.notesMarkdown,
+          triggerAtMs: updated.reminderAt!,
+        );
+      } else {
+        ReminderService.instance.cancelReminder(updated.id);
+      }
+      for (final sub in updated.subtasks) {
+        if (!sub.completed && sub.reminderAt != null && sub.reminderAt! > now) {
+          ReminderService.instance.scheduleReminder(
+            boardId: updated.boardId,
+            taskId: updated.id,
+            subtaskId: sub.id,
+            title: sub.title,
+            body: updated.title,
+            triggerAtMs: sub.reminderAt!,
+          );
+        } else {
+          ReminderService.instance.cancelReminder(updated.id, subtaskId: sub.id);
+        }
+      }
+    }
+
     _applyDeadlinePromotion();
     _saveTasks();
     notifyListeners();
   }
 
   void deleteTask(String id) {
+    final existing = tasks.where((t) => t.id == id).firstOrNull;
+    if (existing != null) {
+      ReminderService.instance.cancelReminder(existing.id);
+      for (final s in existing.subtasks) {
+        ReminderService.instance.cancelReminder(existing.id, subtaskId: s.id);
+      }
+    }
     tasks.removeWhere((t) => t.id == id);
     _saveTasks();
     notifyListeners();
@@ -342,9 +422,22 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       // Same quadrant: do not reorder
       return;
     }
+    final oldQuadrant = tasks[i].quadrant;
     final task = Task.fromJson(tasks[i].toJson())..quadrant = quadrant;
+    if (isUrgentQuadrant(oldQuadrant) != isUrgentQuadrant(quadrant)) {
+      task.urgencyMode = UrgencyMode.manual;
+    }
     tasks.removeAt(i);
     _insertAtFrontOfQuadrant(task);
+    _saveTasks();
+    notifyListeners();
+  }
+
+  void resetTaskUrgencyMode(String taskId) {
+    final i = tasks.indexWhere((t) => t.id == taskId);
+    if (i == -1) return;
+    tasks[i].urgencyMode = UrgencyMode.auto;
+    _applyDeadlinePromotion();
     _saveTasks();
     notifyListeners();
   }
@@ -382,6 +475,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// in-flight async results and undo snapshots. Returns the number of removed tasks.
   int clearBoard(String boardId) {
     bumpBoardEpoch(boardId);
+    final boardTasks = tasks.where((t) => t.boardId == boardId).toList();
+    ReminderService.instance.cancelAllForBoard(boardId, boardTasks);
     final before = tasks.length;
     tasks.removeWhere((t) => t.boardId == boardId);
     final removed = before - tasks.length;
@@ -395,6 +490,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   void clearQuadrant(int quadrant, {String? boardId}) {
     final bId = boardId ?? activeBoardId;
     bumpBoardEpoch(bId);
+    final quadTasks =
+        tasks.where((t) => t.boardId == bId && t.quadrant == quadrant).toList();
+    ReminderService.instance.cancelAllForBoard(bId, quadTasks);
     tasks.removeWhere(
       (t) => t.boardId == bId && t.quadrant == quadrant,
     );
@@ -433,6 +531,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final i = tasks.indexWhere((t) => t.id == id);
     if (i == -1) return null;
     final task = tasks[i];
+    ReminderService.instance.cancelReminder(task.id);
+    for (final s in task.subtasks) {
+      ReminderService.instance.cancelReminder(task.id, subtaskId: s.id);
+    }
     final snapshot = TaskUndoSnapshot.capture(
       actionType: TaskUndoType.delete,
       task: task,
@@ -504,6 +606,32 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         final restored = Task.fromJson(snapshot.task.toJson());
         final insertIndex = snapshot.originalIndex.clamp(0, tasks.length);
         tasks.insert(insertIndex, restored);
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (!restored.completed &&
+            restored.reminderAt != null &&
+            restored.reminderAt! > now) {
+          ReminderService.instance.scheduleReminder(
+            boardId: restored.boardId,
+            taskId: restored.id,
+            title: restored.title,
+            body: restored.notesMarkdown,
+            triggerAtMs: restored.reminderAt!,
+          );
+        }
+        for (final sub in restored.subtasks) {
+          if (!sub.completed &&
+              sub.reminderAt != null &&
+              sub.reminderAt! > now) {
+            ReminderService.instance.scheduleReminder(
+              boardId: restored.boardId,
+              taskId: restored.id,
+              subtaskId: sub.id,
+              title: sub.title,
+              body: restored.title,
+              triggerAtMs: sub.reminderAt!,
+            );
+          }
+        }
         _applyDeadlinePromotion();
         _saveTasks();
         notifyListeners();
@@ -521,6 +649,47 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         for (final sub in current.subtasks) {
           if (subMap.containsKey(sub.id)) {
             sub.completed = subMap[sub.id]!;
+          }
+        }
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (current.completed) {
+          ReminderService.instance.cancelReminder(current.id);
+          for (final sub in current.subtasks) {
+            ReminderService.instance.cancelReminder(
+              current.id,
+              subtaskId: sub.id,
+            );
+          }
+        } else {
+          if (current.reminderAt != null && current.reminderAt! > now) {
+            ReminderService.instance.scheduleReminder(
+              boardId: current.boardId,
+              taskId: current.id,
+              title: current.title,
+              body: current.notesMarkdown,
+              triggerAtMs: current.reminderAt!,
+            );
+          } else {
+            ReminderService.instance.cancelReminder(current.id);
+          }
+          for (final sub in current.subtasks) {
+            if (!sub.completed &&
+                sub.reminderAt != null &&
+                sub.reminderAt! > now) {
+              ReminderService.instance.scheduleReminder(
+                boardId: current.boardId,
+                taskId: current.id,
+                subtaskId: sub.id,
+                title: sub.title,
+                body: current.title,
+                triggerAtMs: sub.reminderAt!,
+              );
+            } else {
+              ReminderService.instance.cancelReminder(
+                current.id,
+                subtaskId: sub.id,
+              );
+            }
           }
         }
         _applyDeadlinePromotion();
@@ -550,6 +719,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       isLongTerm: selected.any((t) => t.isLongTerm),
       deadline: deadlines.firstOrNull,
       createdAt: _now(),
+      urgencyMode: selected.any((t) => t.urgencyMode == UrgencyMode.manual)
+          ? UrgencyMode.manual
+          : UrgencyMode.auto,
       subtasks: [
         for (final t in selected) ...[
           SubTask(
@@ -557,6 +729,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
             title: t.title,
             completed: t.completed,
             deadline: t.deadline,
+            notesMarkdown: t.notesMarkdown,
+            reminderAt: t.reminderAt,
           ),
           for (final child in t.subtasks)
             SubTask(
@@ -564,12 +738,44 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
               title: '${t.title} / ${child.title}',
               completed: child.completed,
               deadline: child.deadline,
+              notesMarkdown: child.notesMarkdown,
+              reminderAt: child.reminderAt,
             ),
         ],
       ],
     );
+    for (final t in selected) {
+      ReminderService.instance.cancelReminder(t.id);
+      for (final s in t.subtasks) {
+        ReminderService.instance.cancelReminder(t.id, subtaskId: s.id);
+      }
+    }
     tasks.removeWhere((t) => selectedIds.contains(t.id));
     tasks.insert(0, parent);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (!parent.completed &&
+        parent.reminderAt != null &&
+        parent.reminderAt! > now) {
+      ReminderService.instance.scheduleReminder(
+        boardId: parent.boardId,
+        taskId: parent.id,
+        title: parent.title,
+        body: parent.notesMarkdown,
+        triggerAtMs: parent.reminderAt!,
+      );
+    }
+    for (final s in parent.subtasks) {
+      if (!s.completed && s.reminderAt != null && s.reminderAt! > now) {
+        ReminderService.instance.scheduleReminder(
+          boardId: parent.boardId,
+          taskId: parent.id,
+          subtaskId: s.id,
+          title: s.title,
+          body: s.notesMarkdown,
+          triggerAtMs: s.reminderAt!,
+        );
+      }
+    }
     _saveTasks();
     notifyListeners();
     return parent;
@@ -593,6 +799,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   void deleteBoard(String id) {
     if (boards.length <= 1) return;
     bumpBoardEpoch(id);
+    final boardTasks = tasks.where((t) => t.boardId == id).toList();
+    ReminderService.instance.cancelAllForBoard(id, boardTasks);
     boards.removeWhere((b) => b.id == id);
     tasks.removeWhere((t) => t.boardId == id);
     if (activeBoardId == id) activeBoardId = boards.first.id;
@@ -615,55 +823,34 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // --- import / export (web-compatible ExportData v1) ---
+  // --- import / export (ExportData v2 standard, v1 downgrade compatible) ---
 
-  String exportJson() => jsonEncode(
+  String exportJson({int version = ExportData.currentVersion}) => jsonEncode(
     ExportData(
+      version: version,
       boards: boards,
       tasks: tasks,
       settings: settings,
       aiConfig: aiConfig,
-    ).toJson(),
+    ).toJson(targetVersion: version),
   );
 
   /// Returns the number of tasks imported. [mode] is 'merge' or 'overwrite'.
   int importData(Map<String, dynamic> json, String mode) {
-    if (!['merge', 'overwrite'].contains(mode) ||
-        (json.containsKey('version') &&
-            json['version'] != ExportData.version) ||
-        json['boards'] is! List ||
-        json['tasks'] is! List) {
-      throw const FormatException('bad export shape');
+    if (!['merge', 'overwrite'].contains(mode)) {
+      throw const FormatException('bad export shape: invalid mode');
     }
-    final incomingBoards =
-        (json['boards'] as List)
-            .cast<Map<String, dynamic>>()
-            .map(Board.fromJson)
-            .toList();
-    final incomingTasks =
-        (json['tasks'] as List)
-            .cast<Map<String, dynamic>>()
-            .map(Task.fromJson)
-            .toList();
-    // Parse every imported field before mutating live state.
-    final incomingSettings =
-        json['settings'] == null
-            ? null
-            : AppSettings.fromJson(json['settings'] as Map<String, dynamic>);
-    final incomingConfig =
-        json['aiConfig'] == null
-            ? null
-            : AIConfig.fromJson(json['aiConfig'] as Map<String, dynamic>);
-    final seenBoards = <String>{};
-    incomingBoards.removeWhere((b) => !seenBoards.add(b.id));
-    final seenTasks = <String>{};
-    incomingTasks.removeWhere((task) => !seenTasks.add(task.id));
+
+    // Atomically validate and migrate payload before modifying any live state.
+    // Throws FormatException or UnsupportedDataVersionException on failure.
+    final migration = DataMigrator.migratePayload(json);
+
+    final incomingBoards = List<Board>.from(migration.boards);
+    final incomingTasks = List<Task>.from(migration.tasks);
+    final incomingSettings = migration.settings;
+    final incomingConfig = migration.aiConfig;
 
     if (mode == 'overwrite') {
-      bumpAllBoardEpochs();
-      for (final b in incomingBoards) {
-        bumpBoardEpoch(b.id);
-      }
       if (incomingBoards.isEmpty) {
         incomingBoards.add(
           Board(id: newId(), name: t['defaultBoardName']!, createdAt: _now()),
@@ -676,12 +863,20 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           throw const FormatException('Task references a missing board');
         }
       }
+
+      // Pre-validation passed without error: now apply state mutations
+      bumpAllBoardEpochs();
+      for (final b in incomingBoards) {
+        bumpBoardEpoch(b.id);
+      }
+      ReminderService.instance.cancelAll();
       boards = incomingBoards;
       tasks = incomingTasks;
       settings = incomingSettings ?? settings;
       aiConfig = incomingConfig ?? aiConfig;
       activeBoardId = boards.first.id;
       _applyDeadlinePromotion();
+      ReminderService.instance.rescheduleAllFuture(tasks);
       _persistAll();
       notifyListeners();
       return incomingTasks.length;
@@ -705,6 +900,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
             .toList();
     tasks.addAll(incoming);
     _applyDeadlinePromotion();
+    ReminderService.instance.rescheduleAllFuture(incoming);
     _saveBoardsMeta();
     _saveTasks();
     notifyListeners();
@@ -715,22 +911,22 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Test hook: run one promotion pass immediately.
   @visibleForTesting
-  void promoteDeadlinesNow() => _applyDeadlinePromotion();
+  void promoteDeadlinesNow({DateTime? now}) => _applyDeadlinePromotion(now: now);
 
-  void _applyDeadlinePromotion() {
+  void _applyDeadlinePromotion({DateTime? now}) {
     if (tasks.isEmpty) return;
-    final threshold = settings.urgencyThresholdDays * 24 * 60 * 60 * 1000;
-    final now = _now();
+    final threshold = settings.urgencyThresholdDays;
+    final ref = now ?? DateTime.now();
     var changed = false;
     for (final task in tasks) {
       if (task.deadline == null || task.completed) continue;
-      final timeLeft = task.deadline! - now;
-      if (task.quadrant == qPlan && timeLeft <= threshold) {
-        task.quadrant = qDo;
-        changed = true;
-      } else if (task.quadrant == qEliminate && timeLeft <= threshold) {
-        task.quadrant = qDelegate;
-        changed = true;
+      if (task.urgencyMode != UrgencyMode.auto) continue;
+      if (isDeadlineUrgent(task.deadline, threshold, now: ref)) {
+        final nextQ = promoteToUrgent(task.quadrant);
+        if (nextQ != task.quadrant) {
+          task.quadrant = nextQ;
+          changed = true;
+        }
       }
     }
     if (changed) {
