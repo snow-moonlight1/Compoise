@@ -2,7 +2,7 @@
 
 初稿：2026-09-08；最新修订：2026-09-11。当前代码基线：`main` / `747eb35` + 本轮 WP21-N + WP03-N；早期静态证据来自 `6e30502`。项目根目录：`D:\Dev_project\martix`。
 
-> **路线已确定：继续 MatrixFlow 独立开发，参考 Focus 的交互，不 fork、不搬代码、不跟进其 issue/PR。** 目标是开源本地客户端、发布 GitHub Release 并上架应用商店，保留 BYOK，后续提供可选 ¥9/月、有额度的托管 AI 服务。用户不安排几十人试用；采用助手自动化回归与必要的设备验收。**Flutter Android/Windows 为唯一持续开发客户端；React / Tauri / Capacitor 冻结保留。WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N 已完成（自动化）；WP20-W 未开工，已取消。下一实施助手领取 WP11-N。**
+> **路线已确定：继续 MatrixFlow 独立开发，参考 Focus 的交互，不 fork、不搬代码、不跟进其 issue/PR。** 目标是开源本地客户端、发布 GitHub Release 并上架应用商店，保留 BYOK，后续提供可选 ¥9/月、有额度的托管 AI 服务。用户不安排几十人试用；采用助手自动化回归与必要的设备验收。**Flutter Android/Windows 为唯一持续开发客户端；React / Tauri / Capacitor 冻结保留。WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N、WP11-N、WP22-C-N、WP13-A-N、WP25-R、WP25-N-Android 已完成（自动化/研究与契约）；WP20-W 未开工，已取消。下一实施助手领取 WP25-N-Windows。**
 
 WP20-N、WP21-N 与 WP03-N 已实施：完成/多选/展开/逐行删除线、完整紧急/重要象限名称与分类提示词，以及十字无框矩阵与紧凑任务行。最新自动化为 `flutter test --no-pub` 80/80 与 `analyze --no-pub`。本文其余工作包仍按一次一包领取。后续 Agent 完成后报告，不自行展开整张路线图。
 
@@ -106,14 +106,14 @@ WP20-N、WP21-N 与 WP03-N 已实施：完成/多选/展开/逐行删除线、�
 
 ## 3. 派单顺序与控制范围
 
-**下一包只有 WP11-N。** WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N 已完成且不重做；旧 WP20-W 未开工、已取消。多个包会修改 `storage.dart`、模型和字典，默认串行；不要让多个助手同时在同一工作区改共享文件。
+**下一包只有 WP13-A-N。** WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N、WP11-N、WP22-C-N 已完成且不重做；旧 WP20-W 未开工、已取消。多个包会修改 `storage.dart`、模型和字典，默认串行；不要让多个助手同时在同一工作区改共享文件。
 
 | 阶段 | 领取顺序 | 交付目标 / 必要依赖 |
 |---|---|---|
 | V0.2-A 状态与术语 | WP20-N（已完成）→ WP21-N（已完成） | 保留完成/多选/展开契约；统一四象限名称和 AI 维度 |
 | V0.2-B 核心交互 | WP03-N（已完成）→ WP04-N（已完成） → WP23-N（已完成） → WP12-S-N（已完成） → WP22-A-N（已完成） → WP22-B-N（已完成） → WP05-N（已完成） → WP06-N（已完成） → WP02-N（已完成） | WP03←WP20/21；WP04/23←WP03；搜索和日期入口←WP04。Android 与 Windows 同包适配 |
 | V0.3-A 常用能力 | WP01-N（已完成） → WP07-N（已完成） → WP08-V-N（已完成） → WP08-T-N（已完成） → WP24-N（已完成） → WP26-A-N（已完成） → WP26-B-N-Windows（已完成） → WP27-A-N（已完成） | WP24←WP20/05；WP26←WP04/搜索；WP27-A←WP07 |
-| V0.3-B 新字段与提醒 | **WP11-N（下一包）** → WP22-C-N → WP13-A-N → WP25-R → WP25-N-Android → WP25-N-Windows → WP27-B-N → WP09-N | 新任务字段依赖 WP11；提醒依赖 WP22；两平台提醒备份往返为发行前验收项 |
+| V0.3-B 新字段与提醒 | WP11-N（已完成） → WP22-C-N（已完成） → WP13-A-N（已完成） → WP25-R（已完成） → WP25-N-Android（已完成） → **WP25-N-Windows（下一包）** → WP27-B-N → WP09-N | 新任务字段依赖 WP11；提醒依赖 WP22；两平台提醒备份往返为发行前验收项 |
 | V1.0 开源发行 | WP28-R → WP28-B → WP28-P（逐渠道） | Flutter Android/Windows、备份和 BYOK 冒烟通过；不等待后期扩展 |
 | V1.1 可选服务 | WP29-R → WP29-S → WP29-C-N → WP29-P（逐渠道） | WP01 和发行渠道准备；独立后端不等于恢复 React 客户端 |
 | 后续原需求 | WP10-N → WP12-T-N → WP13-R → WP13-N → WP14-N → WP15-R → WP15-N（日，再周）→ WP16-N；WP17/18/19 逐子批次 | WP10←WP20/05；标签/Today/导入/同步←WP11；Planner/庆祝←Today；开发模式←标签 |
@@ -399,7 +399,7 @@ Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。�
 
 ## 9. 派单状态
 
-截至 2026-09-12 V0.3-A（WP26-A-N, WP26-B-N-Windows, WP27-A-N）实施。
+截至 2026-09-15 WP22-C-N 实施。
 
 | 包 / 事项 | 状态 | 证据 / 下一步 |
 |---|---|---|
@@ -423,7 +423,11 @@ Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。�
 | WP26-A-N | **完成（自动化）** | Windows 效率与应用内命令面板（A，shortcuts.dart 快捷键体系与 EditableText 焦点让位、CommandPaletteDialog 模糊搜索命令与跨看板任务跳转、三语文案）；`flutter test --no-pub` 172/172，`analyze --no-pub` 0 issues；实机未测 |
 | WP26-B-N-Windows | **完成（自动化）** | Windows 壳集成与托盘（B，DesktopShellService 非桌面平台安全 no-op、托盘菜单、关闭到托盘设置 closeToTray、热键冲突安全捕获）；`flutter test --no-pub` 176/176，`analyze --no-pub` 0 issues；实机未测 |
 | WP27-A-N | **完成（自动化）** | 当前进度与完成统计条（A，computeTaskStats 纯计算模型、父子任务计数严格独立、0% 针对空数据安全兜底、TaskStatsBar 响应式流式布局防溢出、当前/全部看板范围切换）；`flutter test --no-pub` 182/182，`analyze --no-pub` 0 issues；实机未测 |
-| WP11-N | **下一包** | 数据版本迁移与导入格式演进契约 |
+| WP11-N | **完成（自动化）** | 数据版本迁移与导入格式演进契约（新增 DATA_COMPATIBILITY.md、data_migrations.dart，ExportData v2 标准与 v1 兼容读取/降级导出，整份校验原子回滚，跨端 100% 往返无损）；`flutter test --no-pub` 197/197，`analyze --no-pub` 0 issues；实机未测 |
+| WP22-C-N | **完成（自动化）** | 截止日期自动调整紧急性算法统一与人工覆盖（新建 deadline_policy.dart 统一本地时区午夜日历天对齐、Task.urgencyMode 人工覆盖与 WP11 v2 持久化/v1 剥离、跨紧急维度操作标记 manual、详情面板已手动调整提示与恢复自动按钮、设置页动态天数文案、task_card 移除硬编码 <=2）；`flutter test --no-pub` 219/219，`analyze --no-pub` 0 issues；实机未测 |
+| WP13-A-N | **完成（自动化）** | 基础纯文本备注（Task/SubTask 可选 notesMarkdown 独立字段、普通多行编辑器原样保存、子项编辑弹窗备注与列表摘要、task_query 纳入关键词搜索、严格排除 reasoning 与 API 密钥、WP11 v2 导出与 v1 降级剥离）；`flutter test --no-pub` 223/223，`analyze --no-pub` 0 issues；实机未测 |
+| WP25-N-Android | **完成（自动化）** | Android 本地通知落地接线（接入 `flutter_local_notifications`、Android 清单权限与开机广播配置、模型扩展 `reminderAt`/`reminderTimezone`、WP11 数据迁移、31 位 FNV-1a 稳定哈希、新建与详情面板提醒时间选择器、设置页保活指南与权限检测）；`flutter test --no-pub` 237/237，`analyze --no-pub` 0 issues；实机未测 |
+| WP25-N-Windows | **下一包** | Windows 桌面端本地通知适配与托盘联动（WinRT Toast 通知接入、托盘最小化保活定时提醒、点击通知唤醒窗口、设置页桌面状态） |
 | 其他未完成包的 Flutter / 研究 / 发行 / 服务子批次 | 待实施 | 按第 3 节与必要依赖执行；已有能力只回归 |
 | 其余未实施 React W 子批次 | 取消 | 不删除需求，将客户端实施保留在对应 Flutter 包 |
 | UI 实验版 | 待基础验收后领取 | 见第 10 节；尚未建分支 |

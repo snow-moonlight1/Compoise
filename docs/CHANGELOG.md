@@ -5,6 +5,104 @@
 > 开发周期：2025-11-22 至 2025-11-25，共 7 个提交，均为 `main` 分支直线历史（无标签、无远端仓库）。
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
+
+## 2026-09-16 · WP25-N-Android Android 本地定时通知与提醒落地
+
+- **系统权限声明与开机接收器（AndroidManifest.xml）**：
+  - 声明 `POST_NOTIFICATIONS`（Android 13+ 通知权限）、`SCHEDULE_EXACT_ALARM`（精确闹钟排程）、`RECEIVE_BOOT_COMPLETED`（开机自动恢复排程）与 `VIBRATE`；
+  - 严格遵循 Google Play 策略，未声明 `USE_EXACT_ALARM`，规避任务待办类应用上架违规驳回；
+  - 配置 `ScheduledNotificationReceiver` 与 `ScheduledNotificationBootReceiver`，支持系统重启与电源管理恢复。
+- **数据模型与存储演进（lib/models.dart & lib/storage.dart & docs/DATA_COMPATIBILITY.md）**：
+  - `Task` 扩展 `reminderAt`（`int?`，毫秒时间戳）与 `reminderTimezone`（`String?`）；`SubTask` 扩展 `reminderAt`（`int?`）；
+  - `AIAnalysisResult.toTask` 支持携带提醒时间，新建任务与 AI 输入快照无缝传递提醒；
+  - 遵循 WP11-N 数据迁移与兼容契约：`ExportData v2` 导出完整序列化 `reminderAt` 与 `reminderTimezone`，`version: 1` 降级导出时安全剥离字段；`fromJson` 对缺失字段默认回退 `null`；
+  - `Store` 生命周期联动：
+    - `Store.init()` 启动时自动重新排程未来未完成提醒（`rescheduleAllFuture`）；
+    - `addTasks` 自动为含未来 `reminderAt` 的任务排程；
+    - `updateTask` 在任务勾选完成时自动注销提醒，未完成时根据 `reminderAt` 重排或取消；
+    - `deleteTask` 与 `deleteTaskWithUndo` 级联取消父任务与所有子任务通知；
+    - `applyUndo` 恢复删除时重新排程未完成提醒；
+    - `clearBoard`、`clearQuadrant` 与 `deleteBoard` 批量取消关联看板所有通知；
+    - `importData` 在覆盖导入时全量取消旧通知并重排新数据未来提醒，合并导入时排程新增提醒。
+- **通知服务实现（lib/services/reminder_service.dart）**：
+  - 31 位确定性 FNV-1a 哈希算法（`generateNotificationId`），为父任务与子任务分配无冲突的 31 位正整数 Notification ID；
+  - `ReminderPayload` 结构化序列化与反序列化（`taskId`、`subtaskId`、`boardId`），支撑点击通知深度路由；
+  - 实现 `ReminderService` 统一抽象接口，提供 `FlutterLocalNotificationsReminderService` 生产服务、`InMemoryReminderService` 测试服务与 `NoopReminderService` 桌面降级服务；
+  - 具备防崩保护安全守卫（`_initialized` 检测），在未初始化或测试环境下安全静默，杜绝 `LateInitializationError`。
+- **界面交互与引导（widgets/task_detail_panel.dart & widgets/input_sheet.dart & screens/settings_screen.dart & widgets/task_card.dart & lib/l10n.dart）**：
+  - 详情面板增加提醒配置入口（`edit-reminder-btn`）与清除按钮（`clear-reminder-btn`），提供快速预设 Chip（截止日当天 09:00、今天 18:00、明天 09:00、自定义时间）；子任务支持独立提醒配置；
+  - 新建弹层（`InputSheet`）增加可选提醒时间入口（`input-reminder-btn`），与截止日期互不干扰；
+  - 设置页面增加“提醒可靠性指南”弹窗（`reminder-guide-tile`），向用户说明主流国产 ROM（小米 MIUI/HyperOS、华为 HarmonyOS、OPPO ColorOS、vivo OriginOS）后台保活与自启动设置，并提供“检查提醒与通知权限”（`check-permissions-btn`）实时状态检测；
+  - 四象限卡片与子任务行增加激活提醒小闹钟角标（`Icons.notifications_active_outlined`）；
+  - 完整支持中、英、日三语本地化字典。
+- **自动化测试与验证**：
+  - `test/models_test.dart`（23/23）、`test/reminder_service_test.dart`（11/11）、`test/deadline_policy_test.dart`（22/22）；
+  - `test/widget_regression_test.dart` 补充 TaskDetailPanel 提醒设置、SettingsScreen 保活指南与权限检测、TaskCard 提醒角标显示测试；
+  - 全套测试：`flutter test --no-pub` **237/237** 全量通过，`flutter analyze --no-pub` **0 issues**。未做 Android 物理实机验证，未改动 React Web。
+
+## 2026-09-16 · WP25-R 本地提醒与通知规范与选型研究（技术契约与架构设计）
+
+- **技术契约与规范建立（docs/REMINDERS_DESIGN.md & docs/DATA_COMPATIBILITY.md）**：
+  - 产出《本地日期时间提醒与通知技术契约与架构设计规范》（`docs/REMINDERS_DESIGN.md`）；
+  - 确立 100% 纯本地离线优先与无恶性常驻后台守护（No Rogue Daemon / No Sticky Foreground Service）设计原则；
+  - 明确“截止日（`deadline`）/ 提醒时刻（`reminderAt`）/ 计划日（`plannedDate`）”三者正交解耦规范：设置截止日不强行开提醒，设置提醒不伪造截止日；
+  - 确立父任务与子任务对等独立的可选 `reminderAt` 时间戳支持。
+- **系统权限与平台机制梳理**：
+  - Android 平台：梳理 `POST_NOTIFICATIONS` 运行时权限、`SCHEDULE_EXACT_ALARM` 精确闹钟权限及其降级机制（Inexact Window Alarm）、`RECEIVE_BOOT_COMPLETED` 开机广播恢复排程，以及规避 `USE_EXACT_ALARM` 上架违规红线；梳理小米/华为/OPPO/vivo 厂商后台限制与白名单引导策略；
+  - Windows 平台：深度联动 WP26-B `DesktopShellService` 托盘机制，明确窗口可见、最小化到托盘（后台 Isolate 运行）与彻底退出三种生命周期，规范 WinRT Toast 通知与专注助手（Focus Assist）契约。
+- **调度生命周期与统一 Dart 抽象**：
+  - 设计 31 位无符号 FNV-1a 哈希算法，确保 String 任务 ID 与系统 32 位整型通知 ID 具备确定性映射；
+  - 建立生命周期级联取消规则：任务完成即时取消通知、任务删除/清空看板批量注销、导入覆盖全量重建；
+  - 确立开机与冷启动过期提醒抑制契约（首版不批量狂弹过期提醒，仅限 5 分钟内轻度近时唤起）；
+  - 定义跨平台统一 Dart 接口 `ReminderService` 与 `ReminderPayload` 路由契约。
+- **验证与基线保持**：
+  - 全量回归：`flutter test --no-pub` **223/223** 全绿，`flutter analyze --no-pub` **0 issues**。
+
+## 2026-09-15 · WP13-A-N Flutter 基础纯文本备注与搜索接入
+
+- **数据模型与兼容演进（models.dart & storage.dart & docs/DATA_COMPATIBILITY.md）**：
+  - `Task` 与 `SubTask` 均扩展可选 `notesMarkdown` 字符串字段，默认 `null`；
+  - 遵循 WP11-N 数据迁移契约与版本规范：`ExportData v2` 导出完整序列化 `notesMarkdown`（当非空时），`version: 1` 降级导出时安全剥离字段，保证与旧版双向兼容互通；
+  - 任务编组 `groupTasks` 在聚合为子任务时完整保留原任务与原有子任务的 `notesMarkdown`；`TaskUndoSnapshot` 撤销删除与还原完整保留备注内容。
+- **任务详情面板与子项备注交互（widgets/task_detail_panel.dart & l10n.dart）**：
+  - 标题与备注清晰分离：在任务详情面板标题输入框下方增加多行纯文本备注编辑器（`edit-notes`），Enter 换行、Ctrl+Enter 快捷保存；
+  - 支持原样保存与清空：输入内容原样保存为纯文本，清空输入框保存自动置回 `null`，不生成多余空白占位；
+  - 草稿脏检查与防丢保护：修改备注未保存时尝试关闭弹层，触发“放弃修改？”弹窗确认，点击“继续编辑”保留草稿，点击“放弃”安全回退；
+  - 子任务独立备注：在子任务编辑弹窗中增加多行备注编辑框（`subtask-edit-notes`），并在详情面板子任务列表中展示备注摘要；
+  - 中英日三语词条：补充 `notes`、`notesHint`、`subtaskNotes` 字典。
+- **本地搜索接入（task_query.dart）**：
+  - 关键字查询扩展：在 `queryTasks` 中将父任务与子任务的 `notesMarkdown` 纳入搜索匹配（支持中英日不区分大小写）；
+  - 严格安全隔离：不复用历史 `reasoning`，搜索逻辑严格不匹配 `reasoning` 与 API 密钥；AI 服务不默认将备注作为 Prompt 发送。
+- **测试与回归（test/models_test.dart & test/task_query_test.dart & test/widget_regression_test.dart）**：
+  - 补充 Task/SubTask 备注 round-trip、v1 剥离与 v2 保留测试；
+  - 补充父子备注中英日搜索命中与 reasoning 排除测试；
+  - 补充详情面板备注编辑、保存、清空、放弃草稿保护与搜索定位 Widget 测试；
+  - 验证：`flutter test --no-pub` **223/223**（全量通过，新增 4 项测试），`analyze --no-pub` **0 issues**。未做 Android/Windows 实机，未改 React。
+
+## 2026-09-15 · WP22-C-N Flutter 截止日期自动调整紧急性算法统一与人工覆盖
+
+- **日历天统一算法与策略模块（deadline_policy.dart & task_query.dart）**：
+  - 新建 `deadline_policy.dart`，抽取统一 `calendarDaysLeft(int deadlineMs, {DateTime? now})`：基于本地时区午夜对齐（`DateTime.utc(year, month, day)` 差值计算），杜绝夏令时（DST 23/25 小时）与当天时刻差异波动，精准统一定义 0 为当天、1 为明天、负数为过期。
+  - 判定与升级契约 `isDeadlineUrgent`、`promoteToUrgent`：明确“提前 N 天转为紧急（含当天，即 `daysLeft <= thresholdDays`）仅作用于有截止日期的未完成主任务”，过期仍算紧急；无日期任务、子任务及已完成任务绝对不移动；仅允许 Q2→Q1、Q4→Q3，保持重要性不变，严防反向降级。
+  - 重构 `task_query.dart` 导出策略函数，并在 `widgets/task_card.dart` 中彻底移除 `_DeadlineChip` 内部硬编码 `daysLeft <= 2` 的逻辑，统一接入 `isDeadlineUrgent(deadline, thresholdDays)`，消除界面标签视觉与后台自动升级阈值脱节问题。
+- **人工覆盖模式与数据兼容演进（models.dart & storage.dart）**：
+  - 任务模型扩展 `UrgencyMode` 枚举（`auto` 自动 / `manual` 人工覆盖），默认 `UrgencyMode.auto`；旧版或缺失数据健壮兜底为 `auto`；遵循 WP11-N 数据演进契约，`ExportData v2` 完整持久化 `urgencyMode`，`version: 1` 降级导出时安全剥离字段，保持与旧版双向兼容；保持本地核心四键不变。
+  - 显式拖拽与详情修改感知：用户显式跨越紧急维度（Q1↔Q2, Q3↔Q4）移动或修改象限时置为 `manual`；仅改重要性（Q1↔Q3, Q2↔Q4）不改变模式；修改或清除截止日期保留用户的 `manual` 意图，不暗自改回；任务分组（`groupTasks`）在选中任务包含 `manual` 时智能继承；`Store` 新增 `resetTaskUrgencyMode(taskId)`。
+- **详情面板交互与设置页说明（widgets/task_detail_panel.dart & screens/settings_screen.dart & l10n.dart）**：
+  - 任务详情面板：当处于 `manual` 模式时展示“已手动调整紧急性”提示，并提供“恢复按截止日期自动调整”轻量按钮；点击后立即重置为 `auto` 并即时依据截止日期将紧迫任务自动升至 Q1/Q3。
+  - 设置页与中英日三语词条：在“提前 N 天标记为紧急”滑块下方补充说明文案，动态显示 `{n}` 天说明；补充 `urgencyThresholdDesc`、`urgencyManualNotice`、`resetUrgencyAuto` 的 en/zh/ja 三语字典。
+- **测试与回归（test/deadline_policy_test.dart & test/models_test.dart）**：
+  - 新增 `deadline_policy_test.dart`（22 项测试），全面覆盖跨月/跨年/闰年/夏令时日历天计算、N 与 N+1 临界判定、自动升级与人工覆盖互斥、拖拽变 manual、详情面板恢复自动及设置页 UI 响应；
+  - 验证：`flutter test --no-pub` **219/219**（全量通过，新增 22 项测试），`analyze --no-pub` **0 issues**。未做 Android/Windows 实机，未改 React。
+
+## 2026-09-14 · WP11-N Flutter 数据版本迁移与导入格式演进契约
+
+- **规范数据版本与迁移契约（docs/DATA_COMPATIBILITY.md）**：新增架构契约规范文档；明确区分持久化本地 Schema（核心 4 键不可变）与备份载荷版本（ExportData v1 vs v2）；梳理双向兼容矩阵与版本演进规则；明确旧版 React Web / 旧 Native 不支持未定义字段的客观事实，提供 v1 降级导出策略；确立未来新字段（如人工紧急性、备注、完成时间、提醒、标签）的标准演进流程。
+- **小型迁移与校验引擎（data_migrations.dart）**：新增 `DataMigrator`，实现函数式安全解析与迁移门禁；前置校验 `version`（支持 v1/v2，未知高版本严格抛出 `UnsupportedDataVersionException`）；整份校验 boards 与 tasks 数据结构；自动清洗去重重复 ID，安全归宿/剔除孤儿任务；设置解析执行白名单过滤；全流程无副作用，确保原子事务性。
+- **模型与存储层演进（models.dart & storage.dart）**：`ExportData` 升级当前标准版本为 `version: 2`，保留向前兼容解析能力与 `ExportData.version = 2` 既有符号兼容；`AppSettings.toJson({int? targetVersion})` 支持根据目标版本输出完整配置或剔除 v2 独有字段；`Store.exportJson({version})` 默认输出 v2，支持 `version: 1` 降级导出；`Store.importData` 全面接入 `DataMigrator`，前置验证失败原子中断，不篡改任何本地数据与看板代次（`boardEpoch`）。
+- **合成测试与跨端往返验证（test/data_migration_test.dart & test/fixtures/）**：新增无密钥合成数据样例 `export-v1-minimal.json` 与 `export-v2-minimal.json`；新增 14 项完整迁移单元测试，覆盖 v1 自动升级安全默认值、未知高版本拒收、重复 ID 清洗、孤儿任务防御、损坏载荷原子回滚、迁移幂等性、Android 与 Windows 双端无损往返一致性；回归 `storage_test.dart`、`models_test.dart`、`bug_regression_test.dart` 全套 197 项自动化用例通过。
+- **验证**：`D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat test --no-pub` **197/197**（全量通过，新增 15 项测试），`analyze --no-pub` **0 issues**。未做 Android/Windows 实机，未改 React。
+
 ## 2026-09-12 · V0.3-A (WP26-A-N, WP26-B-N-Windows, WP27-A-N) 命令面板、快捷键、桌面托盘与统计进度
 
 - **应用内命令面板与快捷键体系（WP26-A-N: shortcuts.dart & widgets/command_palette.dart）**：
