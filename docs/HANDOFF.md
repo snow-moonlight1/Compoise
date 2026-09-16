@@ -91,8 +91,7 @@
 
 | 检查 | 结果 |
 |---|---|
-| `flutter test --no-pub`（2026-09-16 WP25-N-Android） | **237/237**，含 WP25 提醒/WP13-A-N 备注/WP22-C 日历天人工紧急性/WP11 迁移/WP26 命令面板/桌面壳/WP27 统计条/WP24 滑动撤销/WP08 列表字号/WP07 已完成/WP01 服务商预设/WP02 清空看板/WP06 语言/WP05 移动/WP22 日期/WP12 搜索/WP23 聚焦/WP04 详情/WP03 十字/WP21/WP20 全量回归 |
-| `flutter test --no-pub` | **237/237 passed**（包含 models_test、reminder_service_test、deadline_policy_test 与全量 UI 回归） |
+| `flutter test --no-pub`（2026-09-16 WP25-N-Android） | **237/237 passed**（包含 models_test、reminder_service_test、deadline_policy_test 与全量 UI 回归） |
 | `flutter analyze --no-pub`（同轮） | **0 issues** |
 | Android 物理真机通知/闹钟响铃（WP25-N-Android） | **未测**；Flutter Local Notifications 逻辑与调度完整覆盖，物理设备需后续真机安装测试 |
 | Windows 实机（WP25-N-Android） | **未测**；Windows 通知在下一包 WP25-N-Windows 落地 |
@@ -114,9 +113,15 @@ Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。�
 
 ## 本轮收尾（WP25-N-Android）
 
+- Android 本地定时通知与提醒落地：
+  - `AndroidManifest.xml`：添加 `POST_NOTIFICATIONS`、`SCHEDULE_EXACT_ALARM`、`RECEIVE_BOOT_COMPLETED`、`VIBRATE` 权限声明；注册 `ScheduledNotificationReceiver` 与 `ScheduledNotificationBootReceiver`；遵循 Google Play 规范未声明 `USE_EXACT_ALARM`。
+  - `lib/models.dart`：`Task` 扩展 `reminderAt`（`int?`）与 `reminderTimezone`（`String?`）；`SubTask` 扩展 `reminderAt`（`int?`）；`AIAnalysisResult.toTask` 扩展提醒时间；走 WP11 数据迁移契约（v2 序列化、v1 降级剥离、缺省兜底 `null`）。
+  - `lib/storage.dart`：Store 状态生命周期全面联动提醒调度（启动自动重新排程未来提醒、新增自动排程、勾选完成即时注销、修改重新排程或取消、删除及 5s 撤销删除联动、一键清空及看板删除批量注销、导入覆盖全量更新）。
+  - `lib/services/reminder_service.dart`：31 位确定性 FNV-1a 哈希 Notification ID；`ReminderPayload` 结构化载荷；`FlutterLocalNotificationsReminderService` 生产服务（带初始化守卫防崩溃）、`InMemoryReminderService` 测试服务与 `NoopReminderService` 桌面降级服务。
+  - UI 交互与设置：`widgets/task_detail_panel.dart` 提醒时间选择器与快捷预设 Chips、`widgets/input_sheet.dart` 新建提醒入口、`screens/settings_screen.dart` 提醒可靠性保活指南与权限检测对话框、`widgets/task_card.dart` 激活提醒小闹钟角标；补充中英日三语本地化词条。
   - 测试：`test/models_test.dart`、`test/reminder_service_test.dart`、`test/deadline_policy_test.dart`、`test/widget_regression_test.dart` 全量通过；
   - 静态检查：`flutter test --no-pub` **237/237** 全绿，`flutter analyze --no-pub` **0 issues**。未改 React，未做实机。
-- 未测：Android / Windows 物理真机环境下的原生通知横幅与声音（写明待后续实机验收）。
+- 未测：Android 物理真机环境下的原生通知横幅与声音（依赖真机运行环境）。
 - Pre-existing 未跟踪文档仍在：`docs/STRATEGY_REVIEW_2026-09-08.md`、`docs/UI_INTERACTION_REVIEW_2026-09-08.md`、`docs/AI_UNIT_ECONOMICS_2026-09-08.csv`、`docs/ADR_FLUTTER_PRIMARY_2026-09-09.md`。
 
 ## 历史收尾（WP13-A-N）
