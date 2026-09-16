@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models.dart';
+import 'desktop_shell_service.dart';
 
 /// Generates a deterministic 31-bit non-negative integer notification ID
 /// using FNV-1a hash algorithm to prevent collisions and fit within Android's 32-bit int.
@@ -124,7 +126,8 @@ abstract class ReminderService {
         return NoopReminderService();
       }
     } catch (_) {}
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.windows) {
       return FlutterLocalNotificationsReminderService();
     }
     return NoopReminderService();
@@ -134,6 +137,10 @@ abstract class ReminderService {
   static void resetForTest([ReminderService? testInstance]) {
     _instance = testInstance;
   }
+
+  /// Current notification tap handler callback.
+  void Function(ReminderPayload payload)? get onNotificationSelected;
+  set onNotificationSelected(void Function(ReminderPayload payload)? handler);
 
   /// Initializes local notification service and binds notification tap handler.
   Future<void> init({
@@ -173,10 +180,22 @@ abstract class ReminderService {
 
 /// Default no-op reminder service (used for unsupported platforms or headless default).
 class NoopReminderService implements ReminderService {
+  void Function(ReminderPayload payload)? _onNotificationSelected;
+
+  @override
+  void Function(ReminderPayload payload)? get onNotificationSelected =>
+      _onNotificationSelected;
+
+  @override
+  set onNotificationSelected(void Function(ReminderPayload payload)? handler) =>
+      _onNotificationSelected = handler;
+
   @override
   Future<void> init({
     required void Function(ReminderPayload payload) onNotificationSelected,
-  }) async {}
+  }) async {
+    _onNotificationSelected = onNotificationSelected;
+  }
 
   @override
   Future<ReminderPermissionStatus> checkPermission() async =>
@@ -219,6 +238,14 @@ class InMemoryReminderService implements ReminderService {
   final List<int> cancelledIds = [];
   int cancelAllCount = 0;
   void Function(ReminderPayload payload)? _onNotificationSelected;
+
+  @override
+  void Function(ReminderPayload payload)? get onNotificationSelected =>
+      _onNotificationSelected;
+
+  @override
+  set onNotificationSelected(void Function(ReminderPayload payload)? handler) =>
+      _onNotificationSelected = handler;
 
   void triggerNotificationTap(ReminderPayload payload) {
     _onNotificationSelected?.call(payload);
@@ -330,11 +357,26 @@ class InMemoryReminderService implements ReminderService {
   }
 }
 
-/// Production Android implementation using flutter_local_notifications.
+/// Production Android and Windows implementation using flutter_local_notifications.
 class FlutterLocalNotificationsReminderService implements ReminderService {
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
   void Function(ReminderPayload payload)? _onNotificationSelected;
+  final Map<int, Timer> _activeTimers = {};
+
+  @override
+  void Function(ReminderPayload payload)? get onNotificationSelected =>
+      _onNotificationSelected;
+
+  @override
+  set onNotificationSelected(void Function(ReminderPayload payload)? handler) =>
+      _onNotificationSelected = handler;
+
+  @visibleForTesting
+  int get activeTimerCount => _activeTimers.length;
+
+  @visibleForTesting
+  void setInitializedForTest(bool val) => _initialized = val;
 
   FlutterLocalNotificationsReminderService({
     FlutterLocalNotificationsPlugin? plugin,
@@ -354,7 +396,15 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-    const initSettings = InitializationSettings(android: androidSettings);
+    const windowsSettings = WindowsInitializationSettings(
+      appName: 'MatrixFlow AI',
+      appUserModelId: 'MatrixFlow.MatrixFlowApp.1.0',
+      guid: '69a03975-2989-4d05-b778-5e824707612f',
+    );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      windows: windowsSettings,
+    );
 
     try {
       await _plugin.initialize(
@@ -362,6 +412,9 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
         onDidReceiveNotificationResponse: (response) {
           final raw = response.payload;
           final payload = ReminderPayload.deserialize(raw);
+          if (defaultTargetPlatform == TargetPlatform.windows) {
+            DesktopShellService.instance.restoreWindow();
+          }
           if (payload != null) {
             _onNotificationSelected?.call(payload);
           }
@@ -376,6 +429,9 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
   @override
   Future<ReminderPermissionStatus> checkPermission() async {
     try {
+      if (defaultTargetPlatform == TargetPlatform.windows) {
+        return ReminderPermissionStatus.granted;
+      }
       final androidImpl = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       if (androidImpl == null) return ReminderPermissionStatus.unsupported;
@@ -397,6 +453,9 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
   @override
   Future<bool> requestPermission() async {
     try {
+      if (defaultTargetPlatform == TargetPlatform.windows) {
+        return true;
+      }
       final androidImpl = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       if (androidImpl == null) return false;
@@ -430,7 +489,7 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
     bool sound = true,
     bool vibrate = true,
   }) async {
-    if (!_initialized) return;
+    if (!_initialized && defaultTargetPlatform != TargetPlatform.windows) return;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     // Overdue suppression: discard if older than 5 minutes
     if (nowMs - triggerAtMs > 5 * 60 * 1000) {
@@ -453,18 +512,70 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
       playSound: sound,
       enableVibration: vibrate,
     );
-    final notifDetails = NotificationDetails(android: androidDetails);
+    final windowsDetails = WindowsNotificationDetails(
+      subtitle: (body != null && body.trim().isNotEmpty) ? body : null,
+      duration: WindowsNotificationDuration.long,
+    );
+    final notifDetails = NotificationDetails(
+      android: androidDetails,
+      windows: windowsDetails,
+    );
+
+    // Cancel any previous timer for this notifId
+    _activeTimers[notifId]?.cancel();
+    _activeTimers.remove(notifId);
 
     try {
       if (triggerAtMs <= nowMs) {
         // Immediate notification for near-past window (< 5m)
-        await _plugin.show(
-          notifId,
-          title,
-          body,
-          notifDetails,
-          payload: payload,
-        );
+        if (_initialized) {
+          await _plugin.show(
+            notifId,
+            title,
+            body,
+            notifDetails,
+            payload: payload,
+          );
+        }
+      } else if (defaultTargetPlatform == TargetPlatform.windows) {
+        // On Windows desktop, maintain an in-process Timer to reliably fire
+        // when the app is running in the foreground or minimized to system tray.
+        final delayMs = triggerAtMs - nowMs;
+        _activeTimers[notifId] = Timer(Duration(milliseconds: delayMs), () async {
+          _activeTimers.remove(notifId);
+          try {
+            if (_initialized) {
+              await _plugin.show(
+                notifId,
+                title,
+                body,
+                notifDetails,
+                payload: payload,
+              );
+            }
+          } catch (e) {
+            debugPrint('Error showing scheduled Windows notification: $e');
+          }
+        });
+
+        // Also attempt native WinRT schedule if supported
+        try {
+          if (_initialized) {
+            final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
+              tz.local,
+              triggerAtMs,
+            );
+            await _plugin.zonedSchedule(
+              notifId,
+              title,
+              body,
+              scheduledDate,
+              notifDetails,
+              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+              payload: payload,
+            );
+          }
+        } catch (_) {}
       } else {
         final androidImpl = _plugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
@@ -491,16 +602,28 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
             payload: payload,
           );
         } catch (_) {
-          // Fallback to inexact if exact schedule threw SecurityException
-          await _plugin.zonedSchedule(
-            notifId,
-            title,
-            body,
-            scheduledDate,
-            notifDetails,
-            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-            payload: payload,
-          );
+          // Fallback to inexact if exact schedule threw SecurityException on Android
+          try {
+            await _plugin.zonedSchedule(
+              notifId,
+              title,
+              body,
+              scheduledDate,
+              notifDetails,
+              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+              payload: payload,
+            );
+          } catch (_) {
+            try {
+              await _plugin.show(
+                notifId,
+                title,
+                body,
+                notifDetails,
+                payload: payload,
+              );
+            } catch (_) {}
+          }
         }
       }
     } catch (e) {
@@ -510,8 +633,10 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
 
   @override
   Future<void> cancelReminder(String taskId, {String? subtaskId}) async {
-    if (!_initialized) return;
     final notifId = generateNotificationId(taskId, subtaskId: subtaskId);
+    _activeTimers[notifId]?.cancel();
+    _activeTimers.remove(notifId);
+    if (!_initialized) return;
     try {
       await _plugin.cancel(notifId);
     } catch (e) {
@@ -538,6 +663,10 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
 
   @override
   Future<void> cancelAll() async {
+    for (final timer in _activeTimers.values) {
+      timer.cancel();
+    }
+    _activeTimers.clear();
     if (!_initialized) return;
     try {
       await _plugin.cancelAll();

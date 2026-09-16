@@ -15,6 +15,7 @@ import '../widgets/text_prompt.dart';
 import 'completed_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+import '../services/desktop_shell_service.dart';
 
 class MatrixHome extends StatefulWidget {
   const MatrixHome({super.key});
@@ -86,9 +87,38 @@ class _MatrixHomeState extends State<MatrixHome> {
     );
   }
 
+  void _handleNotificationPayload(ReminderPayload payload) {
+    if (!mounted) return;
+    final store = context.read<Store>();
+    if (payload.boardId.isNotEmpty &&
+        payload.boardId != store.activeBoardId &&
+        store.boards.any((b) => b.id == payload.boardId)) {
+      store.setActiveBoard(payload.boardId);
+    }
+    final task = store.tasks.where((t) => t.id == payload.taskId).firstOrNull;
+    if (task != null) {
+      if (payload.subtaskId != null) {
+        _ensureExpanded(store, task.id);
+      }
+      final isWide = MediaQuery.of(context).size.width >= 720;
+      _openTaskDetail(context, task, isWide: isWide);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(store.t['taskNotFound'] ?? 'Task no longer exists or has been deleted'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    ReminderService.instance.onNotificationSelected = _handleNotificationPayload;
+    DesktopShellService.instance.onShowWindow = () {
+      if (mounted) setState(() {});
+    };
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final store = context.read<Store>();
@@ -99,6 +129,15 @@ class _MatrixHomeState extends State<MatrixHome> {
         store.corruptNotice = null;
       }
     });
+  }
+
+  @override
+  void dispose() {
+    if (ReminderService.instance.onNotificationSelected ==
+        _handleNotificationPayload) {
+      ReminderService.instance.onNotificationSelected = null;
+    }
+    super.dispose();
   }
 
   @override

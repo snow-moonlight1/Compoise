@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -855,42 +855,169 @@ class _SettingsScreenState extends State<SettingsScreen> {
               t['reminders'] ?? 'Reminders & Notifications',
               Icons.notifications_active_outlined,
             ),
-            ListTile(
-              key: const ValueKey('reminder-guide-tile'),
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                Icons.battery_charging_full_outlined,
-                color: theme.colorScheme.primary,
-              ),
-              title: Text(
-                t['reminderGuide'] ?? 'Punctual Alert & Keep-Alive Guide',
-              ),
-              subtitle: Text(
-                t['reminderGuideDesc'] ??
-                    'Guide to configure battery optimization and auto-start on Android ROMs',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            if (defaultTargetPlatform == TargetPlatform.windows) ...[
+              ListTile(
+                key: const ValueKey('windows-reminder-guide-tile'),
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.desktop_windows_outlined,
+                  color: theme.colorScheme.primary,
                 ),
+                title: Text(
+                  t['windowsReminderGuide'] ?? 'Windows Notifications & Tray Guide',
+                ),
+                subtitle: Text(
+                  t['windowsReminderGuideDesc'] ??
+                      'Ensure punctual alerts with system tray keep-alive and Focus Assist setup',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showWindowsReminderGuideDialog(context, t),
               ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _showReminderGuideDialog(context, t),
-            ),
-            const SizedBox(height: 8),
-            Row(
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('check-permissions-btn'),
+                      icon: const Icon(Icons.security, size: 16),
+                      label: Text(t['checkPermissions'] ?? 'Check Permissions'),
+                      onPressed: () => _checkAndShowPermissions(context, t),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('test-windows-notif-btn'),
+                      icon: const Icon(Icons.notification_add_outlined, size: 16),
+                      label: Text(t['testNotification'] ?? 'Test Notification'),
+                      onPressed: () async {
+                        final now = DateTime.now().millisecondsSinceEpoch;
+                        await ReminderService.instance.scheduleReminder(
+                          boardId: store.activeBoardId,
+                          taskId: 'test-win-notif',
+                          title: 'MatrixFlow AI',
+                          body: t['testNotificationSent'] ?? 'Test notification sent!',
+                          triggerAtMs: now,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                t['testNotificationSent'] ?? 'Test notification sent!',
+                              ),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              ListTile(
+                key: const ValueKey('reminder-guide-tile'),
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.battery_charging_full_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                title: Text(
+                  t['reminderGuide'] ?? 'Punctual Alert & Keep-Alive Guide',
+                ),
+                subtitle: Text(
+                  t['reminderGuideDesc'] ??
+                      'Guide to configure battery optimization and auto-start on Android ROMs',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showReminderGuideDialog(context, t),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('check-permissions-btn'),
+                      icon: const Icon(Icons.security, size: 16),
+                      label: Text(t['checkPermissions'] ?? 'Check Permissions'),
+                      onPressed: () => _checkAndShowPermissions(context, t),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showWindowsReminderGuideDialog(BuildContext context, Map<String, String> t) {
+    showDialog(
+      context: context,
+      builder:
+          (dialogCtx) => AlertDialog(
+            title: Row(
               children: [
+                const Icon(Icons.desktop_windows_outlined, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('check-permissions-btn'),
-                    icon: const Icon(Icons.security, size: 16),
-                    label: Text(t['checkPermissions'] ?? 'Check Permissions'),
-                    onPressed: () => _checkAndShowPermissions(context, t),
+                  child: Text(
+                    t['windowsReminderGuideTitle'] ??
+                        'Windows Notification Reliability Guide',
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t['windowsReminderGuideIntro'] ?? '',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildGuideItem(
+                    context,
+                    title:
+                        t['windowsGuideTrayTitle'] ??
+                        '1. System Tray Keep-Alive',
+                    steps: t['windowsGuideTraySteps'] ?? '',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildGuideItem(
+                    context,
+                    title:
+                        t['windowsGuideFocusTitle'] ??
+                        '2. Windows Focus Assist',
+                    steps: t['windowsGuideFocusSteps'] ?? '',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildGuideItem(
+                    context,
+                    title:
+                        t['windowsGuideActionCenterTitle'] ??
+                        '3. Notifications & Sound Banners',
+                    steps: t['windowsGuideActionCenterSteps'] ?? '',
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(t['confirm'] ?? 'OK'),
+              ),
+            ],
+          ),
     );
   }
 
@@ -1008,7 +1135,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     switch (status) {
       case ReminderPermissionStatus.granted:
-        statusText = t['permissionGranted'] ?? 'Granted';
+        statusText =
+            defaultTargetPlatform == TargetPlatform.windows
+                ? (t['windowsPermissionActive'] ??
+                    'Windows Desktop Notifications are active and ready.')
+                : (t['permissionGranted'] ?? 'Granted');
         color = Colors.green;
         canRequest = false;
       case ReminderPermissionStatus.denied:

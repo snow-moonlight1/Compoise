@@ -6,6 +6,30 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-16 · WP25-N-Windows Windows 桌面端本地通知与托盘联动落地
+
+- **Windows 本地通知初始化与配置（lib/services/reminder_service.dart）**：
+  - `FlutterLocalNotificationsReminderService` 支持在 `defaultTargetPlatform == TargetPlatform.windows` 环境下实例化与初始化；
+  - 配置 `WindowsInitializationSettings`（`appName: 'MatrixFlow AI'`、`appUserModelId: 'MatrixFlow.MatrixFlowApp.1.0'`、固定应用 GUID `69a03975-2989-4d05-b778-5e824707612f`）；
+  - `WindowsNotificationDetails` 设置 `WindowsNotificationDuration.long`，并将备注或描述作为通知副标题（subtitle）展示；
+  - 在 Windows 平台下，`checkPermission()` 与 `requestPermission()` 自动返回 `granted` 与 `true`，无需 Android 特有的运行时权限弹窗。
+- **托盘联动与后台进程定时保活（lib/services/reminder_service.dart & lib/services/desktop_shell_service.dart）**：
+  - 联动 WP26-B `DesktopShellService` 托盘机制：用户开启“最小化到托盘/关闭到托盘”后，主窗口隐藏，Flutter 进程在后台常驻运行；
+  - `scheduleReminder` 在 Windows 环境维护应用内内存 `Timer`（`_activeTimers`），定时到达时直接触发本地通知弹窗，解决桌面离线调度问题；
+  - 任务重排、更新、删除、取消或 `cancelAll` 时，同步清理并取消对应内存 `Timer`，杜绝内存泄漏与幽灵通知。
+- **通知点击激活与深层路由（lib/main.dart & lib/screens/matrix_screen.dart & lib/services/reminder_service.dart）**：
+  - 用户点击 Windows Toast 通知后，通过 `onDidReceiveNotificationResponse` 自动调用 `DesktopShellService.instance.restoreWindow()` 恢复主窗口显示；
+  - 反序列化 `ReminderPayload` 并传递至 `MatrixHome`，跨看板时自动切换至目标 `boardId`，定位任务并展开对应子任务，最终打开 `TaskDetailPanel`；若任务已删除，弹出友好 SnackBar 提示而不会发生崩溃。
+- **设置页 Windows 可靠性指南与测试通知（lib/screens/settings_screen.dart & lib/l10n.dart）**：
+  - Windows 环境下自动呈现“Windows 提醒与通知可靠性指南”（`windows-reminder-guide-tile`），向用户说明 Windows 托盘常驻保活、专注助手（Focus Assist / 免打扰）以及操作中心通知历史设置；
+  - 提供“发送测试通知”按钮（`test-windows-notif-btn`），方便用户在桌面即时校验 Windows Toast 通知通道是否畅通；
+  - 完整补齐中、英、日三语本地化字典（`windowsReminderGuide`、`windowsGuideTrayTitle`、`windowsGuideFocusTitle`、`testNotification` 等）。
+- **自动化测试与全量回归**：
+  - `test/reminder_service_test.dart`（14/14 全绿，包含 Windows 平台权限、托盘窗口恢复联动与 NotificationDetails 配置测试）；
+  - `test/windows_reminder_test.dart`（4/4 全绿，包含 Windows 权限与 Timer 调度、托盘最小化后点击 Toast 唤醒深层跳转、已删除任务安全提示、设置页指南弹窗与测试通知）；
+  - `test/widget_regression_test.dart` 补充 Windows 平台设置页指南对话框与测试通知按钮回归测试；
+  - 全套测试：`flutter test --no-pub` **245/245** 全量通过，`flutter analyze --no-pub` **0 issues**。真实 Windows 锁屏/免打扰 Action Center 横幅弹出写明未测实机。
+
 ## 2026-09-16 · WP25-N-Android Android 本地定时通知与提醒落地
 
 - **系统权限声明与开机接收器（AndroidManifest.xml）**：

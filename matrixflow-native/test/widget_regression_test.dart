@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ import 'package:matrixflow_native/models.dart';
 import 'package:matrixflow_native/screens/matrix_screen.dart';
 import 'package:matrixflow_native/screens/search_screen.dart';
 import 'package:matrixflow_native/screens/settings_screen.dart';
+import 'package:matrixflow_native/services/desktop_shell_service.dart';
 import 'package:matrixflow_native/storage.dart';
 import 'package:matrixflow_native/theme.dart';
 import 'package:matrixflow_native/widgets/anim.dart';
@@ -3433,6 +3435,58 @@ void main() {
       expect(find.byIcon(Icons.notifications_active_outlined), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'WP25-N-Windows: SettingsScreen on Windows displays Windows notification guide and triggers test notification',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      DesktopShellService.debugIsDesktopOverride = true;
+      try {
+        viewport(tester, const Size(1000, 1000));
+        final store = await setup(tester);
+        final inMemoryService = InMemoryReminderService();
+        ReminderService.instance = inMemoryService;
+
+        await tester.pumpWidget(app(store, const SettingsScreen()));
+        await tester.pumpAndSettle();
+
+        // Windows guide tile should be visible
+        final guideTile = find.byKey(const ValueKey('windows-reminder-guide-tile'));
+        await tester.scrollUntilVisible(guideTile, 200, scrollable: find.byType(Scrollable).first);
+        await tester.pumpAndSettle();
+        expect(guideTile, findsOneWidget);
+
+        // Tap Windows guide tile to show dialog
+        await tester.tap(guideTile);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(find.text(store.t['windowsGuideTrayTitle']!), findsOneWidget);
+        expect(find.text(store.t['windowsGuideFocusTitle']!), findsOneWidget);
+
+        // Dismiss dialog
+        await tester.tap(find.text(store.t['confirm'] ?? 'OK'));
+        await tester.pumpAndSettle();
+
+        // Find and tap test notification button
+        final testNotifBtn = find.byKey(const ValueKey('test-windows-notif-btn'));
+        expect(testNotifBtn, findsOneWidget);
+        await tester.tap(testNotifBtn);
+        await tester.pumpAndSettle();
+
+        // Test notification was scheduled in ReminderService
+        expect(inMemoryService.scheduled.containsKey(generateNotificationId('test-win-notif')), isTrue);
+
+        // SnackBar feedback was shown
+        expect(find.byType(SnackBar), findsOneWidget);
+
+        await tester.pumpWidget(const SizedBox());
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        DesktopShellService.debugIsDesktopOverride = null;
+      }
     },
   );
 }

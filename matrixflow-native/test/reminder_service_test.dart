@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/models.dart';
+import 'package:matrixflow_native/services/desktop_shell_service.dart';
 import 'package:matrixflow_native/services/reminder_service.dart';
 
 void main() {
@@ -217,6 +220,50 @@ void main() {
       expect(service.scheduled.containsKey(generateNotificationId('past_task')), isFalse);
       expect(service.scheduled.containsKey(generateNotificationId('with_sub', subtaskId: 'sub_future')), isTrue);
       expect(service.scheduled.containsKey(generateNotificationId('with_sub', subtaskId: 'sub_done')), isFalse);
+    });
+  });
+
+  group('WP25-N-Windows Desktop Platform Integration', () {
+    test('checkPermission and requestPermission on Windows returns granted and true', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+      });
+
+      final service = FlutterLocalNotificationsReminderService();
+      final status = await service.checkPermission();
+      expect(status, equals(ReminderPermissionStatus.granted));
+
+      final requested = await service.requestPermission();
+      expect(requested, isTrue);
+    });
+
+    test('DesktopShellService window restoration coordinates with notification tap', () {
+      DesktopShellService.debugIsDesktopOverride = true;
+      addTearDown(() {
+        DesktopShellService.debugIsDesktopOverride = null;
+      });
+
+      bool showWindowCalled = false;
+      DesktopShellService.instance.onShowWindow = () {
+        showWindowCalled = true;
+      };
+
+      DesktopShellService.instance.hideWindowToTray();
+      expect(DesktopShellService.instance.isWindowVisible, isFalse);
+
+      DesktopShellService.instance.restoreWindow();
+      expect(DesktopShellService.instance.isWindowVisible, isTrue);
+      expect(showWindowCalled, isTrue);
+    });
+
+    test('WindowsNotificationDetails configuration and duration', () {
+      const details = WindowsNotificationDetails(
+        subtitle: 'Subtask notes',
+        duration: WindowsNotificationDuration.long,
+      );
+      expect(details.subtitle, equals('Subtask notes'));
+      expect(details.duration, equals(WindowsNotificationDuration.long));
     });
   });
 }

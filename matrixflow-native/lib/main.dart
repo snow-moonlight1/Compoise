@@ -13,7 +13,7 @@ void main() {
   DesktopShellService.instance.init();
   ReminderService.instance.init(
     onNotificationSelected: (payload) {
-      // Notification tapped
+      ReminderService.instance.onNotificationSelected?.call(payload);
     },
   );
   runApp(const MatrixFlowApp());
