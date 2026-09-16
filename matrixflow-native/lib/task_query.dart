@@ -1,4 +1,7 @@
+import 'deadline_policy.dart';
 import 'models.dart';
+
+export 'deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 
 /// Scope of boards to include in task search.
 enum TaskScopeFilter {
@@ -58,17 +61,6 @@ class TaskSearchResult {
       isSubtaskMatch
           ? (matchedSubtask!.deadline ?? task.deadline)
           : task.deadline;
-}
-
-/// Calculates local calendar days difference between [deadline] and [now].
-int calendarDaysLeft(int deadline, {DateTime? now}) {
-  final date = DateTime.fromMillisecondsSinceEpoch(deadline);
-  final today = now ?? DateTime.now();
-  return DateTime.utc(
-    date.year,
-    date.month,
-    date.day,
-  ).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
 }
 
 /// Checks if [deadline] satisfies [filter] relative to [now].
@@ -137,8 +129,11 @@ List<TaskSearchResult> queryTasks({
     }
 
     // 1. Check parent task
-    final parentTitleMatches =
-        trimmed.isEmpty || task.title.toLowerCase().contains(trimmed);
+    final parentKeywordMatches =
+        trimmed.isEmpty ||
+        task.title.toLowerCase().contains(trimmed) ||
+        (task.notesMarkdown != null &&
+            task.notesMarkdown!.toLowerCase().contains(trimmed));
     final parentStatusMatches = switch (status) {
       TaskStatusFilter.all => true,
       TaskStatusFilter.completed => task.completed,
@@ -151,7 +146,7 @@ List<TaskSearchResult> queryTasks({
       now: now,
     );
 
-    if (parentTitleMatches && parentStatusMatches && parentDateMatches) {
+    if (parentKeywordMatches && parentStatusMatches && parentDateMatches) {
       final res = TaskSearchResult(task: task, board: board);
       if (seenKeys.add(res.resultKey)) {
         results.add(res);
@@ -161,7 +156,11 @@ List<TaskSearchResult> queryTasks({
     // 2. Check child subtasks (only when keyword query is non-empty)
     if (trimmed.isNotEmpty) {
       for (final subtask in task.subtasks) {
-        if (!subtask.title.toLowerCase().contains(trimmed)) {
+        final subtaskKeywordMatches =
+            subtask.title.toLowerCase().contains(trimmed) ||
+            (subtask.notesMarkdown != null &&
+                subtask.notesMarkdown!.toLowerCase().contains(trimmed));
+        if (!subtaskKeywordMatches) {
           continue;
         }
         final subStatusMatches = switch (status) {

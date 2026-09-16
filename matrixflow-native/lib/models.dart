@@ -84,11 +84,15 @@ class SubTask {
   String title;
   bool completed;
   int? deadline;
+  String? notesMarkdown;
+  int? reminderAt;
   SubTask({
     required this.id,
     required this.title,
     this.completed = false,
     this.deadline,
+    this.notesMarkdown,
+    this.reminderAt,
   });
 
   factory SubTask.fromJson(Map<String, dynamic> j) => SubTask(
@@ -96,15 +100,25 @@ class SubTask {
     title: (j['title'] as String?) ?? '',
     completed: (j['completed'] as bool?) ?? false,
     deadline: _timestamp(j['deadline']),
+    notesMarkdown: j['notesMarkdown'] as String?,
+    reminderAt: _timestamp(j['reminderAt']),
   );
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'completed': completed,
-    if (deadline != null) 'deadline': deadline,
-  };
+  Map<String, dynamic> toJson({int? targetVersion}) {
+    final isV1 = targetVersion == 1;
+    return {
+      'id': id,
+      'title': title,
+      'completed': completed,
+      if (deadline != null) 'deadline': deadline,
+      if (!isV1 && notesMarkdown != null && notesMarkdown!.isNotEmpty)
+        'notesMarkdown': notesMarkdown,
+      if (!isV1 && reminderAt != null) 'reminderAt': reminderAt,
+    };
+  }
 }
+
+enum UrgencyMode { auto, manual }
 
 class Task {
   String id;
@@ -117,6 +131,10 @@ class Task {
   int? deadline;
   List<SubTask> subtasks;
   String? reasoning;
+  UrgencyMode urgencyMode;
+  String? notesMarkdown;
+  int? reminderAt;
+  String? reminderTimezone;
 
   Task({
     required this.id,
@@ -129,6 +147,10 @@ class Task {
     this.deadline,
     List<SubTask>? subtasks,
     this.reasoning,
+    this.urgencyMode = UrgencyMode.auto,
+    this.notesMarkdown,
+    this.reminderAt,
+    this.reminderTimezone,
   }) : subtasks = subtasks ?? [];
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -146,20 +168,36 @@ class Task {
             .map(SubTask.fromJson)
             .toList(),
     reasoning: j['reasoning'] as String?,
+    urgencyMode: (j['urgencyMode'] as String?) == 'manual'
+        ? UrgencyMode.manual
+        : UrgencyMode.auto,
+    notesMarkdown: j['notesMarkdown'] as String?,
+    reminderAt: _timestamp(j['reminderAt']),
+    reminderTimezone: j['reminderTimezone'] as String?,
   );
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'boardId': boardId,
-    'title': title,
-    'quadrant': quadrant,
-    'isLongTerm': isLongTerm,
-    'completed': completed,
-    'createdAt': createdAt,
-    if (deadline != null) 'deadline': deadline,
-    'subtasks': subtasks.map((s) => s.toJson()).toList(),
-    if (reasoning != null) 'reasoning': reasoning,
-  };
+  Map<String, dynamic> toJson({int? targetVersion}) {
+    final isV1 = targetVersion == 1;
+    return {
+      'id': id,
+      'boardId': boardId,
+      'title': title,
+      'quadrant': quadrant,
+      'isLongTerm': isLongTerm,
+      'completed': completed,
+      'createdAt': createdAt,
+      if (deadline != null) 'deadline': deadline,
+      'subtasks':
+          subtasks.map((s) => s.toJson(targetVersion: targetVersion)).toList(),
+      if (reasoning != null) 'reasoning': reasoning,
+      if (!isV1) 'urgencyMode': urgencyMode.name,
+      if (!isV1 && notesMarkdown != null && notesMarkdown!.isNotEmpty)
+        'notesMarkdown': notesMarkdown,
+      if (!isV1 && reminderAt != null) 'reminderAt': reminderAt,
+      if (!isV1 && reminderTimezone != null && reminderTimezone!.isNotEmpty)
+        'reminderTimezone': reminderTimezone,
+    };
+  }
 
   bool get hasSubtasks => subtasks.isNotEmpty;
 }
@@ -185,6 +223,9 @@ class AIAnalysisResult {
     required String boardId,
     required int createdAt,
     int? deadline,
+    String? notesMarkdown,
+    int? reminderAt,
+    String? reminderTimezone,
   }) => Task(
     id: id,
     boardId: boardId,
@@ -194,6 +235,9 @@ class AIAnalysisResult {
     createdAt: createdAt,
     deadline: deadline,
     reasoning: reasoning,
+    notesMarkdown: notesMarkdown,
+    reminderAt: reminderAt,
+    reminderTimezone: reminderTimezone,
     subtasks: subtasks.map((s) => SubTask(id: newId(), title: s)).toList(),
   );
 }
@@ -386,45 +430,86 @@ class AppSettings {
     globalShortcut: (j['globalShortcut'] as String?) ?? 'Ctrl+Alt+M',
   );
 
-  Map<String, dynamic> toJson() => {
-    'language': language.name,
-    'theme': theme.name,
-    'themeColor': themeColor.name,
-    'defaultInputMode': defaultInputMode.name,
-    'viewMode': viewMode.name,
-    'fontSize': fontSize.name,
-    'fontFamily': fontFamily.name,
-    'autoGroupAI': autoGroupAI,
-    'autoDecomposeAI': autoDecomposeAI,
-    'autoCompleteParent': autoCompleteParent,
-    'suppressGroupPrompt': suppressGroupPrompt,
-    'suppressLongTermPrompt': suppressLongTermPrompt,
-    'hideCompleted': hideCompleted,
-    'urgencyThresholdDays': urgencyThresholdDays,
-    'closeToTray': closeToTray,
-    'globalShortcut': globalShortcut,
-  };
+  Map<String, dynamic> toJson({int? targetVersion}) {
+    final isV1 = targetVersion == 1;
+    return {
+      'language': language.name,
+      'theme': theme.name,
+      'themeColor': themeColor.name,
+      'defaultInputMode': defaultInputMode.name,
+      if (!isV1) 'viewMode': viewMode.name,
+      if (!isV1) 'fontSize': fontSize.name,
+      if (!isV1) 'fontFamily': fontFamily.name,
+      'autoGroupAI': autoGroupAI,
+      'autoDecomposeAI': autoDecomposeAI,
+      'autoCompleteParent': autoCompleteParent,
+      'suppressGroupPrompt': suppressGroupPrompt,
+      'suppressLongTermPrompt': suppressLongTermPrompt,
+      'hideCompleted': hideCompleted,
+      'urgencyThresholdDays': urgencyThresholdDays,
+      if (!isV1) 'closeToTray': closeToTray,
+      if (!isV1) 'globalShortcut': globalShortcut,
+    };
+  }
 }
 
 class ExportData {
-  static const version = 1;
+  static const currentVersion = 2;
+  static const legacyVersion = 1;
+  static const version = currentVersion;
+  static const supportedVersions = {1, 2};
+
+  final int versionNumber;
+  final int timestamp;
   final List<Board> boards;
   final List<Task> tasks;
   final AppSettings settings;
   final AIConfig aiConfig;
+
   ExportData({
+    int? version,
+    int? timestamp,
     required this.boards,
     required this.tasks,
     required this.settings,
     required this.aiConfig,
-  });
+  })  : versionNumber = version ?? currentVersion,
+        timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
 
-  Map<String, dynamic> toJson() => {
-    'version': version,
-    'timestamp': DateTime.now().millisecondsSinceEpoch,
-    'boards': boards.map((b) => b.toJson()).toList(),
-    'tasks': tasks.map((t) => t.toJson()).toList(),
-    'settings': settings.toJson(),
-    'aiConfig': aiConfig.toJson(),
-  };
+  factory ExportData.fromJson(Map<String, dynamic> j) {
+    final v = (j['version'] as num?)?.toInt() ?? legacyVersion;
+    if (!supportedVersions.contains(v)) {
+      throw FormatException('Unsupported export version: $v');
+    }
+    return ExportData(
+      version: v,
+      timestamp: (j['timestamp'] as num?)?.toInt(),
+      boards: ((j['boards'] as List?) ?? [])
+          .cast<Map<String, dynamic>>()
+          .map(Board.fromJson)
+          .toList(),
+      tasks: ((j['tasks'] as List?) ?? [])
+          .cast<Map<String, dynamic>>()
+          .map(Task.fromJson)
+          .toList(),
+      settings: j['settings'] != null && j['settings'] is Map<String, dynamic>
+          ? AppSettings.fromJson(j['settings'] as Map<String, dynamic>)
+          : AppSettings(),
+      aiConfig: j['aiConfig'] != null && j['aiConfig'] is Map<String, dynamic>
+          ? AIConfig.fromJson(j['aiConfig'] as Map<String, dynamic>)
+          : AIConfig(),
+    );
+  }
+
+  Map<String, dynamic> toJson({int? targetVersion}) {
+    final v = targetVersion ?? versionNumber;
+    return {
+      'version': v,
+      'timestamp': timestamp,
+      'boards': boards.map((b) => b.toJson()).toList(),
+      'tasks': tasks.map((t) => t.toJson(targetVersion: v)).toList(),
+      'settings': settings.toJson(targetVersion: v),
+      'aiConfig': aiConfig.toJson(),
+    };
+  }
 }
