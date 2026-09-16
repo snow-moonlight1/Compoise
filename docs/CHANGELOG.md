@@ -6,6 +6,32 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-16 · V1.0.0 开源首发全量闭环（WP28-R, WP28-B, WP28-P）
+
+- **WP28-R 全平台开源合规与发行规划（docs/RELEASE_PLAN.md）**：
+  - 确立客户端整体采用宽松 **MIT License**，全量排查第三方依赖库授权协议（BSD-3-Clause / MIT / Apache 2.0，全量 Permissive 兼容）；
+  - 声明旧版 React 19 / Vite 原型冻结归档，不随新版发行；
+  - 统一双端应用元数据与标识：App 展示名称为 MatrixFlow AI，Android 包名 `com.matrixflow.app`，Windows AUMID `MatrixFlow.MatrixFlowApp.1.0`，版本号统一为 SemVer `1.0.0+1`；
+  - 设计本地开发、CI 构建与正式签名的安全隔离方案（Android `key.properties` / 环境变量隔离，杜绝私钥入库，本地优雅降级为 debug 签名）；
+  - 整理全渠道发布矩阵（GitHub Release、酷安、小米、华为、Windows 便携包）上架资质与材料清单；
+  - 确立 100% 纯本地优先、BYOK 直连服务商与零隐私侵入合规声明。
+- **WP28-B Android 与 Windows Release 自动化构建打包与 CI（matrixflow-native/）**：
+  - Android 打包配置：在 `android/app/build.gradle.kts` 中完善安全 release 签名逻辑（支持 `key.properties` 与环境变量读取、缺失时安全回退 debug 签名保证本地编译与 CI 顺畅）、开启核心库脱糖（`isCoreLibraryDesugaringEnabled = true`）并引入 `desugar_jdk_libs:2.1.4` 满足通知插件要求、配置 `applicationId = "com.matrixflow.app"` 与 `android:label="MatrixFlow AI"`；
+  - Windows 桌面配置：更新 `windows/runner/Runner.rc` 元数据与产品名称为 `MatrixFlow AI`、更新 `main.cpp` 窗口标题为 `MatrixFlow AI`；
+  - 版本号升级：`pubspec.yaml` 升级为 `1.0.0+1`；
+  - 一键打包自动化脚本：新增纯 ASCII 跨平台 PowerShell 脚本 `scripts/build_release.ps1`，自动执行双端 Release 构建、解析版本、产出 `matrixflow-v1.0.0-android.apk`（24.6 MB）、`matrixflow-v1.0.0-windows-portable.zip`（12.0 MB），并生成 `SHA256SUMS.txt` 校验清单；
+  - GitHub Actions 流水线：新增 `.github/workflows/release.yml`，支持 Tag（`v*`）触发自动构建双端产物并发布 GitHub Release。
+- **WP28-P 开源首发物料、隐私政策与商店上架准备**：
+  - 根目录新建 `LICENSE`（MIT 许可证，正式开源授权）；
+  - 全面更新根目录 `README.md` 与 `matrixflow-native/README.md`（提供高质量中英双语架构图解、特性一览、BYOK 配置步骤、安全声明与编译打包指南）；
+  - 新增正式中英双语隐私政策 `docs/PRIVACY_POLICY.md`（声明 100% 本地优先原则、BYOK 直连零中转、零数据追踪埋点、权限用途合规说明）；
+  - 新增 GitHub Release 官方发布说明模板 `docs/release_notes/v1.0.0.md`；
+  - 整理应用商店送审与权限说明文档 `docs/STORE_LISTING.md`（提供简短/详细中英介绍、图标与 5 张高清截图规范、权限用途合规答辩——明确通知必要性，严格不使用高危 `USE_EXACT_ALARM` 保障商店合规）。
+- **验证与基线保持**：
+  - 全量自动化测试：`flutter test --no-pub` 保持 **255/255** 全绿；
+  - 静态代码分析：`flutter analyze --no-pub` 保持 **0 issues**；
+  - 双端 Release 构建实测全部通过并完成打包。
+
 ## 2026-09-16 · WP09-N 首次引导教程与手势说明
 
 - **5 页响应式引导教程与手势说明（lib/screens/onboarding_screen.dart）**：

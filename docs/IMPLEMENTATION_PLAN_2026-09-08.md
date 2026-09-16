@@ -2,7 +2,7 @@
 
 初稿：2026-09-08；最新修订：2026-09-16。当前代码基线：`main` / `747eb35` + V0.2 + V0.3-A + V0.3-B（全量 255 项自动化通过）；项目根目录：`D:\Dev_project\martix`。
 
-> **路线已确定：继续 MatrixFlow 独立开发，参考 Focus 的交互，不 fork、不搬代码、不跟进其 issue/PR。** 目标是开源本地客户端、发布 GitHub Release 并上架应用商店，保留 BYOK，后续提供可选 ¥9/月、有额度的托管 AI 服务。用户不安排几十人试用；采用助手自动化回归与必要的设备验收。**Flutter Android/Windows 为唯一持续开发客户端；React / Tauri / Capacitor 冻结保留。WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N、WP11-N、WP22-C-N、WP13-A-N、WP25-R、WP25-N-Android、WP25-N-Windows、WP27-B-N、WP09-N 已完成（自动化/研究与契约，V0.3-B 阶段全部闭环收官）；WP20-W 未开工，已取消。下一实施助手领取 WP10-N 或 V1.0 发行准备（WP28-R）。**
+> **路线已确定：继续 MatrixFlow 独立开发，参考 Focus 的交互，不 fork、不搬代码、不跟进其 issue/PR。** 目标是开源本地客户端、发布 GitHub Release 并上架应用商店，保留 BYOK，后续提供可选 ¥9/月、有额度的托管 AI 服务。用户不安排几十人试用；采用助手自动化回归与必要的设备验收。**Flutter Android/Windows 为唯一持续开发客户端；React / Tauri / Capacitor 冻结保留。WP20-N 至 WP09-N，以及 V1.0 开源首发全三包 WP28-R、WP28-B、WP28-P 已全部完成闭环（全自动化回归 255/255 passed，analyze 0 issues，双端 Release 打包验证通过并具备自动化 CI）。下一实施助手可领取 WP10-N（多选批量拖拽移动）或规划 V1.1 可选托管服务（WP29-R）。**
 
 WP20-N、WP21-N 与 WP03-N 已实施：完成/多选/展开/逐行删除线、完整紧急/重要象限名称与分类提示词，以及十字无框矩阵与紧凑任务行。最新自动化为 `flutter test --no-pub` 80/80 与 `analyze --no-pub`。本文其余工作包仍按一次一包领取。后续 Agent 完成后报告，不自行展开整张路线图。
 
@@ -106,7 +106,7 @@ WP20-N、WP21-N 与 WP03-N 已实施：完成/多选/展开/逐行删除线、�
 
 ## 3. 派单顺序与控制范围
 
-**下一包可领取 WP10-N 或进入 V1.0 发行准备（WP28-R）。** WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N、WP11-N、WP22-C-N、WP13-A-N、WP25-R、WP25-N-Android、WP25-N-Windows、WP27-B-N、WP09-N 已完成且不重做；旧 WP20-W 未开工、已取消。多个包会修改 `storage.dart`、模型和字典，默认串行；不要让多个助手同时在同一工作区改共享文件。
+**下一包可领取 WP10-N 或进入 V1.1 可选托管服务规划（WP29-R）。** WP20-N 至 WP09-N，以及 V1.0 开源首发全三包 WP28-R、WP28-B、WP28-P 已全部完成闭环且不重做；旧 WP20-W 未开工、已取消。多个包会修改 `storage.dart`、模型和字典，默认串行；不要让多个助手同时在同一工作区改共享文件。
 
 | 阶段 | 领取顺序 | 交付目标 / 必要依赖 |
 |---|---|---|
@@ -114,7 +114,7 @@ WP20-N、WP21-N 与 WP03-N 已实施：完成/多选/展开/逐行删除线、�
 | V0.2-B 核心交互 | WP03-N（已完成）→ WP04-N（已完成） → WP23-N（已完成） → WP12-S-N（已完成） → WP22-A-N（已完成） → WP22-B-N（已完成） → WP05-N（已完成） → WP06-N（已完成） → WP02-N（已完成） | WP03←WP20/21；WP04/23←WP03；搜索和日期入口←WP04。Android 与 Windows 同包适配 |
 | V0.3-A 常用能力 | WP01-N（已完成） → WP07-N（已完成） → WP08-V-N（已完成） → WP08-T-N（已完成） → WP24-N（已完成） → WP26-A-N（已完成） → WP26-B-N-Windows（已完成） → WP27-A-N（已完成） | WP24←WP20/05；WP26←WP04/搜索；WP27-A←WP07 |
 | V0.3-B 新字段与提醒 | WP11-N（已完成） → WP22-C-N（已完成） → WP13-A-N（已完成） → WP25-R（已完成） → WP25-N-Android（已完成） → WP25-N-Windows（已完成） → WP27-B-N（已完成） → WP09-N（已完成，V0.3-B 全部闭环） | 新任务字段依赖 WP11；提醒依赖 WP22；两平台提醒备份往返为发行前验收项 |
-| V1.0 开源发行 | WP28-R → WP28-B → WP28-P（逐渠道） | Flutter Android/Windows、备份和 BYOK 冒烟通过；不等待后期扩展 |
+| V1.0 开源发行 | WP28-R（已完成） → WP28-B（已完成） → WP28-P（已完成，V1.0 里程碑闭环） | Flutter Android/Windows 双端 Release 构建、自动化打包、CI 脚本与物料合规全量就绪 |
 | V1.1 可选服务 | WP29-R → WP29-S → WP29-C-N → WP29-P（逐渠道） | WP01 和发行渠道准备；独立后端不等于恢复 React 客户端 |
 | 后续原需求 | WP10-N → WP12-T-N → WP13-R → WP13-N → WP14-N → WP15-R → WP15-N（日，再周）→ WP16-N；WP17/18/19 逐子批次 | WP10←WP20/05；标签/Today/导入/同步←WP11；Planner/庆祝←Today；开发模式←标签 |
 
@@ -430,7 +430,10 @@ Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。�
 | WP25-N-Windows | **完成（自动化）** | Windows 桌面端本地通知适配与托盘联动（WinRT Toast 通知接入、托盘最小化保活定时提醒、点击通知唤醒窗口与深层路由、设置页 Windows 通知可靠性指南与测试通知按钮）；`flutter test --no-pub` 245/245，`analyze --no-pub` 0 issues；实机未测 |
 | WP27-B-N | **完成（自动化）** | 完成历史与时间戳（Task/SubTask 扩展可选 completedAt 毫秒时间戳、勾选完成与取消撤销联动记录、7 日完成统计直方图、按完成时间降序排列、WP11 v2 序列化与 v1 降级剥离）；`flutter test --no-pub` 250/250，`analyze --no-pub` 0 issues；实机未测 |
 | WP09-N | **完成（自动化）** | 首次引导教程与手势说明（5 页响应式引导页滑动浏览、跳过与首启自动弹出、本地已阅标记持久化与重置测试、设置页随时重新打开教程、三语完整本地化）；`flutter test --no-pub` 255/255，`analyze --no-pub` 0 issues；实机未测 |
-| 其他未完成包的 Flutter / 研究 / 发行 / 服务子批次 | 待实施 | 下一包可领取 WP10-N（多选批量拖动移动）或进入 V1.0 发行准备（WP28-R）；已有能力只回归 |
+| WP28-R | **完成（合规规划）** | 全平台开源合规与发行规划（确定 MIT License、整理第三方依赖合规清单、统一双端 Package Name / AUMID 元数据、Android/Windows 签名隔离规范、全渠道发布矩阵、100% 本地与 BYOK 隐私规范，产出 `docs/RELEASE_PLAN.md`）；`flutter test --no-pub` 255/255，`analyze --no-pub` 0 issues；实机未测 |
+| WP28-B | **完成（打包与CI）** | Android 与 Windows Release 自动化构建与打包（Android release 签名隔离与 coreLibraryDesugaring、Windows 标题/元数据对齐、一键打包脚本 `scripts/build_release.ps1`、GitHub Actions 流水线 `.github/workflows/release.yml`，双端 Release 实测构建成功并通过 SHA256 校验，产出 APK 24.6MB、Portable ZIP 12.0MB）；`flutter test --no-pub` 255/255，`analyze --no-pub` 0 issues；实机未测 |
+| WP28-P | **完成（物料就绪）** | 开源首发物料、隐私政策与商店上架准备（根目录 MIT LICENSE、根目录及 native 中英双语 README、中英双语正式隐私政策 `docs/PRIVACY_POLICY.md`、GitHub Release 说明模板 `docs/release_notes/v1.0.0.md`、应用商店送审物料与权限答辩 `docs/STORE_LISTING.md`）；`flutter test --no-pub` 255/255，`analyze --no-pub` 0 issues；实机未测 |
+| 其他未完成包的 Flutter / 研究 / 发行 / 服务子批次 | 待实施 | 下一包可领取 WP10-N（多选批量拖动移动）或进入 V1.1 可选托管服务规划（WP29-R）；已有能力只回归 |
 | 其余未实施 React W 子批次 | 取消 | 不删除需求，将客户端实施保留在对应 Flutter 包 |
 | UI 实验版 | 待基础验收后领取 | 见第 10 节；尚未建分支 |
 

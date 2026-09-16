@@ -2,26 +2,28 @@
 
 最后更新：2026-09-16。
 
-## 最新任务：V0.3-B 全部收官（WP25-N-Windows, WP27-B-N, WP09-N 已完成），下一包 WP10-N 或 WP28-R
+## 最新任务：V1.0 开源首发里程碑全部闭环收官（WP28-R, WP28-B, WP28-P 完成），下一包 WP10-N 或 V1.1 托管服务规划（WP29-R）
 
 - Flutter Android/Windows 为唯一持续开发客户端；React/Tauri/Capacitor 冻结保留。依据见 [已采纳 ADR](ADR_FLUTTER_PRIMARY_2026-09-09.md)。旧 W 是 React Web，不是 Windows。
-- **V0.3-B 阶段三包闭环落地（WP25-N-Windows、WP27-B-N、WP09-N 全量落地与 255 项自动化回归）**：
-  - **WP25-N-Windows Windows 桌面本地通知与托盘保活**：
-    - `FlutterLocalNotificationsReminderService` 在 Windows 环境配置 `WindowsInitializationSettings` 与 `WindowsNotificationDetails`，权限判定为 `granted`；
-    - 联动 `DesktopShellService` 最小化/关闭到托盘保活，在后台维护应用内内存 `Timer`（`_activeTimers`）准时触发弹窗；
-    - 点击 Toast 通知触发 `restoreWindow()` 激活主窗口，深层路由自动切换看板、展开子任务并弹起详情面板；设置页提供 Windows 可靠性指南与“发送测试通知”即时测试。
-  - **WP27-B-N 完成历史与时间戳**：
-    - `Task` 与 `SubTask` 扩展可选 `completedAt`（`int?`，毫秒时间戳）；勾选完成记录当前时间戳，编辑保持，取消或撤销恢复清除为 `null`；
-    - `TaskUndoSnapshot` 完整保留并还原 `completedAt`；WP11 v2 持久化，v1 降级导出时安全剥离字段；旧数据读取安全兜底 `null`，严禁借 `createdAt` 伪造时间；
-    - `task_stats.dart` 实现 `computeCompletionHistoryStats` 纯函数计算模型，按本地日历天聚合最近 7 天完成数量分布（`DailyCompletionBucket`）；
-    - `CompletedScreen` 顶部新增“完成趋势”（`_buildTrendsCard`），提供 7 日微型直方图（Mini-Histogram）、今日完成、7 日累计与历史任务统计指标；列表项按完成时间降序排列并展示完成时间徽标。
-  - **WP09-N 首次引导教程与手势说明**：
-    - `lib/screens/onboarding_screen.dart` 实现 5 页精炼教程（四象限与换行批量添加、长按拖拽与跨象限流转、任务详情/子项/提醒、完成统计与 5 秒撤销、AI 助手与纯本地 BYOK）；
-    - 支持前后翻页、跳过、桌面与无障碍键盘快捷导航（Esc / 方向键）；
-    - 本地机器级存储键 `matrixflow-has-seen-onboarding`（`_kHasSeenOnboarding`）持久化已阅标记，首启自动弹出；
-    - 设置页“帮助与关于”提供“使用引导与手势说明”（`reopen-onboarding-btn`），支持用户随时以 `isReviewMode` 重温教程；全套三语国际化字典（中/英/日）。
-  - **测试与基线保持**：全套自动化测试回归达 **255/255**（`flutter test --no-pub` 全绿），`flutter analyze --no-pub` **0 issues**。未改 React，实机物理通知横幅写明未测实机。
-- **下一包**：WP10-N 多选任务批量拖拽移动，或进入 V1.0 开源与发行准备（WP28-R）。
+- **V1.0 开源首发阶段三包全量落地（WP28-R、WP28-B、WP28-P 全量落地与 255 项自动化回归）**：
+  - **WP28-R 开源合规与全平台发行规划**：
+    - 规范文档 `docs/RELEASE_PLAN.md`，确立客户端采用 MIT License，整理第三方依赖许可证（全量 Permissive 兼容）；
+    - 统一双端应用元数据：App 名称 MatrixFlow AI，Android 包名 `com.matrixflow.app`，Windows AUMID `MatrixFlow.MatrixFlowApp.1.0`，版本号统一为 SemVer `1.0.0+1`；
+    - 确立签名凭据安全隔离规范（Android `key.properties` / 环境变量隔离，杜绝私钥入库，本地优雅回退）；
+    - 整理全渠道发布矩阵（GitHub Release、酷安、小米、华为、Windows 便携包）与 100% 纯本地离线 + BYOK 零隐私侵入合规声明。
+  - **WP28-B Android 与 Windows Release 构建与打包自动化**：
+    - Android 配置：`android/app/build.gradle.kts` 完善 release 签名配置（支持 `key.properties` 与环境变量读取、未配置时优雅回退 debug 签名保证本地编译与 CI 顺畅）、开启 `isCoreLibraryDesugaringEnabled` 并引入 `desugar_jdk_libs:2.1.4`（满足 `flutter_local_notifications` 核心库脱糖要求）、设置 `applicationId = "com.matrixflow.app"`、`android:label="MatrixFlow AI"`；
+    - Windows 配置：`windows/runner/Runner.rc` 对齐元数据为 `MatrixFlow AI`、`main.cpp` 窗口标题对齐为 `MatrixFlow AI`；
+    - 跨平台一键打包脚本：`scripts/build_release.ps1` 自动化执行构建、解析版本号、产出 `matrixflow-v1.0.0-android.apk`（24.6 MB）、`matrixflow-v1.0.0-windows-portable.zip`（12.0 MB），并生成 `SHA256SUMS.txt` 校验清单；
+    - CI/CD 流水线：`.github/workflows/release.yml` 支持 Tag（`v*`）触发自动构建双端产物并发布 GitHub Release。
+  - **WP28-P 开源首发物料与商店上架流程就绪**：
+    - 创建根目录 `LICENSE`（MIT 许可证，标明 MatrixFlow AI 版权）；
+    - 完善根目录 `README.md` 与 `matrixflow-native/README.md`（提供高质量中英双语架构图解、特性一览、BYOK 配置步骤、安全声明与编译打包指南）；
+    - 正式中英双语隐私政策 `docs/PRIVACY_POLICY.md`（声明 100% 本地优先、BYOK 直连零中转、零数据追踪，最小化权限详细说明）；
+    - GitHub Release 官方发布说明模板 `docs/release_notes/v1.0.0.md`；
+    - 编写应用商店送审与合规审核文档 `docs/STORE_LISTING.md`（简短/详细介绍、图标与 5 张宣传截图规范、权限用途说明——阐明通知与开机排期必要性，坚决不申请高危 `USE_EXACT_ALARM` 确保审核通过）。
+  - **测试与基线保持**：全套自动化测试回归达 **255/255**（`flutter test --no-pub` 全绿），`flutter analyze --no-pub` **0 issues**。双端 Release 实测构建成功。
+- **下一包**：WP10-N 多选任务批量拖拽移动，或进入 V1.1 可选托管服务规划（WP29-R）。
 - WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N、WP11-N、WP22-C-N、WP13-A-N、WP25-R、WP25-N-Android、WP25-N-Windows、WP27-B-N、WP09-N 继续保留。
 - 全部 42 项需求 / 29 个工作包保留，客户端实现统一 Flutter。新 Flutter 继续读取旧 ExportData v1，后续字段按 WP11 演进，不要求冻结 React 理解未来新格式；Android/Windows 备份一致不等于云同步。
 - 路线仍为独立 MatrixFlow：不 fork/复制 Focus，不追踪其 issue/PR，不组织几十人试用。保留多 Board、父子任务、三协议/思考、无说教、BYOK；后期 GitHub Release/商店及可选 ¥9/月有额度托管服务，本轮未发布或搭建服务。
@@ -42,6 +44,9 @@
 
 ## 已实现功能（历史实现事实）
 
+- **WP28-P 开源首发物料、隐私政策与商店上架准备**：根目录 `LICENSE`（MIT 许可证，正式开源授权）；根目录 `README.md` 与 `matrixflow-native/README.md`（中英双语特性一览、全景架构说明、BYOK 快速配置指南、安全承诺与多端编译构建指引）；`docs/PRIVACY_POLICY.md`（中英双语正式隐私政策，阐明 100% 本地优先原则、端到端直连官方 API 零中转、零数据追踪与最小化权限）；`docs/release_notes/v1.0.0.md`（官方首发 Release Notes 模板，提供产物哈希核对指南）；`docs/STORE_LISTING.md`（应用商店送审物料，包含简短/长版中英介绍、图标与 5 张高清截图规范、权限用途合规答辩——明确 POST_NOTIFICATIONS / SCHEDULE_EXACT_ALARM 必要性，坚决不申请高危 USE_EXACT_ALARM 防违规拒审）；测试回归 255/255 全绿。
+- **WP28-B Android 与 Windows Release 自动化构建打包与 CI**：`android/app/build.gradle.kts`（安全 release 签名配置支持 `key.properties` 与环境变量读取、未配置安全回退 debug 签名、启用 `isCoreLibraryDesugaringEnabled = true` 并依赖 `desugar_jdk_libs:2.1.4` 满足通知插件脱糖要求、设置 `applicationId = "com.matrixflow.app"` 与 `android:label="MatrixFlow AI"`）；`windows/runner/Runner.rc`（对齐 Windows 元数据与产品名称为 `MatrixFlow AI`）；`windows/runner/main.cpp`（对齐窗口标题为 `MatrixFlow AI`）；`pubspec.yaml`（版本号升级为 `1.0.0+1`）；`scripts/build_release.ps1`（纯 ASCII 跨平台 PowerShell 自动化打包脚本，一键构建双端 Release、自动解析版本、产出 Android APK 与 Windows 便携 ZIP，并生成 `SHA256SUMS.txt` 校验清单）；`.github/workflows/release.yml`（GitHub Actions 自动化发布工作流，支持 Tag 自动触发构建并发布 Release 产物）；实测产出：`matrixflow-v1.0.0-android.apk` (24.6 MB)、`matrixflow-v1.0.0-windows-portable.zip` (12.0 MB)；测试回归 255/255 全绿。
+- **WP28-R 全平台开源合规与发行规划**：`docs/RELEASE_PLAN.md`；制定客户端采用 MIT License 宽松开源授权，全量梳理第三方依赖开源协议合规性（全量兼容）；统一全平台应用元数据（MatrixFlow AI、Android 包名 `com.matrixflow.app`、Windows AUMID `MatrixFlow.MatrixFlowApp.1.0`、SemVer `1.0.0+1`）；设计 Android `key.properties` 与 Windows 签名凭据的环境变量多层隔离机制，杜绝私钥入库风险并提供本地开发优雅回退；制定 GitHub Release 与国内主流商店（酷安、小米、华为）全渠道发布矩阵与上架资质检查项；确立 100% 纯本地离线与 BYOK 零隐私侵入规范。
 - **WP09-N 首次引导教程与手势说明**：`lib/screens/onboarding_screen.dart`、`lib/screens/matrix_screen.dart`、`lib/screens/settings_screen.dart`、`lib/storage.dart`、`lib/l10n.dart`；实现 5 页精炼教程与手势说明（四象限与换行快速批量添加、长按拖拽与跨象限流转、任务详情/子任务/闹钟提醒、完成统计与 5 秒撤销、AI 助手与纯本地 BYOK 隐私）；支持前后翻页、跳过、桌面与无障碍键盘快捷导航（Esc / 方向键）；本地机器级存储键 `matrixflow-has-seen-onboarding`（`_kHasSeenOnboarding`）持久化已阅标记，首启自动弹出；设置页“帮助与关于”提供“使用引导与手势说明”（`reopen-onboarding-btn`），支持用户随时以 `isReviewMode` 重温教程；测试：`test/onboarding_test.dart`（5/5）、`test/widget_regression_test.dart` 全绿（255/255）。
 - **WP27-B-N 完成历史与时间戳**：`lib/models.dart`、`lib/storage.dart`、`lib/task_stats.dart`、`lib/screens/completed_screen.dart`、`docs/DATA_COMPATIBILITY.md`；Task 与 SubTask 扩展可选 `completedAt`（`int?`，毫秒时间戳）；勾选完成状态流转记录当前时间戳，编辑保持，取消完成或撤销恢复清除为 `null`；`TaskUndoSnapshot` 完整保留并还原 `completedAt`；WP11 v2 持久化，v1 降级导出时安全剥离；旧数据读取安全兜底 `null`，严禁借 `createdAt` 伪造时间；`computeCompletionHistoryStats` 纯函数计算模型按本地日历天聚合最近 7 天完成数量分布（`DailyCompletionBucket`），父子任务严格独立防重；`CompletedScreen` 顶部新增“完成趋势”（`_buildTrendsCard`），提供 7 日微型直方图（Mini-Histogram）、今日完成、7 日累计与历史任务统计指标；列表项按完成时间降序排列并展示完成时间徽标；测试：`test/task_stats_test.dart`、`test/data_migration_test.dart`（250/250）。
 - **WP25-N-Windows Windows 桌面端本地通知与托盘联动落地**：`lib/services/reminder_service.dart`、`lib/services/desktop_shell_service.dart`、`lib/main.dart`、`lib/screens/matrix_screen.dart`、`lib/screens/settings_screen.dart`、`lib/l10n.dart`；`FlutterLocalNotificationsReminderService` 在 Windows 平台（`TargetPlatform.windows`）无缝适配，配置 `WindowsInitializationSettings`（GUID、AppUserModelID）；`WindowsNotificationDetails` 配置 `long` 持续时间与副标题；Windows 权限自动判定为 `granted`；`scheduleReminder` 在 Windows 环境维护应用内内存 `Timer`（`_activeTimers`），托盘常驻保活期间准时触发；`onDidReceiveNotificationResponse` 自动调用 `DesktopShellService.instance.restoreWindow()` 恢复主窗口；`ReminderPayload` 深度路由跨看板切换与子任务高亮展开；设置页提供 Windows 可靠性指南（托盘保活、专注助手、操作中心）与“发送测试通知”即时测试按钮；测试：`test/reminder_service_test.dart`（14/14）、`test/windows_reminder_test.dart`（4/4）、`test/widget_regression_test.dart` 全绿（245/245）。
@@ -82,28 +87,34 @@
 
 | 检查 | 结果 |
 |---|---|
-| `flutter test --no-pub`（2026-09-16 V0.3-B 闭环） | **255/255 passed**（包含 models_test、reminder_service_test、windows_reminder_test、task_stats_test、onboarding_test、data_migration_test 与全量 UI 回归） |
+| `flutter test --no-pub`（2026-09-16 V1.0 闭环） | **255/255 passed**（包含 models_test、reminder_service_test、windows_reminder_test、task_stats_test、onboarding_test、data_migration_test 与全量 UI 回归） |
 | `flutter analyze --no-pub`（同轮） | **0 issues** |
+| Android Release APK 构建与打包（WP28-B） | **通过**；`flutter build apk --release --no-pub` 成功产出 `matrixflow-v1.0.0-android.apk`（24.6 MB），核心库脱糖与安全签名配置通过 |
+| Windows Release 便携包构建（WP28-B） | **通过**；`flutter build windows --release --no-pub` 成功编译，产出 `matrixflow-v1.0.0-windows-portable.zip`（12.0 MB） |
+| 一键打包脚本与校验和生成（WP28-B） | **通过**；PowerShell `scripts/build_release.ps1` 自动化执行并通过 `SHA256SUMS.txt` 校验 |
 | Windows 实机 Toast 横幅与操作中心（WP25-N-Windows） | **未测**；Windows 通知在 Windows headless 与自动化测试中验证通过，物理 Windows 桌面交互与锁屏横幅需后续实机运行体验 |
 | Android 物理真机通知/闹钟响铃（WP25-N-Android） | **未测**；Flutter Local Notifications 逻辑与调度完整覆盖，物理设备需后续真机安装测试 |
 | 真实模型分类 | **未测**；mock 只证明请求契约 |
 | Web `npm run build` / `tsc` | 本轮未跑；WP20-W 已取消，旧 Web 冻结保留 |
-| 历史 Android release / Redmi K70 E2E | 前轮通过，不能代替本轮验收 |
 
 ## 下一轮启动提示词
 
 ```text
-接手 D:\Dev_project\martix，实施 docs/IMPLEMENTATION_PLAN_2026-09-08.md 的 WP10-N 或进入 V1.0 发行准备（WP28-R）。先读 AGENTS.md、本 HANDOFF、计划第 1/3/5 节。
+接手 D:\Dev_project\martix，实施 docs/IMPLEMENTATION_PLAN_2026-09-08.md 的 WP10-N 或进入 V1.1 可选托管服务规划（WP29-R）。先读 AGENTS.md、本 HANDOFF、计划第 1/3/5 节。
 
-Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。先 git status 保护未提交文档。不改 React，不重做已完成的 WP20-N 至 WP09-N（255 项测试全量通过，V0.2 与 V0.3 基础阶段全部收官）。
+Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。先 git status 保护未提交文档。不改 React，不重做已完成的 WP20-N 至 WP28-P（255 项测试全量通过，V1.0 开源首发全三包已全部闭环收官）。
 
 若领 WP10-N：实现多选任务批量拖拽移动，多选状态下长按或拖拽将所有已选任务统一移动至目标象限，保持相对顺序与撤销联动。
-若领 WP28-R：执行 V1.0 开源与发行前准备（应用图标、版权说明、Release 打包配置与商店物料规范）。
+若领 WP29-R：规划 V1.1 ¥9/月可选托管 AI 服务契约与服务端设计（docs/HOSTED_AI_DESIGN.md），确立账号、订阅、额度与代理边界，保持客户端本地任务库独立。
 
 用 D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat 在 matrixflow-native/ 跑 test --no-pub 与 analyze --no-pub。255/255 是当前基线。未测实机写明。完成后交接后续，停止。
 ```
 
-## 本轮收尾（V0.3-B 全部闭环：WP25-N-Windows, WP27-B-N, WP09-N）
+## 本轮收尾（V1.0 开源首发全三包全部闭环：WP28-R, WP28-B, WP28-P）
+
+- **WP28-R 全平台开源合规与发行规划**：产出 `docs/RELEASE_PLAN.md`，确立 MIT License 开源协议，梳理第三方依赖许可证无传染性风险；统一 Android 包名 `com.matrixflow.app` 与 Windows AUMID `MatrixFlow.MatrixFlowApp.1.0`；确立 `key.properties` 签名安全隔离与本地 debug 优雅回退；制定 GitHub Release 与国内商店（酷安/小米/华为）发布矩阵及 100% 本地优先 BYOK 隐私规范。
+- **WP28-B Android 与 Windows Release 自动化构建打包与 CI**：在 `android/app/build.gradle.kts` 配置 release 签名与 coreLibraryDesugaring、统一 `applicationId` 与应用标签；在 Windows runner 中对齐元数据和窗口标题为 `MatrixFlow AI`；编写纯 ASCII 跨平台 PowerShell 打包脚本 `scripts/build_release.ps1`，成功产出双端产物（APK 24.6MB, ZIP 12.0MB）与 `SHA256SUMS.txt`；配置 GitHub Actions 自动化发布流水线 `.github/workflows/release.yml`。
+- **WP28-P 开源首发物料、隐私政策与商店上架准备**：创建根目录 `LICENSE`（MIT）；全面升级根目录 `README.md` 与 `matrixflow-native/README.md`（中英双语、特性、架构、BYOK 配置指引、安全说明与编译打包步骤）；编写正式隐私政策 `docs/PRIVACY_POLICY.md`；制定官方 Release Notes 模板 `docs/release_notes/v1.0.0.md`；整理应用商店送审与权限说明文档 `docs/STORE_LISTING.md`（特别阐述通知必要性，严格不使用 `USE_EXACT_ALARM` 保障商店合规）。
 
 - **WP25-N-Windows Windows 桌面端本地通知与托盘联动落地**：
   - `lib/services/reminder_service.dart`：`FlutterLocalNotificationsReminderService` 在 Windows 环境配置 `WindowsInitializationSettings` 与 `WindowsNotificationDetails`；`checkPermission()` 与 `requestPermission()` 自动返回 `granted` 与 `true`；维护应用内内存 `Timer`（`_activeTimers`）实现托盘后台常驻准时触发；通知点击回调自动触发 `DesktopShellService.instance.restoreWindow()` 还原窗口。
