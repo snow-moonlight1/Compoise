@@ -277,19 +277,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    t['urgencyThreshold']!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        t['urgencyThreshold']!,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                    Text(
+                      '${store.settings.urgencyThresholdDays}${t['daysLeft']}',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${store.settings.urgencyThresholdDays}${t['daysLeft']}',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w800,
+                  (t['urgencyThresholdDesc'] ??
+                          'Promote uncompleted main tasks with deadlines to urgent {n} days in advance (including today).')
+                      .replaceAll('{n}', '${store.settings.urgencyThresholdDays}'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -834,9 +848,232 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 20),
+
+            _sectionTitle(
+              theme,
+              t['reminders'] ?? 'Reminders & Notifications',
+              Icons.notifications_active_outlined,
+            ),
+            ListTile(
+              key: const ValueKey('reminder-guide-tile'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.battery_charging_full_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(
+                t['reminderGuide'] ?? 'Punctual Alert & Keep-Alive Guide',
+              ),
+              subtitle: Text(
+                t['reminderGuideDesc'] ??
+                    'Guide to configure battery optimization and auto-start on Android ROMs',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showReminderGuideDialog(context, t),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('check-permissions-btn'),
+                    icon: const Icon(Icons.security, size: 16),
+                    label: Text(t['checkPermissions'] ?? 'Check Permissions'),
+                    onPressed: () => _checkAndShowPermissions(context, t),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showReminderGuideDialog(BuildContext context, Map<String, String> t) {
+    showDialog(
+      context: context,
+      builder:
+          (dialogCtx) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.tips_and_updates_outlined, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    t['reminderGuideTitle'] ?? 'Ensure Punctual Reminders',
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t['reminderGuideIntro'] ?? '',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildGuideItem(
+                    context,
+                    title: t['guideXiaomiTitle'] ?? 'Xiaomi / Redmi',
+                    steps: t['guideXiaomiSteps'] ?? '',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildGuideItem(
+                    context,
+                    title: t['guideHuaweiTitle'] ?? 'Huawei / Honor',
+                    steps: t['guideHuaweiSteps'] ?? '',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildGuideItem(
+                    context,
+                    title: t['guideOppoVivoTitle'] ?? 'OPPO / vivo / OnePlus',
+                    steps: t['guideOppoVivoSteps'] ?? '',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildGuideItem(
+                    context,
+                    title: t['guideOtherTitle'] ?? 'Other Android ROMs',
+                    steps: t['guideOtherSteps'] ?? '',
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(t['confirm'] ?? 'OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildGuideItem(
+    BuildContext context, {
+    required String title,
+    required String steps,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            steps,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _checkAndShowPermissions(
+    BuildContext context,
+    Map<String, String> t,
+  ) async {
+    final status = await ReminderService.instance.checkPermission();
+    if (!context.mounted) return;
+
+    final String statusText;
+    final Color color;
+    final bool canRequest;
+
+    switch (status) {
+      case ReminderPermissionStatus.granted:
+        statusText = t['permissionGranted'] ?? 'Granted';
+        color = Colors.green;
+        canRequest = false;
+      case ReminderPermissionStatus.denied:
+        statusText = t['permissionDenied'] ?? 'Denied';
+        color = Colors.red;
+        canRequest = true;
+      case ReminderPermissionStatus.inexactOnly:
+        statusText = t['permissionInexact'] ?? 'Inexact only';
+        color = Colors.orange;
+        canRequest = true;
+      case ReminderPermissionStatus.unsupported:
+        statusText = 'Unsupported on this platform';
+        color = Colors.grey;
+        canRequest = false;
+    }
+
+    showDialog(
+      context: context,
+      builder:
+          (dialogCtx) => AlertDialog(
+            title: Text(t['permissionStatus'] ?? 'Permission Status'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      status == ReminderPermissionStatus.granted
+                          ? Icons.check_circle
+                          : Icons.warning_amber_rounded,
+                      color: color,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              if (canRequest)
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(dialogCtx);
+                    await ReminderService.instance.requestPermission();
+                  },
+                  child: Text(
+                    t['requestPermissionBtn'] ?? 'Request Permission',
+                  ),
+                ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(t['confirm'] ?? 'OK'),
+              ),
+            ],
+          ),
     );
   }
 

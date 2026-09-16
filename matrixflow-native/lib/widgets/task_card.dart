@@ -4,10 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
-import '../task_query.dart' show calendarDaysLeft;
 import 'anim.dart';
 
-export '../task_query.dart' show calendarDaysLeft;
+export '../deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 
 class TaskCard extends StatelessWidget {
   final Task task;
@@ -249,10 +248,29 @@ class TaskCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        _DeadlineChip(
-                          daysLeft: daysLeft,
-                          done: task.completed,
-                          t: t,
+                        Row(
+                          children: [
+                            _DeadlineChip(
+                              daysLeft: daysLeft,
+                              done: task.completed,
+                              t: t,
+                              isUrgent: isDeadlineUrgent(
+                                task.deadline,
+                                store.settings.urgencyThresholdDays,
+                              ),
+                            ),
+                            if (task.reminderAt != null) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.notifications_active_outlined,
+                                size: 14,
+                                color: task.completed
+                                    ? theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.38)
+                                    : theme.colorScheme.primary,
+                              ),
+                            ],
+                          ],
                         ),
                         if (task.subtasks.isNotEmpty) _expandToggle(t, theme),
                         if (expanded)
@@ -325,6 +343,7 @@ class TaskCard extends StatelessWidget {
     ThemeData theme,
   ) {
     if (task.subtasks.isEmpty) return [];
+    final thresholdDays = context.read<Store>().settings.urgencyThresholdDays;
     return [
       const SizedBox(height: 4),
       Padding(
@@ -340,6 +359,7 @@ class TaskCard extends StatelessWidget {
                       width: 28,
                       height: 28,
                       child: Checkbox(
+                        key: ValueKey('task-subtask-check-${sub.id}'),
                         value: sub.completed,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
@@ -373,6 +393,21 @@ class TaskCard extends StatelessWidget {
                         daysLeft: calendarDaysLeft(sub.deadline!),
                         done: sub.completed,
                         t: t,
+                        isUrgent: isDeadlineUrgent(
+                          sub.deadline,
+                          thresholdDays,
+                        ),
+                      ),
+                    ],
+                    if (sub.reminderAt != null) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.notifications_active_outlined,
+                        size: 12,
+                        color: sub.completed
+                            ? theme.colorScheme.onSurface
+                                .withValues(alpha: 0.38)
+                            : theme.colorScheme.primary,
                       ),
                     ],
                   ],
@@ -645,10 +680,12 @@ class _DeadlineChip extends StatelessWidget {
   final int? daysLeft;
   final bool done;
   final Map<String, String> t;
+  final bool isUrgent;
   const _DeadlineChip({
     required this.daysLeft,
     required this.done,
     required this.t,
+    this.isUrgent = false,
   });
 
   @override
@@ -656,11 +693,10 @@ class _DeadlineChip extends StatelessWidget {
     if (daysLeft == null || done) return const SizedBox.shrink();
     final overdue = daysLeft! < 0;
     final today = daysLeft == 0;
-    final urgent = daysLeft! <= 2;
     final color =
         overdue || today
             ? Theme.of(context).colorScheme.error
-            : urgent
+            : isUrgent
             ? Colors.orange
             : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4);
     return Padding(

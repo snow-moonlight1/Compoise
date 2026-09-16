@@ -27,6 +27,7 @@ class _InputSheetState extends State<InputSheet> {
   bool _closed = false;
   String? _error;
   DateTime? _selectedDeadline;
+  int? _selectedReminderAt;
 
   @override
   void dispose() {
@@ -105,6 +106,8 @@ class _InputSheetState extends State<InputSheet> {
                   ),
                 const SizedBox(height: 8),
                 _buildDeadlineRow(context, t),
+                const SizedBox(height: 6),
+                _buildReminderRow(context, t),
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -269,6 +272,110 @@ class _InputSheetState extends State<InputSheet> {
     }
   }
 
+  Widget _buildReminderRow(BuildContext context, Map<String, String> t) {
+    final hasReminder = _selectedReminderAt != null;
+    final formattedTime = hasReminder
+        ? () {
+            final dt = DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!);
+            return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+          }()
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            ActionChip(
+              key: const ValueKey('input-reminder-btn'),
+              avatar: Icon(
+                hasReminder
+                    ? Icons.notifications_active
+                    : Icons.notifications_none,
+                size: 16,
+                color: hasReminder ? Theme.of(context).colorScheme.primary : null,
+              ),
+              label: Text(
+                hasReminder
+                    ? formattedTime!
+                    : (t['setReminder'] ?? 'Set Reminder'),
+              ),
+              onPressed: _busy ? null : _pickReminderDateTime,
+            ),
+            if (hasReminder)
+              IconButton(
+                key: const ValueKey('input-reminder-clear'),
+                tooltip: t['clearReminder'] ?? 'Clear Reminder',
+                icon: const Icon(Icons.close, size: 18),
+                visualDensity: VisualDensity.compact,
+                onPressed:
+                    _busy ? null : () => setState(() => _selectedReminderAt = null),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickReminderDateTime() async {
+    final now = DateTime.now();
+    final initialDate = _selectedReminderAt != null
+        ? DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!)
+        : (_selectedDeadline ?? now);
+    final firstDate = DateTime(now.year, now.month, now.day);
+    final lastDate = DateTime(now.year + 5);
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final initialTime = _selectedReminderAt != null
+        ? TimeOfDay.fromDateTime(
+            DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!),
+          )
+        : const TimeOfDay(hour: 9, minute: 0);
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (combined.isBefore(DateTime.now())) {
+      final t = context.read<Store>().t;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t['reminderPastError'] ?? 'Reminder time cannot be in the past',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _selectedReminderAt = combined.millisecondsSinceEpoch;
+    });
+  }
+
   Future<void> _submit() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _busy || _closed) return;
@@ -298,10 +405,14 @@ class _InputSheetState extends State<InputSheet> {
     if (_mode == InputModePref.single) {
       store.addTasks([
         for (final line in inputs)
-          store.newTask(line, deadline: deadlineSnapshot),
+          store.newTask(line, deadline: deadlineSnapshot)
+            ..reminderAt = _selectedReminderAt,
       ]);
       _controller.clear();
-      setState(() => _selectedDeadline = null);
+      setState(() {
+        _selectedDeadline = null;
+        _selectedReminderAt = null;
+      });
       if (!widget.embedded) Navigator.pop(context);
       return;
     }
@@ -352,11 +463,15 @@ class _InputSheetState extends State<InputSheet> {
             boardId: boardId,
             createdAt: DateTime.now().millisecondsSinceEpoch,
             deadline: deadlineSnapshot,
+            reminderAt: _selectedReminderAt,
           ),
       ];
       store.addTasks(tasks);
       _controller.clear();
-      setState(() => _selectedDeadline = null);
+      setState(() {
+        _selectedDeadline = null;
+        _selectedReminderAt = null;
+      });
       final longTerm =
           !settings.autoDecomposeAI && !settings.suppressLongTermPrompt
               ? tasks

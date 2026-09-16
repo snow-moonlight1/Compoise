@@ -62,12 +62,17 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
   late final TextEditingController _title = TextEditingController(
     text: widget.task.title,
   );
+  late final TextEditingController _notes = TextEditingController(
+    text: widget.task.notesMarkdown ?? '',
+  );
   late int _quadrant = widget.task.quadrant;
   late DateTime? _deadline =
       widget.task.deadline == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(widget.task.deadline!);
+  late int? _reminderAt = widget.task.reminderAt;
   late bool _isLongTerm = widget.task.isLongTerm;
+  late UrgencyMode _urgencyMode = widget.task.urgencyMode;
   late final List<SubTask> _subtasks = [
     for (final s in widget.task.subtasks) SubTask.fromJson(s.toJson()),
   ];
@@ -76,9 +81,12 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
 
   // Baseline state to determine if draft has unsaved changes
   late final String _initialTitle = widget.task.title;
+  late final String _initialNotes = widget.task.notesMarkdown ?? '';
   late final int _initialQuadrant = widget.task.quadrant;
   late final int? _initialDeadlineMs = widget.task.deadline;
+  late final int? _initialReminderAt = widget.task.reminderAt;
   late final bool _initialIsLongTerm = widget.task.isLongTerm;
+  late final UrgencyMode _initialUrgencyMode = widget.task.urgencyMode;
   late final String _initialSubtasksJson = jsonEncode(
     widget.task.subtasks.map((s) => s.toJson()).toList(),
   );
@@ -88,6 +96,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
   @override
   void dispose() {
     _title.dispose();
+    _notes.dispose();
     _newSubtaskController.dispose();
     super.dispose();
   }
@@ -100,9 +109,13 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
   String _formatDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  String _formatDateTime(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
   bool get _isDirty {
     if (_forceClose) return false;
     if (_title.text.trim() != _initialTitle.trim()) return true;
+    if (_notes.text.trim() != _initialNotes.trim()) return true;
     if (_quadrant != _initialQuadrant) return true;
     final initialDate =
         _initialDeadlineMs == null
@@ -113,7 +126,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
         : !_isSameDay(_deadline, initialDate)) {
       return true;
     }
+    if (_reminderAt != _initialReminderAt) return true;
     if (_isLongTerm != _initialIsLongTerm) return true;
+    if (_urgencyMode != _initialUrgencyMode) return true;
     final currentSubtasksJson = jsonEncode(
       _subtasks.map((s) => s.toJson()).toList(),
     );
@@ -190,20 +205,28 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
             ? null
             : DateTime(d.year, d.month, d.day, 23, 59, 59).millisecondsSinceEpoch;
     final newSubtasks = [for (final s in _subtasks) SubTask.fromJson(s.toJson())];
+    final notesText = _notes.text.trim();
+    final newNotes = notesText.isEmpty ? null : _notes.text;
 
     final updated = Task.fromJson(current.toJson())
       ..title = titleText
+      ..notesMarkdown = newNotes
       ..quadrant = _quadrant
       ..deadline = newDeadline
+      ..reminderAt = _reminderAt
       ..isLongTerm = _isLongTerm
-      ..subtasks = newSubtasks;
+      ..subtasks = newSubtasks
+      ..urgencyMode = _urgencyMode;
 
     widget.task
       ..title = titleText
+      ..notesMarkdown = newNotes
       ..quadrant = _quadrant
       ..deadline = newDeadline
+      ..reminderAt = _reminderAt
       ..isLongTerm = _isLongTerm
-      ..subtasks = [for (final s in newSubtasks) SubTask.fromJson(s.toJson())];
+      ..subtasks = [for (final s in newSubtasks) SubTask.fromJson(s.toJson())]
+      ..urgencyMode = _urgencyMode;
 
     store.updateTask(updated);
     _forceClose = true;
@@ -260,6 +283,61 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     if (mounted && picked != null) setState(() => _deadline = picked);
   }
 
+  Future<void> _pickReminderDateTime() async {
+    final now = DateTime.now();
+    final initialDate = _reminderAt != null
+        ? DateTime.fromMillisecondsSinceEpoch(_reminderAt!)
+        : (_deadline ?? now);
+    final firstDate = DateTime(now.year, now.month, now.day);
+    final lastDate = DateTime(now.year + 5);
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final initialTime = _reminderAt != null
+        ? TimeOfDay.fromDateTime(
+            DateTime.fromMillisecondsSinceEpoch(_reminderAt!),
+          )
+        : const TimeOfDay(hour: 9, minute: 0);
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (combined.isBefore(DateTime.now())) {
+      final t = context.read<Store>().t;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t['reminderPastError'] ?? 'Reminder time cannot be in the past',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _reminderAt = combined.millisecondsSinceEpoch;
+    });
+  }
+
   void _addSubtask() {
     final text = _newSubtaskController.text.trim();
     if (text.isEmpty) return;
@@ -274,9 +352,11 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     final t = store.t;
     final theme = Theme.of(context);
     final titleController = TextEditingController(text: sub.title);
+    final notesController = TextEditingController(text: sub.notesMarkdown ?? '');
     DateTime? subDeadline = sub.deadline == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(sub.deadline!);
+    int? subReminder = sub.reminderAt;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -383,9 +463,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             if (picked != null) {
                               setDialogState(() {
                                 subDeadline = DateTime(
-                                  picked.year,
-                                  picked.month,
-                                  picked.day,
+                                    picked.year,
+                                    picked.month,
+                                    picked.day,
                                 );
                               });
                             }
@@ -414,6 +494,106 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           ),
                         ),
                       ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const ValueKey('subtask-edit-notes'),
+                      controller: notesController,
+                      minLines: 2,
+                      maxLines: 4,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        labelText: t['subtaskNotes'] ?? t['notes'] ?? 'Notes',
+                        hintText: t['notesHint'] ?? 'Add notes…',
+                        alignLabelWithHint: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      t['reminder'] ?? 'Reminder',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('subtask-reminder-btn'),
+                            icon: Icon(
+                              subReminder == null
+                                  ? Icons.notifications_none
+                                  : Icons.notifications_active,
+                              size: 16,
+                            ),
+                            label: Text(
+                              subReminder == null
+                                  ? (t['setReminder'] ?? 'Set Reminder')
+                                  : _formatDateTime(
+                                      DateTime.fromMillisecondsSinceEpoch(
+                                        subReminder!,
+                                      ),
+                                    ),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: () async {
+                              final now = DateTime.now();
+                              final initialDate = subReminder != null
+                                  ? DateTime.fromMillisecondsSinceEpoch(subReminder!)
+                                  : (subDeadline ?? now);
+                              final firstDate = DateTime(now.year, now.month, now.day);
+                              final lastDate = DateTime(now.year + 5);
+                              final pickedDate = await showDatePicker(
+                                context: context,
+                                initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
+                                firstDate: firstDate,
+                                lastDate: lastDate,
+                              );
+                              if (pickedDate == null || !context.mounted) return;
+                              final initialTime = subReminder != null
+                                  ? TimeOfDay.fromDateTime(DateTime.fromMillisecondsSinceEpoch(subReminder!))
+                                  : const TimeOfDay(hour: 9, minute: 0);
+                              final pickedTime = await showTimePicker(
+                                context: context,
+                                initialTime: initialTime,
+                              );
+                              if (pickedTime == null || !context.mounted) return;
+                              final combined = DateTime(
+                                pickedDate.year,
+                                pickedDate.month,
+                                pickedDate.day,
+                                pickedTime.hour,
+                                pickedTime.minute,
+                              );
+                              if (combined.isBefore(DateTime.now())) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      t['reminderPastError'] ??
+                                          'Reminder time cannot be in the past',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              setDialogState(() {
+                                subReminder = combined.millisecondsSinceEpoch;
+                              });
+                            },
+                          ),
+                        ),
+                        if (subReminder != null)
+                          IconButton(
+                            key: const ValueKey('subtask-reminder-clear'),
+                            tooltip: t['clearReminder'] ?? 'Clear Reminder',
+                            icon: const Icon(Icons.close, size: 18),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => setDialogState(() => subReminder = null),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -440,6 +620,8 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
 
     if (mounted && saved == true) {
       final newTitle = titleController.text.trim();
+      final notesRaw = notesController.text.trim();
+      final newNotes = notesRaw.isEmpty ? null : notesController.text;
       final newDeadline =
           subDeadline == null
               ? null
@@ -453,7 +635,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
               ).millisecondsSinceEpoch;
       setState(() {
         sub.title = newTitle;
+        sub.notesMarkdown = newNotes;
         sub.deadline = newDeadline;
+        sub.reminderAt = subReminder;
       });
     }
   }
@@ -573,6 +757,23 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           ),
                           const SizedBox(height: 16),
 
+                          // Task Notes Field (multiline plain text editor)
+                          TextField(
+                            key: const ValueKey('edit-notes'),
+                            controller: _notes,
+                            minLines: 2,
+                            maxLines: 6,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            decoration: InputDecoration(
+                              labelText: t['notes'] ?? 'Notes',
+                              hintText: t['notesHint'] ?? 'Add notes…',
+                              alignLabelWithHint: true,
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
                           // Deadline row
                           Row(
                             children: [
@@ -601,6 +802,120 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           ),
                           const SizedBox(height: 16),
 
+                          // Reminder row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  key: const ValueKey('edit-reminder-btn'),
+                                  icon: Icon(
+                                    _reminderAt == null
+                                        ? Icons.notifications_none
+                                        : Icons.notifications_active,
+                                    size: 18,
+                                    color: _reminderAt == null
+                                        ? null
+                                        : theme.colorScheme.primary,
+                                  ),
+                                  label: Text(
+                                    _reminderAt == null
+                                        ? (t['setReminder'] ?? 'Set Reminder')
+                                        : _formatDateTime(
+                                            DateTime.fromMillisecondsSinceEpoch(
+                                              _reminderAt!,
+                                            ),
+                                          ),
+                                  ),
+                                  onPressed: _pickReminderDateTime,
+                                ),
+                              ),
+                              if (_reminderAt != null)
+                                IconButton(
+                                  key: const ValueKey('clear-reminder-btn'),
+                                  tooltip: t['clearReminder'] ?? 'Clear Reminder',
+                                  onPressed:
+                                      () => setState(() => _reminderAt = null),
+                                  icon: const Icon(Icons.clear),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          // Quick reminder chips
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              if (d != null) ...[
+                                ActionChip(
+                                  key: const ValueKey('reminder-quick-due-date'),
+                                  label: Text(
+                                    t['reminderOnDueDate'] ?? 'On due date 09:00',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  onPressed: () {
+                                    final due9 = DateTime(d.year, d.month, d.day, 9, 0);
+                                    if (due9.isAfter(DateTime.now())) {
+                                      setState(() => _reminderAt = due9.millisecondsSinceEpoch);
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            t['reminderPastError'] ??
+                                                'Reminder time cannot be in the past',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                              ActionChip(
+                                key: const ValueKey('reminder-quick-today-18'),
+                                label: Text(
+                                  t['reminderToday18'] ?? 'Today 18:00',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                onPressed: () {
+                                  final now = DateTime.now();
+                                  final today18 = DateTime(now.year, now.month, now.day, 18, 0);
+                                  if (today18.isAfter(now)) {
+                                    setState(() => _reminderAt = today18.millisecondsSinceEpoch);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          t['reminderPastError'] ??
+                                              'Reminder time cannot be in the past',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                              ActionChip(
+                                key: const ValueKey('reminder-quick-tomorrow-9'),
+                                label: Text(
+                                  t['reminderTomorrow9'] ?? 'Tomorrow 09:00',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                onPressed: () {
+                                  final now = DateTime.now();
+                                  final tom9 = DateTime(now.year, now.month, now.day + 1, 9, 0);
+                                  setState(() => _reminderAt = tom9.millisecondsSinceEpoch);
+                                },
+                              ),
+                              ActionChip(
+                                key: const ValueKey('reminder-quick-custom'),
+                                label: Text(
+                                  t['customReminder'] ?? 'Custom',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                onPressed: _pickReminderDateTime,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
                           // Quadrant selection chips
                           Text(
                             t['quadrant']!,
@@ -617,11 +932,87 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                 ChoiceChip(
                                   label: Text(t['q$q']!),
                                   selected: _quadrant == q,
-                                  onSelected:
-                                      (_) => setState(() => _quadrant = q),
+                                  onSelected: (_) {
+                                    setState(() {
+                                      final oldQ = _quadrant;
+                                      _quadrant = q;
+                                      if (isUrgentQuadrant(oldQ) !=
+                                          isUrgentQuadrant(q)) {
+                                        _urgencyMode = UrgencyMode.manual;
+                                      }
+                                    });
+                                  },
                                 ),
                             ],
                           ),
+                          if (_urgencyMode == UrgencyMode.manual) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.tune,
+                                    size: 16,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      t['urgencyManualNotice'] ??
+                                          'Urgency manually set',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    key: const ValueKey('reset-urgency-auto'),
+                                    style: TextButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _urgencyMode = UrgencyMode.auto;
+                                        final store = context.read<Store>();
+                                        final d = _deadline;
+                                        if (d != null) {
+                                          final dMs = DateTime(
+                                            d.year,
+                                            d.month,
+                                            d.day,
+                                            23,
+                                            59,
+                                            59,
+                                          ).millisecondsSinceEpoch;
+                                          if (isDeadlineUrgent(
+                                            dMs,
+                                            store.settings.urgencyThresholdDays,
+                                          )) {
+                                            _quadrant = promoteToUrgent(_quadrant);
+                                          }
+                                        }
+                                      });
+                                    },
+                                    child: Text(
+                                      t['resetUrgencyAuto'] ?? 'Restore Auto',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 16),
 
                           // Long-Term switch & AI Decompose button
@@ -731,6 +1122,19 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                                             .onSurface,
                                               ),
                                             ),
+                                            if (sub.notesMarkdown != null &&
+                                                sub.notesMarkdown!.trim().isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                sub.notesMarkdown!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: theme.colorScheme.onSurfaceVariant,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
                                             if (sub.deadline != null) ...[
                                               const SizedBox(height: 2),
                                               Row(
@@ -764,6 +1168,33 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                                               .withValues(
                                                                 alpha: 0.6,
                                                               ),
+                                                          fontSize: 11,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                            if (sub.reminderAt != null) ...[
+                                              const SizedBox(height: 2),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.notifications_active_outlined,
+                                                    size: 11,
+                                                    color: theme.colorScheme.primary,
+                                                  ),
+                                                  const SizedBox(width: 3),
+                                                  Text(
+                                                    _formatDateTime(
+                                                      DateTime.fromMillisecondsSinceEpoch(
+                                                        sub.reminderAt!,
+                                                      ),
+                                                    ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelSmall
+                                                        ?.copyWith(
+                                                          color: theme.colorScheme.primary,
                                                           fontSize: 11,
                                                         ),
                                                   ),
