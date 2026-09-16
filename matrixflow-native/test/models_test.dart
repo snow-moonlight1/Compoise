@@ -30,6 +30,89 @@ void main() {
       expect(restored.subtasks.length, 2);
       expect(restored.subtasks.first.completed, isTrue);
       expect(restored.subtasks.first.deadline, 1700000500000);
+      expect(restored.urgencyMode, UrgencyMode.auto);
+      expect(restored.notesMarkdown, isNull);
+
+      final taskWithNotes = Task(
+        id: 't-notes',
+        boardId: 'b1',
+        title: '任务备注测试',
+        quadrant: qDo,
+        createdAt: 1700000000000,
+        notesMarkdown: '这是父任务详细纯文本备注\n第二行内容',
+        subtasks: [
+          SubTask(
+            id: 's-notes',
+            title: '子任务A',
+            notesMarkdown: '子任务备注详情',
+          ),
+        ],
+      );
+      final restoredWithNotes = Task.fromJson(taskWithNotes.toJson());
+      expect(restoredWithNotes.notesMarkdown, '这是父任务详细纯文本备注\n第二行内容');
+      expect(restoredWithNotes.subtasks.first.notesMarkdown, '子任务备注详情');
+
+      // v2 export retains notesMarkdown
+      final v2Json = taskWithNotes.toJson(targetVersion: 2);
+      expect(v2Json['notesMarkdown'], '这是父任务详细纯文本备注\n第二行内容');
+      expect((v2Json['subtasks'] as List).first['notesMarkdown'], '子任务备注详情');
+
+      // v1 downgrade export strips notesMarkdown from parent and subtasks
+      final v1Json = taskWithNotes.toJson(targetVersion: 1);
+      expect(v1Json.containsKey('notesMarkdown'), isFalse);
+      expect((v1Json['subtasks'] as List).first.containsKey('notesMarkdown'), isFalse);
+
+      final manualTask = Task(
+        id: 't-manual',
+        boardId: 'b1',
+        title: '手动紧急',
+        quadrant: qDo,
+        createdAt: 1700000000000,
+        urgencyMode: UrgencyMode.manual,
+      );
+      final restoredManual = Task.fromJson(manualTask.toJson());
+      expect(restoredManual.urgencyMode, UrgencyMode.manual);
+      expect(manualTask.toJson(targetVersion: 2)['urgencyMode'], 'manual');
+      expect(manualTask.toJson(targetVersion: 1).containsKey('urgencyMode'), isFalse);
+
+      final reminderTask = Task(
+        id: 't-reminder',
+        boardId: 'b1',
+        title: '准时提醒测试',
+        quadrant: qPlan,
+        createdAt: 1700000000000,
+        reminderAt: 1700005000000,
+        reminderTimezone: 'Asia/Shanghai',
+        subtasks: [
+          SubTask(
+            id: 's-reminder',
+            title: '子任务提醒',
+            reminderAt: 1700004000000,
+          ),
+        ],
+      );
+      final restoredReminder = Task.fromJson(reminderTask.toJson());
+      expect(restoredReminder.reminderAt, 1700005000000);
+      expect(restoredReminder.reminderTimezone, 'Asia/Shanghai');
+      expect(restoredReminder.subtasks.first.reminderAt, 1700004000000);
+
+      // v2 export retains reminderAt and reminderTimezone
+      final reminderV2Json = reminderTask.toJson(targetVersion: 2);
+      expect(reminderV2Json['reminderAt'], 1700005000000);
+      expect(reminderV2Json['reminderTimezone'], 'Asia/Shanghai');
+      expect(
+        (reminderV2Json['subtasks'] as List).first['reminderAt'],
+        1700004000000,
+      );
+
+      // v1 downgrade export strips reminderAt and reminderTimezone
+      final reminderV1Json = reminderTask.toJson(targetVersion: 1);
+      expect(reminderV1Json.containsKey('reminderAt'), isFalse);
+      expect(reminderV1Json.containsKey('reminderTimezone'), isFalse);
+      expect(
+        (reminderV1Json['subtasks'] as List).first.containsKey('reminderAt'),
+        isFalse,
+      );
     });
 
     test('tolerates missing optional fields (old exports)', () {
@@ -37,6 +120,16 @@ void main() {
       expect(restored.quadrant, qEliminate);
       expect(restored.completed, isFalse);
       expect(restored.subtasks, isEmpty);
+      expect(restored.urgencyMode, UrgencyMode.auto);
+      expect(restored.notesMarkdown, isNull);
+      expect(restored.reminderAt, isNull);
+      expect(restored.reminderTimezone, isNull);
+
+      final restoredSub = SubTask.fromJson({'id': 's-old', 'title': 'old sub'});
+      expect(restoredSub.completed, isFalse);
+      expect(restoredSub.deadline, isNull);
+      expect(restoredSub.notesMarkdown, isNull);
+      expect(restoredSub.reminderAt, isNull);
     });
   });
 
@@ -126,18 +219,37 @@ void main() {
   });
 
   group('ExportData', () {
-    test('web-compatible shape', () {
+    test('standard v2 export shape', () {
       final json = ExportData(
         boards: [Board(id: 'b1', name: 'My Tasks', createdAt: 1)],
         tasks: [Task(id: 't1', boardId: 'b1', title: 'x', quadrant: 1, createdAt: 1)],
         settings: AppSettings(),
         aiConfig: AIConfig(),
       ).toJson();
+      expect(json['version'], 2);
+      expect(json['boards'], isA<List>());
+      expect(json['tasks'], isA<List>());
+      expect(json['settings'], isA<Map>());
+      expect(json['aiConfig'], isA<Map>());
+      expect((json['settings'] as Map)['viewMode'], 'grid');
+      expect((json['settings'] as Map)['fontSize'], 'standard');
+    });
+
+    test('v1 downgrade export shape excludes v2-only settings', () {
+      final json = ExportData(
+        boards: [Board(id: 'b1', name: 'My Tasks', createdAt: 1)],
+        tasks: [Task(id: 't1', boardId: 'b1', title: 'x', quadrant: 1, createdAt: 1)],
+        settings: AppSettings(),
+        aiConfig: AIConfig(),
+      ).toJson(targetVersion: 1);
       expect(json['version'], 1);
       expect(json['boards'], isA<List>());
       expect(json['tasks'], isA<List>());
       expect(json['settings'], isA<Map>());
       expect(json['aiConfig'], isA<Map>());
+      expect((json['settings'] as Map).containsKey('viewMode'), isFalse);
+      expect((json['settings'] as Map).containsKey('fontSize'), isFalse);
+      expect((json['settings'] as Map).containsKey('closeToTray'), isFalse);
     });
   });
 

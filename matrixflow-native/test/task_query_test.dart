@@ -445,5 +445,118 @@ void main() {
       expect(results.isNotEmpty, isTrue);
       expect(stopwatch.elapsedMilliseconds, lessThan(200));
     });
+
+    test('WP13-A-N: keyword search matches parent and subtask notesMarkdown', () {
+      final t1 = Task(
+        id: 't-note-parent',
+        boardId: 'b-a',
+        title: 'Regular Title',
+        notesMarkdown: 'Important Meeting Minutes with Dr. Smith',
+        quadrant: qDo,
+        createdAt: 100,
+      );
+      final t2 = Task(
+        id: 't-note-sub',
+        boardId: 'b-a',
+        title: 'Parent Task Without Keyword',
+        quadrant: qPlan,
+        createdAt: 200,
+        subtasks: [
+          SubTask(
+            id: 's-note-1',
+            title: 'Subtask title',
+            notesMarkdown: 'Check out the secret specification document',
+          ),
+        ],
+      );
+      final t3 = Task(
+        id: 't-zh-ja-notes',
+        boardId: 'b-a',
+        title: '常规待办',
+        notesMarkdown: '会议纪要补充说明，プロジェクト仕様確認',
+        quadrant: qPlan,
+        createdAt: 300,
+        subtasks: [
+          SubTask(
+            id: 's-zh-sub',
+            title: '普通子项',
+            notesMarkdown: '详细执行要点：联系客户确认交付日期',
+          ),
+        ],
+      );
+
+      // Search matching parent notes (case-insensitive)
+      final res1 = queryTasks(
+        tasks: [t1, t2, t3],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: 'meeting minutes',
+      );
+      expect(res1.length, 1);
+      expect(res1.single.task.id, 't-note-parent');
+      expect(res1.single.isSubtaskMatch, isFalse);
+
+      // Search matching subtask notes
+      final res2 = queryTasks(
+        tasks: [t1, t2, t3],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: 'secret specification',
+      );
+      expect(res2.length, 1);
+      expect(res2.single.task.id, 't-note-sub');
+      expect(res2.single.isSubtaskMatch, isTrue);
+      expect(res2.single.matchedSubtask!.id, 's-note-1');
+
+      // Search matching Chinese in parent notes
+      final resZh = queryTasks(
+        tasks: [t1, t2, t3],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: '会议纪要',
+      );
+      expect(resZh.length, 1);
+      expect(resZh.single.task.id, 't-zh-ja-notes');
+
+      // Search matching Japanese in parent notes
+      final resJa = queryTasks(
+        tasks: [t1, t2, t3],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: 'プロジェクト仕様',
+      );
+      expect(resJa.length, 1);
+      expect(resJa.single.task.id, 't-zh-ja-notes');
+
+      // Search matching Chinese in subtask notes
+      final resZhSub = queryTasks(
+        tasks: [t1, t2, t3],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: '联系客户确认交付',
+      );
+      expect(resZhSub.length, 1);
+      expect(resZhSub.single.isSubtaskMatch, isTrue);
+      expect(resZhSub.single.matchedSubtask!.id, 's-zh-sub');
+    });
+
+    test('WP13-A-N: keyword search strictly does NOT match reasoning', () {
+      final tWithReasoning = Task(
+        id: 't-reasoning',
+        boardId: 'b-a',
+        title: '普通待办项',
+        reasoning: '历史AI说教推理内容：ConfidentialModelPromptReasoning',
+        quadrant: qDo,
+        createdAt: 100,
+      );
+
+      final results = queryTasks(
+        tasks: [tWithReasoning],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: 'ConfidentialModelPromptReasoning',
+      );
+      expect(results, isEmpty);
+    });
   });
 }

@@ -2072,7 +2072,7 @@ void main() {
   testWidgets(
     'WP05-N: TaskDetailPanel quadrant change prepends task to target quadrant',
     (tester) async {
-      viewport(tester, const Size(800, 600));
+      viewport(tester, const Size(800, 900));
       final store = await setup(tester);
 
       final t1 = store.newTask('Task Q1', quadrant: qDo);
@@ -3175,5 +3175,266 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'WP13-A-N: parent and subtask notes editing, saving, display, and discard draft protection',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      final task = store.newTask('Task with notes', quadrant: qDo);
+      task.subtasks.add(SubTask(id: 'sub-1', title: 'First subtask'));
+      store.addTasks([task]);
+
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+
+      // 1. Open task detail
+      await tester.tap(find.text('Task with notes'));
+      await tester.pumpAndSettle();
+
+      // Verify edit-notes field is present and empty
+      expect(find.byKey(const ValueKey('edit-notes')), findsOneWidget);
+      expect((tester.widget(find.byKey(const ValueKey('edit-notes'))) as TextField).controller!.text, isEmpty);
+
+      // Enter notes for parent task
+      await tester.enterText(find.byKey(const ValueKey('edit-notes')), 'Parent note line 1\nline 2');
+      await tester.pumpAndSettle();
+
+      // Edit subtask to add subtask notes
+      await tester.ensureVisible(find.byKey(const ValueKey('subtask-item-sub-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('subtask-item-sub-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('subtask-edit-notes')), findsOneWidget);
+      await tester.enterText(find.byKey(const ValueKey('subtask-edit-notes')), 'Subtask note details');
+      await tester.pumpAndSettle();
+
+      // Save subtask dialog
+      await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
+      await tester.pumpAndSettle();
+
+      // Verify subtask note snippet is rendered in subtask list
+      expect(find.text('Subtask note details'), findsOneWidget);
+
+      // Save parent task detail
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await tester.pumpAndSettle();
+
+      // Verify task in store has notesMarkdown
+      final savedTask = store.tasks.firstWhere((t) => t.id == task.id);
+      expect(savedTask.notesMarkdown, 'Parent note line 1\nline 2');
+      expect(savedTask.subtasks.first.notesMarkdown, 'Subtask note details');
+
+      // 2. Re-open task detail to test discard draft protection
+      await tester.tap(find.text('Task with notes'));
+      await tester.pumpAndSettle();
+
+      expect((tester.widget(find.byKey(const ValueKey('edit-notes'))) as TextField).controller!.text, 'Parent note line 1\nline 2');
+
+      // Make a change to notes
+      await tester.enterText(find.byKey(const ValueKey('edit-notes')), 'Dirty uncommitted note');
+      await tester.pumpAndSettle();
+
+      // Tap close button -> triggers discard confirmation
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(store.t['discardChangesTitle']!), findsOneWidget);
+
+      // Tap "Keep Editing"
+      await tester.tap(find.text(store.t['keepEditing']!));
+      await tester.pumpAndSettle();
+
+      // Detail panel is still open
+      expect(find.byKey(const ValueKey('edit-notes')), findsOneWidget);
+
+      // Tap close again and tap "Discard"
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(store.t['discard']!));
+      await tester.pumpAndSettle();
+
+      // Panel closed, store notes remains unchanged
+      expect(find.byKey(const ValueKey('edit-notes')), findsNothing);
+      expect(store.tasks.firstWhere((t) => t.id == task.id).notesMarkdown, 'Parent note line 1\nline 2');
+
+      // 3. Clear notes and save
+      await tester.tap(find.text('Task with notes'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const ValueKey('edit-notes')), '');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await tester.pumpAndSettle();
+
+      expect(store.tasks.firstWhere((t) => t.id == task.id).notesMarkdown, isNull);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'WP13-A-N: SearchScreen finds parent and subtask by notes',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      final t1 = store.newTask('Regular Header', quadrant: qDo);
+      t1.notesMarkdown = 'Contains UniqueSearchToken in parent note';
+      final t2 = store.newTask('Another Header', quadrant: qPlan);
+      t2.subtasks.add(SubTask(id: 's-t2', title: 'Normal Sub', notesMarkdown: 'SubtaskNoteToken here'));
+      store.addTasks([t1, t2]);
+
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+
+      // Open search screen
+      await tester.tap(find.byKey(const ValueKey('search-btn')));
+      await tester.pumpAndSettle();
+
+      // Search for UniqueSearchToken
+      await tester.enterText(find.byKey(const ValueKey('search-input')), 'UniqueSearchToken');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Regular Header'), findsOneWidget);
+      expect(find.text('Another Header'), findsNothing);
+
+      // Clear and search for SubtaskNoteToken
+      await tester.enterText(find.byKey(const ValueKey('search-input')), 'SubtaskNoteToken');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Normal Sub'), findsOneWidget);
+
+      // Gracefully exit search screen before teardown
+      await tester.tap(find.byKey(const ValueKey('search-back-btn')));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'WP25-N-Android: reminder picker in TaskDetailPanel sets reminder, displays quick chips, and saves to store',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      final task = store.newTask('Task with reminder', quadrant: qDo);
+      store.addTasks([task]);
+
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+
+      // Open detail panel
+      await tester.tap(find.text('Task with reminder'));
+      await tester.pumpAndSettle();
+
+      // Verify reminder button and quick chips are present
+      expect(find.byKey(const ValueKey('edit-reminder-btn')), findsOneWidget);
+      expect(find.byKey(const ValueKey('reminder-quick-tomorrow-9')), findsOneWidget);
+
+      // Tap Tomorrow 09:00 quick chip
+      await tester.tap(find.byKey(const ValueKey('reminder-quick-tomorrow-9')));
+      await tester.pumpAndSettle();
+
+      // Save task
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await tester.pumpAndSettle();
+
+      // Check task in store has reminderAt set to future
+      final updatedTask = store.tasks.firstWhere((t) => t.id == task.id);
+      expect(updatedTask.reminderAt, isNotNull);
+      expect(updatedTask.reminderAt!, greaterThan(DateTime.now().millisecondsSinceEpoch));
+
+      // Re-open and clear reminder
+      await tester.tap(find.text('Task with reminder'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('clear-reminder-btn')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('clear-reminder-btn')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await tester.pumpAndSettle();
+
+      expect(store.tasks.firstWhere((t) => t.id == task.id).reminderAt, isNull);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'WP25-N-Android: SettingsScreen displays Reminder Reliability Guide and checks permission status',
+    (tester) async {
+      viewport(tester, const Size(800, 1200));
+      final store = await setup(tester);
+
+      await tester.pumpWidget(app(store, const SettingsScreen()));
+      await tester.pumpAndSettle();
+
+      // Verify Reminder Guide tile is present
+      final guideTile = find.byKey(const ValueKey('reminder-guide-tile'));
+      await tester.scrollUntilVisible(guideTile, 200, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      expect(guideTile, findsOneWidget);
+
+      // Tap guide tile
+      await tester.tap(guideTile);
+      await tester.pumpAndSettle();
+
+      // Guide dialog is displayed with manufacturer sections
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.text(store.t['guideXiaomiTitle'] ?? 'Xiaomi / Redmi'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(store.t['guideHuaweiTitle'] ?? 'Huawei / Honor'),
+        findsOneWidget,
+      );
+
+      // Close dialog
+      await tester.tap(find.text(store.t['confirm'] ?? 'OK'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      // Tap check permissions button
+      final permBtn = find.byKey(const ValueKey('check-permissions-btn'));
+      await tester.scrollUntilVisible(permBtn, 200, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      expect(permBtn, findsOneWidget);
+      await tester.tap(permBtn);
+      await tester.pumpAndSettle();
+
+      // Status dialog is displayed
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text(store.t['confirm'] ?? 'OK'));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'WP25-N-Android: reminder indicator icon rendered on TaskCard when task has reminderAt',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      final futureMs = DateTime.now().millisecondsSinceEpoch + 3600000;
+      final taskWithReminder = store.newTask('Task with notif', quadrant: qPlan)
+        ..reminderAt = futureMs;
+      final taskWithoutReminder = store.newTask('Plain task', quadrant: qPlan);
+      store.addTasks([taskWithReminder, taskWithoutReminder]);
+
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+
+      // Exactly one reminder icon is rendered on the board for taskWithReminder
+      expect(find.byIcon(Icons.notifications_active_outlined), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }
+
 

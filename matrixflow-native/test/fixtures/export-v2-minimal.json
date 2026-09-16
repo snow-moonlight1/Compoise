@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "timestamp": 1726322400000,
+  "boards": [
+    {
+      "id": "b-v2-test",
+      "name": "Standard V2 Board",
+      "createdAt": 1726322400000
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t-v2-task",
+      "boardId": "b-v2-test",
+      "title": "Standard V2 Task",
+      "quadrant": 2,
+      "isLongTerm": true,
+      "completed": false,
+      "createdAt": 1726322400000,
+      "deadline": 1726408800000,
+      "subtasks": [
+        {
+          "id": "s-v2-sub",
+          "title": "Standard V2 Subtask",
+          "completed": false,
+          "deadline": null
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "language": "en",
+    "theme": "system",
+    "themeColor": "blue",
+    "defaultInputMode": "single",
+    "viewMode": "list",
+    "fontSize": "large",
+    "fontFamily": "sansSerif",
+    "autoGroupAI": true,
+    "autoDecomposeAI": false,
+    "autoCompleteParent": false,
+    "suppressGroupPrompt": false,
+    "suppressLongTermPrompt": true,
+    "hideCompleted": true,
+    "urgencyThresholdDays": 3,
+    "closeToTray": true,
+    "globalShortcut": "Ctrl+Shift+M"
+  },
+  "aiConfig": {
+    "provider": "openai",
+    "providerId": "deepseek",
+    "protocol": "openai",
+    "customBaseUrl": "https://api.deepseek.com",
+    "customApiKey": "",
+    "customModel": "deepseek-v4-flash",
+    "enableThinking": false
+  }
+}

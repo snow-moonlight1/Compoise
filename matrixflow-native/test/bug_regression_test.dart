@@ -103,7 +103,7 @@ void main() {
       final active = store.activeBoardId;
       expect(
         () => store.importData({
-          'version': 2,
+          'version': 3,
           'boards': [],
           'tasks': [],
         }, 'overwrite'),

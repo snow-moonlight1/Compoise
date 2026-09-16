@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "timestamp": 1726000000000,
+  "boards": [
+    {
+      "id": "b-v1-test",
+      "name": "Legacy V1 Board",
+      "createdAt": 1726000000000
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t-v1-task",
+      "boardId": "b-v1-test",
+      "title": "Legacy V1 Task",
+      "quadrant": 1,
+      "isLongTerm": false,
+      "completed": false,
+      "createdAt": 1726000000000,
+      "deadline": 1726086400000,
+      "subtasks": [
+        {
+          "id": "s-v1-sub",
+          "title": "Legacy V1 Subtask",
+          "completed": true,
+          "deadline": 1726086400000
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "language": "zh",
+    "theme": "dark",
+    "themeColor": "purple",
+    "defaultInputMode": "brainDump",
+    "autoGroupAI": false,
+    "autoDecomposeAI": false,
+    "autoCompleteParent": true,
+    "suppressGroupPrompt": true,
+    "suppressLongTermPrompt": false,
+    "hideCompleted": false,
+    "urgencyThresholdDays": 5
+  },
+  "aiConfig": {
+    "provider": "openai",
+    "providerId": "deepseek",
+    "protocol": "openai",
+    "customBaseUrl": "https://api.deepseek.com",
+    "customApiKey": "",
+    "customModel": "deepseek-v4-flash",
+    "enableThinking": true
+  }
+}
