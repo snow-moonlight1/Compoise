@@ -125,7 +125,11 @@ Future<Store> setup(
   List<Locale>? deviceLocales,
   Map<String, Object>? initialPrefs,
 }) async {
-  SharedPreferences.setMockInitialValues(initialPrefs ?? {});
+  final prefs = <String, Object>{
+    'matrixflow-has-seen-onboarding': true,
+    ...?initialPrefs,
+  };
+  SharedPreferences.setMockInitialValues(prefs);
   late Store store;
   await tester.runAsync(() async {
     store = Store(aiService: ai, deviceLocales: deviceLocales);
@@ -2360,7 +2364,7 @@ void main() {
     'WP06-N: MatrixFlowApp widget entry point respects injected deviceLocales',
     (tester) async {
       viewport(tester, const Size(390, 844));
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({'matrixflow-has-seen-onboarding': true});
 
       await tester.pumpWidget(
         const MatrixFlowApp(deviceLocales: [Locale('zh', 'CN')]),

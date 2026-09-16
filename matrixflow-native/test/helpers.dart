@@ -11,12 +11,14 @@ Future<(Store, Map<String, Object>)> makeStore({
   AppSettings? settings,
   AIConfig? aiConfig,
   List<Locale>? deviceLocales,
+  bool hasSeenOnboarding = true,
 }) async {
   final backend = <String, Object>{
     if (boards != null) 'matrixflow-boards': jsonEncode(boards.map((b) => b.toJson()).toList()),
     if (tasks != null) 'matrixflow-tasks': jsonEncode(tasks.map((t) => t.toJson()).toList()),
     if (settings != null) 'matrixflow-settings': jsonEncode(settings.toJson()),
     if (aiConfig != null) 'matrixflow-config': jsonEncode(aiConfig.toJson()),
+    'matrixflow-has-seen-onboarding': hasSeenOnboarding,
   };
   SharedPreferences.setMockInitialValues(backend);
   final store = Store(deviceLocales: deviceLocales);

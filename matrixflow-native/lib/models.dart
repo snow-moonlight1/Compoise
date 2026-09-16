@@ -86,6 +86,7 @@ class SubTask {
   int? deadline;
   String? notesMarkdown;
   int? reminderAt;
+  int? completedAt;
   SubTask({
     required this.id,
     required this.title,
@@ -93,6 +94,7 @@ class SubTask {
     this.deadline,
     this.notesMarkdown,
     this.reminderAt,
+    this.completedAt,
   });
 
   factory SubTask.fromJson(Map<String, dynamic> j) => SubTask(
@@ -102,6 +104,7 @@ class SubTask {
     deadline: _timestamp(j['deadline']),
     notesMarkdown: j['notesMarkdown'] as String?,
     reminderAt: _timestamp(j['reminderAt']),
+    completedAt: _timestamp(j['completedAt']),
   );
 
   Map<String, dynamic> toJson({int? targetVersion}) {
@@ -114,6 +117,7 @@ class SubTask {
       if (!isV1 && notesMarkdown != null && notesMarkdown!.isNotEmpty)
         'notesMarkdown': notesMarkdown,
       if (!isV1 && reminderAt != null) 'reminderAt': reminderAt,
+      if (!isV1 && completedAt != null) 'completedAt': completedAt,
     };
   }
 }
@@ -135,6 +139,7 @@ class Task {
   String? notesMarkdown;
   int? reminderAt;
   String? reminderTimezone;
+  int? completedAt;
 
   Task({
     required this.id,
@@ -151,6 +156,7 @@ class Task {
     this.notesMarkdown,
     this.reminderAt,
     this.reminderTimezone,
+    this.completedAt,
   }) : subtasks = subtasks ?? [];
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -174,6 +180,7 @@ class Task {
     notesMarkdown: j['notesMarkdown'] as String?,
     reminderAt: _timestamp(j['reminderAt']),
     reminderTimezone: j['reminderTimezone'] as String?,
+    completedAt: _timestamp(j['completedAt']),
   );
 
   Map<String, dynamic> toJson({int? targetVersion}) {
@@ -196,6 +203,7 @@ class Task {
       if (!isV1 && reminderAt != null) 'reminderAt': reminderAt,
       if (!isV1 && reminderTimezone != null && reminderTimezone!.isNotEmpty)
         'reminderTimezone': reminderTimezone,
+      if (!isV1 && completedAt != null) 'completedAt': completedAt,
     };
   }
 
@@ -226,6 +234,7 @@ class AIAnalysisResult {
     String? notesMarkdown,
     int? reminderAt,
     String? reminderTimezone,
+    int? completedAt,
   }) => Task(
     id: id,
     boardId: boardId,
@@ -238,6 +247,7 @@ class AIAnalysisResult {
     notesMarkdown: notesMarkdown,
     reminderAt: reminderAt,
     reminderTimezone: reminderTimezone,
+    completedAt: completedAt,
     subtasks: subtasks.map((s) => SubTask(id: newId(), title: s)).toList(),
   );
 }

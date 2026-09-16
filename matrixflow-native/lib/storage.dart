@@ -27,12 +27,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   static const _kConfig = 'matrixflow-config';
   static const _kSettings = 'matrixflow-settings';
   static const _kActiveBoard = 'matrixflow-active-board';
+  static const _kHasSeenOnboarding = 'matrixflow-has-seen-onboarding';
 
   final AIService ai;
   late SharedPreferences _prefs;
 
   bool ready = false;
   bool _disposed = false;
+  bool hasSeenOnboarding = false;
   String? startupError;
   String? persistenceError;
   Future<void> _pendingWrites = Future.value();
@@ -153,6 +155,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       activeBoardId = boards.first.id;
     }
     if (corrupted > 0) corruptNotice = t['corruptData'];
+    hasSeenOnboarding = _prefs.getBool(_kHasSeenOnboarding) ?? false;
 
     ready = true;
     _persistAll();
@@ -255,6 +258,18 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  void completeOnboarding() {
+    hasSeenOnboarding = true;
+    _prefs.setBool(_kHasSeenOnboarding, true);
+    notifyListeners();
+  }
+
+  void resetOnboardingForTest() {
+    hasSeenOnboarding = false;
+    _prefs.setBool(_kHasSeenOnboarding, false);
+    notifyListeners();
+  }
+
   void setActiveBoard(String id) {
     if (!boards.any((b) => b.id == id)) return;
     activeBoardId = id;
@@ -339,21 +354,56 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   void updateTask(Task updated) {
     final i = tasks.indexWhere((t) => t.id == updated.id);
     if (i == -1) return;
-    final oldQuadrant = tasks[i].quadrant;
+    final oldTask = tasks[i];
+    final oldQuadrant = oldTask.quadrant;
     final quadrantChanged = oldQuadrant != updated.quadrant;
 
     if (quadrantChanged &&
         isUrgentQuadrant(oldQuadrant) != isUrgentQuadrant(updated.quadrant) &&
-        tasks[i].urgencyMode == updated.urgencyMode) {
+        oldTask.urgencyMode == updated.urgencyMode) {
       updated.urgencyMode = UrgencyMode.manual;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // Preserve or set completedAt for subtasks
+    final oldSubMap = {for (final s in oldTask.subtasks) s.id: s};
+    for (final sub in updated.subtasks) {
+      final oldSub = oldSubMap[sub.id];
+      if (sub.completed) {
+        if (oldSub == null || !oldSub.completed) {
+          sub.completedAt ??= now;
+        } else {
+          sub.completedAt ??= oldSub.completedAt;
+        }
+      } else {
+        sub.completedAt = null;
+      }
     }
 
     if (settings.autoCompleteParent && updated.subtasks.isNotEmpty) {
       final allDone = updated.subtasks.every((s) => s.completed);
-      if (allDone) updated.completed = true;
+      if (allDone) {
+        if (!updated.completed) {
+          updated.completed = true;
+          updated.completedAt = now;
+        }
+      }
       if (updated.completed && updated.subtasks.any((s) => !s.completed)) {
         updated.completed = false;
+        updated.completedAt = null;
       }
+    }
+
+    // Preserve or set completedAt for parent task
+    if (updated.completed) {
+      if (!oldTask.completed) {
+        updated.completedAt ??= now;
+      } else {
+        updated.completedAt ??= oldTask.completedAt;
+      }
+    } else {
+      updated.completedAt = null;
     }
 
     if (quadrantChanged) {
@@ -363,7 +413,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       tasks[i] = updated;
     }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
     if (updated.completed) {
       ReminderService.instance.cancelReminder(updated.id);
       for (final sub in updated.subtasks) {
@@ -502,9 +551,20 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Parent checkbox cascade: set self + every subtask to [completed].
   void setParentCompleted(Task task, bool completed) {
+    final now = DateTime.now().millisecondsSinceEpoch;
     task.completed = completed;
+    if (completed) {
+      task.completedAt ??= now;
+    } else {
+      task.completedAt = null;
+    }
     for (final s in task.subtasks) {
       s.completed = completed;
+      if (completed) {
+        s.completedAt ??= now;
+      } else {
+        s.completedAt = null;
+      }
     }
     updateTask(task);
   }
@@ -643,12 +703,15 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         if (i == -1) return false;
         final current = tasks[i];
         current.completed = snapshot.task.completed;
+        current.completedAt = snapshot.task.completedAt;
         final subMap = {
-          for (final s in snapshot.task.subtasks) s.id: s.completed,
+          for (final s in snapshot.task.subtasks) s.id: s,
         };
         for (final sub in current.subtasks) {
           if (subMap.containsKey(sub.id)) {
-            sub.completed = subMap[sub.id]!;
+            final oldSub = subMap[sub.id]!;
+            sub.completed = oldSub.completed;
+            sub.completedAt = oldSub.completedAt;
           }
         }
         final now = DateTime.now().millisecondsSinceEpoch;

@@ -6,6 +6,46 @@
 >
 > 2026-09-03 起进入修复与打磨阶段，新增条目按日期追加在下方。
 
+## 2026-09-16 · WP09-N 首次引导教程与手势说明
+
+- **5 页响应式引导教程与手势说明（lib/screens/onboarding_screen.dart）**：
+  - 第 1 页：四象限法则与换行快速批量添加（介绍重要/紧急维度、换行批量导入待办）；
+  - 第 2 页：长按拖拽与象限流转（拖拽移动、跨象限置顶、右键菜单替代）；
+  - 第 3 页：任务详情、子任务清单与定时提醒（多行输入、独立子项日期与闹钟排程）；
+  - 第 4 页：完成历史、趋势统计与 5 秒撤销（7 日完成柱状图、左滑删除/右滑完成、5 秒 SnackBar 撤销）；
+  - 第 5 页：AI 智能助手与纯本地 BYOK 隐私（无说教拆解/分组、本地存储、直连服务商零数据上传）。
+- **交互控制与键盘导航**：
+  - 支持左右翻页（上一页 / 下一页）与右上角“跳过（Skip）”；
+  - 桌面与无障碍键盘快捷导航支持（Escape / 左方向键 / 右方向键）；
+  - 支持 `isReviewMode`（在设置页重温时不展示跳过按钮，完成时显示“完成浏览”）。
+- **持久化首启已阅标记（lib/storage.dart）**：
+  - 本地机器级存储键 `matrixflow-has-seen-onboarding`（`_kHasSeenOnboarding`），不混入待办备份与四键核心持久化数据，换机或导入时不影响新设备引导体验；
+  - 首启未阅时在 `MatrixHome` 首帧后自动触发引导全屏弹窗；
+  - 提供 `completeOnboarding()` 持久化与 `resetOnboardingForTest()` 测试桩。
+- **设置页重温入口（lib/screens/settings_screen.dart & lib/l10n.dart）**：
+  - 在设置页“帮助与关于”区域提供“使用引导与手势说明”（`reopen-onboarding-btn`），用户可随时以 `isReviewMode` 重新浏览教程与手势提示；
+  - 完整补齐中、英、日三语本地化字典（`onboardingTitle`、`slide1Title`、`reopenOnboarding` 等）。
+- **自动化测试与全量回归**：
+  - 新增 `test/onboarding_test.dart`（5/5 全绿，覆盖首启自动弹出、跳过持久化、设置页重温、中英日多语言渲染与键盘 Esc 退出）；
+  - `test/helpers.dart` 与 `test/widget_regression_test.dart` 补充默认 `hasSeenOnboarding: true` 测试桩，防止已有 Widget 拦截回归测试；
+  - 全套测试：`flutter test --no-pub` **255/255** 全量通过，`flutter analyze --no-pub` **0 issues**。
+
+## 2026-09-16 · WP27-B-N 完成历史与时间戳
+
+- **完成时间戳模型扩展与持久化（lib/models.dart & lib/storage.dart）**：
+  - `Task` 与 `SubTask` 增加可选 `completedAt`（`int?`，毫秒时间戳），未完成或还原时为 `null`；
+  - 勾选完成状态转换时记录当前系统毫秒时间戳；编辑已完成任务保持原时间戳不变；取消完成或撤销恢复时清除为 `null`；
+  - `TaskUndoSnapshot` 完整捕获并还原 `completedAt`，保证 5 秒撤销动作状态一致；
+  - 遵循 WP11 数据迁移与降级契约：`ExportData v2` 完整持久化，`version: 1` 降级导出时安全剥离字段；旧数据读取安全回退 `null`，严禁借 `createdAt` 伪造完成时间。
+- **纯统计聚合与 7 日完成直方图（lib/task_stats.dart & lib/screens/completed_screen.dart）**：
+  - `computeCompletionHistoryStats` 纯函数计算模型，按本地日历天聚合最近 7 天完成数量分布（`DailyCompletionBucket`）；
+  - 父子任务完成数严格独立统计，防止双重计数；历史无时间戳旧任务安全归入 `unknownDateCount`；
+  - `CompletedScreen` 顶部新增“完成趋势”（`_buildTrendsCard`），提供 7 日微型直方图（Mini-Histogram）、今日完成、7 日累计与历史任务统计指标；
+  - 列表项支持按完成时间倒序（降序）排序，并展示完成时间徽标（`_formatCompletionTime`：刚刚、MM-dd HH:mm 或 yyyy-MM-dd）。
+- **自动化测试回归**：
+  - `test/task_stats_test.dart` 与 `test/data_migration_test.dart` 补充完成时间戳聚合计算、跨天分桶、撤销恢复及 v1 剥离测试（新增 5 项测试，达 250/250）；
+  - `analyze --no-pub` 0 issues。
+
 ## 2026-09-16 · WP25-N-Windows Windows 桌面端本地通知与托盘联动落地
 
 - **Windows 本地通知初始化与配置（lib/services/reminder_service.dart）**：

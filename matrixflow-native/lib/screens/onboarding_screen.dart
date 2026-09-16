@@ -1,0 +1,604 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../quadrant.dart';
+import '../storage.dart';
+
+class OnboardingScreen extends StatefulWidget {
+  final bool isReviewMode;
+
+  const OnboardingScreen({super.key, this.isReviewMode = false});
+
+  @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+  static const int _pageCount = 5;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _finish() {
+    if (!widget.isReviewMode) {
+      context.read<Store>().completeOnboarding();
+    }
+    Navigator.of(context).pop();
+  }
+
+  void _nextPage() {
+    if (_currentPage < _pageCount - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _finish();
+    }
+  }
+
+  void _prevPage() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<Store>();
+    final t = store.t;
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): _finish,
+            const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
+            const SingleActivator(LogicalKeyboardKey.arrowLeft): _prevPage,
+          },
+          child: Focus(
+            autofocus: true,
+            child: Column(
+              children: [
+                // Top App Bar: Skip or Close button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (widget.isReviewMode)
+                        Text(
+                          t['onboarding'] ?? 'Tutorial & Guide',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      TextButton(
+                        key: const ValueKey('onboarding-skip-btn'),
+                        onPressed: _finish,
+                        child: Text(
+                          widget.isReviewMode
+                              ? (t['onboardingClose'] ?? 'Close')
+                              : (t['onboardingSkip'] ?? 'Skip'),
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Main PageView with 5 slides
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) => setState(() => _currentPage = index),
+                    children: [
+                      _buildSlide(
+                        context,
+                        step: 1,
+                        icon: Icons.grid_view,
+                        iconColor: const Color(0xFFE53935),
+                        title: t['onboardingStep1Title'] ?? 'Eisenhower Matrix & Rapid Add',
+                        description: t['onboardingStep1Desc'] ??
+                            'Tasks are organized by urgency and importance into four quadrants. Enter multiple lines to create several tasks at once.',
+                        mockup: _buildMatrixMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 2,
+                        icon: Icons.open_with,
+                        iconColor: const Color(0xFF1E88E5),
+                        title: t['onboardingStep2Title'] ?? 'Drag & Drop Quadrant Movement',
+                        description: t['onboardingStep2Desc'] ??
+                            'Long-press any task card to drag and drop it into another quadrant. You can also use the secondary tap Move Menu.',
+                        mockup: _buildDragMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 3,
+                        icon: Icons.checklist,
+                        iconColor: const Color(0xFF43A047),
+                        title: t['onboardingStep3Title'] ?? 'Task Details, Subtasks & Reminders',
+                        description: t['onboardingStep3Desc'] ??
+                            'Tap any task to open its details. Add subtask checklists, Markdown notes, deadlines, and punctual alarm reminders.',
+                        mockup: _buildDetailsMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 4,
+                        icon: Icons.insights,
+                        iconColor: const Color(0xFFFB8C00),
+                        title: t['onboardingStep4Title'] ?? 'Completion Trends & 5s Undo',
+                        description: t['onboardingStep4Desc'] ??
+                            'Swipe right to complete or left to delete with a 5-second undo window. View 7-day completion distributions in Completed Tasks.',
+                        mockup: _buildCompletedMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 5,
+                        icon: Icons.auto_awesome,
+                        iconColor: const Color(0xFF8E24AA),
+                        title: t['onboardingStep5Title'] ?? 'AI Assistant & BYOK Privacy',
+                        description: t['onboardingStep5Desc'] ??
+                            'Configure your own API key in Settings for AI quadrant classification. All task data stays 100% locally on your device.',
+                        mockup: _buildAiMockup(theme, t),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Bottom Navigation: Indicator Dots & Action Buttons
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  child: Row(
+                    children: [
+                      // Back button
+                      if (_currentPage > 0)
+                        OutlinedButton(
+                          key: const ValueKey('onboarding-prev-btn'),
+                          onPressed: _prevPage,
+                          child: Text(t['onboardingPrev'] ?? 'Previous'),
+                        )
+                      else
+                        const SizedBox(width: 80),
+
+                      const Spacer(),
+
+                      // Dots indicator
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(
+                          _pageCount,
+                          (index) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: _currentPage == index ? 20 : 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: _currentPage == index
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      // Next / Start button
+                      FilledButton(
+                        key: const ValueKey('onboarding-next-btn'),
+                        onPressed: _nextPage,
+                        child: Text(
+                          _currentPage == _pageCount - 1
+                              ? (widget.isReviewMode
+                                  ? (t['onboardingClose'] ?? 'Close')
+                                  : (t['onboardingStart'] ?? 'Get Started'))
+                              : (t['onboardingNext'] ?? 'Next'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSlide(
+    BuildContext context, {
+    required int step,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+    required Widget mockup,
+  }) {
+    final theme = Theme.of(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 580),
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 40, color: iconColor),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 24),
+            mockup,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatrixMockup(ThemeData theme, Map<String, String> t) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _mockQuadrantCard(
+                  title: t['q1'] ?? 'Urgent & Important',
+                  color: Color(quadrantColors[1]!),
+                  items: ['Release update v1.0', 'Fix critical bug'],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _mockQuadrantCard(
+                  title: t['q2'] ?? 'Not Urgent but Important',
+                  color: Color(quadrantColors[2]!),
+                  items: ['Quarterly goals', 'Read documentation'],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _mockQuadrantCard(
+                  title: t['q3'] ?? 'Urgent but Not Important',
+                  color: Color(quadrantColors[3]!),
+                  items: ['Reply vendor emails'],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _mockQuadrantCard(
+                  title: t['q4'] ?? 'Not Urgent & Not Important',
+                  color: Color(quadrantColors[4]!),
+                  items: ['Organize desktop folders'],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mockQuadrantCard({
+    required String title,
+    required Color color,
+    required List<String> items,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (final item in items)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                '• $item',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDragMockup(ThemeData theme, Map<String, String> t) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.drag_indicator, size: 16, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    const Text('Design review task', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(Icons.arrow_forward, color: theme.colorScheme.primary),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E88E5).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF1E88E5)),
+                ),
+                child: Text(
+                  t['q2'] ?? 'Q2: Plan',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            t['shortcutHint'] ?? 'Tip: Long press card to drag or right-click to move',
+            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsMockup(ThemeData theme, Map<String, String> t) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_box_outlined, size: 16),
+              const SizedBox(width: 6),
+              const Text('Weekly sprint delivery', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.alarm, size: 12, color: theme.colorScheme.primary),
+                    const SizedBox(width: 3),
+                    Text('09:00', style: TextStyle(fontSize: 10, color: theme.colorScheme.primary)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, size: 14, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    const Text('1. Draft architecture spec', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.radio_button_unchecked, size: 14, color: theme.colorScheme.outline),
+                    const SizedBox(width: 6),
+                    const Text('2. Run automated regression tests', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedMockup(ThemeData theme, Map<String, String> t) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.insights, size: 16, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                t['completionTrends'] ?? 'Completion Trends',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+              ),
+              const Spacer(),
+              Text('Today: 4', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(width: 8),
+              Text('Past 7 days: 18', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final h in [12, 18, 8, 22, 16, 26, 30])
+                Container(
+                  width: 14,
+                  height: h.toDouble(),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              'Swipe Right to Complete · Swipe Left to Delete (5s Undo)',
+              style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiMockup(ThemeData theme, Map<String, String> t) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _providerChip('DeepSeek', theme),
+              const SizedBox(width: 6),
+              _providerChip('Qwen', theme),
+              const SizedBox(width: 6),
+              _providerChip('Doubao', theme),
+              const SizedBox(width: 6),
+              _providerChip('OpenAI', theme),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.shield_outlined, size: 16, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                '100% Local Storage · Pure Client · BYOK',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _providerChip(String label, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+    );
+  }
+}

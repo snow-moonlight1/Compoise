@@ -53,7 +53,12 @@ class _CompletedScreenState extends State<CompletedScreen> {
     final theme = Theme.of(context);
     final activeBoardId = widget.initialBoardId ?? store.activeBoardId;
 
-    final completedTasks = store.completedTasks(
+    final rawCompletedTasks = store.completedTasks(
+      boardId: _scope == CompletedScope.currentBoard ? activeBoardId : null,
+    );
+    final completedTasks = sortCompletedTasks(rawCompletedTasks);
+    final historyStats = computeCompletionHistoryStats(
+      tasks: store.tasks,
       boardId: _scope == CompletedScope.currentBoard ? activeBoardId : null,
     );
 
@@ -91,6 +96,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   activeBoardId,
                 ),
                 _buildScopeChips(context, t, theme),
+                _buildTrendsCard(context, t, theme, historyStats),
                 Expanded(
                   child:
                       completedTasks.isEmpty
@@ -245,6 +251,176 @@ class _CompletedScreenState extends State<CompletedScreen> {
                 setState(() => _scope = CompletedScope.allBoards);
               }
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatCompletionTime(int ms, Map<String, String> t) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
+    final now = DateTime.now();
+    final isToday =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday =
+        dt.year == yesterday.year &&
+        dt.month == yesterday.month &&
+        dt.day == yesterday.day;
+    final timeStr =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    if (isToday) {
+      return '${t['today'] ?? 'Today'} $timeStr';
+    } else if (isYesterday) {
+      return '${t['yesterday'] ?? 'Yesterday'} $timeStr';
+    } else {
+      final dateStr =
+          '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      return '$dateStr $timeStr';
+    }
+  }
+
+  Widget _buildTrendsCard(
+    BuildContext context,
+    Map<String, String> t,
+    ThemeData theme,
+    CompletionHistoryStats stats,
+  ) {
+    if (stats.totalCompleted == 0) return const SizedBox.shrink();
+
+    final maxCount = stats.dailyBuckets.fold<int>(
+      1,
+      (max, b) => b.count > max ? b.count : max,
+    );
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.insights,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                t['completionTrends'] ?? 'Completion Trends',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                (t['completedToday'] ?? 'Today: {n}').replaceAll(
+                  '{n}',
+                  '${stats.todayCount}',
+                ),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                (t['past7Days'] ?? 'Past 7 days: {n}').replaceAll(
+                  '{n}',
+                  '${stats.past7DaysCount}',
+                ),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (stats.unknownDateCount > 0) ...[
+                const SizedBox(width: 8),
+                Text(
+                  (t['completedUndated'] ?? 'Legacy: {n}').replaceAll(
+                    '{n}',
+                    '${stats.unknownDateCount}',
+                  ),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 58,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final bucket in stats.dailyBuckets)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (bucket.count > 0)
+                            Text(
+                              '${bucket.count}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            )
+                          else
+                            const SizedBox(height: 14),
+                          const SizedBox(height: 2),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Container(
+                                height:
+                                    bucket.count > 0
+                                        ? (bucket.count / maxCount * 22).clamp(
+                                          4.0,
+                                          22.0,
+                                        )
+                                        : 2.0,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color:
+                                      bucket.count > 0
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.outlineVariant
+                                              .withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            bucket.dateString.length >= 5
+                                ? bucket.dateString.substring(5)
+                                : bucket.dateString,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 9,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -407,6 +583,41 @@ class _CompletedScreenState extends State<CompletedScreen> {
                               alpha: 0.5,
                             ),
                           ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              task.completedAt != null
+                                  ? Icons.event_available
+                                  : Icons.help_outline,
+                              size: 13,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              task.completedAt != null
+                                  ? (t['completedAtTime'] ?? 'Completed: {time}')
+                                      .replaceAll(
+                                        '{time}',
+                                        _formatCompletionTime(
+                                          task.completedAt!,
+                                          t,
+                                        ),
+                                      )
+                                  : (t['timeUnknown'] ?? 'Time unknown'),
+                              key: ValueKey('completed-time-${task.id}'),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.8),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 

@@ -374,5 +374,45 @@ void main() {
       expect(newStore.tasks.single.id, 't1');
       expect(newStore.settings.viewMode, ViewMode.grid); // Safe default for v1
     });
+
+    test('completedAt serialization in v2 and stripping on downgrade to v1', () {
+      final task = Task(
+        id: 't_comp',
+        boardId: 'b1',
+        title: 'Task completed',
+        quadrant: 1,
+        createdAt: 100,
+        completed: true,
+        completedAt: 5000,
+        subtasks: [
+          SubTask(
+            id: 's_comp',
+            title: 'Sub completed',
+            completed: true,
+            completedAt: 5000,
+          ),
+        ],
+      );
+
+      // V2 serialization preserves completedAt
+      final v2Json = task.toJson(targetVersion: 2);
+      expect(v2Json['completedAt'], 5000);
+      expect((v2Json['subtasks'] as List)[0]['completedAt'], 5000);
+
+      // V1 downgrade serialization strips completedAt
+      final v1Json = task.toJson(targetVersion: 1);
+      expect(v1Json.containsKey('completedAt'), isFalse);
+      expect((v1Json['subtasks'] as List)[0].containsKey('completedAt'), isFalse);
+
+      // Deserializing v1 leaves completedAt null without synthesizing from createdAt
+      final fromV1 = Task.fromJson(v1Json);
+      expect(fromV1.completedAt, isNull);
+      expect(fromV1.subtasks.first.completedAt, isNull);
+
+      // Deserializing v2 restores completedAt
+      final fromV2 = Task.fromJson(v2Json);
+      expect(fromV2.completedAt, 5000);
+      expect(fromV2.subtasks.first.completedAt, 5000);
+    });
   });
 }

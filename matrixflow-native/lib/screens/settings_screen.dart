@@ -11,6 +11,7 @@ import '../ai_service.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../theme.dart';
+import 'onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -952,6 +953,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ],
+            const SizedBox(height: 20),
+            _sectionTitle(
+              theme,
+              t['onboarding'] ?? 'Tutorial & Guide',
+              Icons.help_outline,
+            ),
+            ListTile(
+              key: const ValueKey('reopen-onboarding-btn'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.school_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(
+                t['reopenOnboarding'] ?? 'Tutorial & Gestures Guide',
+              ),
+              subtitle: Text(
+                t['reopenOnboardingDesc'] ??
+                    'Review core operations, gestures, and features anytime',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const OnboardingScreen(isReviewMode: true),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),

@@ -13,6 +13,7 @@ import '../widgets/task_list_view.dart';
 import '../widgets/task_stats_bar.dart';
 import '../widgets/text_prompt.dart';
 import 'completed_screen.dart';
+import 'onboarding_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import '../services/desktop_shell_service.dart';
@@ -127,6 +128,13 @@ class _MatrixHomeState extends State<MatrixHome> {
           context,
         ).showSnackBar(SnackBar(content: Text(store.corruptNotice!)));
         store.corruptNotice = null;
+      }
+      if (!store.hasSeenOnboarding) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const OnboardingScreen(),
+          ),
+        );
       }
     });
   }

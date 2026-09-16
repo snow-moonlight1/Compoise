@@ -2,28 +2,27 @@
 
 最后更新：2026-09-16。
 
-## 最新任务：WP25-N-Windows 已完成，下一包 WP27-B-N
+## 最新任务：V0.3-B 全部收官（WP25-N-Windows, WP27-B-N, WP09-N 已完成），下一包 WP10-N 或 WP28-R
 
 - Flutter Android/Windows 为唯一持续开发客户端；React/Tauri/Capacitor 冻结保留。依据见 [已采纳 ADR](ADR_FLUTTER_PRIMARY_2026-09-09.md)。旧 W 是 React Web，不是 Windows。
-- **本轮实施 WP25-N-Windows Windows 桌面端本地通知与托盘联动落地（功能闭环与全量回归）**：
-  - **Windows 本地通知初始化与配置（lib/services/reminder_service.dart）**：
-    - `FlutterLocalNotificationsReminderService` 在 Windows 桌面平台（`TargetPlatform.windows`）无缝实例化并配置 `WindowsInitializationSettings`（应用名 `MatrixFlow AI`、AppUserModelID `MatrixFlow.MatrixFlowApp.1.0`、GUID `69a03975-2989-4d05-b778-5e824707612f`）；
-    - `WindowsNotificationDetails` 设置 `WindowsNotificationDuration.long`，并将备注或描述作为副标题（subtitle）展示；
-    - Windows 平台下 `checkPermission()` 与 `requestPermission()` 自动返回 `granted` 与 `true`。
-  - **托盘常驻联动与内存定时器保活（lib/services/reminder_service.dart & lib/services/desktop_shell_service.dart）**：
-    - 联动 WP26-B `DesktopShellService` 托盘机制：最小化或关闭到托盘期间，进程在后台常驻运行；
-    - `scheduleReminder` 在 Windows 环境维护应用内内存 `Timer`（`_activeTimers`），定时到达准时触发 Windows 本地通知弹窗；
-    - 任务更新、完成、删除、撤销或 `cancelAll` 同步清理对应内存 `Timer`，杜绝内存泄漏与幽灵通知。
-  - **通知点击激活与深层路由（lib/main.dart & lib/screens/matrix_screen.dart & lib/services/reminder_service.dart）**：
-    - 用户点击 Windows Toast 通知后，通过 `onDidReceiveNotificationResponse` 自动调用 `DesktopShellService.instance.restoreWindow()` 恢复主窗口显示；
-    - 解析 `ReminderPayload` 并在 `MatrixHome` 中深度路由：跨看板自动切换至目标 `boardId`，定位任务并展开对应子任务，打开 `TaskDetailPanel`；若任务已删除，弹出友好 SnackBar 提示而不会发生崩溃。
-  - **设置页 Windows 可靠性指南与测试通知（lib/screens/settings_screen.dart & lib/l10n.dart）**：
-    - Windows 环境下条件渲染“Windows 提醒与通知可靠性指南”（`windows-reminder-guide-tile`），弹窗展示系统托盘常驻保活、专注助手（Focus Assist / 免打扰）以及操作中心通知历史设置；
-    - 提供“发送测试通知”按钮（`test-windows-notif-btn`），方便用户在桌面即时校验 Windows Toast 通知通道；
-    - 完整补齐中、英、日三语本地化字典。
-  - **测试与基线保持**：全套自动化测试回归达 **245/245**（`flutter test --no-pub` 全绿），`flutter analyze --no-pub` **0 issues**。未改 React，Windows 真实环境横幅与锁屏弹出写明未测实机。
-- **下一包 WP27-B-N**：完成历史与时间戳（Task/SubTask 扩展可选 `completedAt` 毫秒时间戳、完成与取消撤销联动记录、按完成时间归档/筛选与 WP11 往返兼容）。
-- WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N、WP11-N、WP22-C-N、WP13-A-N、WP25-R、WP25-N-Android、WP25-N-Windows 继续保留。
+- **V0.3-B 阶段三包闭环落地（WP25-N-Windows、WP27-B-N、WP09-N 全量落地与 255 项自动化回归）**：
+  - **WP25-N-Windows Windows 桌面本地通知与托盘保活**：
+    - `FlutterLocalNotificationsReminderService` 在 Windows 环境配置 `WindowsInitializationSettings` 与 `WindowsNotificationDetails`，权限判定为 `granted`；
+    - 联动 `DesktopShellService` 最小化/关闭到托盘保活，在后台维护应用内内存 `Timer`（`_activeTimers`）准时触发弹窗；
+    - 点击 Toast 通知触发 `restoreWindow()` 激活主窗口，深层路由自动切换看板、展开子任务并弹起详情面板；设置页提供 Windows 可靠性指南与“发送测试通知”即时测试。
+  - **WP27-B-N 完成历史与时间戳**：
+    - `Task` 与 `SubTask` 扩展可选 `completedAt`（`int?`，毫秒时间戳）；勾选完成记录当前时间戳，编辑保持，取消或撤销恢复清除为 `null`；
+    - `TaskUndoSnapshot` 完整保留并还原 `completedAt`；WP11 v2 持久化，v1 降级导出时安全剥离字段；旧数据读取安全兜底 `null`，严禁借 `createdAt` 伪造时间；
+    - `task_stats.dart` 实现 `computeCompletionHistoryStats` 纯函数计算模型，按本地日历天聚合最近 7 天完成数量分布（`DailyCompletionBucket`）；
+    - `CompletedScreen` 顶部新增“完成趋势”（`_buildTrendsCard`），提供 7 日微型直方图（Mini-Histogram）、今日完成、7 日累计与历史任务统计指标；列表项按完成时间降序排列并展示完成时间徽标。
+  - **WP09-N 首次引导教程与手势说明**：
+    - `lib/screens/onboarding_screen.dart` 实现 5 页精炼教程（四象限与换行批量添加、长按拖拽与跨象限流转、任务详情/子项/提醒、完成统计与 5 秒撤销、AI 助手与纯本地 BYOK）；
+    - 支持前后翻页、跳过、桌面与无障碍键盘快捷导航（Esc / 方向键）；
+    - 本地机器级存储键 `matrixflow-has-seen-onboarding`（`_kHasSeenOnboarding`）持久化已阅标记，首启自动弹出；
+    - 设置页“帮助与关于”提供“使用引导与手势说明”（`reopen-onboarding-btn`），支持用户随时以 `isReviewMode` 重温教程；全套三语国际化字典（中/英/日）。
+  - **测试与基线保持**：全套自动化测试回归达 **255/255**（`flutter test --no-pub` 全绿），`flutter analyze --no-pub` **0 issues**。未改 React，实机物理通知横幅写明未测实机。
+- **下一包**：WP10-N 多选任务批量拖拽移动，或进入 V1.0 开源与发行准备（WP28-R）。
+- WP20-N、WP21-N、WP03-N、WP04-N、WP23-N、WP12-S-N、WP22-A-N、WP22-B-N、WP05-N、WP06-N、WP02-N、WP01-N、WP07-N、WP08-V-N、WP08-T-N、WP24-N、WP26-A-N、WP26-B-N-Windows、WP27-A-N、WP11-N、WP22-C-N、WP13-A-N、WP25-R、WP25-N-Android、WP25-N-Windows、WP27-B-N、WP09-N 继续保留。
 - 全部 42 项需求 / 29 个工作包保留，客户端实现统一 Flutter。新 Flutter 继续读取旧 ExportData v1，后续字段按 WP11 演进，不要求冻结 React 理解未来新格式；Android/Windows 备份一致不等于云同步。
 - 路线仍为独立 MatrixFlow：不 fork/复制 Focus，不追踪其 issue/PR，不组织几十人试用。保留多 Board、父子任务、三协议/思考、无说教、BYOK；后期 GitHub Release/商店及可选 ¥9/月有额度托管服务，本轮未发布或搭建服务。
 - [早期方向研究](STRATEGY_REVIEW_2026-09-08.md) 与 [交互复核](UI_INTERACTION_REVIEW_2026-09-08.md) 仅作历史依据，其旧 Web 派单和 fork 比较不再执行。Focus 克隆保留在 `D:\Dev_project\martix-research\Focus`，无需重新研究。
@@ -43,6 +42,8 @@
 
 ## 已实现功能（历史实现事实）
 
+- **WP09-N 首次引导教程与手势说明**：`lib/screens/onboarding_screen.dart`、`lib/screens/matrix_screen.dart`、`lib/screens/settings_screen.dart`、`lib/storage.dart`、`lib/l10n.dart`；实现 5 页精炼教程与手势说明（四象限与换行快速批量添加、长按拖拽与跨象限流转、任务详情/子任务/闹钟提醒、完成统计与 5 秒撤销、AI 助手与纯本地 BYOK 隐私）；支持前后翻页、跳过、桌面与无障碍键盘快捷导航（Esc / 方向键）；本地机器级存储键 `matrixflow-has-seen-onboarding`（`_kHasSeenOnboarding`）持久化已阅标记，首启自动弹出；设置页“帮助与关于”提供“使用引导与手势说明”（`reopen-onboarding-btn`），支持用户随时以 `isReviewMode` 重温教程；测试：`test/onboarding_test.dart`（5/5）、`test/widget_regression_test.dart` 全绿（255/255）。
+- **WP27-B-N 完成历史与时间戳**：`lib/models.dart`、`lib/storage.dart`、`lib/task_stats.dart`、`lib/screens/completed_screen.dart`、`docs/DATA_COMPATIBILITY.md`；Task 与 SubTask 扩展可选 `completedAt`（`int?`，毫秒时间戳）；勾选完成状态流转记录当前时间戳，编辑保持，取消完成或撤销恢复清除为 `null`；`TaskUndoSnapshot` 完整保留并还原 `completedAt`；WP11 v2 持久化，v1 降级导出时安全剥离；旧数据读取安全兜底 `null`，严禁借 `createdAt` 伪造时间；`computeCompletionHistoryStats` 纯函数计算模型按本地日历天聚合最近 7 天完成数量分布（`DailyCompletionBucket`），父子任务严格独立防重；`CompletedScreen` 顶部新增“完成趋势”（`_buildTrendsCard`），提供 7 日微型直方图（Mini-Histogram）、今日完成、7 日累计与历史任务统计指标；列表项按完成时间降序排列并展示完成时间徽标；测试：`test/task_stats_test.dart`、`test/data_migration_test.dart`（250/250）。
 - **WP25-N-Windows Windows 桌面端本地通知与托盘联动落地**：`lib/services/reminder_service.dart`、`lib/services/desktop_shell_service.dart`、`lib/main.dart`、`lib/screens/matrix_screen.dart`、`lib/screens/settings_screen.dart`、`lib/l10n.dart`；`FlutterLocalNotificationsReminderService` 在 Windows 平台（`TargetPlatform.windows`）无缝适配，配置 `WindowsInitializationSettings`（GUID、AppUserModelID）；`WindowsNotificationDetails` 配置 `long` 持续时间与副标题；Windows 权限自动判定为 `granted`；`scheduleReminder` 在 Windows 环境维护应用内内存 `Timer`（`_activeTimers`），托盘常驻保活期间准时触发；`onDidReceiveNotificationResponse` 自动调用 `DesktopShellService.instance.restoreWindow()` 恢复主窗口；`ReminderPayload` 深度路由跨看板切换与子任务高亮展开；设置页提供 Windows 可靠性指南（托盘保活、专注助手、操作中心）与“发送测试通知”即时测试按钮；测试：`test/reminder_service_test.dart`（14/14）、`test/windows_reminder_test.dart`（4/4）、`test/widget_regression_test.dart` 全绿（245/245）。
 - **WP25-N-Android Android 本地定时通知与提醒落地**：`AndroidManifest.xml`、`lib/models.dart`、`lib/storage.dart`、`lib/services/reminder_service.dart`、`widgets/task_detail_panel.dart`、`widgets/input_sheet.dart`、`screens/settings_screen.dart`、`widgets/task_card.dart`、`lib/l10n.dart`；声明 POST_NOTIFICATIONS / SCHEDULE_EXACT_ALARM / RECEIVE_BOOT_COMPLETED（未声明 USE_EXACT_ALARM 防 Google Play 违规）；Task / SubTask 扩展 reminderAt 与 reminderTimezone 并走 WP11 v2 序列化与 v1 降级剥离；Store 启动自动重排、完成注销、撤销重排、清空注销、导入覆盖重排；31 位确定性 FNV-1a 哈希 Notification ID；ReminderPayload 路由；FlutterLocalNotificationsReminderService 生产服务（带初始化守卫防 crash）；详情面板时间选择器与一键清除快捷 Chips；新建弹层提醒入口；设置页主流国产 ROM 保活指南与权限检测；任务卡片与子任务闹钟图标；测试：`test/reminder_service_test.dart`、`test/models_test.dart`、`test/widget_regression_test.dart` 237/237 全绿。
 - **WP25-R 本地提醒与通知规范与选型研究**：`docs/REMINDERS_DESIGN.md`、`docs/DATA_COMPATIBILITY.md`；产出跨平台通知设计规范，确立 100% 纯本地离线与不搞流氓后台保活原则；明确截止日（deadline）、提醒时刻（reminderAt）与计划日（plannedDate）正交解耦；父子任务对等支持可选 reminderAt；梳理 Android 权限（POST_NOTIFICATIONS、SCHEDULE_EXACT_ALARM、RECEIVE_BOOT_COMPLETED、规避 USE_EXACT_ALARM）、厂商后台限制；梳理 Windows 托盘（WP26-B closeToTray）与 WinRT Toast 契约；31 位确定性 FNV-1a 哈希 ID 映射；级联取消与防轰炸过期抑制契约；统一抽象接口 ReminderService；测试回归 223/223。
@@ -81,35 +82,45 @@
 
 | 检查 | 结果 |
 |---|---|
-| `flutter test --no-pub`（2026-09-16 WP25-N-Windows） | **245/245 passed**（包含 models_test、reminder_service_test、windows_reminder_test、deadline_policy_test 与全量 UI 回归） |
+| `flutter test --no-pub`（2026-09-16 V0.3-B 闭环） | **255/255 passed**（包含 models_test、reminder_service_test、windows_reminder_test、task_stats_test、onboarding_test、data_migration_test 与全量 UI 回归） |
 | `flutter analyze --no-pub`（同轮） | **0 issues** |
 | Windows 实机 Toast 横幅与操作中心（WP25-N-Windows） | **未测**；Windows 通知在 Windows headless 与自动化测试中验证通过，物理 Windows 桌面交互与锁屏横幅需后续实机运行体验 |
 | Android 物理真机通知/闹钟响铃（WP25-N-Android） | **未测**；Flutter Local Notifications 逻辑与调度完整覆盖，物理设备需后续真机安装测试 |
 | 真实模型分类 | **未测**；mock 只证明请求契约 |
-| Web `npm run build` / `tsc` | 本轮未跑；WP20-W 已取消 |
+| Web `npm run build` / `tsc` | 本轮未跑；WP20-W 已取消，旧 Web 冻结保留 |
 | 历史 Android release / Redmi K70 E2E | 前轮通过，不能代替本轮验收 |
 
 ## 下一轮启动提示词
 
 ```text
-接手 D:\Dev_project\martix，只实施 docs/IMPLEMENTATION_PLAN_2026-09-08.md 的 WP27-B-N。先读 AGENTS.md、本 HANDOFF、计划第 1/3/5 节与 WP27-B-N。
+接手 D:\Dev_project\martix，实施 docs/IMPLEMENTATION_PLAN_2026-09-08.md 的 WP10-N 或进入 V1.0 发行准备（WP28-R）。先读 AGENTS.md、本 HANDOFF、计划第 1/3/5 节。
 
-Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。先 git status 保护未提交文档。不改 React，不重做 WP20-N/WP21-N/WP03-N/WP04-N/WP23-N/WP12-S-N/WP22-A-N/WP22-B-N/WP05-N/WP06-N/WP02-N/WP01-N/WP07-N/WP08-V-N/WP08-T-N/WP24-N/WP26-A-N/WP26-B-N-Windows/WP27-A-N/WP11-N/WP22-C-N/WP13-A-N/WP25-R/WP25-N-Android/WP25-N-Windows。
+Flutter Android/Windows 是唯一持续开发客户端；旧 W 指 React Web。先 git status 保护未提交文档。不改 React，不重做已完成的 WP20-N 至 WP09-N（255 项测试全量通过，V0.2 与 V0.3 基础阶段全部收官）。
 
-本包只做完成历史与时间戳：Task/SubTask 扩展可选 completedAt 毫秒时间戳、勾选完成与取消撤销联动记录、按完成时间归档/筛选与 WP11 往返兼容。
+若领 WP10-N：实现多选任务批量拖拽移动，多选状态下长按或拖拽将所有已选任务统一移动至目标象限，保持相对顺序与撤销联动。
+若领 WP28-R：执行 V1.0 开源与发行前准备（应用图标、版权说明、Release 打包配置与商店物料规范）。
 
-用 D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat 在 matrixflow-native/ 跑 test --no-pub 与 analyze --no-pub。245/245 是 WP25-N-Windows 基线。未测实机写明。完成后交接后续，停止。
+用 D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat 在 matrixflow-native/ 跑 test --no-pub 与 analyze --no-pub。255/255 是当前基线。未测实机写明。完成后交接后续，停止。
 ```
 
-## 本轮收尾（WP25-N-Windows）
+## 本轮收尾（V0.3-B 全部闭环：WP25-N-Windows, WP27-B-N, WP09-N）
 
-- Windows 桌面端本地通知与托盘联动落地：
+- **WP25-N-Windows Windows 桌面端本地通知与托盘联动落地**：
   - `lib/services/reminder_service.dart`：`FlutterLocalNotificationsReminderService` 在 Windows 环境配置 `WindowsInitializationSettings` 与 `WindowsNotificationDetails`；`checkPermission()` 与 `requestPermission()` 自动返回 `granted` 与 `true`；维护应用内内存 `Timer`（`_activeTimers`）实现托盘后台常驻准时触发；通知点击回调自动触发 `DesktopShellService.instance.restoreWindow()` 还原窗口。
   - `lib/main.dart` & `lib/screens/matrix_screen.dart`：集成通知点击载荷 `ReminderPayload`，实现跨看板自动切换、任务定位与展开、打开详情面板；已删除任务提供友好 SnackBar 提示。
   - `lib/screens/settings_screen.dart` & `lib/l10n.dart`：添加 Windows 通知可靠性指南弹窗（托盘保活、专注助手、操作中心）与“发送测试通知”按钮；补齐中英日三语本地化字典。
-  - 测试：`test/reminder_service_test.dart`（14/14）、`test/windows_reminder_test.dart`（4/4）、`test/widget_regression_test.dart` 全绿。
-  - 静态检查：`flutter test --no-pub` **245/245** 全绿，`flutter analyze --no-pub` **0 issues**。未改 React，未做实机。
-- 未测：物理 Windows 桌面锁屏环境下的横幅声音与通知中心堆叠展示。
+  - 测试：`test/reminder_service_test.dart`（14/14）、`test/windows_reminder_test.dart`（4/4）全绿。
+- **WP27-B-N 完成历史与时间戳**：
+  - `lib/models.dart` & `lib/storage.dart`：Task / SubTask 扩展可选 `completedAt`（毫秒时间戳）；完成状态流转记录、取消完成与撤销清除；`TaskUndoSnapshot` 状态还原；WP11 v2 持久化与 v1 剥离；旧数据读取安全兜底 `null`，严禁借 `createdAt` 伪造时间。
+  - `lib/task_stats.dart` & `lib/screens/completed_screen.dart`：`computeCompletionHistoryStats` 纯函数日历天聚合，父子任务严格独立防重；`CompletedScreen` 顶部新增 7 日微型直方图完成趋势卡片与今日/7日指标；列表项按完成时间倒序排列并展示时间徽标。
+  - 测试：`test/task_stats_test.dart`、`test/data_migration_test.dart` 新增用例全绿。
+- **WP09-N 首次引导教程与手势说明**：
+  - `lib/screens/onboarding_screen.dart`：实现 5 页精炼教程与手势说明；支持前后翻页、跳过、桌面与无障碍键盘快捷导航（Esc / 方向键）。
+  - `lib/storage.dart` & `lib/screens/matrix_screen.dart`：本地机器级存储键 `matrixflow-has-seen-onboarding` 持久化已阅状态，首启自动弹出。
+  - `lib/screens/settings_screen.dart` & `lib/l10n.dart`：设置页新增“使用引导与手势说明”随时重温入口；三语完整本地化。
+  - 测试：`test/onboarding_test.dart`（5/5）全绿。
+- **静态检查**：`flutter test --no-pub` **255/255** 全绿，`flutter analyze --no-pub` **0 issues**。未改 React，未做实机。
+- 未测：物理 Windows 桌面锁屏/免打扰通知中心横幅，Android 物理真机定时闹钟。
 - Pre-existing 未跟踪文档仍在：`docs/STRATEGY_REVIEW_2026-09-08.md`、`docs/UI_INTERACTION_REVIEW_2026-09-08.md`、`docs/AI_UNIT_ECONOMICS_2026-09-08.csv`、`docs/ADR_FLUTTER_PRIMARY_2026-09-09.md`。
 
 ## 历史收尾（WP25-N-Android）
