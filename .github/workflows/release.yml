@@ -1,0 +1,158 @@
+name: Release Build & Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android Release APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Configure Keystore (if secret provided)
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > matrixflow-native/android/app/release.jks
+            cat <<EOF > matrixflow-native/android/key.properties
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=release.jks
+          EOF
+            echo "Release keystore configured."
+          else
+            echo "No keystore secret found; falling back to default/debug signing."
+          fi
+
+      - name: Install dependencies & verify
+        working-directory: matrixflow-native
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Extract App Version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version:' matrixflow-native/pubspec.yaml | sed -E 's/version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build Android Release APK
+        working-directory: matrixflow-native
+        run: flutter build apk --release
+
+      - name: Rename APK
+        shell: bash
+        run: |
+          mkdir -p release_artifacts
+          cp matrixflow-native/build/app/outputs/flutter-apk/app-release.apk "release_artifacts/matrixflow-v${{ steps.version.outputs.VERSION }}-android.apk"
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apk
+          path: release_artifacts/*.apk
+
+  build-windows:
+    name: Build Windows Portable Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies & verify
+        working-directory: matrixflow-native
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Extract App Version
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content matrixflow-native/pubspec.yaml
+          $ver = "1.0.0"
+          foreach ($line in $content) {
+            if ($line -match '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)') {
+              $ver = $Matches[1]
+              break
+            }
+          }
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Build Windows Release
+        working-directory: matrixflow-native
+        run: flutter build windows --release
+
+      - name: Package Windows Portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release_artifacts -Force | Out-Null
+          $ver = "${{ steps.version.outputs.VERSION }}"
+          $zipPath = "release_artifacts/matrixflow-v$ver-windows-portable.zip"
+          Compress-Archive -Path "matrixflow-native/build/windows/x64/runner/Release/*" -DestinationPath $zipPath -CompressionLevel Optimal
+
+      - name: Upload Windows Portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable-zip
+          path: release_artifacts/*.zip
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_artifacts
+          merge-multiple: true
+
+      - name: Generate SHA256 Checksums
+        working-directory: release_artifacts
+        shell: bash
+        run: |
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release_artifacts/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

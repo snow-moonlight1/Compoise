@@ -1,8 +1,25 @@
+import java.util.Properties
+import java.io.FileInputStream
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystorePropertiesFile = listOf(
+    rootProject.file("key.properties"),
+    rootProject.file("keystore.properties"),
+    project.file("key.properties"),
+    project.file("keystore.properties")
+).firstOrNull { it.exists() }
+
+val keystoreProperties = Properties()
+val hasKeystore = keystorePropertiesFile != null
+if (hasKeystore) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile!!))
 }
 
 android {
@@ -11,6 +28,7 @@ android {
     ndkVersion = "28.0.12433566"
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -20,27 +38,52 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.matrixflow.matrixflow_native"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "com.matrixflow.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasKeystore) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                val rawStoreFile = keystoreProperties.getProperty("storeFile")
+                if (rawStoreFile != null) {
+                    val candidate = file(rawStoreFile)
+                    storeFile = if (candidate.exists()) candidate else File(keystorePropertiesFile!!.parentFile, rawStoreFile)
+                }
+                storePassword = keystoreProperties.getProperty("storePassword")
+            } else if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storePassword = System.getenv("ANDROID_STORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+                signingConfig = releaseSigning
+            } else {
+                // Fallback gracefully to debug signing for local test/dev builds without keystore
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 // In Flutter, when building with `--no-pub`, Flutter skips regenerating GeneratedPluginRegistrant.java

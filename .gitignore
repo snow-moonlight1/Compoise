@@ -31,3 +31,9 @@ android/build/
 android/app/build/
 android/capacitor-cordova-android-plugins/
 android/local.properties
+
+# MatrixFlow Release distribution artifacts
+release_dist/
+*.apk
+*.zip
+SHA256SUMS.txt
