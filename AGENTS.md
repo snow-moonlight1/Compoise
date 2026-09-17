@@ -2,6 +2,8 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)。
 
+> **2026-09-17 当前派单覆盖：** 用户实机反馈后的主线交互返修以 [UX 实施计划](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md) 为准，下一实施包 **UX04**，每位 Agent 一包。产品代码已提交至 `main / 3e166b4`（foundation `c7902b1` + UX01–03）。旧下文 `747eb35 / WP03-N / 77项` 为历史；UX03 全量 321 项、analyze 0 issues，双端实机未验。UX01–03 已实现并入库；UX04–08 未实施；继续暂停 WP10/WP29/UI 实验，不将本次明确安排的返修误认为未授权 UI 实验。
+
 ## 运行与验证
 
 - **Flutter 主线**：在 `matrixflow-native/` 运行 `flutter test --no-pub` + `flutter analyze --no-pub`。SDK：`D:\Dev_SDKs\Flutter_SDK`；新增或未解析依赖先 `flutter pub get`。WP21-N 后为 77 项通过、analyze 0 issues，设备集成测试需单独运行，不能当作新包验收。
@@ -36,4 +38,3 @@ AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端
 - WP29 是已纳入路线的可选账号/订阅/额度服务，只有实施该包才增加独立后端，不把任务库迁到服务器、不让普通待办或 BYOK 依赖登录。云同步仍是独立 WP18。
 - 不把备份 JSON 内容（含自定义 API 密钥）写入文档、提交或日志；测试使用无密钥合成数据。
 - `docs/CHANGELOG.md` 新条目追加顶部，不改写既有历史；代码/功能改变后同步，纯计划调整不冒充功能发布。
-

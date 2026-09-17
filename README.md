@@ -1,6 +1,6 @@
 # MatrixFlow AI — 四象限智能待办清单 / Local-First Eisenhower Matrix
 
-[![Flutter Test](https://img.shields.io/badge/Flutter%20Tests-255%2F255%20Passed-brightgreen)](matrixflow-native/)
+[![Flutter Test](https://img.shields.io/badge/Flutter%20Tests-321%2F321%20Passed-brightgreen)](matrixflow-native/)
 [![Analyze](https://img.shields.io/badge/Analyze-0%20Issues-brightgreen)](matrixflow-native/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows-blue)](matrixflow-native/)
@@ -29,10 +29,10 @@ MatrixFlow AI is a modern, local-first task management application built on the 
 - **跨平台定时提醒与桌面保活 (Cross-Platform Reminders)**：
   - **Android**：原生定时通知（遵循 `SCHEDULE_EXACT_ALARM` 合规规范，坚决不申请高危 `USE_EXACT_ALARM`），开机重启自动恢复排期；
   - **Windows 桌面端**：WinRT Toast 丰富通知横幅，系统托盘（System Tray）常驻保活，点击通知一键唤起主窗口与目标任务高亮；
-  - 全局命令面板（**Ctrl+K / ⌘K**）支持快速定位任务与执行操作。
+  - Windows 快捷键（Ctrl+N 新建、Ctrl+F 搜索等）与设置页快捷键帮助；不再提供命令台。
 - **生产力细节与贴心设计**：
   - 手势滑动快速完成与删除，支持 **5 秒浮动撤销（Undo）**；
-  - 7 日完成趋势直方图与已完成历史看板；
+  - 已完成任务归档列表（恢复/删除）；总体完成率默认关闭，仅可在更多面板显示；
   - 新手 5 步响应式交互教程（随时可在帮助中重新回顾）；
   - 标准 JSON 数据导入/导出，跨平台 100% 无损往返互通。
 
@@ -48,10 +48,10 @@ martix/
 │   ├── lib/                  # 状态中心 (storage.dart)、数据模型 (models.dart)、三语字典 (l10n.dart)
 │   │   ├── screens/          # 主界面、设置、搜索、完成历史、新手引导
 │   │   ├── services/         # 跨平台提醒服务、桌面托盘壳服务、AI 直连服务
-│   │   └── widgets/          # 任务卡片、十字象限面板、命令面板、统计条
+│   │   └── widgets/          # 任务卡片、十字象限面板、首页动作与看板选择器
 │   ├── android/              # 原生 Android 工程 (build.gradle.kts, 签名隔离, 权限合规)
 │   ├── windows/              # 原生 Windows 桌面工程 (C++ Runner, Win32 窗口, 托盘与图标)
-│   └── test/                 # 全量自动化测试套件 (255 项测试 100% 全绿)
+│   └── test/                 # 全量自动化测试套件 (321 项，UX03 基线)
 ├── docs/                     # 架构文档、发行规划、隐私政策、版本交接记录
 ├── scripts/                  # 自动化构建打包脚本 (build_release.ps1)
 ├── .github/workflows/        # CI/CD 流水线 (Tag 触发自动构建发布 Release)
@@ -80,7 +80,7 @@ flutter pub get
 # 2. 静态代码质量检查 (0 issues)
 flutter analyze --no-pub
 
-# 3. 运行全量自动化测试 (255/255 passed)
+# 3. 运行全量自动化测试 (321/321 passed)
 flutter test --no-pub
 
 # 4. 本地启动运行 (自动检测当前连接的设备或 Windows 桌面)
@@ -118,6 +118,8 @@ MatrixFlow 遵循绝对的安全合规原则，API Key 仅保存在本地设备�
 
 ## 📖 相关文档 / Documentation
 
+- [当前实机反馈交互返修计划：UX01–UX08（UX01 自动化通过，下一包 UX02）](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md)
+- [当前任务与交接状态 (HANDOFF.md)](docs/HANDOFF.md)
 - [开源合规与发行规划 (RELEASE_PLAN.md)](docs/RELEASE_PLAN.md)
 - [隐私政策 (PRIVACY_POLICY.md)](docs/PRIVACY_POLICY.md)
 - [应用商店上架送审物料 (STORE_LISTING.md)](docs/STORE_LISTING.md)
