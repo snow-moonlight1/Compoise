@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../ai_service.dart';
 import '../models.dart';
 import '../storage.dart';
+import '../ui/platform_ui_policy.dart';
 import 'task_detail_panel.dart';
 
 class InputSheet extends StatefulWidget {
@@ -39,114 +40,125 @@ class _InputSheetState extends State<InputSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.watch<Store>().t;
+    final policy = PlatformUiPolicy.of(context);
+    final insets =
+        widget.embedded ? 0.0 : MediaQuery.viewInsetsOf(context).bottom;
+    final fields = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final mode in InputModePref.values)
+              ChoiceChip(
+                label: Text(
+                  t[mode == InputModePref.single ? 'modeManual' : 'modeAI']!,
+                ),
+                selected: _mode == mode,
+                onSelected: _busy ? null : (_) => setState(() => _mode = mode),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('task-input'),
+          controller: _controller,
+          readOnly: _busy,
+          maxLines: 5,
+          minLines: 3,
+          autofocus: !widget.embedded,
+          decoration: InputDecoration(
+            hintText:
+                t[_mode == InputModePref.brainDump
+                    ? 'inputPlaceholderAI'
+                    : 'inputPlaceholderManual'],
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (_mode == InputModePref.brainDump)
+          Text(
+            t['aiNote']!,
+            style: Theme.of(context).textTheme.labelSmall,
+            textAlign: TextAlign.center,
+          ),
+        if (policy.showShortcutHints)
+          Text(
+            t['shortcutHintWindows'] ?? t['shortcutHint']!,
+            style: Theme.of(context).textTheme.labelSmall,
+            textAlign: TextAlign.center,
+          ),
+        const SizedBox(height: 8),
+        _buildDeadlineRow(context, t),
+        const SizedBox(height: 6),
+        _buildReminderRow(context, t),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+      ],
+    );
+    final submit = FilledButton.icon(
+      key: const ValueKey('submit-tasks'),
+      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+      onPressed: _busy ? null : _submit,
+      icon:
+          _busy
+              ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : Icon(
+                _mode == InputModePref.brainDump
+                    ? Icons.auto_awesome
+                    : Icons.add,
+              ),
+      label: Text(
+        t[_mode == InputModePref.brainDump ? 'analyzeBtn' : 'addSingleBtn']!,
+      ),
+    );
+    final maxHeight = MediaQuery.sizeOf(context).height - insets - 24;
+    final body = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.enter, control: true):
+              _submit,
+          const SingleActivator(LogicalKeyboardKey.enter, meta: true): _submit,
+        },
+        child:
+            widget.embedded
+                ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [fields, const SizedBox(height: 12), submit],
+                )
+                : ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: maxHeight > 200 ? maxHeight : 200,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(child: SingleChildScrollView(child: fields)),
+                      const SizedBox(height: 12),
+                      submit,
+                    ],
+                  ),
+                ),
+      ),
+    );
     final content = SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          12,
-          16,
-          (widget.embedded ? 0 : MediaQuery.viewInsetsOf(context).bottom) + 16,
-        ),
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.enter, control: true):
-                _submit,
-            const SingleActivator(LogicalKeyboardKey.enter, meta: true):
-                _submit,
-          },
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final mode in InputModePref.values)
-                      ChoiceChip(
-                        label: Text(
-                          t[mode == InputModePref.single
-                              ? 'modeManual'
-                              : 'modeAI']!,
-                        ),
-                        selected: _mode == mode,
-                        onSelected:
-                            _busy ? null : (_) => setState(() => _mode = mode),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const ValueKey('task-input'),
-                  controller: _controller,
-                  readOnly: _busy,
-                  maxLines: 5,
-                  minLines: 3,
-                  autofocus: !widget.embedded,
-                  decoration: InputDecoration(
-                    hintText:
-                        t[_mode == InputModePref.brainDump
-                            ? 'inputPlaceholderAI'
-                            : 'inputPlaceholderManual'],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                if (_mode == InputModePref.brainDump)
-                  Text(
-                    t['aiNote']!,
-                    style: Theme.of(context).textTheme.labelSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                if (widget.embedded)
-                  Text(
-                    t['shortcutHint']!,
-                    style: Theme.of(context).textTheme.labelSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                const SizedBox(height: 8),
-                _buildDeadlineRow(context, t),
-                const SizedBox(height: 6),
-                _buildReminderRow(context, t),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  key: const ValueKey('submit-tasks'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  onPressed: _busy ? null : _submit,
-                  icon:
-                      _busy
-                          ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : Icon(
-                            _mode == InputModePref.brainDump
-                                ? Icons.auto_awesome
-                                : Icons.add,
-                          ),
-                  label: Text(
-                    t[_mode == InputModePref.brainDump
-                        ? 'analyzeBtn'
-                        : 'addSingleBtn']!,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        padding: EdgeInsets.only(bottom: insets),
+        child: body,
       ),
     );
     if (widget.embedded) return content;
@@ -374,9 +386,11 @@ class _InputSheetState extends State<InputSheet> {
     setState(() {
       _selectedReminderAt = combined.millisecondsSinceEpoch;
     });
+    await showReminderAccessFeedback(context);
   }
 
   Future<void> _submit() async {
+    if (_controller.value.composing.isValid) return;
     final text = _controller.text.trim();
     if (text.isEmpty || _busy || _closed) return;
     final store = context.read<Store>();

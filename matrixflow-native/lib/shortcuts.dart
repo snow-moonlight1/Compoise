@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Intent to open the in-app command palette.
-class OpenCommandPaletteIntent extends Intent {
-  const OpenCommandPaletteIntent();
-}
-
 /// Intent to trigger new task input.
 class NewTaskIntent extends Intent {
   const NewTaskIntent();
@@ -41,61 +36,112 @@ class EscapeIntent extends Intent {
   const EscapeIntent();
 }
 
-/// Map of logical keyboard key sets to MatrixFlow intents.
-/// Standard shortcuts designed for desktop platforms (Windows / macOS / Linux).
-final Map<ShortcutActivator, Intent> matrixShortcuts = {
-  // Command palette: Ctrl+K or Cmd+K
-  LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK):
-      const OpenCommandPaletteIntent(),
-  LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyK):
-      const OpenCommandPaletteIntent(),
+/// One help row generated from the same table as [matrixShortcuts].
+class ShortcutHelpItem {
+  final String keys;
+  final String labelKey;
+  final String fallbackLabel;
 
-  // New task: Ctrl+N or Cmd+N
+  const ShortcutHelpItem({
+    required this.keys,
+    required this.labelKey,
+    required this.fallbackLabel,
+  });
+}
+
+/// Windows help labels. Ctrl only; never mix in ⌘.
+const List<ShortcutHelpItem> shortcutHelpItems = [
+  ShortcutHelpItem(
+    keys: 'Ctrl + N',
+    labelKey: 'shortcutNewTask',
+    fallbackLabel: 'Create New Task',
+  ),
+  ShortcutHelpItem(
+    keys: 'Ctrl + F',
+    labelKey: 'shortcutSearch',
+    fallbackLabel: 'Search Tasks',
+  ),
+  ShortcutHelpItem(
+    keys: 'Ctrl + H',
+    labelKey: 'shortcutCompleted',
+    fallbackLabel: 'View Completed Tasks',
+  ),
+  ShortcutHelpItem(
+    keys: 'Ctrl + Shift + L',
+    labelKey: 'shortcutToggleView',
+    fallbackLabel: 'Toggle Grid / List View',
+  ),
+  ShortcutHelpItem(
+    keys: 'Ctrl + ,',
+    labelKey: 'shortcutSettings',
+    fallbackLabel: 'Open Settings',
+  ),
+  ShortcutHelpItem(
+    keys: 'Ctrl + / or F1',
+    labelKey: 'shortcutHelp',
+    fallbackLabel: 'Keyboard Shortcuts Help',
+  ),
+  ShortcutHelpItem(
+    keys: 'Esc',
+    labelKey: 'shortcutEsc',
+    fallbackLabel: 'Close Modal / Exit Focus / Cancel Selection',
+  ),
+];
+
+/// Map of logical keyboard key sets to MatrixFlow intents.
+/// Toggle view uses Ctrl+Shift+L so Ctrl+Shift+V never hijacks paste.
+final Map<ShortcutActivator, Intent> matrixShortcuts = {
   LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN):
       const NewTaskIntent(),
   LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyN):
       const NewTaskIntent(),
-
-  // Search tasks: Ctrl+F or Cmd+F
   LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF):
       const SearchTasksIntent(),
   LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyF):
       const SearchTasksIntent(),
-
-  // Completed tasks: Ctrl+H or Cmd+H
   LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyH):
       const OpenCompletedIntent(),
   LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyH):
       const OpenCompletedIntent(),
-
-  // Toggle view mode: Ctrl+Shift+V or Cmd+Shift+V
   LogicalKeySet(
-    LogicalKeyboardKey.control,
-    LogicalKeyboardKey.shift,
-    LogicalKeyboardKey.keyV,
-  ): const ToggleViewModeIntent(),
+        LogicalKeyboardKey.control,
+        LogicalKeyboardKey.shift,
+        LogicalKeyboardKey.keyL,
+      ):
+      const ToggleViewModeIntent(),
   LogicalKeySet(
-    LogicalKeyboardKey.meta,
-    LogicalKeyboardKey.shift,
-    LogicalKeyboardKey.keyV,
-  ): const ToggleViewModeIntent(),
-
-  // Settings: Ctrl+, or Cmd+,
+        LogicalKeyboardKey.meta,
+        LogicalKeyboardKey.shift,
+        LogicalKeyboardKey.keyL,
+      ):
+      const ToggleViewModeIntent(),
   LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.comma):
       const OpenSettingsIntent(),
   LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.comma):
       const OpenSettingsIntent(),
-
-  // Shortcuts help: Ctrl+/ or Cmd+/ or F1
   LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.slash):
       const ShortcutsHelpIntent(),
   LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.slash):
       const ShortcutsHelpIntent(),
   LogicalKeySet(LogicalKeyboardKey.f1): const ShortcutsHelpIntent(),
-
-  // Esc
   LogicalKeySet(LogicalKeyboardKey.escape): const EscapeIntent(),
 };
+
+/// Lets EditableText keep Ctrl+C/V/A/Z and Ctrl+Shift+V instead of app intents.
+class EditingAwareShortcutManager extends ShortcutManager {
+  EditingAwareShortcutManager()
+    : super(modal: true, shortcuts: matrixShortcuts);
+
+  @override
+  KeyEventResult handleKeypress(BuildContext context, KeyEvent event) {
+    final focus = FocusManager.instance.primaryFocus;
+    final widget = focus?.context?.widget;
+    if (widget is EditableText) {
+      return KeyEventResult.ignored;
+    }
+    return super.handleKeypress(context, event);
+  }
+}
 
 /// Displays the Keyboard Shortcuts Help modal dialog.
 Future<void> showShortcutsHelpDialog(
@@ -104,41 +150,6 @@ Future<void> showShortcutsHelpDialog(
 ) {
   final theme = Theme.of(context);
   final isDark = theme.brightness == Brightness.dark;
-
-  final shortcutsList = <Map<String, String>>[
-    {
-      'keys': 'Ctrl + K',
-      'label': t['shortcutCommandPalette'] ?? 'Open Command Palette',
-    },
-    {
-      'keys': 'Ctrl + N',
-      'label': t['shortcutNewTask'] ?? 'Create New Task',
-    },
-    {
-      'keys': 'Ctrl + F',
-      'label': t['shortcutSearch'] ?? 'Search Tasks',
-    },
-    {
-      'keys': 'Ctrl + H',
-      'label': t['shortcutCompleted'] ?? 'View Completed Tasks',
-    },
-    {
-      'keys': 'Ctrl + Shift + V',
-      'label': t['shortcutToggleView'] ?? 'Toggle Grid / List View',
-    },
-    {
-      'keys': 'Ctrl + ,',
-      'label': t['shortcutSettings'] ?? 'Open Settings',
-    },
-    {
-      'keys': 'Ctrl + / 或 F1',
-      'label': t['shortcutHelp'] ?? 'Keyboard Shortcuts Help',
-    },
-    {
-      'keys': 'Esc',
-      'label': t['shortcutEsc'] ?? 'Close Modal / Exit Focus / Cancel Selection',
-    },
-  ];
 
   return showDialog<void>(
     context: context,
@@ -155,10 +166,10 @@ Future<void> showShortcutsHelpDialog(
           width: 480,
           child: ListView.separated(
             shrinkWrap: true,
-            itemCount: shortcutsList.length,
+            itemCount: shortcutHelpItems.length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              final item = shortcutsList[index];
+              final item = shortcutHelpItems[index];
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                 child: Row(
@@ -182,7 +193,7 @@ Future<void> showShortcutsHelpDialog(
                         ),
                       ),
                       child: Text(
-                        item['keys']!,
+                        item.keys,
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontFamily: 'monospace',
                           fontWeight: FontWeight.w700,
@@ -192,7 +203,7 @@ Future<void> showShortcutsHelpDialog(
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        item['label']!,
+                        t[item.labelKey] ?? item.fallbackLabel,
                         style: theme.textTheme.bodyMedium,
                       ),
                     ),

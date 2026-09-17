@@ -163,9 +163,7 @@ CompletionHistoryStats computeCompletionHistoryStats({
   final todayMidnight = DateTime(refNow.year, refNow.month, refNow.day);
 
   final scopedTasks =
-      tasks
-          .where((t) => t.completed && (boardId == null || t.boardId == boardId))
-          .toList();
+      tasks.where((t) => boardId == null || t.boardId == boardId).toList();
 
   // Create date buckets for the last [days] calendar days (chronological)
   final bucketList = <DailyCompletionBucket>[];
@@ -189,22 +187,23 @@ CompletionHistoryStats computeCompletionHistoryStats({
   var totalCompletedWithDate = 0;
 
   for (final task in scopedTasks) {
-    if (task.completedAt == null) {
-      unknownDateCount++;
-    } else {
-      totalCompletedWithDate++;
-      final cDate = DateTime.fromMillisecondsSinceEpoch(task.completedAt!);
-      final key = _formatDateString(cDate);
-      if (bucketMap.containsKey(key)) {
-        final existing = bucketMap[key]!;
-        bucketMap[key] = existing.copyWith(
-          count: existing.count + 1,
-          tasks: [...existing.tasks, task],
-        );
+    if (task.completed) {
+      if (task.completedAt == null) {
+        unknownDateCount++;
+      } else {
+        totalCompletedWithDate++;
+        final cDate = DateTime.fromMillisecondsSinceEpoch(task.completedAt!);
+        final key = _formatDateString(cDate);
+        if (bucketMap.containsKey(key)) {
+          final existing = bucketMap[key]!;
+          bucketMap[key] = existing.copyWith(
+            count: existing.count + 1,
+            tasks: [...existing.tasks, task],
+          );
+        }
       }
     }
 
-    // Process subtasks completion count
     for (final sub in task.subtasks) {
       if (sub.completed && sub.completedAt != null) {
         final sDate = DateTime.fromMillisecondsSinceEpoch(sub.completedAt!);
@@ -228,7 +227,7 @@ CompletionHistoryStats computeCompletionHistoryStats({
 
   return CompletionHistoryStats(
     dailyBuckets: updatedBuckets,
-    totalCompleted: scopedTasks.length,
+    totalCompleted: scopedTasks.where((t) => t.completed).length,
     totalCompletedWithDate: totalCompletedWithDate,
     unknownDateCount: unknownDateCount,
     todayCount: todayCount,

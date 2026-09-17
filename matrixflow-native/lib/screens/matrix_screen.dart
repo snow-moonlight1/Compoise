@@ -1,16 +1,18 @@
+﻿import '../widgets/reminder_failure_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
 import '../shortcuts.dart';
-import '../widgets/command_palette.dart';
+import '../ui/platform_ui_policy.dart';
+import '../widgets/board_picker.dart';
+import '../widgets/home_actions.dart';
 import '../widgets/input_sheet.dart';
 import '../widgets/quadrant_focus_view.dart';
 import '../widgets/quadrant_pane.dart';
 import '../widgets/task_detail_panel.dart';
 import '../widgets/task_list_view.dart';
-import '../widgets/task_stats_bar.dart';
 import '../widgets/text_prompt.dart';
 import 'completed_screen.dart';
 import 'onboarding_screen.dart';
@@ -57,16 +59,46 @@ class _MatrixHomeState extends State<MatrixHome> {
   }
 
   String? _activeDetailTaskId;
+  String? _highlightSubtaskId;
+  bool _detailDirty = false;
+  bool _composerOpen = false;
+  final _detailKey = GlobalKey();
 
-  void _openTaskDetail(
+  Future<bool> _protectDetailDraft() async {
+    if (!_detailDirty) return true;
+    final discard = await confirmDiscardDraft(context);
+    if (discard) _detailDirty = false;
+    return discard;
+  }
+
+  Future<void> _closeDetail() async {
+    if (!await _protectDetailDraft()) return;
+    if (!mounted) return;
+    setState(() {
+      _activeDetailTaskId = null;
+      _detailDirty = false;
+    });
+  }
+
+  Future<void> _openTaskDetail(
     BuildContext context,
     Task task, {
     required bool isWide,
-  }) {
+    String? subtaskId,
+  }) async {
     if (isWide) {
-      setState(() => _activeDetailTaskId = task.id);
+      if (_activeDetailTaskId != null &&
+          _activeDetailTaskId != task.id &&
+          !await _protectDetailDraft()) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _activeDetailTaskId = task.id;
+        _highlightSubtaskId = subtaskId;
+      });
     } else {
-      showTaskDetailSheet(context, task);
+      await showTaskDetailSheet(context, task, highlightSubtaskId: subtaskId);
     }
   }
 
@@ -77,18 +109,8 @@ class _MatrixHomeState extends State<MatrixHome> {
     return widget is EditableText;
   }
 
-  void _openCommandPalette() {
-    final store = context.read<Store>();
-    showCommandPalette(
-      context,
-      onOpenInput: _openInput,
-      focusedQuadrant: _focusedQuadrant,
-      onSetFocusedQuadrant: (q) => setState(() => _focusedQuadrant = q),
-      onClearBoard: () => _clearBoard(context, store),
-    );
-  }
-
-  void _handleNotificationPayload(ReminderPayload payload) {
+  void _handleNotificationPayload(ReminderPayload payload) async {
+    if (!await _protectDetailDraft() || !mounted) return;
     if (!mounted) return;
     final store = context.read<Store>();
     if (payload.boardId.isNotEmpty &&
@@ -101,12 +123,22 @@ class _MatrixHomeState extends State<MatrixHome> {
       if (payload.subtaskId != null) {
         _ensureExpanded(store, task.id);
       }
-      final isWide = MediaQuery.of(context).size.width >= 720;
-      _openTaskDetail(context, task, isWide: isWide);
+      final useSide = PlatformUiPolicy.of(context).canShowSideDetail(
+        MediaQuery.sizeOf(context).width,
+      );
+      _openTaskDetail(
+        context,
+        task,
+        isWide: useSide,
+        subtaskId: payload.subtaskId,
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(store.t['taskNotFound'] ?? 'Task no longer exists or has been deleted'),
+          content: Text(
+            store.t['taskNotFound'] ??
+                'Task no longer exists or has been deleted',
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -116,10 +148,33 @@ class _MatrixHomeState extends State<MatrixHome> {
   @override
   void initState() {
     super.initState();
-    ReminderService.instance.onNotificationSelected = _handleNotificationPayload;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ReminderService.instance.onNotificationSelected =
+            _handleNotificationPayload;
+      }
+    });
     DesktopShellService.instance.onShowWindow = () {
       if (mounted) setState(() {});
     };
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final store = context.read<Store>();
+      DesktopShellService.instance.init(
+        closeToTray: store.settings.closeToTray,
+        globalShortcut: store.settings.globalShortcut,
+        onQuickAddTask: _openInput,
+        onSearch: () {
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SearchScreen(initialBoardId: store.activeBoardId),
+            ),
+          );
+        },
+      );
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final store = context.read<Store>();
@@ -130,11 +185,9 @@ class _MatrixHomeState extends State<MatrixHome> {
         store.corruptNotice = null;
       }
       if (!store.hasSeenOnboarding) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const OnboardingScreen(),
-          ),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
       }
     });
   }
@@ -155,9 +208,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     final theme = Theme.of(context);
     final board = store.activeBoard;
     _selectedIds.retainAll(store.visibleTasks.map((task) => task.id));
-    _expandedKeys.retainAll(
-      store.tasks.map(_expandKey),
-    );
+    _expandedKeys.retainAll(store.tasks.map(_expandKey));
 
     for (final task in store.visibleTasks) {
       final prev = _subtaskCounts[task.id];
@@ -185,16 +236,10 @@ class _MatrixHomeState extends State<MatrixHome> {
           return;
         }
       },
-      child: Shortcuts(
-        shortcuts: matrixShortcuts,
+      child: Shortcuts.manager(
+        manager: EditingAwareShortcutManager(),
         child: Actions(
           actions: {
-            OpenCommandPaletteIntent: CallbackAction<OpenCommandPaletteIntent>(
-              onInvoke: (_) {
-                _openCommandPalette();
-                return null;
-              },
-            ),
             NewTaskIntent: CallbackAction<NewTaskIntent>(
               onInvoke: (_) {
                 if (!_isTextEditingFocused()) {
@@ -210,7 +255,8 @@ class _MatrixHomeState extends State<MatrixHome> {
                     context,
                     MaterialPageRoute(
                       builder:
-                          (_) => SearchScreen(initialBoardId: store.activeBoardId),
+                          (_) =>
+                              SearchScreen(initialBoardId: store.activeBoardId),
                     ),
                   );
                 }
@@ -254,7 +300,9 @@ class _MatrixHomeState extends State<MatrixHome> {
             ),
             ShortcutsHelpIntent: CallbackAction<ShortcutsHelpIntent>(
               onInvoke: (_) {
-                showShortcutsHelpDialog(context, t);
+                if (PlatformUiPolicy.of(context).showDesktopShortcuts) {
+                  showShortcutsHelpDialog(context, t);
+                }
                 return null;
               },
             ),
@@ -273,7 +321,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                 } else if (_focusedQuadrant != null) {
                   setState(() => _focusedQuadrant = null);
                 } else if (_activeDetailTaskId != null) {
-                  setState(() => _activeDetailTaskId = null);
+                  _closeDetail();
                 }
                 return null;
               },
@@ -282,117 +330,130 @@ class _MatrixHomeState extends State<MatrixHome> {
           child: Focus(
             autofocus: true,
             child: Scaffold(
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 900;
-              final detailTask =
-                  _activeDetailTaskId == null
-                      ? null
-                      : store.tasks
-                          .where((t) => t.id == _activeDetailTaskId)
-                          .firstOrNull;
+              body: SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final policy = PlatformUiPolicy.of(context);
+                    final useSideDetail = policy.canShowSideDetail(
+                      constraints.maxWidth,
+                    );
+                    final wide = useSideDetail;
+                    final detailTask =
+                        _activeDetailTaskId == null
+                            ? null
+                            : store.tasks
+                                .where((t) => t.id == _activeDetailTaskId)
+                                .firstOrNull;
 
-              if (!wide && _activeDetailTaskId != null) {
-                _activeDetailTaskId = null;
-                if (detailTask != null) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) showTaskDetailSheet(context, detailTask);
-                  });
-                }
-              }
-
-              final activeCenter =
-                  _focusedQuadrant != null
-                      ? _focusView(wide: wide, focusedQ: _focusedQuadrant!)
-                      : store.settings.viewMode == ViewMode.grid
-                          ? _grid(wide: wide)
-                          : TaskListView(
+                    final activeCenter =
+                        _focusedQuadrant != null
+                            ? _focusView(
+                              wide: wide,
+                              focusedQ: _focusedQuadrant!,
+                            )
+                            : store.settings.viewMode == ViewMode.grid
+                            ? _grid(wide: wide)
+                            : TaskListView(
                               selecting: _selecting,
                               selectedIds: _selectedIds,
                               expandedIds: _expandedIdsFor(store),
-                              onSelect: (id) => setState(() {
-                                if (!_selectedIds.add(id)) _selectedIds.remove(id);
-                              }),
+                              onSelect:
+                                  (id) => setState(() {
+                                    if (!_selectedIds.add(id)) {
+                                      _selectedIds.remove(id);
+                                    }
+                                  }),
                               onToggleExpand: (id) => _toggleExpand(store, id),
-                              onEnsureExpanded: (id) => _ensureExpanded(store, id),
-                              onQuadrantTap: (q) => setState(() => _focusedQuadrant = q),
-                              onEdit: (task) => _openTaskDetail(context, task, isWide: wide),
+                              onEnsureExpanded:
+                                  (id) => _ensureExpanded(store, id),
+                              onQuadrantTap:
+                                  (q) => setState(() => _focusedQuadrant = q),
+                              onEdit:
+                                  (task) => _openTaskDetail(
+                                    context,
+                                    task,
+                                    isWide: wide,
+                                  ),
                             );
 
-              Widget mainContent;
-              if (wide) {
-                final showSidebar = detailTask != null;
-                final showLeftInput =
-                    constraints.maxWidth >= 1220 || !showSidebar;
-                mainContent = Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (showLeftInput) ...[
-                      SizedBox(
-                        width: 320,
-                        child: _InputPanel(
-                          initialMode: store.settings.defaultInputMode,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                    ],
-                    Expanded(child: activeCenter),
-                    if (showSidebar) ...[
-                      const SizedBox(width: 14),
-                      SizedBox(
-                        width: 340,
-                        child: TaskDetailPanel(
-                          task: detailTask,
-                          isSidebar: true,
-                          onClose:
-                              () => setState(() => _activeDetailTaskId = null),
-                        ),
-                      ),
-                    ],
-                  ],
-                );
-              } else {
-                mainContent = activeCenter;
-              }
+                    Widget mainContent;
+                    final showSidebar = detailTask != null;
+                    final panel =
+                        detailTask == null
+                            ? null
+                            : TaskDetailPanel(
+                              key: _detailKey,
+                              task: detailTask,
+                              highlightSubtaskId: _highlightSubtaskId,
+                              isSidebar: true,
+                              onDirtyChanged: (dirty) {
+                                if (_detailDirty == dirty) return;
+                                _detailDirty = dirty;
+                              },
+                              onClose: () {
+                                setState(() {
+                                  _activeDetailTaskId = null;
+                                  _detailDirty = false;
+                                });
+                              },
+                            );
+                    if (!useSideDetail && panel != null) {
+                      mainContent = panel;
+                    } else if (showSidebar) {
+                      mainContent = Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: activeCenter),
+                          const SizedBox(width: PlatformUiPolicy.sideDetailGap),
+                          SizedBox(
+                            width: PlatformUiPolicy.sideDetailWidth,
+                            child: panel,
+                          ),
+                        ],
+                      );
+                    } else {
+                      mainContent = activeCenter;
+                    }
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _header(
-                    context,
-                    store,
-                    t,
-                    theme,
-                    board?.name ?? t['defaultBoardName']!,
-                  ),
-                  const TaskStatsBar(),
-                  if (store.persistenceError != null)
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(
-                        store.persistenceError!,
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                    ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
-                      child: mainContent,
-                    ),
-                  ),
-                  _bottomBar(context, store, t, theme, wide),
-                ],
-              );
-            },
-          ),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _header(
+                          context,
+                          store,
+                          t,
+                          theme,
+                          board?.name ?? t['defaultBoardName']!,
+                          policy,
+                          constraints.maxWidth,
+                        ),
+                        const ReminderFailureBanner(),
+                        if (store.persistenceError != null)
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              store.persistenceError!,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                          ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
+                            child: mainContent,
+                          ),
+                        ),
+                        _bottomBar(context, store, t, theme, wide, policy),
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _bottomBar(
     BuildContext context,
@@ -400,6 +461,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     Map<String, String> t,
     ThemeData theme,
     bool wide,
+    PlatformUiPolicy policy,
   ) {
     if (_selecting) {
       return Container(
@@ -445,13 +507,19 @@ class _MatrixHomeState extends State<MatrixHome> {
             if (_selectedIds.length >= 2)
               FilledButton.tonal(
                 onPressed: () => _groupSelected(context, store),
-                child: Text(
-                  '${t['groupSelected']} (${_selectedIds.length})',
-                ),
+                child: Text('${t['groupSelected']} (${_selectedIds.length})'),
               ),
             const SizedBox(width: 4),
+            if (policy.isTouchLayout)
+              IconButton(
+                key: const ValueKey('more-btn'),
+                tooltip: t['more'] ?? 'More',
+                icon: const Icon(Icons.more_horiz),
+                onPressed: _openMore,
+              ),
             IconButton(
               key: const ValueKey('exit-selection-btn'),
+              tooltip: t['cancelSelection'],
               icon: const Icon(Icons.close),
               onPressed:
                   () => setState(() {
@@ -464,19 +532,11 @@ class _MatrixHomeState extends State<MatrixHome> {
       );
     }
 
-    if (!wide) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-        child: Row(
-          children: [
-            FloatingActionButton.extended(
-              tooltip: t['addBtn'],
-              onPressed: _openInput,
-              icon: const Icon(Icons.add),
-              label: Text(t['addBtn']!),
-            ),
-          ],
-        ),
+    if (policy.isTouchLayout) {
+      return HomeBottomActions(
+        onSearch: _openSearch,
+        onAdd: _openInput,
+        onMore: _openMore,
       );
     }
 
@@ -574,257 +634,182 @@ class _MatrixHomeState extends State<MatrixHome> {
     Map<String, String> t,
     ThemeData theme,
     String boardName,
+    PlatformUiPolicy policy,
+    double availableWidth,
   ) {
-    return IconButtonTheme(
-      data: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          visualDensity: VisualDensity.compact,
-          padding: const EdgeInsets.all(4),
-          minimumSize: const Size(34, 34),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 8, 4),
-        child: Row(
-          children: [
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 8, 4),
+      child: Row(
+        children: [
           if (_focusedQuadrant != null) ...[
             IconButton(
               key: const ValueKey('focus-back-btn'),
               tooltip: t['back'] ?? 'Back',
               icon: const Icon(Icons.arrow_back),
+              style: IconButton.styleFrom(
+                minimumSize: const Size(
+                  PlatformUiPolicy.minActionSize,
+                  PlatformUiPolicy.minActionSize,
+                ),
+              ),
               onPressed: () => setState(() => _focusedQuadrant = null),
             ),
             const SizedBox(width: 4),
           ],
-          // Board switcher
           Expanded(
-            child: PopupMenuButton<String>(
-              tooltip: t['boards'],
-              onSelected: (value) {
-                setState(() {
-                  _selecting = false;
-                  _selectedIds.clear();
-                  _activeDetailTaskId = null;
-                  _focusedQuadrant = null;
-                });
-                if (value == '__new') {
-                  _createBoard(context, store);
-                } else if (value == '__rename') {
-                  _renameBoard(context, store);
-                } else if (value == '__clear') {
-                  _clearBoard(context, store);
-                } else if (value == '__delete') {
-                  _deleteBoard(context, store);
-                } else {
-                  store.setActiveBoard(value);
-                }
-              },
-              itemBuilder:
-                  (context) => [
-                    for (final b in store.boards)
-                      PopupMenuItem(
-                        value: b.id,
-                        child: Row(
-                          children: [
-                            if (b.id == store.activeBoardId)
-                              Icon(
-                                Icons.check,
-                                size: 16,
-                                color: theme.colorScheme.primary,
-                              )
-                            else
-                              const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                b.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+            child: InkWell(
+              key: const ValueKey('board-picker-btn'),
+              onTap: _openBoardPicker,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        boardName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: '__new',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.add, size: 16),
-                          const SizedBox(width: 8),
-                          Text(t['createBoard']!),
-                        ],
-                      ),
                     ),
-                    PopupMenuItem(
-                      value: '__rename',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.edit_outlined, size: 16),
-                          const SizedBox(width: 8),
-                          Text(t['renameBoard']!),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      key: const ValueKey('clear-board-menu-item'),
-                      value: '__clear',
-                      enabled: store.boardTaskCount(store.activeBoardId) > 0,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_sweep_outlined,
-                            size: 16,
-                            color:
-                                store.boardTaskCount(store.activeBoardId) > 0
-                                    ? theme.colorScheme.error
-                                    : theme.disabledColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            t['clearBoard']!,
-                            style: TextStyle(
-                              color:
-                                  store.boardTaskCount(store.activeBoardId) > 0
-                                      ? theme.colorScheme.error
-                                      : theme.disabledColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (store.boards.length > 1)
-                      PopupMenuItem(
-                        value: '__delete',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outline,
-                              size: 16,
-                              color: theme.colorScheme.error,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(t['deleteBoard']!),
-                          ],
-                        ),
-                      ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.keyboard_arrow_down),
                   ],
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      boardName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down),
-                ],
+                ),
               ),
             ),
           ),
-          IconButton(
-            key: const ValueKey('command-palette-btn'),
-            tooltip: '${t['commandPalette'] ?? 'Command Palette'} (Ctrl+K)',
-            onPressed: _openCommandPalette,
-            icon: const Icon(Icons.terminal_outlined),
-          ),
-          IconButton(
-            key: const ValueKey('search-btn'),
-            tooltip: t['search'] ?? 'Search',
-            onPressed:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (_) => SearchScreen(initialBoardId: store.activeBoardId),
-                  ),
-                ),
-            icon: const Icon(Icons.search),
-          ),
-          IconButton(
-            key: const ValueKey('completed-btn'),
-            tooltip: t['completedTasks'] ?? 'Completed Tasks',
-            onPressed:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (_) => CompletedScreen(
-                          initialBoardId: store.activeBoardId,
-                        ),
-                  ),
-                ),
-            icon: const Icon(Icons.task_alt),
-          ),
-          IconButton(
-            tooltip: _selecting ? t['cancelSelection'] : t['selectionMode'],
-            onPressed:
-                () => setState(() {
-                  _selecting = !_selecting;
-                  _selectedIds.clear();
-                }),
-            icon: Icon(
-              Icons.layers,
-              color: _selecting ? theme.colorScheme.primary : null,
+          if (!policy.isTouchLayout)
+            HomeHeaderActions(
+              compact: policy.compactHeaderActions(availableWidth),
+              onSearch: _openSearch,
+              onAdd: _openInput,
+              onMore: _openMore,
             ),
-          ),
-          IconButton(
-            tooltip: t['hideCompleted'],
-            onPressed:
-                () => store.updateSettings(
-                  (s) => s..hideCompleted = !s.hideCompleted,
-                ),
-            icon: Icon(
-              store.settings.hideCompleted
-                  ? Icons.visibility_off
-                  : Icons.visibility,
-              color:
-                  store.settings.hideCompleted
-                      ? theme.colorScheme.primary
-                      : null,
-            ),
-          ),
-          IconButton(
-            key: const ValueKey('view-mode-toggle-btn'),
-            tooltip:
-                store.settings.viewMode == ViewMode.grid
-                    ? (t['viewModeList'] ?? 'List View')
-                    : (t['viewModeGrid'] ?? 'Grid View'),
-            onPressed: () => store.toggleViewMode(),
-            icon: Icon(
-              store.settings.viewMode == ViewMode.grid
-                  ? Icons.view_agenda_outlined
-                  : Icons.grid_view,
-            ),
-          ),
-          IconButton(
-            tooltip: t['settings'],
-            onPressed:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                ),
-            icon: const Icon(Icons.settings_outlined),
-          ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
+
+  void _openSearch() {
+    final store = context.read<Store>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SearchScreen(initialBoardId: store.activeBoardId),
+      ),
+    );
+  }
+
+  void _openCompleted() {
+    final store = context.read<Store>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CompletedScreen(initialBoardId: store.activeBoardId),
+      ),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+  }
+
+  void _clearTransientUi() {
+    setState(() {
+      _selecting = false;
+      _selectedIds.clear();
+      _activeDetailTaskId = null;
+      _detailDirty = false;
+      _focusedQuadrant = null;
+    });
+  }
+
+  Future<void> _openBoardPicker() {
+    final store = context.read<Store>();
+    return showBoardPicker(
+      context: context,
+      protectDraft: _protectDetailDraft,
+      onBoardWillChange: _clearTransientUi,
+      onCreate: () => _createBoard(context, store),
+      onRename: () => _renameBoard(context, store),
+      onClear: () => _clearBoard(context, store),
+      onDelete: () => _deleteBoard(context, store),
+    );
+  }
+
+  Future<void> _openMore() async {
+    final action = await showHomeMore(context);
+    if (!mounted || action == null) return;
+    switch (action) {
+      case HomeMoreAction.switchBoard:
+        await _openBoardPicker();
+      case HomeMoreAction.completed:
+        _openCompleted();
+      case HomeMoreAction.select:
+        setState(() {
+          _selecting = true;
+          _selectedIds.clear();
+        });
+      case HomeMoreAction.settings:
+        _openSettings();
+    }
+  }
 
   Future<void> _openInput() async {
+    if (_composerOpen) return;
+    if (!await _protectDetailDraft()) return;
+    if (!mounted) return;
+    if (_activeDetailTaskId != null) {
+      setState(() {
+        _activeDetailTaskId = null;
+        _detailDirty = false;
+      });
+    }
     final store = context.read<Store>();
-    final longTerm = await showModalBottomSheet<List<Task>>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => InputSheet(initialMode: store.settings.defaultInputMode),
-    );
+    final policy = PlatformUiPolicy.of(context);
+    _composerOpen = true;
+    List<Task>? longTerm;
+    try {
+      if (policy.isTouchLayout) {
+        longTerm = await showModalBottomSheet<List<Task>>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          builder:
+              (_) => InputSheet(initialMode: store.settings.defaultInputMode),
+        );
+      } else {
+        longTerm = await showDialog<List<Task>>(
+          context: context,
+          barrierDismissible: true,
+          builder:
+              (ctx) => Dialog(
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 520,
+                    maxHeight: 640,
+                  ),
+                  child: InputSheet(
+                    initialMode: store.settings.defaultInputMode,
+                  ),
+                ),
+              ),
+        );
+      }
+    } finally {
+      _composerOpen = false;
+    }
     if (!mounted || longTerm == null || longTerm.isEmpty) return;
     await showBatchDecomposeSheet(context, longTerm);
   }
@@ -929,6 +914,7 @@ class _MatrixHomeState extends State<MatrixHome> {
         _selecting = false;
         _selectedIds.clear();
         _activeDetailTaskId = null;
+        _detailDirty = false;
         _focusedQuadrant = null;
       });
       store.clearBoard(boardId);
@@ -974,24 +960,6 @@ class _MatrixHomeState extends State<MatrixHome> {
       initial: initial ?? '',
       cancel: t['cancel']!,
       confirm: t['confirm']!,
-    );
-  }
-}
-
-/// Desktop-side input panel (same InputSheet content, embedded).
-class _InputPanel extends StatelessWidget {
-  final InputModePref initialMode;
-  const _InputPanel({required this.initialMode});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: SingleChildScrollView(
-          child: InputSheet(initialMode: initialMode, embedded: true),
-        ),
-      ),
     );
   }
 }

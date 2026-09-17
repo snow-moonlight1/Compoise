@@ -1,10 +1,13 @@
+import '../widgets/reminder_failure_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
 import '../task_query.dart';
+import '../ui/platform_ui_policy.dart';
 import '../widgets/task_detail_panel.dart';
+import '../widgets/task_filter_panel.dart';
 
 /// Screen for searching and multi-dimensional filtering across tasks and subtasks.
 class SearchScreen extends StatefulWidget {
@@ -18,33 +21,85 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  TaskScopeFilter _scope = TaskScopeFilter.currentBoard;
-  int? _selectedQuadrant; // null means All
-  TaskStatusFilter _selectedStatus = TaskStatusFilter.all;
-  TaskDateFilter _selectedDate = TaskDateFilter.all;
+  final FocusNode _searchFocus = FocusNode();
+  final ScrollController _listController = ScrollController();
+  TaskFilterCriteria _applied = const TaskFilterCriteria();
 
   String? _activeDetailTaskId;
   String? _highlightSubtaskId;
+  bool _detailDirty = false;
+  final _detailKey = GlobalKey();
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
+    _listController.dispose();
     super.dispose();
   }
 
-  void _openDetail(
+  String _boardName(Store store, String boardId) {
+    return resolveBoardName(
+      boards: store.boards,
+      boardId: boardId,
+      unknownLabel: store.t['unknownBoard'] ?? 'Unknown board',
+    );
+  }
+
+  Future<void> _openFilter(BuildContext context) async {
+    _searchFocus.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+    final store = context.read<Store>();
+    final boardId = widget.initialBoardId ?? store.activeBoardId;
+    final result = await showTaskFilterEditor(
+      context: context,
+      applied: _applied,
+      currentBoardName: _boardName(store, boardId),
+      kind: TaskFilterKind.search,
+    );
+    if (!mounted) return;
+    _searchFocus.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (result != null) {
+      setState(() => _applied = result);
+    }
+  }
+
+  void _clearFilters() {
+    setState(() => _applied = const TaskFilterCriteria());
+  }
+
+  void _clearKeyword() {
+    _searchController.clear();
+    setState(() {});
+  }
+
+  Future<bool> _protectDetailDraft() async {
+    if (!_detailDirty) return true;
+    final discard = await confirmDiscardDraft(context);
+    if (discard) _detailDirty = false;
+    return discard;
+  }
+
+  Future<void> _openDetail(
     BuildContext context,
     Task task, {
     String? subtaskId,
     required bool isWide,
-  }) {
+  }) async {
     if (isWide) {
+      if (_activeDetailTaskId != null &&
+          _activeDetailTaskId != task.id &&
+          !await _protectDetailDraft()) {
+        return;
+      }
+      if (!mounted) return;
       setState(() {
         _activeDetailTaskId = task.id;
         _highlightSubtaskId = subtaskId;
       });
     } else {
-      showTaskDetailSheet(context, task, highlightSubtaskId: subtaskId);
+      await showTaskDetailSheet(context, task, highlightSubtaskId: subtaskId);
     }
   }
 
@@ -60,14 +115,28 @@ class _SearchScreenState extends State<SearchScreen> {
       boards: store.boards,
       activeBoardId: activeBoardId,
       query: _searchController.text,
-      scope: _scope,
-      quadrant: _selectedQuadrant,
-      status: _selectedStatus,
-      dateFilter: _selectedDate,
+      scope: _applied.scope,
+      quadrant: _applied.quadrant,
+      status: _applied.status,
+      dateFilter: _applied.date,
     );
+    final policy = PlatformUiPolicy.of(context);
+    final boardName = _boardName(store, activeBoardId);
+    final activeCount = _applied.dimensionCount(TaskFilterKind.search);
 
     return Scaffold(
+      bottomNavigationBar:
+          policy.isTouchLayout
+              ? FilterChromeBar(
+                activeCount: activeCount,
+                canClear: !_applied.isDefault,
+                onOpen: () => _openFilter(context),
+                onClear: _clearFilters,
+                expanded: true,
+              )
+              : null,
       body: SafeArea(
+        bottom: !policy.isTouchLayout,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 900;
@@ -78,30 +147,32 @@ class _SearchScreenState extends State<SearchScreen> {
                         .where((item) => item.id == _activeDetailTaskId)
                         .firstOrNull;
 
-            if (!isWide && _activeDetailTaskId != null) {
-              _activeDetailTaskId = null;
-              if (detailTask != null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    showTaskDetailSheet(
-                      context,
-                      detailTask,
-                      highlightSubtaskId: _highlightSubtaskId,
-                    );
-                  }
-                });
-              }
-            }
-
             final mainSearchContent = Column(
               children: [
-                _buildSearchBar(context, t, theme),
-                _buildFilterChips(context, t, theme, store),
+                _buildSearchBar(
+                  context,
+                  t,
+                  theme,
+                  policy,
+                  activeCount,
+                  constraints.maxWidth,
+                ),
+                const ReminderFailureBanner(),
+                AppliedFilterSummary(
+                  criteria: _applied,
+                  kind: TaskFilterKind.search,
+                  currentBoardName: boardName,
+                ),
                 _buildResultsSummary(context, t, theme, results.length),
                 Expanded(
                   child:
                       results.isEmpty
-                          ? _buildEmptyState(context, t, theme)
+                          ? _buildEmptyState(
+                            context,
+                            t,
+                            theme,
+                            boardName,
+                          )
                           : _buildResultsList(
                             context,
                             store,
@@ -109,12 +180,31 @@ class _SearchScreenState extends State<SearchScreen> {
                             theme,
                             results,
                             isWide,
+                            policy,
                           ),
                 ),
               ],
             );
 
-            if (isWide && detailTask != null) {
+            if (detailTask != null) {
+              final panel = TaskDetailPanel(
+                key: _detailKey,
+                task: detailTask,
+                isSidebar: true,
+                highlightSubtaskId: _highlightSubtaskId,
+                onDirtyChanged: (dirty) {
+                  if (_detailDirty == dirty) return;
+                  _detailDirty = dirty;
+                },
+                onClose: () {
+                  setState(() {
+                    _activeDetailTaskId = null;
+                    _highlightSubtaskId = null;
+                    _detailDirty = false;
+                  });
+                },
+              );
+              if (!isWide) return panel;
               return Row(
                 children: [
                   Expanded(child: mainSearchContent),
@@ -126,20 +216,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             ? const Color(0xFFD5DAE1)
                             : theme.colorScheme.outlineVariant,
                   ),
-                  SizedBox(
-                    width: 350,
-                    child: TaskDetailPanel(
-                      task: detailTask,
-                      isSidebar: true,
-                      highlightSubtaskId: _highlightSubtaskId,
-                      onClose: () {
-                        setState(() {
-                          _activeDetailTaskId = null;
-                          _highlightSubtaskId = null;
-                        });
-                      },
-                    ),
-                  ),
+                  SizedBox(width: 350, child: panel),
                 ],
               );
             }
@@ -155,6 +232,9 @@ class _SearchScreenState extends State<SearchScreen> {
     BuildContext context,
     Map<String, String> t,
     ThemeData theme,
+    PlatformUiPolicy policy,
+    int activeCount,
+    double maxWidth,
   ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
@@ -164,16 +244,18 @@ class _SearchScreenState extends State<SearchScreen> {
             key: const ValueKey('search-back-btn'),
             tooltip: t['back'] ?? 'Back',
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.maybePop(context),
           ),
           const SizedBox(width: 4),
           Expanded(
             child: TextField(
               key: const ValueKey('search-input'),
               controller: _searchController,
+              focusNode: _searchFocus,
               autofocus: false,
               decoration: InputDecoration(
-                hintText: t['searchPlaceholder'] ?? 'Search tasks and subtasks…',
+                hintText:
+                    t['searchPlaceholder'] ?? 'Search tasks and subtasks…',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon:
                     _searchController.text.isNotEmpty
@@ -203,159 +285,20 @@ class _SearchScreenState extends State<SearchScreen> {
               onChanged: (_) => setState(() {}),
             ),
           ),
+          if (!policy.isTouchLayout) ...[
+            const SizedBox(width: 4),
+            FilterChromeBar(
+              activeCount: activeCount,
+              canClear: !_applied.isDefault,
+              onOpen: () => _openFilter(context),
+              onClear: _clearFilters,
+              compact: policy.compactHeaderActions(maxWidth),
+            ),
+          ],
         ],
       ),
     );
   }
-
-  Widget _buildFilterChips(
-    BuildContext context,
-    Map<String, String> t,
-    ThemeData theme,
-    Store store,
-  ) {
-    return SizedBox(
-      height: 48,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Row(
-          children: [
-          // Scope Filter
-          ChoiceChip(
-            key: const ValueKey('filter-scope-current'),
-            label: Text(t['currentBoard'] ?? 'Current Board'),
-            selected: _scope == TaskScopeFilter.currentBoard,
-            onSelected:
-                (selected) => setState(() {
-                  _scope = TaskScopeFilter.currentBoard;
-                }),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-scope-all'),
-            label: Text(t['allBoards'] ?? 'All Boards'),
-            selected: _scope == TaskScopeFilter.allBoards,
-            onSelected:
-                (selected) => setState(() {
-                  _scope = TaskScopeFilter.allBoards;
-                }),
-          ),
-
-          const SizedBox(width: 12),
-          const VerticalDivider(width: 1, indent: 6, endIndent: 6),
-          const SizedBox(width: 12),
-
-          // Quadrant Filter
-          ChoiceChip(
-            key: const ValueKey('filter-q-all'),
-            label: Text(t['all'] ?? 'All'),
-            selected: _selectedQuadrant == null,
-            onSelected: (_) => setState(() => _selectedQuadrant = null),
-          ),
-          const SizedBox(width: 6),
-          for (final q in allQuadrants) ...[
-            ChoiceChip(
-              key: ValueKey('filter-q-$q'),
-              label: Text(t['q$q'] ?? 'Q$q'),
-              selected: _selectedQuadrant == q,
-              avatar: CircleAvatar(
-                radius: 4,
-                backgroundColor: Color(quadrantColors[q]!),
-              ),
-              onSelected:
-                  (selected) =>
-                      setState(() => _selectedQuadrant = selected ? q : null),
-            ),
-            const SizedBox(width: 6),
-          ],
-
-          const SizedBox(width: 6),
-          const VerticalDivider(width: 1, indent: 6, endIndent: 6),
-          const SizedBox(width: 12),
-
-          // Status Filter
-          ChoiceChip(
-            key: const ValueKey('filter-status-all'),
-            label: Text('${t['filterStatus'] ?? 'Status'}: ${t['all'] ?? 'All'}'),
-            selected: _selectedStatus == TaskStatusFilter.all,
-            onSelected: (_) => setState(() => _selectedStatus = TaskStatusFilter.all),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-status-incomplete'),
-            label: Text(t['incomplete'] ?? 'Incomplete'),
-            selected: _selectedStatus == TaskStatusFilter.incomplete,
-            onSelected:
-                (_) =>
-                    setState(() => _selectedStatus = TaskStatusFilter.incomplete),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-status-completed'),
-            label: Text(t['completed'] ?? 'Completed'),
-            selected: _selectedStatus == TaskStatusFilter.completed,
-            onSelected:
-                (_) =>
-                    setState(() => _selectedStatus = TaskStatusFilter.completed),
-          ),
-
-          const SizedBox(width: 12),
-          const VerticalDivider(width: 1, indent: 6, endIndent: 6),
-          const SizedBox(width: 12),
-
-          // Date Filter
-          ChoiceChip(
-            key: const ValueKey('filter-date-all'),
-            label: Text('${t['filterDate'] ?? 'Date'}: ${t['all'] ?? 'All'}'),
-            selected: _selectedDate == TaskDateFilter.all,
-            onSelected: (_) => setState(() => _selectedDate = TaskDateFilter.all),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-date-today'),
-            label: Text(t['today'] ?? 'Today'),
-            selected: _selectedDate == TaskDateFilter.today,
-            onSelected:
-                (_) => setState(() => _selectedDate = TaskDateFilter.today),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-date-week'),
-            label: Text(t['thisWeek'] ?? 'This Week'),
-            selected: _selectedDate == TaskDateFilter.thisWeek,
-            onSelected:
-                (_) => setState(() => _selectedDate = TaskDateFilter.thisWeek),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-date-month'),
-            label: Text(t['thisMonth'] ?? 'This Month'),
-            selected: _selectedDate == TaskDateFilter.thisMonth,
-            onSelected:
-                (_) => setState(() => _selectedDate = TaskDateFilter.thisMonth),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-date-overdue'),
-            label: Text(t['overdue'] ?? 'Overdue'),
-            selected: _selectedDate == TaskDateFilter.overdue,
-            onSelected:
-                (_) => setState(() => _selectedDate = TaskDateFilter.overdue),
-          ),
-          const SizedBox(width: 6),
-          ChoiceChip(
-            key: const ValueKey('filter-date-nodate'),
-            label: Text(t['noDate'] ?? 'No Date'),
-            selected: _selectedDate == TaskDateFilter.noDate,
-            onSelected:
-                (_) => setState(() => _selectedDate = TaskDateFilter.noDate),
-          ),
-        ],
-      ),
-    ),
-  );
-}
 
   Widget _buildResultsSummary(
     BuildContext context,
@@ -363,7 +306,10 @@ class _SearchScreenState extends State<SearchScreen> {
     ThemeData theme,
     int count,
   ) {
-    final text = (t['resultsCount'] ?? '{n} results').replaceAll('{n}', '$count');
+    final text = (t['resultsCount'] ?? '{n} results').replaceAll(
+      '{n}',
+      '$count',
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
@@ -383,24 +329,74 @@ class _SearchScreenState extends State<SearchScreen> {
     BuildContext context,
     Map<String, String> t,
     ThemeData theme,
+    String boardName,
   ) {
+    final query = _searchController.text.trim();
+    final scope = scopeSummaryLabel(
+      criteria: _applied,
+      t: t,
+      currentBoardName: boardName,
+    );
+    final hint =
+        query.isEmpty
+            ? (t['emptyResultsScope'] ?? 'No matches in {scope}').replaceAll(
+              '{scope}',
+              scope,
+            )
+            : (t['emptyResultsQuery'] ??
+                    'No matches for “{query}” in {scope}')
+                .replaceAll('{query}', query)
+                .replaceAll('{scope}', scope);
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.search_off_outlined,
-            size: 48,
-            color: theme.colorScheme.outline,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            t['noResults'] ?? 'No matching tasks',
-            style: theme.textTheme.bodyMedium?.copyWith(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_outlined,
+              size: 48,
               color: theme.colorScheme.outline,
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Text(
+              t['noResults'] ?? 'No matching tasks',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              hint,
+              key: const ValueKey('empty-results-hint'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                if (!_applied.isDefault)
+                  TextButton(
+                    key: const ValueKey('empty-clear-filters-btn'),
+                    onPressed: _clearFilters,
+                    child: Text(t['clearFilters'] ?? 'Clear filters'),
+                  ),
+                if (query.isNotEmpty)
+                  TextButton(
+                    key: const ValueKey('empty-clear-keyword-btn'),
+                    onPressed: _clearKeyword,
+                    child: Text(t['clearKeyword'] ?? 'Clear keyword'),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -412,10 +408,14 @@ class _SearchScreenState extends State<SearchScreen> {
     ThemeData theme,
     List<TaskSearchResult> results,
     bool isWide,
+    PlatformUiPolicy policy,
   ) {
     final activeBoardId = widget.initialBoardId ?? store.activeBoardId;
+    final checkSize =
+        policy.isTouchLayout ? PlatformUiPolicy.minActionSize : 32.0;
 
     return ListView.separated(
+      controller: _listController,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       itemCount: results.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
@@ -433,34 +433,43 @@ class _SearchScreenState extends State<SearchScreen> {
           key: ValueKey('search-item-${hit.resultKey}'),
           borderRadius: BorderRadius.circular(8),
           onTap: () {
-            _openDetail(
-              context,
-              task,
-              subtaskId: subtask?.id,
-              isWide: isWide,
-            );
+            _openDetail(context, task, subtaskId: subtask?.id, isWide: isWide);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Completion Checkbox
-                SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: Checkbox(
-                    key: ValueKey('search-check-${hit.resultKey}'),
-                    value: isCompleted,
-                    onChanged: (v) {
-                      final val = v ?? false;
-                      if (isSubtask && subtask != null) {
-                        subtask.completed = val;
-                      } else {
-                        task.completed = val;
-                      }
-                      store.updateTask(task);
-                    },
+                Semantics(
+                  label: t['toggleComplete'] ?? t['completed'] ?? 'Completed',
+                  button: true,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      key: ValueKey('search-check-${hit.resultKey}'),
+                      onTap: () {
+                        final val = !isCompleted;
+                        if (isSubtask && subtask != null) {
+                          subtask.completed = val;
+                        } else {
+                          task.completed = val;
+                        }
+                        store.updateTask(task);
+                      },
+                      child: SizedBox(
+                        key: ValueKey('search-check-hit-${hit.resultKey}'),
+                        width: checkSize,
+                        height: checkSize,
+                        child: IgnorePointer(
+                          child: Center(
+                            child: Checkbox(
+                              value: isCompleted,
+                              onChanged: (_) {},
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -556,8 +565,10 @@ class _SearchScreenState extends State<SearchScreen> {
                   PopupMenuButton<String>(
                     tooltip: t['goToBoard'] ?? 'Go to Board',
                     icon: const Icon(Icons.more_vert, size: 18),
-                    onSelected: (val) {
+                    onSelected: (val) async {
                       if (val == 'goToBoard') {
+                        if (!await _protectDetailDraft()) return;
+                        if (!context.mounted) return;
                         store.setActiveBoard(hit.board.id);
                         Navigator.pop(context);
                       }

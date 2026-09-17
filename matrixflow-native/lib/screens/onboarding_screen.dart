@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../quadrant.dart';
 import '../storage.dart';
+import '../ui/platform_ui_policy.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final bool isReviewMode;
@@ -57,6 +58,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final store = context.watch<Store>();
     final t = store.t;
     final theme = Theme.of(context);
+    final policy = PlatformUiPolicy.of(context);
+    final step1Desc =
+        '${t['onboardingStep1Desc'] ?? ''} ${policy.isTouchLayout ? (t['onboardingNavAndroid'] ?? '') : (t['onboardingNavWindows'] ?? '')}'
+            .trim();
+    final step2Desc =
+        policy.isTouchLayout
+            ? (t['onboardingStep2DescAndroid'] ?? t['onboardingStep2Desc'] ?? '')
+            : (t['onboardingStep2Desc'] ?? '');
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -115,8 +124,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         icon: Icons.grid_view,
                         iconColor: const Color(0xFFE53935),
                         title: t['onboardingStep1Title'] ?? 'Eisenhower Matrix & Rapid Add',
-                        description: t['onboardingStep1Desc'] ??
-                            'Tasks are organized by urgency and importance into four quadrants. Enter multiple lines to create several tasks at once.',
+                        description: step1Desc.isEmpty
+                            ? 'Tasks are organized by urgency and importance into four quadrants. Enter multiple lines to create several tasks at once.'
+                            : step1Desc,
                         mockup: _buildMatrixMockup(theme, t),
                       ),
                       _buildSlide(
@@ -125,8 +135,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         icon: Icons.open_with,
                         iconColor: const Color(0xFF1E88E5),
                         title: t['onboardingStep2Title'] ?? 'Drag & Drop Quadrant Movement',
-                        description: t['onboardingStep2Desc'] ??
-                            'Long-press any task card to drag and drop it into another quadrant. You can also use the secondary tap Move Menu.',
+                        description: step2Desc.isEmpty
+                            ? 'Long-press any task card to drag and drop it into another quadrant. You can also use the secondary tap Move Menu.'
+                            : step2Desc,
                         mockup: _buildDragMockup(theme, t),
                       ),
                       _buildSlide(
@@ -142,11 +153,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       _buildSlide(
                         context,
                         step: 4,
-                        icon: Icons.insights,
+                        icon: Icons.history,
                         iconColor: const Color(0xFFFB8C00),
-                        title: t['onboardingStep4Title'] ?? 'Completion Trends & 5s Undo',
+                        title: t['onboardingStep4Title'] ?? 'Completed Tasks & 5s Undo',
                         description: t['onboardingStep4Desc'] ??
-                            'Swipe right to complete or left to delete with a 5-second undo window. View 7-day completion distributions in Completed Tasks.',
+                            'Swipe right to complete or left to delete with a 5-second undo window. Find, restore, or delete tasks in Completed Tasks.',
                         mockup: _buildCompletedMockup(theme, t),
                       ),
                       _buildSlide(
@@ -509,42 +520,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.insights, size: 16, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              Text(
-                t['completionTrends'] ?? 'Completion Trends',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
-              ),
-              const Spacer(),
-              Text('Today: 4', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-              const SizedBox(width: 8),
-              Text('Past 7 days: 18', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-            ],
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.task_alt),
+            title: Text(t['completedTasks'] ?? 'Completed Tasks'),
+            subtitle: Text(t['completedAtTime']?.replaceAll('{time}', '12:30') ?? '12:30'),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Wrap(
+            spacing: 16,
             children: [
-              for (final h in [12, 18, 8, 22, 16, 26, 30])
-                Container(
-                  width: 14,
-                  height: h.toDouble(),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+              Text(t['restoreTask'] ?? 'Restore'),
+              Text(t['deleteCompletedTask'] ?? 'Delete'),
             ],
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              'Swipe Right to Complete · Swipe Left to Delete (5s Undo)',
-              style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
-            ),
           ),
         ],
       ),

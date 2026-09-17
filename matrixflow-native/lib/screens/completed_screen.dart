@@ -1,16 +1,15 @@
+import '../widgets/reminder_failure_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
+import '../task_query.dart';
 import '../task_stats.dart';
+import '../ui/platform_ui_policy.dart';
 import '../widgets/anim.dart';
 import '../widgets/task_detail_panel.dart';
-
-enum CompletedScope {
-  currentBoard,
-  allBoards,
-}
+import '../widgets/task_filter_panel.dart';
 
 class CompletedScreen extends StatefulWidget {
   final String? initialBoardId;
@@ -22,9 +21,41 @@ class CompletedScreen extends StatefulWidget {
 }
 
 class _CompletedScreenState extends State<CompletedScreen> {
-  CompletedScope _scope = CompletedScope.currentBoard;
+  TaskFilterCriteria _applied = const TaskFilterCriteria();
   final Set<String> _expandedIds = {};
   String? _activeDetailTaskId;
+  bool _detailDirty = false;
+  final _detailKey = GlobalKey();
+
+  String _boardName(Store store, String boardId) {
+    return resolveBoardName(
+      boards: store.boards,
+      boardId: boardId,
+      unknownLabel: store.t['unknownBoard'] ?? 'Unknown board',
+    );
+  }
+
+  Future<void> _openFilter(BuildContext context) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final store = context.read<Store>();
+    final boardId = widget.initialBoardId ?? store.activeBoardId;
+    final result = await showTaskFilterEditor(
+      context: context,
+      applied: _applied,
+      currentBoardName: _boardName(store, boardId),
+      kind: TaskFilterKind.archive,
+    );
+    if (!mounted) return;
+    if (result != null) {
+      setState(
+        () => _applied = TaskFilterCriteria(scope: result.scope),
+      );
+    }
+  }
+
+  void _clearFilters() {
+    setState(() => _applied = const TaskFilterCriteria());
+  }
 
   void _toggleExpand(String id) {
     setState(() {
@@ -34,15 +65,28 @@ class _CompletedScreenState extends State<CompletedScreen> {
     });
   }
 
-  void _openDetail(
+  Future<bool> _protectDetailDraft() async {
+    if (!_detailDirty) return true;
+    final discard = await confirmDiscardDraft(context);
+    if (discard) _detailDirty = false;
+    return discard;
+  }
+
+  Future<void> _openDetail(
     BuildContext context,
     Task task, {
     required bool isWide,
-  }) {
+  }) async {
     if (isWide) {
+      if (_activeDetailTaskId != null &&
+          _activeDetailTaskId != task.id &&
+          !await _protectDetailDraft()) {
+        return;
+      }
+      if (!mounted) return;
       setState(() => _activeDetailTaskId = task.id);
     } else {
-      showTaskDetailSheet(context, task);
+      await showTaskDetailSheet(context, task);
     }
   }
 
@@ -54,16 +98,29 @@ class _CompletedScreenState extends State<CompletedScreen> {
     final activeBoardId = widget.initialBoardId ?? store.activeBoardId;
 
     final rawCompletedTasks = store.completedTasks(
-      boardId: _scope == CompletedScope.currentBoard ? activeBoardId : null,
+      boardId:
+          _applied.scope == TaskScopeFilter.currentBoard
+              ? activeBoardId
+              : null,
     );
     final completedTasks = sortCompletedTasks(rawCompletedTasks);
-    final historyStats = computeCompletionHistoryStats(
-      tasks: store.tasks,
-      boardId: _scope == CompletedScope.currentBoard ? activeBoardId : null,
-    );
+    final policy = PlatformUiPolicy.of(context);
+    final boardName = _boardName(store, activeBoardId);
+    final activeCount = _applied.dimensionCount(TaskFilterKind.archive);
 
     return Scaffold(
+      bottomNavigationBar:
+          policy.isTouchLayout
+              ? FilterChromeBar(
+                activeCount: activeCount,
+                canClear: !_applied.isDefault,
+                onOpen: () => _openFilter(context),
+                onClear: _clearFilters,
+                expanded: true,
+              )
+              : null,
       body: SafeArea(
+        bottom: !policy.isTouchLayout,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 900;
@@ -74,29 +131,23 @@ class _CompletedScreenState extends State<CompletedScreen> {
                         .where((item) => item.id == _activeDetailTaskId)
                         .firstOrNull;
 
-            if (!isWide && _activeDetailTaskId != null) {
-              _activeDetailTaskId = null;
-              if (detailTask != null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    showTaskDetailSheet(context, detailTask);
-                  }
-                });
-              }
-            }
-
             final mainContent = Column(
               children: [
                 _buildHeader(
                   context,
-                  store,
                   t,
                   theme,
                   completedTasks.length,
-                  activeBoardId,
+                  policy,
+                  activeCount,
+                  constraints.maxWidth,
                 ),
-                _buildScopeChips(context, t, theme),
-                _buildTrendsCard(context, t, theme, historyStats),
+                const ReminderFailureBanner(),
+                AppliedFilterSummary(
+                  criteria: _applied,
+                  kind: TaskFilterKind.archive,
+                  currentBoardName: boardName,
+                ),
                 Expanded(
                   child:
                       completedTasks.isEmpty
@@ -114,7 +165,23 @@ class _CompletedScreenState extends State<CompletedScreen> {
               ],
             );
 
-            if (isWide && detailTask != null) {
+            if (detailTask != null) {
+              final panel = TaskDetailPanel(
+                key: _detailKey,
+                task: detailTask,
+                isSidebar: true,
+                onDirtyChanged: (dirty) {
+                  if (_detailDirty == dirty) return;
+                  _detailDirty = dirty;
+                },
+                onClose: () {
+                  setState(() {
+                    _activeDetailTaskId = null;
+                    _detailDirty = false;
+                  });
+                },
+              );
+              if (!isWide) return panel;
               return Row(
                 children: [
                   Expanded(child: mainContent),
@@ -126,16 +193,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
                             ? const Color(0xFFD5DAE1)
                             : theme.colorScheme.outlineVariant,
                   ),
-                  SizedBox(
-                    width: 350,
-                    child: TaskDetailPanel(
-                      task: detailTask,
-                      isSidebar: true,
-                      onClose: () {
-                        setState(() => _activeDetailTaskId = null);
-                      },
-                    ),
-                  ),
+                  SizedBox(width: 350, child: panel),
                 ],
               );
             }
@@ -149,19 +207,16 @@ class _CompletedScreenState extends State<CompletedScreen> {
 
   Widget _buildHeader(
     BuildContext context,
-    Store store,
     Map<String, String> t,
     ThemeData theme,
     int count,
-    String activeBoardId,
+    PlatformUiPolicy policy,
+    int activeCount,
+    double maxWidth,
   ) {
-    final countText = (t['completedCount'] ?? '{n} completed').replaceAll(
+    final countText = (t['completedCount'] ?? '{n} items in list').replaceAll(
       '{n}',
       '$count',
-    );
-    final stats = computeTaskStats(
-      tasks: store.tasks,
-      boardId: _scope == CompletedScope.currentBoard ? activeBoardId : null,
     );
 
     return Padding(
@@ -172,7 +227,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
             key: const ValueKey('completed-back-btn'),
             tooltip: t['back'] ?? 'Back',
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.maybePop(context),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -186,72 +241,23 @@ class _CompletedScreenState extends State<CompletedScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Row(
-                  children: [
-                    Text(
-                      countText,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '${t['statsCompletionRate'] ?? 'Completion'}: ${stats.percentageText}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  countText,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScopeChips(
-    BuildContext context,
-    Map<String, String> t,
-    ThemeData theme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          ChoiceChip(
-            key: const ValueKey('completed-scope-current'),
-            label: Text(t['currentBoard'] ?? 'Current Board'),
-            selected: _scope == CompletedScope.currentBoard,
-            onSelected: (selected) {
-              if (selected) {
-                setState(() => _scope = CompletedScope.currentBoard);
-              }
-            },
-          ),
-          const SizedBox(width: 8),
-          ChoiceChip(
-            key: const ValueKey('completed-scope-all'),
-            label: Text(t['allBoards'] ?? 'All Boards'),
-            selected: _scope == CompletedScope.allBoards,
-            onSelected: (selected) {
-              if (selected) {
-                setState(() => _scope = CompletedScope.allBoards);
-              }
-            },
-          ),
+          if (!policy.isTouchLayout)
+            FilterChromeBar(
+              activeCount: activeCount,
+              canClear: !_applied.isDefault,
+              onOpen: () => _openFilter(context),
+              onClear: _clearFilters,
+              compact: policy.compactHeaderActions(maxWidth),
+            ),
         ],
       ),
     );
@@ -278,153 +284,6 @@ class _CompletedScreenState extends State<CompletedScreen> {
           '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
       return '$dateStr $timeStr';
     }
-  }
-
-  Widget _buildTrendsCard(
-    BuildContext context,
-    Map<String, String> t,
-    ThemeData theme,
-    CompletionHistoryStats stats,
-  ) {
-    if (stats.totalCompleted == 0) return const SizedBox.shrink();
-
-    final maxCount = stats.dailyBuckets.fold<int>(
-      1,
-      (max, b) => b.count > max ? b.count : max,
-    );
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.insights,
-                size: 16,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                t['completionTrends'] ?? 'Completion Trends',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                (t['completedToday'] ?? 'Today: {n}').replaceAll(
-                  '{n}',
-                  '${stats.todayCount}',
-                ),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                (t['past7Days'] ?? 'Past 7 days: {n}').replaceAll(
-                  '{n}',
-                  '${stats.past7DaysCount}',
-                ),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (stats.unknownDateCount > 0) ...[
-                const SizedBox(width: 8),
-                Text(
-                  (t['completedUndated'] ?? 'Legacy: {n}').replaceAll(
-                    '{n}',
-                    '${stats.unknownDateCount}',
-                  ),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.outline,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 58,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final bucket in stats.dailyBuckets)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (bucket.count > 0)
-                            Text(
-                              '${bucket.count}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
-                            )
-                          else
-                            const SizedBox(height: 14),
-                          const SizedBox(height: 2),
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.bottomCenter,
-                              child: Container(
-                                height:
-                                    bucket.count > 0
-                                        ? (bucket.count / maxCount * 22).clamp(
-                                          4.0,
-                                          22.0,
-                                        )
-                                        : 2.0,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color:
-                                      bucket.count > 0
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.outlineVariant
-                                              .withValues(alpha: 0.5),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            bucket.dateString.length >= 5
-                                ? bucket.dateString.substring(5)
-                                : bucket.dateString,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 9,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildEmptyState(
@@ -476,7 +335,8 @@ class _CompletedScreenState extends State<CompletedScreen> {
         final qName = t['q$q'] ?? 'Q$q';
         final boardName = boardMap[task.boardId] ?? task.boardId;
         final showBoardBadge =
-            _scope == CompletedScope.allBoards || task.boardId != activeBoardId;
+            _applied.scope == TaskScopeFilter.allBoards ||
+            task.boardId != activeBoardId;
 
         return InkWell(
           key: ValueKey('completed-item-${task.id}'),
@@ -530,9 +390,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: theme
-                                    .colorScheme
-                                    .surfaceContainerHighest
+                                color: theme.colorScheme.surfaceContainerHighest
                                     .withValues(alpha: 0.6),
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -599,22 +457,25 @@ class _CompletedScreenState extends State<CompletedScreen> {
                                   .withValues(alpha: 0.7),
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              task.completedAt != null
-                                  ? (t['completedAtTime'] ?? 'Completed: {time}')
-                                      .replaceAll(
-                                        '{time}',
-                                        _formatCompletionTime(
-                                          task.completedAt!,
-                                          t,
-                                        ),
-                                      )
-                                  : (t['timeUnknown'] ?? 'Time unknown'),
-                              key: ValueKey('completed-time-${task.id}'),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.8),
-                                fontSize: 11,
+                            Flexible(
+                              child: Text(
+                                task.completedAt != null
+                                    ? (t['completedAtTime'] ??
+                                            'Completed: {time}')
+                                        .replaceAll(
+                                          '{time}',
+                                          _formatCompletionTime(
+                                            task.completedAt!,
+                                            t,
+                                          ),
+                                        )
+                                    : (t['timeUnknown'] ?? 'Time unknown'),
+                                key: ValueKey('completed-time-${task.id}'),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.8),
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ],
@@ -678,9 +539,10 @@ class _CompletedScreenState extends State<CompletedScreen> {
                                               ? Icons.check_circle_outline
                                               : Icons.radio_button_unchecked,
                                           size: 14,
-                                          color: theme
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                          color:
+                                              theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
                                         ),
                                         const SizedBox(width: 6),
                                         Expanded(

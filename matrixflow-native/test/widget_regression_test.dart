@@ -173,6 +173,45 @@ void viewport(WidgetTester tester, Size size) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+Future<void> openMore(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('more-btn')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> tapMoreKey(WidgetTester tester, Key key) async {
+  if (find.byKey(key).evaluate().isEmpty) {
+    await openMore(tester);
+  }
+  await tester.ensureVisible(find.byKey(key));
+  await tester.tap(find.byKey(key));
+  await tester.pumpAndSettle();
+}
+
+Future<void> applyFilterOption(WidgetTester tester, Key option) async {
+  await tester.ensureVisible(find.byKey(const ValueKey('filter-open-btn')));
+  await tester.tap(find.byKey(const ValueKey('filter-open-btn')));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('filter-panel')), findsOneWidget);
+  await tester.ensureVisible(find.byKey(option));
+  await tester.tap(find.byKey(option));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('filter-apply-btn')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> enterSelectMode(WidgetTester tester) async {
+  await tapMoreKey(tester, const ValueKey('select-tasks-btn'));
+}
+
+Future<void> toggleShowCompleted(WidgetTester tester) async {
+  await tapMoreKey(tester, const ValueKey('show-completed-switch'));
+  final panel = find.byKey(const ValueKey('more-panel'));
+  if (panel.evaluate().isNotEmpty) {
+    Navigator.of(tester.element(panel)).pop();
+    await tester.pumpAndSettle();
+  }
+}
+
 void main() {
   setUp(() => FilePicker.platform = TestPicker());
   testWidgets(
@@ -392,7 +431,7 @@ void main() {
     final store = await setup(tester, ai: ai);
     store.settings.defaultInputMode = InputModePref.brainDump;
     await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(find.byKey(const ValueKey('add-task-btn')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('task-input')), 'project');
     await tester.tap(find.byKey(const ValueKey('submit-tasks')));
@@ -454,7 +493,7 @@ void main() {
     viewport(tester, const Size(360, 640));
     final store = await setup(tester);
     await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(find.byKey(const ValueKey('add-task-btn')));
     await tester.pumpAndSettle();
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     addTearDown(tester.view.resetViewInsets);
@@ -486,7 +525,7 @@ void main() {
     store.addTasks([a, b]);
     await tester.pumpWidget(app(store, const MatrixHome()));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Multi-select'));
+    await enterSelectMode(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.text('alpha'));
     await tester.tap(find.text('beta'));
@@ -512,11 +551,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.tasks.single.title, 'combined');
     expect(store.tasks.single.subtasks, hasLength(2));
-    await tester.tap(find.byTooltip('Multi-select'));
+    await enterSelectMode(tester);
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Multi-select'), findsOneWidget);
+    expect(find.byKey(const ValueKey('more-btn')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -735,7 +774,7 @@ void main() {
       expect(find.text('hidden child'), findsOneWidget);
       expect(parent.completed, isFalse);
 
-      await tester.tap(find.byTooltip('Multi-select'));
+      await enterSelectMode(tester);
       await tester.pumpAndSettle();
       expect(find.textContaining('Multi-select · 0 selected'), findsOneWidget);
       expect(find.text('hidden child'), findsOneWidget);
@@ -812,7 +851,7 @@ void main() {
       expect(done.completed, isTrue);
       expect(open.completed, isFalse);
 
-      await tester.tap(find.byTooltip('Multi-select'));
+      await enterSelectMode(tester);
       await tester.pumpAndSettle();
       expect(
         tester
@@ -832,7 +871,7 @@ void main() {
       expect(open.completed, isFalse);
       expect(find.textContaining('Multi-select · 1 selected'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Hide Completed'));
+      await toggleShowCompleted(tester);
       await tester.pumpAndSettle();
       expect(find.text('finish me'), findsNothing);
       expect(find.text('leave open'), findsOneWidget);
@@ -845,7 +884,7 @@ void main() {
       expect(open.completed, isFalse);
       expect(done.completed, isTrue);
 
-      await tester.tap(find.byTooltip('Hide Completed'));
+      await toggleShowCompleted(tester);
       await tester.pumpAndSettle();
       expect(find.text('finish me'), findsOneWidget);
       expect(
@@ -952,7 +991,7 @@ void main() {
         findsNothing,
       );
 
-      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.byKey(const ValueKey('add-task-btn')), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
     },
@@ -969,7 +1008,7 @@ void main() {
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Multi-select'));
+      await enterSelectMode(tester);
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('first task'));
@@ -1390,7 +1429,7 @@ void main() {
       expect(find.descendant(of: find.byKey(const ValueKey('focus-card-4')), matching: find.text('0')), findsOneWidget);
 
       // Toggle hideCompleted: completed task is hidden
-      await tester.tap(find.byTooltip('Hide Completed'));
+      await toggleShowCompleted(tester);
       await tester.pumpAndSettle();
       expect(find.text('Complete me'), findsNothing);
 
@@ -1544,24 +1583,18 @@ void main() {
       expect(find.text('2 results'), findsOneWidget);
 
       // Filter by Q1
-      await tester.ensureVisible(find.byKey(const ValueKey('filter-q-1')));
-      await tester.tap(find.byKey(const ValueKey('filter-q-1')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('filter-q-1'));
       expect(find.text('1 results'), findsOneWidget);
       expect(find.text('Q1 Done Today'), findsOneWidget);
       expect(find.text('Q2 Open Future'), findsNothing);
 
       // Filter by Incomplete: Q1 is completed, so 0 results
-      await tester.ensureVisible(find.byKey(const ValueKey('filter-status-incomplete')));
-      await tester.tap(find.byKey(const ValueKey('filter-status-incomplete')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('filter-status-incomplete'));
       expect(find.text('0 results'), findsOneWidget);
       expect(find.byType(Icon), findsWidgets); // empty state
 
       // Switch back to All status
-      await tester.ensureVisible(find.byKey(const ValueKey('filter-status-all')));
-      await tester.tap(find.byKey(const ValueKey('filter-status-all')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('filter-status-all'));
       expect(find.text('1 results'), findsOneWidget);
 
       // Toggle checkbox directly in search result: uncomplete Q1
@@ -1570,9 +1603,7 @@ void main() {
       expect(tQ1.completed, isFalse);
 
       // Now filter by Incomplete -> Q1 now appears!
-      await tester.ensureVisible(find.byKey(const ValueKey('filter-status-incomplete')));
-      await tester.tap(find.byKey(const ValueKey('filter-status-incomplete')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('filter-status-incomplete'));
       expect(find.text('1 results'), findsOneWidget);
       expect(find.text('Q1 Done Today'), findsOneWidget);
 
@@ -1607,8 +1638,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Switch scope to allBoards
-      await tester.tap(find.byKey(const ValueKey('filter-scope-all')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('filter-scope-all'));
 
       expect(find.text('Work on Second Board'), findsOneWidget);
 
@@ -1623,8 +1653,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('search-btn')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('filter-scope-all')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('filter-scope-all'));
 
       // Open popup menu on task-board-2
       await tester.tap(find.byType(PopupMenuButton<String>).last);
@@ -2502,7 +2531,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter selection mode and select B1 Q1
-      await tester.tap(find.byTooltip(store.t['selectionMode']!));
+      await enterSelectMode(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.text('B1 Q1'));
       await tester.pumpAndSettle();
@@ -2774,19 +2803,16 @@ void main() {
       await tester.pumpAndSettle();
 
       // Find completed-btn in header and tap it
-      expect(find.byKey(const ValueKey('completed-btn')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('completed-btn')));
+      await tapMoreKey(tester, const ValueKey('completed-btn'));
       await tester.pumpAndSettle();
 
       // In CompletedScreen: scope defaults to currentBoard ('b1Id'), which has no completed tasks
       expect(find.text(store.t['completedTasks']!), findsOneWidget);
-      expect(find.byKey(const ValueKey('completed-scope-current')), findsOneWidget);
-      expect(find.byKey(const ValueKey('completed-scope-all')), findsOneWidget);
+      expect(find.byKey(const ValueKey('filter-open-btn')), findsOneWidget);
       expect(find.text(store.t['noCompletedTasks']!), findsOneWidget);
 
       // Switch scope to all boards
-      await tester.tap(find.byKey(const ValueKey('completed-scope-all')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('completed-scope-all'));
 
       // Now B2's completed task is visible
       expect(find.text(store.t['noCompletedTasks']!), findsNothing);
@@ -2795,8 +2821,7 @@ void main() {
       expect(find.text(store.t['q$qPlan']!), findsOneWidget);
 
       // Switch back to current board
-      await tester.tap(find.byKey(const ValueKey('completed-scope-current')));
-      await tester.pumpAndSettle();
+      await applyFilterOption(tester, const ValueKey('completed-scope-current'));
       expect(find.text(store.t['noCompletedTasks']!), findsOneWidget);
 
       // Back button pops back to MatrixHome
@@ -2832,7 +2857,7 @@ void main() {
       expect(find.text('Finished Task'), findsNothing);
 
       // Open CompletedScreen
-      await tester.tap(find.byKey(const ValueKey('completed-btn')));
+      await tapMoreKey(tester, const ValueKey('completed-btn'));
       await tester.pumpAndSettle();
 
       // In CompletedScreen, task is visible despite hideCompleted
@@ -2881,7 +2906,7 @@ void main() {
       expect(find.text('Task Beta'), findsOneWidget);
 
       // Tap view mode toggle button in header
-      await tester.tap(find.byKey(const ValueKey('view-mode-toggle-btn')));
+      await tapMoreKey(tester, const ValueKey('view-mode-toggle-btn'));
       await tester.pumpAndSettle();
 
       // Now in list mode: 1 TaskListView instance, 0 QuadrantPane
@@ -2900,7 +2925,7 @@ void main() {
       expect(find.text('Task Beta'), findsOneWidget);
 
       // Tap toggle button again: switches back to grid mode
-      await tester.tap(find.byKey(const ValueKey('view-mode-toggle-btn')));
+      await tapMoreKey(tester, const ValueKey('view-mode-toggle-btn'));
       await tester.pumpAndSettle();
 
       expect(find.byType(QuadrantPane), findsNWidgets(4));
@@ -3110,7 +3135,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter multi-select mode
-      await tester.tap(find.byTooltip(store.t['multiSelect'] ?? 'Multi-select'));
+      await enterSelectMode(tester);
       await tester.pumpAndSettle();
 
       // Check Dismissible has direction none

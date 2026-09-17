@@ -9,8 +9,11 @@ import 'package:provider/provider.dart';
 import '../ai_presets.dart';
 import '../ai_service.dart';
 import '../models.dart';
+import '../services/desktop_shell_service.dart';
+import '../shortcuts.dart';
 import '../storage.dart';
 import '../theme.dart';
+import '../ui/platform_ui_policy.dart';
 import 'onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -29,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   List<String> _discoveredModels = [];
   bool _fetchingModels = false;
+  int _fetchGeneration = 0;
   String? _discoveryError;
   AICancellation? _discoveryCancellation;
   String? _lastFetchedKey;
@@ -56,9 +60,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _onProviderChanged(String newProvider, Store store) {
+  void _invalidateDiscovery() {
     _discoveryCancellation?.cancel();
     _discoveryCancellation = null;
+    _fetchGeneration++;
+    _fetchingModels = false;
+    _lastFetchedKey = null;
+    _discoveryError = null;
+  }
+
+  void _onProviderChanged(String newProvider, Store store) {
+    _invalidateDiscovery();
     final preset = getAIProviderPreset(newProvider);
     _apiKeyController.clear();
     _lastFetchedKey = null;
@@ -99,7 +111,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     _discoveryCancellation?.cancel();
     final cancel = _discoveryCancellation = AICancellation();
+    final generation = ++_fetchGeneration;
     _lastFetchedKey = key;
+    final snapshot = AIConfig.fromJson(store.aiConfig.toJson());
+    final identity = jsonEncode(snapshot.toJson());
 
     setState(() {
       _fetchingModels = true;
@@ -108,11 +123,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       final models = await store.ai.fetchModels(
-        config: store.aiConfig,
+        config: snapshot,
         forceRefresh: forceRefresh,
         cancellation: cancel,
       );
-      if (!mounted || cancel.isCancelled) return;
+      if (!mounted || generation != _fetchGeneration) return;
+      if (identity != jsonEncode(store.aiConfig.toJson())) {
+        setState(_invalidateDiscovery);
+        return;
+      }
+      if (cancel.isCancelled) {
+        setState(() => _fetchingModels = false);
+        return;
+      }
 
       setState(() {
         _fetchingModels = false;
@@ -134,7 +157,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       });
     } catch (e) {
-      if (!mounted || cancel.isCancelled) return;
+      if (!mounted || generation != _fetchGeneration) return;
+      if (identity != jsonEncode(store.aiConfig.toJson())) {
+        setState(_invalidateDiscovery);
+        return;
+      }
+      if (cancel.isCancelled) {
+        setState(() => _fetchingModels = false);
+        return;
+      }
       setState(() {
         _fetchingModels = false;
         _discoveryError = aiErrorMessage(e, store.t);
@@ -159,6 +190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final store = context.watch<Store>();
     final t = store.t;
     final theme = Theme.of(context);
+    final policy = PlatformUiPolicy.of(context);
     final preset = getAIProviderPreset(store.aiConfig.provider);
 
     if (_lastSyncedBaseUrl != store.aiConfig.baseUrl) {
@@ -175,9 +207,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: SafeArea(
         top: false,
         child: ListView(
+          key: const ValueKey('settings-list'),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            _sectionTitle(theme, t['language']!, Icons.language),
+            _sectionTitle(
+              theme,
+              t['settingsDisplay'] ?? t['fontAndDisplay']!,
+              Icons.display_settings_outlined,
+            ),
+            Text(
+              t['language']!,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 6),
             SegmentedButton<Language>(
               segments: const [
                 ButtonSegment(value: Language.en, label: Text('EN')),
@@ -232,7 +277,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            _sectionTitle(theme, t['automation']!, Icons.auto_mode_outlined),
+            _sectionTitle(
+              theme,
+              t['settingsTaskBehavior'] ?? t['automation']!,
+              Icons.auto_mode_outlined,
+            ),
             _toggle(
               context,
               t['autoDecomposeAI']!,
@@ -302,7 +351,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   (t['urgencyThresholdDesc'] ??
                           'Promote uncompleted main tasks with deadlines to urgent {n} days in advance (including today).')
-                      .replaceAll('{n}', '${store.settings.urgencyThresholdDays}'),
+                      .replaceAll(
+                        '{n}',
+                        '${store.settings.urgencyThresholdDays}',
+                      ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -328,10 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: store.aiConfig.provider,
               items: [
                 for (final p in aiProviderPresets)
-                  DropdownMenuItem(
-                    value: p.id,
-                    child: Text(p.name(t)),
-                  ),
+                  DropdownMenuItem(value: p.id, child: Text(p.name(t))),
               ],
               onChanged: (newProvider) {
                 if (newProvider != null &&
@@ -375,6 +424,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               controller: _apiKeyController,
               onSubmitted: (_) => _onApiKeySubmittedOrBlurred(store),
               onChanged: (v) {
+                _invalidateDiscovery();
                 store.aiConfig.apiKey = v;
                 store.updateAIConfig(store.aiConfig);
               },
@@ -466,6 +516,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
                 onChanged: (val) {
+                  _invalidateDiscovery();
                   if (val == '__custom__') {
                     setState(() {
                       _customModelMode = true;
@@ -500,11 +551,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           : null,
                 ),
                 controller: _modelController,
-                onChanged:
-                    (v) => store.updateAIConfig(store.aiConfig..model = v),
+                onChanged: (v) {
+                  _invalidateDiscovery();
+                  store.updateAIConfig(store.aiConfig..model = v);
+                },
               ),
             ],
-            if (preset.supportsThinking) ...[
+            if (preset.supportsThinking ||
+                preset.isCustom ||
+                store.aiConfig.protocol == AIProtocol.anthropic ||
+                store.aiConfig.protocol == AIProtocol.openaiResponses) ...[
               const SizedBox(height: 8),
               SwitchListTile(
                 key: const ValueKey('thinking-switch'),
@@ -554,6 +610,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: store.aiConfig.protocol,
                 onChanged: (value) {
                   if (value != null) {
+                    _invalidateDiscovery();
                     store.updateAIConfig(store.aiConfig..protocol = value);
                   }
                 },
@@ -569,8 +626,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                 ),
                 controller: _baseUrlController,
-                onChanged:
-                    (v) => store.updateAIConfig(store.aiConfig..baseUrl = v),
+                onChanged: (v) {
+                  _invalidateDiscovery();
+                  store.updateAIConfig(store.aiConfig..baseUrl = v);
+                },
               ),
               const SizedBox(height: 6),
               Text(
@@ -627,7 +686,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               margin: const EdgeInsets.only(top: 4, bottom: 4),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.35,
+                ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: theme.colorScheme.primary.withValues(alpha: 0.25),
@@ -705,10 +766,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     key: ValueKey('font-size-${size.name}'),
                     label: Text(
                       t[switch (size) {
-                        FontSizePref.small => 'fontSizeSmall',
-                        FontSizePref.standard => 'fontSizeStandard',
-                        FontSizePref.large => 'fontSizeLarge',
-                      }] ?? size.name,
+                            FontSizePref.small => 'fontSizeSmall',
+                            FontSizePref.standard => 'fontSizeStandard',
+                            FontSizePref.large => 'fontSizeLarge',
+                          }] ??
+                          size.name,
                     ),
                     selected: store.settings.fontSize == size,
                     onSelected: (_) => store.setFontSize(size),
@@ -733,11 +795,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     key: ValueKey('font-family-${family.name}'),
                     label: Text(
                       t[switch (family) {
-                        FontFamilyPref.system => 'fontSystem',
-                        FontFamilyPref.sansSerif => 'fontSansSerif',
-                        FontFamilyPref.serif => 'fontSerif',
-                        FontFamilyPref.monospace => 'fontMonospace',
-                      }] ?? family.name,
+                            FontFamilyPref.system => 'fontSystem',
+                            FontFamilyPref.sansSerif => 'fontSansSerif',
+                            FontFamilyPref.serif => 'fontSerif',
+                            FontFamilyPref.monospace => 'fontMonospace',
+                          }] ??
+                          family.name,
                     ),
                     selected: store.settings.fontFamily == family,
                     onSelected: (_) => store.setFontFamily(family),
@@ -750,10 +813,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               key: const ValueKey('font-preview-card'),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.4,
+                ),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.4,
+                  ),
                 ),
               ),
               child: Row(
@@ -772,7 +839,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       t['fontPreview'] ?? 'Preview',
                       style: TextStyle(
                         fontFamily: fontFamilyFor(store.settings.fontFamily),
-                        fontFamilyFallback: fontFallbackFor(store.settings.fontFamily),
+                        fontFamilyFallback: fontFallbackFor(
+                          store.settings.fontFamily,
+                        ),
                         fontWeight: FontWeight.w600,
                         fontSize: 14 * fontScaleFactor(store.settings.fontSize),
                       ),
@@ -792,71 +861,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () => store.resetDisplayPreferences(),
               ),
             ),
-            const SizedBox(height: 20),
-
-            _sectionTitle(
-              theme,
-              t['desktopSection'] ?? 'Desktop & System',
-              Icons.desktop_windows_outlined,
-            ),
+            const SizedBox(height: 8),
             _toggle(
               context,
-              t['closeToTray'] ?? 'Minimize / Close to System Tray',
-              t['closeToTraySubtitle'] ??
-                  'Keep app running in system tray when window is closed',
-              store.settings.closeToTray,
-              (v) {
-                store.updateSettings((s) => s..closeToTray = v);
-                if (v && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        t['closeToTrayNotice'] ??
-                            'When enabled, closing the window minimizes to the system tray. Right-click the tray icon to exit.',
-                      ),
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    t['globalHotkey'] ?? 'Global Shortcut',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                  ),
-                  child: Text(
-                    store.settings.globalShortcut,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+              t['showCompletionRate'] ?? 'Show overall completion rate',
+              t['showCompletionRateDesc'] ??
+                  'Show the share of completed tasks across all boards at the bottom of the More panel.',
+              store.settings.showCompletionRate,
+              (v) => store.updateSettings((s) => s..showCompletionRate = v),
+              key: const ValueKey('show-completion-rate-toggle'),
             ),
             const SizedBox(height: 20),
+
+            if (policy.showDesktopSettings) ...[
+              _sectionTitle(
+                theme,
+                t['desktopSection'] ?? 'Desktop & System',
+                Icons.desktop_windows_outlined,
+              ),
+              _toggle(
+                context,
+                t['closeToTray'] ?? 'Minimize / Close to System Tray',
+                t['closeToTraySubtitle'] ??
+                    'Keep app running in system tray when window is closed',
+                store.settings.closeToTray,
+                (v) {
+                  store.updateSettings((s) => s..closeToTray = v);
+                  DesktopShellService.instance.applyCloseToTray(v);
+                  if (v && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          t['closeToTrayNotice'] ??
+                              'When enabled, closing the window minimizes to the system tray. Right-click the tray icon to exit.',
+                        ),
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      t['globalHotkey'] ?? 'Global Shortcut',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
+                    ),
+                    child: Text(
+                      store.settings.globalShortcut,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
 
             _sectionTitle(
               theme,
               t['reminders'] ?? 'Reminders & Notifications',
               Icons.notifications_active_outlined,
             ),
-            if (defaultTargetPlatform == TargetPlatform.windows) ...[
+            if (policy.isWindows) ...[
               ListTile(
                 key: const ValueKey('windows-reminder-guide-tile'),
                 contentPadding: EdgeInsets.zero,
@@ -865,7 +949,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: theme.colorScheme.primary,
                 ),
                 title: Text(
-                  t['windowsReminderGuide'] ?? 'Windows Notifications & Tray Guide',
+                  t['windowsReminderGuide'] ??
+                      'Windows Notifications & Tray Guide',
                 ),
                 subtitle: Text(
                   t['windowsReminderGuideDesc'] ??
@@ -892,7 +977,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const ValueKey('test-windows-notif-btn'),
-                      icon: const Icon(Icons.notification_add_outlined, size: 16),
+                      icon: const Icon(
+                        Icons.notification_add_outlined,
+                        size: 16,
+                      ),
                       label: Text(t['testNotification'] ?? 'Test Notification'),
                       onPressed: () async {
                         final now = DateTime.now().millisecondsSinceEpoch;
@@ -900,14 +988,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           boardId: store.activeBoardId,
                           taskId: 'test-win-notif',
                           title: 'MatrixFlow AI',
-                          body: t['testNotificationSent'] ?? 'Test notification sent!',
+                          body:
+                              t['testNotificationSent'] ??
+                              'Test notification sent!',
                           triggerAtMs: now,
                         );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                t['testNotificationSent'] ?? 'Test notification sent!',
+                                t['testNotificationSent'] ??
+                                    'Test notification sent!',
                               ),
                               duration: const Duration(seconds: 3),
                             ),
@@ -956,7 +1047,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             _sectionTitle(
               theme,
-              t['onboarding'] ?? 'Tutorial & Guide',
+              t['settingsHelpAbout'] ?? t['onboarding'] ?? 'Help & About',
               Icons.help_outline,
             ),
             ListTile(
@@ -966,9 +1057,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Icons.school_outlined,
                 color: theme.colorScheme.primary,
               ),
-              title: Text(
-                t['reopenOnboarding'] ?? 'Tutorial & Gestures Guide',
-              ),
+              title: Text(t['reopenOnboarding'] ?? 'Tutorial & Gestures Guide'),
               subtitle: Text(
                 t['reopenOnboardingDesc'] ??
                     'Review core operations, gestures, and features anytime',
@@ -985,13 +1074,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
+            if (policy.showDesktopShortcuts)
+              ListTile(
+                key: const ValueKey('shortcuts-help-tile'),
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.keyboard_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                title: Text(t['shortcutsHelp'] ?? 'Keyboard Shortcuts'),
+                subtitle: Text(
+                  t['shortcutHelp'] ?? 'Keyboard Shortcuts Help',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showShortcutsHelpDialog(context, t),
+              ),
           ],
         ),
       ),
     );
   }
 
-  void _showWindowsReminderGuideDialog(BuildContext context, Map<String, String> t) {
+  void _showWindowsReminderGuideDialog(
+    BuildContext context,
+    Map<String, String> t,
+  ) {
     showDialog(
       context: context,
       builder:
@@ -1266,9 +1376,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String title,
     String? subtitle,
     bool value,
-    ValueChanged<bool> onChanged,
-  ) {
+    ValueChanged<bool> onChanged, {
+    Key? key,
+  }) {
     return SwitchListTile(
+      key: key,
       contentPadding: EdgeInsets.zero,
       dense: true,
       title: Text(title, style: Theme.of(context).textTheme.bodyMedium),
