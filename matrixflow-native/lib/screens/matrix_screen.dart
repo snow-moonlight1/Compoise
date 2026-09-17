@@ -374,6 +374,13 @@ class _MatrixHomeState extends State<MatrixHome> {
                                     task,
                                     isWide: wide,
                                   ),
+                              onEditSubtask:
+                                  (task, subtaskId) => _openTaskDetail(
+                                    context,
+                                    task,
+                                    isWide: wide,
+                                    subtaskId: subtaskId,
+                                  ),
                             );
 
                     Widget mainContent;
@@ -559,6 +566,13 @@ class _MatrixHomeState extends State<MatrixHome> {
       onSwitchQuadrant: (newQ) => setState(() => _focusedQuadrant = newQ),
       onExitFocus: () => setState(() => _focusedQuadrant = null),
       onEdit: (task) => _openTaskDetail(context, task, isWide: wide),
+      onEditSubtask:
+          (task, subtaskId) => _openTaskDetail(
+            context,
+            task,
+            isWide: wide,
+            subtaskId: subtaskId,
+          ),
     );
   }
 
@@ -582,6 +596,13 @@ class _MatrixHomeState extends State<MatrixHome> {
       onEnsureExpanded: (id) => _ensureExpanded(context.read<Store>(), id),
       onQuadrantTap: () => setState(() => _focusedQuadrant = q),
       onEdit: (task) => _openTaskDetail(context, task, isWide: wide),
+      onEditSubtask:
+          (task, subtaskId) => _openTaskDetail(
+            context,
+            task,
+            isWide: wide,
+            subtaskId: subtaskId,
+          ),
     );
     return LayoutBuilder(
       builder: (context, constraints) {

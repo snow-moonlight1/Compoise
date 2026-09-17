@@ -1292,7 +1292,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           for (final sub in _subtasks)
                             Container(
                               key: ValueKey('detail-subtask-${sub.id}'),
-                              margin: const EdgeInsets.symmetric(vertical: 2),
+                              margin: const EdgeInsets.fromLTRB(16, 2, 0, 2),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 4,
                               ),

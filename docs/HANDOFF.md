@@ -2,24 +2,23 @@
 
 最后更新：2026-09-17。
 
-## 当前任务：UX04 已实现、自动化通过（2026-09-17）；下一包 UX05
+## 当前任务：UX05 已实现、自动化通过（2026-09-17）；下一包 UX06
 
-- Windows 字体策略：黑体用 Microsoft YaHei UI；系统/等宽带 CJK 回退；Android 不写 Windows 字体。设置预览含中英日与数字、标题/正文字重。见 [UX04 返修记录](UX04_FIX_2026-09-17.md)。
-- 定向 UX04 **3/3**，全量 **324/324**，analyze **0 issues**。
-- **下一包 UX05**（矩阵父子同行对齐），只做该包；UX05–08 未实施。Windows 字体 DPI/IME 选区 **实机未验**。
-- 工作区已从堆积未提交收口：`c7902b1` foundation、`e509166` 复审文档、`3e166b4` UX01–03、`7bfdf0d` 交接文档。未改 React。继续暂停 WP10/WP29/UI 实验。
-- 约束：不要恢复命令台、统计条、七按钮头、常驻左侧新建栏、横向 Chip。F21/F22 仍未关闭。
+- 矩阵父子标题同列、框中心同列；聚焦/列表/详情子项缩进 16dp。矩阵去掉内嵌添加子项，详情保留。点子项标题打开父详情。见 [UX05 返修记录](UX05_FIX_2026-09-17.md)。
+- 定向 UX05 **4/4**，全量 **328/328**，analyze **0 issues**。
+- **下一包 UX06**（完成划线动画与安全退场），只做该包；UX06–08 未实施。双端实机未验。
+- 约束：不要恢复命令台、统计条、横滑 Chip、矩阵内嵌添加子项。继续暂停 WP10/WP29/UI 实验。
 
-### 下一轮启动提示词（UX05）
+### 下一轮启动提示词（UX06）
 
 ```text
 在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
 阅读 AGENTS.md、docs/HANDOFF.md 顶部及
-docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 4.6 / 6 节 UX05。
-本次只领取 UX05，完成后交接，不自动继续 UX06。
-先 git status；UX04 可能尚未单独提交或刚提交，保护未提交改动，禁止 reset。
-UX01–03 已入库；UX04 已完成 Windows CJK 字体策略与预览。见 docs/UX04_FIX_2026-09-17.md。
-本包按 4.6 把矩阵父子行提到同一列坐标系，子项不嵌进父正文；聚焦可 16dp 层级。不提前做完成划线动画或象限几何过渡。
+docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 4.7 / 5.2 / 6 节 UX06。
+本次只领取 UX06，完成后交接，不自动继续 UX07。
+先 git status，不要 reset。
+UX05 已完成矩阵父子同列与聚焦 16dp 层级。见 docs/UX05_FIX_2026-09-17.md。
+本包做可中断逐行划线动画、reduceMotion，以及 hideCompleted 时的安全退场。业务立即持久化，不要重写撤销系统。
 不改 React，不引入服务，不做 UI 实验或 WP10/WP29。
 运行本包定向用例及 flutter test/analyze --no-pub；双端实机未测项写明。
 ```

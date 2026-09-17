@@ -18,8 +18,10 @@ class QuadrantPane extends StatefulWidget {
   final ValueChanged<String>? onEnsureExpanded;
   final VoidCallback? onQuadrantTap;
   final ValueChanged<Task>? onEdit;
+  final void Function(Task task, String subtaskId)? onEditSubtask;
   final bool isFocused;
   final ScrollController? scrollController;
+  final TaskRowLayout? rowLayout;
 
   const QuadrantPane({
     super.key,
@@ -32,8 +34,10 @@ class QuadrantPane extends StatefulWidget {
     this.onEnsureExpanded,
     this.onQuadrantTap,
     this.onEdit,
+    this.onEditSubtask,
     this.isFocused = false,
     this.scrollController,
+    this.rowLayout,
   });
 
   @override
@@ -259,6 +263,11 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       selecting: widget.selecting,
       selected: widget.selectedIds.contains(task.id),
       expanded: widget.expandedIds.contains(task.id),
+      rowLayout:
+          widget.rowLayout ??
+          (widget.isFocused
+              ? TaskRowLayout.hierarchical
+              : TaskRowLayout.matrixCompact),
       onSelect: () => widget.onSelect?.call(task.id),
       onToggleExpand: () => widget.onToggleExpand?.call(task.id),
       onEnsureExpanded: () => widget.onEnsureExpanded?.call(task.id),
@@ -270,6 +279,10 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           showTaskEditSheet(context, task);
         }
       },
+      onEditSubtask:
+          widget.onEditSubtask == null
+              ? null
+              : (id) => widget.onEditSubtask!(task, id),
       onDelete: () => _confirmDelete(context, task),
       onDecompose: () => _decomposeSingle(context, task),
       onDecomposeStart: () {},

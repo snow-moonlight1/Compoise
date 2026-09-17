@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import 'quadrant_pane.dart';
+import 'task_card.dart';
 
 /// Single quadrant focused view:
 /// The focused quadrant occupies the main upper area with full width task rows,
@@ -19,6 +20,7 @@ class QuadrantFocusView extends StatelessWidget {
   final ValueChanged<int> onSwitchQuadrant;
   final VoidCallback onExitFocus;
   final ValueChanged<Task>? onEdit;
+  final void Function(Task task, String subtaskId)? onEditSubtask;
   final ScrollController? scrollController;
 
   const QuadrantFocusView({
@@ -33,6 +35,7 @@ class QuadrantFocusView extends StatelessWidget {
     required this.onSwitchQuadrant,
     required this.onExitFocus,
     this.onEdit,
+    this.onEditSubtask,
     this.scrollController,
   });
 
@@ -66,7 +69,9 @@ class QuadrantFocusView extends StatelessWidget {
             onEnsureExpanded: onEnsureExpanded,
             onQuadrantTap: onExitFocus,
             onEdit: onEdit,
+            onEditSubtask: onEditSubtask,
             isFocused: true,
+            rowLayout: TaskRowLayout.hierarchical,
             scrollController: scrollController,
           ),
         ),

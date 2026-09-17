@@ -8,11 +8,20 @@ import 'anim.dart';
 
 export '../deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 
+/// Matrix rows share one column; focus/list rows indent children 16dp.
+enum TaskRowLayout { matrixCompact, hierarchical }
+
 class TaskCard extends StatelessWidget {
+  static const double checkColumnWidth = 48;
+  static const double parentCheckVisual = 22;
+  static const double childCheckVisual = 18;
+  static const double hierarchicalIndent = 16;
+
   final Task task;
   final int entranceIndex;
   final VoidCallback onChanged;
   final VoidCallback onEdit;
+  final void Function(String subtaskId)? onEditSubtask;
   final VoidCallback onDelete;
   final VoidCallback onDecompose;
   final VoidCallback onDecomposeStart; // signals busy state externally
@@ -22,6 +31,7 @@ class TaskCard extends StatelessWidget {
   final bool expanded;
   final VoidCallback? onToggleExpand;
   final VoidCallback? onEnsureExpanded;
+  final TaskRowLayout rowLayout;
 
   const TaskCard({
     super.key,
@@ -29,6 +39,7 @@ class TaskCard extends StatelessWidget {
     required this.entranceIndex,
     required this.onChanged,
     required this.onEdit,
+    this.onEditSubtask,
     required this.onDelete,
     required this.onDecompose,
     required this.onDecomposeStart,
@@ -38,6 +49,7 @@ class TaskCard extends StatelessWidget {
     this.expanded = false,
     this.onToggleExpand,
     this.onEnsureExpanded,
+    this.rowLayout = TaskRowLayout.matrixCompact,
   });
 
   @override
@@ -154,164 +166,148 @@ class TaskCard extends StatelessWidget {
                       : theme.colorScheme.primary.withValues(alpha: 0.18))
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: selecting ? onSelect : onEdit,
-            onSecondaryTapDown:
-                selecting
-                    ? null
-                    : (details) =>
-                        _showContextMenu(context, details.globalPosition),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Semantics(
-                    label: t['markTaskComplete'],
-                    button: true,
-                    child: SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: GestureDetector(
-                        key: ValueKey('complete-${task.id}'),
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          store.setParentCompleted(task, !task.completed);
-                          onChanged();
-                        },
-                        child: Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: Checkbox(
-                              value: task.completed,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                              onChanged: (_) {
-                                store.setParentCompleted(task, !task.completed);
-                                onChanged();
-                              },
-                            ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: selecting ? onSelect : onEdit,
+                  onSecondaryTapDown:
+                      selecting
+                          ? null
+                          : (details) => _showContextMenu(
+                            context,
+                            details.globalPosition,
                           ),
-                        ),
-                      ),
-                    ),
+                  child: _parentRow(context, store, t, theme, daysLeft),
+                ),
+                if (task.subtasks.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: checkColumnWidth),
+                    child: _expandToggle(t, theme),
                   ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        top: 13,
-                        right: 8,
-                        bottom: 8,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: StrikeThrough(
-                                  crossed: task.completed,
-                                  child: Text(
-                                    task.title,
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      fontSize: 16,
-                                      height: 1.4,
-                                      fontWeight: FontWeight.w500,
-                                      color:
-                                          task.completed
-                                              ? theme.colorScheme.onSurface
-                                                  .withValues(alpha: 0.38)
-                                              : (theme.brightness ==
-                                                      Brightness.light
-                                                  ? const Color(0xFF242A32)
-                                                  : null),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (task.isLongTerm &&
-                                  !task.hasSubtasks &&
-                                  !selecting)
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  tooltip: t['decomposingSingle'],
-                                  icon: const Icon(
-                                    Icons.call_split,
-                                    size: 16,
-                                    color: Color(0xFFF59E0B),
-                                  ),
-                                  onPressed: () {
-                                    onDecomposeStart();
-                                    onDecompose();
-                                  },
-                                ),
-                            ],
-                          ),
-                          if (selected)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                t['selectedMark']!,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          Row(
-                            children: [
-                              _DeadlineChip(
-                                daysLeft: daysLeft,
-                                done: task.completed,
-                                t: t,
-                                isUrgent: isDeadlineUrgent(
-                                  task.deadline,
-                                  store.settings.urgencyThresholdDays,
-                                ),
-                              ),
-                              if (task.reminderAt != null) ...[
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.notifications_active_outlined,
-                                  size: 14,
-                                  color:
-                                      task.completed
-                                          ? theme.colorScheme.onSurface
-                                              .withValues(alpha: 0.38)
-                                          : theme.colorScheme.primary,
-                                ),
-                              ],
-                            ],
-                          ),
-                          if (task.subtasks.isNotEmpty) _expandToggle(t, theme),
-                          if (expanded)
-                            GestureDetector(
-                              onTap: () {},
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  ..._subtasks(context, t, theme),
-                                  if (!selecting && !task.completed)
-                                    _addSubtaskField(context, t, theme),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                if (expanded) ..._subtaskRows(context, t, theme),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _parentRow(
+    BuildContext context,
+    Store store,
+    Map<String, String> t,
+    ThemeData theme,
+    int? daysLeft,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _checkColumn(
+          key: ValueKey('complete-${task.id}'),
+          semanticsLabel: t['markTaskComplete'],
+          visualSize: parentCheckVisual,
+          value: task.completed,
+          onToggle: () {
+            store.setParentCompleted(task, !task.completed);
+            onChanged();
+          },
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 13, right: 8, bottom: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: StrikeThrough(
+                        crossed: task.completed,
+                        child: Text(
+                          task.title,
+                          key: ValueKey('task-title-${task.id}'),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontSize: 16,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500,
+                            color:
+                                task.completed
+                                    ? theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.38,
+                                    )
+                                    : (theme.brightness == Brightness.light
+                                        ? const Color(0xFF242A32)
+                                        : null),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (task.isLongTerm && !task.hasSubtasks && !selecting)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: t['decomposingSingle'],
+                        icon: const Icon(
+                          Icons.call_split,
+                          size: 16,
+                          color: Color(0xFFF59E0B),
+                        ),
+                        onPressed: () {
+                          onDecomposeStart();
+                          onDecompose();
+                        },
+                      ),
+                  ],
+                ),
+                if (selected)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      t['selectedMark']!,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                Row(
+                  children: [
+                    _DeadlineChip(
+                      daysLeft: daysLeft,
+                      done: task.completed,
+                      t: t,
+                      isUrgent: isDeadlineUrgent(
+                        task.deadline,
+                        store.settings.urgencyThresholdDays,
+                      ),
+                    ),
+                    if (task.reminderAt != null) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.notifications_active_outlined,
+                        size: 14,
+                        color:
+                            task.completed
+                                ? theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.38,
+                                )
+                                : theme.colorScheme.primary,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -354,125 +350,136 @@ class TaskCard extends StatelessWidget {
     );
   }
 
-  List<Widget> _subtasks(
+  List<Widget> _subtaskRows(
     BuildContext context,
     Map<String, String> t,
     ThemeData theme,
   ) {
     if (task.subtasks.isEmpty) return [];
-    final thresholdDays = context.read<Store>().settings.urgencyThresholdDays;
+    final store = context.read<Store>();
+    final thresholdDays = store.settings.urgencyThresholdDays;
+    final indent =
+        rowLayout == TaskRowLayout.hierarchical ? hierarchicalIndent : 0.0;
     return [
-      const SizedBox(height: 4),
-      Padding(
-        padding: const EdgeInsets.only(left: 4),
-        child: Column(
-          children: [
-            for (final sub in task.subtasks)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: GestureDetector(
-                        key: ValueKey('task-subtask-check-${sub.id}'),
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          context.read<Store>().setSubtaskCompleted(
-                            task.id,
-                            sub.id,
-                            !sub.completed,
-                          );
-                          onChanged();
-                        },
-                        child: Checkbox(
-                          value: sub.completed,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                          onChanged: (_) {
-                            context.read<Store>().setSubtaskCompleted(
-                              task.id,
-                              sub.id,
-                              !sub.completed,
-                            );
-                            onChanged();
+      for (final sub in task.subtasks)
+        Padding(
+          padding: EdgeInsets.only(left: indent, top: 2, bottom: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _checkColumn(
+                key: ValueKey('task-subtask-check-${sub.id}'),
+                semanticsLabel: t['markTaskComplete'],
+                visualSize: childCheckVisual,
+                value: sub.completed,
+                onToggle: () {
+                  store.setSubtaskCompleted(task.id, sub.id, !sub.completed);
+                  onChanged();
+                },
+              ),
+              Expanded(
+                child: InkWell(
+                  key: ValueKey('subtask-title-${sub.id}'),
+                  borderRadius: BorderRadius.circular(4),
+                  onTap:
+                      selecting
+                          ? onSelect
+                          : () {
+                            if (onEditSubtask != null) {
+                              onEditSubtask!(sub.id);
+                            } else {
+                              onEdit();
+                            }
                           },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          StrikeThrough(
-                            crossed: sub.completed,
-                            child: Text(
-                              sub.title,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color:
-                                    sub.completed
-                                        ? theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.38)
-                                        : null,
-                              ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 13, right: 8, bottom: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        StrikeThrough(
+                          crossed: sub.completed,
+                          child: Text(
+                            sub.title,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 14,
+                              height: 1.4,
+                              fontWeight: FontWeight.w400,
+                              color:
+                                  sub.completed
+                                      ? theme.colorScheme.onSurface.withValues(
+                                        alpha: 0.38,
+                                      )
+                                      : null,
                             ),
                           ),
-                          if (sub.deadline != null) ...[
-                            const SizedBox(height: 2),
-                            _DeadlineChip(
-                              daysLeft: calendarDaysLeft(sub.deadline!),
-                              done: sub.completed,
-                              t: t,
-                              isUrgent: isDeadlineUrgent(
-                                sub.deadline,
-                                thresholdDays,
-                              ),
+                        ),
+                        if (sub.deadline != null)
+                          _DeadlineChip(
+                            daysLeft: calendarDaysLeft(sub.deadline!),
+                            done: sub.completed,
+                            t: t,
+                            isUrgent: isDeadlineUrgent(
+                              sub.deadline,
+                              thresholdDays,
                             ),
-                          ],
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
-                    if (sub.reminderAt != null) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.notifications_active_outlined,
-                        size: 12,
-                        color:
-                            sub.completed
-                                ? theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.38,
-                                )
-                                : theme.colorScheme.primary,
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-          ],
+              if (sub.reminderAt != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 14, right: 4),
+                  child: Icon(
+                    Icons.notifications_active_outlined,
+                    size: 12,
+                    color:
+                        sub.completed
+                            ? theme.colorScheme.onSurface.withValues(
+                              alpha: 0.38,
+                            )
+                            : theme.colorScheme.primary,
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
     ];
   }
 
-  Widget _addSubtaskField(
-    BuildContext context,
-    Map<String, String> t,
-    ThemeData theme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 8, top: 4),
-      child: _AddSubtaskField(
-        hintText: t['addSubtask']!,
-        onSubmit: (text) {
-          context.read<Store>().appendSubtasks(task.id, [
-            SubTask(id: newId(), title: text),
-          ]);
-          onEnsureExpanded?.call();
-          onChanged();
-        },
+  Widget _checkColumn({
+    required Key key,
+    required String? semanticsLabel,
+    required double visualSize,
+    required bool value,
+    required VoidCallback onToggle,
+  }) {
+    return Semantics(
+      label: semanticsLabel,
+      button: true,
+      child: SizedBox(
+        width: checkColumnWidth,
+        height: checkColumnWidth,
+        child: GestureDetector(
+          key: key,
+          behavior: HitTestBehavior.opaque,
+          onTap: onToggle,
+          child: Center(
+            child: SizedBox(
+              width: visualSize,
+              height: visualSize,
+              child: Checkbox(
+                value: value,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                onChanged: (_) => onToggle(),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -762,40 +769,4 @@ class _DeadlineChip extends StatelessWidget {
   }
 }
 
-class _AddSubtaskField extends StatefulWidget {
-  final String hintText;
-  final ValueChanged<String> onSubmit;
-  const _AddSubtaskField({required this.hintText, required this.onSubmit});
 
-  @override
-  State<_AddSubtaskField> createState() => _AddSubtaskFieldState();
-}
-
-class _AddSubtaskFieldState extends State<_AddSubtaskField> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      decoration: InputDecoration(
-        hintText: widget.hintText,
-        prefixIcon: const Icon(Icons.add, size: 16),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      ),
-      style: Theme.of(context).textTheme.bodySmall,
-      onSubmitted: (value) {
-        final text = value.trim();
-        if (text.isEmpty) return;
-        widget.onSubmit(text);
-        _controller.clear();
-      },
-    );
-  }
-}

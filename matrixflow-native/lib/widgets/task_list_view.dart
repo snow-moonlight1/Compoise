@@ -18,6 +18,7 @@ class TaskListView extends StatefulWidget {
   final ValueChanged<String>? onEnsureExpanded;
   final ValueChanged<int>? onQuadrantTap;
   final ValueChanged<Task>? onEdit;
+  final void Function(Task task, String subtaskId)? onEditSubtask;
 
   const TaskListView({
     super.key,
@@ -29,6 +30,7 @@ class TaskListView extends StatefulWidget {
     this.onEnsureExpanded,
     this.onQuadrantTap,
     this.onEdit,
+    this.onEditSubtask,
   });
 
   @override
@@ -260,6 +262,7 @@ class _TaskListViewState extends State<TaskListView> {
       selecting: widget.selecting,
       selected: widget.selectedIds.contains(task.id),
       expanded: widget.expandedIds.contains(task.id),
+      rowLayout: TaskRowLayout.hierarchical,
       onSelect: () => widget.onSelect?.call(task.id),
       onToggleExpand: () => widget.onToggleExpand?.call(task.id),
       onEnsureExpanded: () => widget.onEnsureExpanded?.call(task.id),
@@ -271,6 +274,10 @@ class _TaskListViewState extends State<TaskListView> {
           showTaskEditSheet(context, task);
         }
       },
+      onEditSubtask:
+          widget.onEditSubtask == null
+              ? null
+              : (id) => widget.onEditSubtask!(task, id),
       onDelete: () => _confirmDelete(context, store, task),
       onDecompose: () => _decomposeSingle(context, task),
       onDecomposeStart: () {},
