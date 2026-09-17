@@ -2,12 +2,15 @@
 
 最后更新：2026-09-17。
 
-## 当前任务：UX05 已实现、自动化通过（2026-09-17）；下一包 UX06
+## 当前任务：UX05 已提交；下一包 UX06（2026-09-17 收尾）
 
-- 矩阵父子标题同列、框中心同列；聚焦/列表/详情子项缩进 16dp。矩阵去掉内嵌添加子项，详情保留。点子项标题打开父详情。见 [UX05 返修记录](UX05_FIX_2026-09-17.md)。
-- 定向 UX05 **4/4**，全量 **328/328**，analyze **0 issues**。
-- **下一包 UX06**（完成划线动画与安全退场），只做该包；UX06–08 未实施。双端实机未验。
-- 约束：不要恢复命令台、统计条、横滑 Chip、矩阵内嵌添加子项。继续暂停 WP10/WP29/UI 实验。
+- HEAD `main / 7b8987b`，工作区干净。本 Session：分批入库 foundation + UX01–03，随后实现并提交 UX04、UX05。
+- UX05：矩阵父子标题/框列同列；聚焦/列表/详情子项缩进 16dp；矩阵去掉内嵌添加子项，详情保留。见 [UX05 返修记录](UX05_FIX_2026-09-17.md)。
+- 验证：UX05 定向 4/4，全量 **328/328**，analyze **0 issues**。Android/Windows **实机未验**，未重新构建产物。
+- 本轮重要文件：`lib/widgets/task_card.dart`、`quadrant_pane.dart`、`task_list_view.dart`、`quadrant_focus_view.dart`、`task_detail_panel.dart`、`screens/matrix_screen.dart`、`test/ux05_regression_test.dart`。
+- **下一包 UX06**（完成划线动画、reduceMotion、hideCompleted 安全退场），只做该包；UX06–08 未实施。
+- 约束：不要恢复命令台、统计条、横滑 Chip、矩阵内嵌添加子项。继续暂停 WP10/WP29/UI 实验。F21 包名与 F22 正式签名仍未关闭。
+- 本 Session 提交：`c7902b1` foundation；`e509166` 复审文档；`3e166b4` UX01–03；`7bfdf0d` 交接文档；`87928cb` UX04；`7b8987b` UX05。
 
 ### 下一轮启动提示词（UX06）
 
@@ -16,7 +19,7 @@
 阅读 AGENTS.md、docs/HANDOFF.md 顶部及
 docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 4.7 / 5.2 / 6 节 UX06。
 本次只领取 UX06，完成后交接，不自动继续 UX07。
-先 git status，不要 reset。
+当前 HEAD 为 7b8987b，工作区应交接为干净；先 git status，不要 reset。
 UX05 已完成矩阵父子同列与聚焦 16dp 层级。见 docs/UX05_FIX_2026-09-17.md。
 本包做可中断逐行划线动画、reduceMotion，以及 hideCompleted 时的安全退场。业务立即持久化，不要重写撤销系统。
 不改 React，不引入服务，不做 UI 实验或 WP10/WP29。
