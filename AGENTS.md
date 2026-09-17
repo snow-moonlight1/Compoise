@@ -2,7 +2,7 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)。
 
-> **2026-09-18 当前派单覆盖：** 用户实机反馈后的主线交互返修以 [UX 实施计划](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md) 为准，下一实施包 **UX08**（全路径验收与文档收口），每位 Agent 一包。UX01–07 已实现（UX07 全量 352 项、未提交），双端实机未验。UX08 未开始。动效时长与减少动画策略统一读 `lib/ui/motion_policy.dart`；聚焦几何在 `lib/widgets/quadrant_transition_layout.dart`。继续暂停 WP10/WP29/UI 实验。
+> **2026-09-18 当前派单覆盖：** 用户实机反馈后的主线交互返修以 [UX 实施计划](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md) 为准，下一实施包 **UX08**（全路径验收与文档收口），每位 Agent 一包。UX01–07 已实现并入库（`eee6df9`，全量 352 项），双端实机未验。UX08 未开始。动效时长与减少动画策略统一读 `lib/ui/motion_policy.dart`；聚焦几何在 `lib/widgets/quadrant_transition_layout.dart`。继续暂停 WP10/WP29/UI 实验。
 
 ## 运行与验证
 

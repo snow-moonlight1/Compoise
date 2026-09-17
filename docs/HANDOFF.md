@@ -4,7 +4,7 @@
 
 ## 当前任务：UX07 已实现；下一包 UX08（2026-09-18）
 
-- HEAD 为 `main / 43ac261`（用户提交）；**UX06、UX07 改动未提交 Git**，提交需用户确认。
+- HEAD 为 `main / eee6df9`（本 Session 提交：`feat(ux): UX06 逐行完成划线与减少动画、UX07 四象限连续聚焦几何过渡`）；工作区干净，无未提交改动。
 - UX07：新增 `lib/widgets/quadrant_transition_layout.dart`——四个 `QuadrantPane` 常驻同一 Stack，矩阵↔聚焦只做矩形插值（进入 320ms / 切换 300ms / 退出 280ms easeInOutCubic），打断按布局比例冻结当前几何再重定向；删除替树式 `quadrant_focus_view.dart`。减少动画一帧终态。列表模式为轻量淡入淡出叠层，退出回列表原滚动。详见 [UX07 返修记录](UX07_FIX_2026-09-18.md)。
 - 验证：UX07 定向 **10/10**，全量 **352/352**（342 + 10），analyze **0 issues**。Android/Windows **实机未验**，未重新构建双端产物。
 - 本轮重要文件：新增 `lib/widgets/quadrant_transition_layout.dart`、`test/ux07_regression_test.dart`；改 `screens/matrix_screen.dart`、删除 `widgets/quadrant_focus_view.dart`、`test/widget_regression_test.dart`（`focus-view-active` 标记键、`matrix-divider-v/h` 键）。
@@ -13,7 +13,7 @@
 
 ## 先前任务：UX06 已实现（2026-09-18）
 
-- HEAD 仍为 `main / 7b8987b`；**UX06 未提交 Git**（工作区含 UX06 改动，提交需用户确认）。基线 328 项。
+- 起始 HEAD `main / 7b8987b`，基线 328 项；UX06 与 UX07 现已一并提交为 `eee6df9`（本 Session 收尾时提交）。
 - UX06：可中断逐行完成划线动画（220ms easeOut，行段来自 `TextPainter.getBoxesForSelection`）；`reduceMotion` 全链路（应用设置 OR 系统减少动画，设入「显示」并三语齐备）；hideCompleted/筛选导致的消失改为先播退场再移除，业务状态在点击瞬间落盘。详见 [UX06 返修记录](UX06_FIX_2026-09-18.md)。
 - 验证：UX06 定向 **14/14**，全量 **342/342**（328 + 14），analyze **0 issues**。Android/Windows **实机未验**，未重新构建双端产物。
 - 本轮重要文件：新增 `lib/widgets/animated_task_title.dart`、`lib/widgets/task_exit.dart`、`lib/ui/motion_policy.dart`；改 `widgets/task_card.dart`、`widgets/anim.dart`、`widgets/quadrant_pane.dart`、`widgets/task_list_view.dart`、`screens/search_screen.dart`、`screens/completed_screen.dart`、`screens/settings_screen.dart`、`models.dart`、`l10n.dart`，以及 `test/ux06_regression_test.dart`、`test/widget_regression_test.dart`。
