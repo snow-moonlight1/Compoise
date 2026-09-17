@@ -117,13 +117,15 @@ void main() {
     });
 
     test('auto promotes Q2->Q1 and Q4->Q3 for uncompleted tasks within threshold', () {
+      // addTasks promotes using the real clock before the explicit policy pass.
+      final now = DateTime.now();
       final taskQ2 = Task(
         id: 't-q2',
         boardId: boardId,
         title: 'Q2 due in 2 days',
         quadrant: qPlan,
         createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(2026, 9, 17, 18, 0, 0).millisecondsSinceEpoch, // 2 days away <= 3
+        deadline: DateTime(now.year, now.month, now.day + 2, 18).millisecondsSinceEpoch, // 2 days away <= 3
         urgencyMode: UrgencyMode.auto,
       );
       final taskQ4 = Task(
@@ -132,7 +134,7 @@ void main() {
         title: 'Q4 due today',
         quadrant: qEliminate,
         createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(2026, 9, 15, 20, 0, 0).millisecondsSinceEpoch, // 0 days away
+        deadline: DateTime(now.year, now.month, now.day + 0, 18).millisecondsSinceEpoch, // 0 days away
         urgencyMode: UrgencyMode.auto,
       );
       final taskQ2Far = Task(
@@ -141,7 +143,7 @@ void main() {
         title: 'Q2 due in 5 days',
         quadrant: qPlan,
         createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(2026, 9, 20, 18, 0, 0).millisecondsSinceEpoch, // 5 days > 3
+        deadline: DateTime(now.year, now.month, now.day + 5, 18).millisecondsSinceEpoch, // 5 days > 3
         urgencyMode: UrgencyMode.auto,
       );
 

@@ -250,6 +250,7 @@ void main() {
       expect((json['settings'] as Map).containsKey('viewMode'), isFalse);
       expect((json['settings'] as Map).containsKey('fontSize'), isFalse);
       expect((json['settings'] as Map).containsKey('closeToTray'), isFalse);
+      expect((json['settings'] as Map).containsKey('showCompletionRate'), isFalse);
     });
   });
 
@@ -409,6 +410,7 @@ void main() {
       final missing = AppSettings.fromJson({});
       expect(missing.fontSize, FontSizePref.standard);
       expect(missing.fontFamily, FontFamilyPref.system);
+      expect(missing.showCompletionRate, isFalse);
 
       final invalid = AppSettings.fromJson({
         'fontSize': 'huge',
@@ -416,6 +418,19 @@ void main() {
       });
       expect(invalid.fontSize, FontSizePref.standard);
       expect(invalid.fontFamily, FontFamilyPref.system);
+    });
+
+    test('showCompletionRate defaults false and round-trips on v2', () {
+      final missing = AppSettings.fromJson({});
+      expect(missing.showCompletionRate, isFalse);
+      expect(missing.toJson()['showCompletionRate'], isFalse);
+      final enabled = AppSettings.fromJson({'showCompletionRate': true});
+      expect(enabled.showCompletionRate, isTrue);
+      expect(enabled.toJson()['showCompletionRate'], isTrue);
+      expect(
+        enabled.toJson(targetVersion: 1).containsKey('showCompletionRate'),
+        isFalse,
+      );
     });
   });
 }

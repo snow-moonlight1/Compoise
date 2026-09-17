@@ -74,25 +74,26 @@ class DataMigrator {
     }
 
     final warnings = <String>[];
+    final recordErrors = <String>[];
 
     // 3. Parse and deduplicate boards
     final rawBoards = json['boards'] as List;
     final parsedBoards = <Board>[];
     final seenBoardIds = <String>{};
     for (final raw in rawBoards) {
-      if (raw is! Map<String, dynamic>) {
-        warnings.add('Skipped non-map board entry');
+      if (raw is! Map) {
+        recordErrors.add('Skipped non-map board entry');
         continue;
       }
       try {
-        final board = Board.fromJson(raw);
+        final board = Board.fromJson(Map<String, dynamic>.from(raw));
         if (seenBoardIds.add(board.id)) {
           parsedBoards.add(board);
         } else {
           warnings.add('Duplicate board ID removed: ${board.id}');
         }
       } catch (e) {
-        warnings.add('Failed to parse board: $e');
+        recordErrors.add('Failed to parse board: $e');
       }
     }
 
@@ -101,20 +102,27 @@ class DataMigrator {
     final parsedTasks = <Task>[];
     final seenTaskIds = <String>{};
     for (final raw in rawTasks) {
-      if (raw is! Map<String, dynamic>) {
-        warnings.add('Skipped non-map task entry');
+      if (raw is! Map) {
+        recordErrors.add('Skipped non-map task entry');
         continue;
       }
       try {
-        final task = Task.fromJson(raw);
+        final task = Task.fromJson(Map<String, dynamic>.from(raw));
         if (seenTaskIds.add(task.id)) {
           parsedTasks.add(task);
         } else {
           warnings.add('Duplicate task ID removed: ${task.id}');
         }
       } catch (e) {
-        warnings.add('Failed to parse task: $e');
+        recordErrors.add('Failed to parse task: $e');
       }
+    }
+
+    if (recordErrors.isNotEmpty) {
+      throw CorruptDataPayloadException(
+        'Backup contains unrecoverable records and was rejected: '
+        '${recordErrors.join('; ')}',
+      );
     }
 
     // 5. Parse settings with whitelist and safe defaults

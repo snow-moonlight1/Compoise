@@ -18,6 +18,9 @@ dependencies:
   file_picker: ^8.1.7
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
+  window_manager: ^0.5.2
+  tray_manager: ^0.5.3
+  hotkey_manager: ^0.2.3
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +31,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/tray_icon.ico

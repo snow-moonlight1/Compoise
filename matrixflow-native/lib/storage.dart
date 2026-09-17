@@ -52,8 +52,36 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   final List<Locale>? initialDeviceLocales;
 
   Store({AIService? aiService, List<Locale>? deviceLocales})
-      : ai = aiService ?? AIService(),
-        initialDeviceLocales = deviceLocales;
+    : ai = aiService ?? AIService(),
+      initialDeviceLocales = deviceLocales;
+
+  Future<void> retryReminder(ReminderPayload payload) async {
+    final service = ReminderService.instance;
+    await service.init();
+    if (_disposed) return;
+    final task = tasks.where((t) => t.id == payload.taskId).firstOrNull;
+    final sub =
+        task?.subtasks.where((s) => s.id == payload.subtaskId).firstOrNull;
+    final when = payload.subtaskId == null ? task?.reminderAt : sub?.reminderAt;
+    if (task == null ||
+        task.completed ||
+        (payload.subtaskId != null && (sub == null || sub.completed)) ||
+        when == null) {
+      await service.cancelReminder(
+        payload.taskId,
+        subtaskId: payload.subtaskId,
+      );
+      return;
+    }
+    await service.scheduleReminder(
+      boardId: task.boardId,
+      taskId: task.id,
+      subtaskId: payload.subtaskId,
+      title: sub?.title ?? task.title,
+      body: sub?.notesMarkdown ?? task.notesMarkdown,
+      triggerAtMs: when,
+    );
+  }
 
   Future<void> init({List<Locale>? deviceLocales}) async {
     startupError = null;
@@ -217,13 +245,17 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// Unaffected by [settings.hideCompleted].
   List<Task> completedTasks({String? boardId}) =>
       tasks
-          .where((t) => t.completed && (boardId == null || t.boardId == boardId))
+          .where(
+            (t) => t.completed && (boardId == null || t.boardId == boardId),
+          )
           .toList();
 
   /// Total number of completed tasks on [boardId] (or across all boards if null).
   int completedTaskCount({String? boardId}) =>
       tasks
-          .where((t) => t.completed && (boardId == null || t.boardId == boardId))
+          .where(
+            (t) => t.completed && (boardId == null || t.boardId == boardId),
+          )
           .length;
 
   // --- mutations ---
@@ -251,10 +283,11 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   void resetDisplayPreferences() {
     updateSettings(
-      (s) => s
-        ..fontSize = FontSizePref.standard
-        ..fontFamily = FontFamilyPref.system
-        ..viewMode = ViewMode.grid,
+      (s) =>
+          s
+            ..fontSize = FontSizePref.standard
+            ..fontFamily = FontFamilyPref.system
+            ..viewMode = ViewMode.grid,
     );
   }
 
@@ -280,9 +313,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   void addTasks(List<Task> newTasks) {
     final seen = tasks.map((task) => task.id).toSet();
     final boardIds = boards.map((board) => board.id).toSet();
-    final added = newTasks
-        .where((task) => boardIds.contains(task.boardId) && seen.add(task.id))
-        .toList();
+    final added =
+        newTasks
+            .where(
+              (task) => boardIds.contains(task.boardId) && seen.add(task.id),
+            )
+            .toList();
     tasks.insertAll(0, added);
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final task in added) {
@@ -298,9 +334,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         );
       }
       for (final sub in task.subtasks) {
-        if (!sub.completed &&
-            sub.reminderAt != null &&
-            sub.reminderAt! > now) {
+        if (!sub.completed && sub.reminderAt != null && sub.reminderAt! > now) {
           ReminderService.instance.scheduleReminder(
             boardId: task.boardId,
             taskId: task.id,
@@ -322,16 +356,15 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     int quadrant = qDo,
     bool isLongTerm = false,
     int? deadline,
-  }) =>
-      Task(
-        id: newId(),
-        boardId: activeBoardId,
-        title: title,
-        quadrant: quadrant,
-        isLongTerm: isLongTerm,
-        createdAt: _now(),
-        deadline: deadline,
-      );
+  }) => Task(
+    id: newId(),
+    boardId: activeBoardId,
+    title: title,
+    quadrant: quadrant,
+    isLongTerm: isLongTerm,
+    createdAt: _now(),
+    deadline: deadline,
+  );
 
   void _insertAtFrontOfQuadrant(Task task) {
     final firstTargetIndex = tasks.indexWhere(
@@ -351,10 +384,33 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void _copyTaskFields(Task from, Task to) {
+    to.boardId = from.boardId;
+    to.title = from.title;
+    to.quadrant = from.quadrant;
+    to.isLongTerm = from.isLongTerm;
+    to.completed = from.completed;
+    to.createdAt = from.createdAt;
+    to.deadline = from.deadline;
+    to.subtasks = from.subtasks;
+    to.reasoning = from.reasoning;
+    to.urgencyMode = from.urgencyMode;
+    to.notesMarkdown = from.notesMarkdown;
+    to.reminderAt = from.reminderAt;
+    to.reminderTimezone = from.reminderTimezone;
+    to.completedAt = from.completedAt;
+  }
+
   void updateTask(Task updated) {
     final i = tasks.indexWhere((t) => t.id == updated.id);
     if (i == -1) return;
-    final oldTask = tasks[i];
+    _touchTask(updated.id);
+    final live = tasks[i];
+    final oldTask = Task.fromJson(live.toJson());
+    if (!identical(updated, live)) {
+      _copyTaskFields(updated, live);
+      updated = live;
+    }
     final oldQuadrant = oldTask.quadrant;
     final quadrantChanged = oldQuadrant != updated.quadrant;
 
@@ -413,6 +469,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       tasks[i] = updated;
     }
 
+    final oldSubIds = {for (final s in oldTask.subtasks) s.id};
+    final newSubIds = {for (final s in updated.subtasks) s.id};
+    for (final removedId in oldSubIds.difference(newSubIds)) {
+      ReminderService.instance.cancelReminder(updated.id, subtaskId: removedId);
+    }
+
     if (updated.completed) {
       ReminderService.instance.cancelReminder(updated.id);
       for (final sub in updated.subtasks) {
@@ -441,7 +503,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
             triggerAtMs: sub.reminderAt!,
           );
         } else {
-          ReminderService.instance.cancelReminder(updated.id, subtaskId: sub.id);
+          ReminderService.instance.cancelReminder(
+            updated.id,
+            subtaskId: sub.id,
+          );
         }
       }
     }
@@ -452,6 +517,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void deleteTask(String id) {
+    _touchTask(id);
     final existing = tasks.where((t) => t.id == id).firstOrNull;
     if (existing != null) {
       ReminderService.instance.cancelReminder(existing.id);
@@ -498,6 +564,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     updateTask(updated);
   }
 
+  final Map<String, int> _taskSeq = {};
+  int taskSeq(String id) => _taskSeq[id] ?? 0;
+  void _touchTask(String id) => _taskSeq[id] = taskSeq(id) + 1;
+  void _touchCommand() {
+    // Board-wide mutations bump every known task so stale undos cannot revive them.
+    for (final task in tasks) {
+      _touchTask(task.id);
+    }
+  }
+
   final Map<String, int> _boardEpoch = {};
 
   /// Returns the current mutation generation/epoch for the given board.
@@ -542,31 +618,58 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final quadTasks =
         tasks.where((t) => t.boardId == bId && t.quadrant == quadrant).toList();
     ReminderService.instance.cancelAllForBoard(bId, quadTasks);
-    tasks.removeWhere(
-      (t) => t.boardId == bId && t.quadrant == quadrant,
-    );
+    tasks.removeWhere((t) => t.boardId == bId && t.quadrant == quadrant);
     _saveTasks();
     notifyListeners();
   }
 
   /// Parent checkbox cascade: set self + every subtask to [completed].
   void setParentCompleted(Task task, bool completed) {
+    final stored = tasks.where((t) => t.id == task.id).firstOrNull ?? task;
     final now = DateTime.now().millisecondsSinceEpoch;
-    task.completed = completed;
-    if (completed) {
-      task.completedAt ??= now;
-    } else {
-      task.completedAt = null;
-    }
-    for (final s in task.subtasks) {
+    final wasCompleted = stored.completed;
+    final previousAt = stored.completedAt;
+    final subWas =
+        stored.subtasks.map((s) => (s.completed, s.completedAt)).toList();
+    stored.completed = completed;
+    stored.completedAt = completed ? (wasCompleted ? previousAt : now) : null;
+    for (var i = 0; i < stored.subtasks.length; i++) {
+      final s = stored.subtasks[i];
+      final (wasSub, subAt) = subWas[i];
       s.completed = completed;
-      if (completed) {
-        s.completedAt ??= now;
-      } else {
-        s.completedAt = null;
+      s.completedAt = completed ? (wasSub ? subAt : now) : null;
+    }
+    if (!identical(task, stored)) {
+      task.completed = stored.completed;
+      task.completedAt = stored.completedAt;
+      for (
+        var i = 0;
+        i < task.subtasks.length && i < stored.subtasks.length;
+        i++
+      ) {
+        task.subtasks[i].completed = stored.subtasks[i].completed;
+        task.subtasks[i].completedAt = stored.subtasks[i].completedAt;
       }
     }
-    updateTask(task);
+    updateTask(stored);
+  }
+
+  void setSubtaskCompleted(String taskId, String subtaskId, bool completed) {
+    final i = tasks.indexWhere((t) => t.id == taskId);
+    if (i == -1) return;
+    final stored = tasks[i];
+    final sub = stored.subtasks.where((s) => s.id == subtaskId).firstOrNull;
+    if (sub == null) return;
+    final wasCompleted = sub.completed;
+    final previousAt = sub.completedAt;
+    sub.completed = completed;
+    if (completed) {
+      sub.completedAt =
+          wasCompleted ? previousAt : DateTime.now().millisecondsSinceEpoch;
+    } else {
+      sub.completedAt = null;
+    }
+    updateTask(stored);
   }
 
   /// Restores a completed task back to active state.
@@ -595,11 +698,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     for (final s in task.subtasks) {
       ReminderService.instance.cancelReminder(task.id, subtaskId: s.id);
     }
+    _touchTask(task.id);
     final snapshot = TaskUndoSnapshot.capture(
       actionType: TaskUndoType.delete,
       task: task,
       boardEpoch: boardEpoch(task.boardId),
       originalIndex: i,
+      commandSeq: taskSeq(task.id),
     );
     tasks.removeAt(i);
     _saveTasks();
@@ -614,14 +719,15 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (i == -1) return null;
     final current = tasks[i];
     final nextState = !current.completed;
-    final snapshot = TaskUndoSnapshot.capture(
-      actionType: nextState ? TaskUndoType.complete : TaskUndoType.restore,
-      task: current,
-      boardEpoch: boardEpoch(current.boardId),
-      originalIndex: i,
-    );
+    final before = Task.fromJson(current.toJson());
     setParentCompleted(current, nextState);
-    return snapshot;
+    return TaskUndoSnapshot.capture(
+      actionType: nextState ? TaskUndoType.complete : TaskUndoType.restore,
+      task: before,
+      boardEpoch: boardEpoch(before.boardId),
+      originalIndex: i,
+      commandSeq: taskSeq(before.id),
+    );
   }
 
   /// Checks if [snapshot] is still valid according to the invalidation contract:
@@ -636,6 +742,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
     if (boardEpoch(snapshot.boardId) != snapshot.boardEpoch) {
+      return false;
+    }
+    if (snapshot.commandSeq != 0 &&
+        snapshot.commandSeq != taskSeq(snapshot.taskId)) {
       return false;
     }
     if (snapshot.actionType == TaskUndoType.complete ||
@@ -704,9 +814,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         final current = tasks[i];
         current.completed = snapshot.task.completed;
         current.completedAt = snapshot.task.completedAt;
-        final subMap = {
-          for (final s in snapshot.task.subtasks) s.id: s,
-        };
+        final subMap = {for (final s in snapshot.task.subtasks) s.id: s};
         for (final sub in current.subtasks) {
           if (subMap.containsKey(sub.id)) {
             final oldSub = subMap[sub.id]!;
@@ -763,6 +871,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Task groupTasks(Iterable<String> ids, String title) {
+    _touchCommand();
     final selected =
         tasks
             .where((t) => ids.contains(t.id) && t.boardId == activeBoardId)
@@ -782,15 +891,17 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       isLongTerm: selected.any((t) => t.isLongTerm),
       deadline: deadlines.firstOrNull,
       createdAt: _now(),
-      urgencyMode: selected.any((t) => t.urgencyMode == UrgencyMode.manual)
-          ? UrgencyMode.manual
-          : UrgencyMode.auto,
+      urgencyMode:
+          selected.any((t) => t.urgencyMode == UrgencyMode.manual)
+              ? UrgencyMode.manual
+              : UrgencyMode.auto,
       subtasks: [
         for (final t in selected) ...[
           SubTask(
             id: newId(),
             title: t.title,
             completed: t.completed,
+            completedAt: t.completedAt,
             deadline: t.deadline,
             notesMarkdown: t.notesMarkdown,
             reminderAt: t.reminderAt,
@@ -800,6 +911,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
               id: newId(),
               title: '${t.title} / ${child.title}',
               completed: child.completed,
+              completedAt: child.completedAt,
               deadline: child.deadline,
               notesMarkdown: child.notesMarkdown,
               reminderAt: child.reminderAt,
@@ -974,7 +1086,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Test hook: run one promotion pass immediately.
   @visibleForTesting
-  void promoteDeadlinesNow({DateTime? now}) => _applyDeadlinePromotion(now: now);
+  void promoteDeadlinesNow({DateTime? now}) =>
+      _applyDeadlinePromotion(now: now);
 
   void _applyDeadlinePromotion({DateTime? now}) {
     if (tasks.isEmpty) return;

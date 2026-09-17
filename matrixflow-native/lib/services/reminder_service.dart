@@ -113,8 +113,34 @@ class ScheduledReminderRecord {
   });
 }
 
+/// Requests notification access the first time a reminder is chosen.
+/// Callers still persist the reminder even when permission is denied.
+Future<ReminderPermissionStatus> requestReminderAccess() async {
+  final service = ReminderService.instance;
+  final current = await service.checkPermission();
+  if (current == ReminderPermissionStatus.granted ||
+      current == ReminderPermissionStatus.unsupported) {
+    return current;
+  }
+  await service.requestPermission();
+  return service.checkPermission();
+}
+
 /// Abstract cross-platform reminder service.
 abstract class ReminderService {
+  final ValueNotifier<Map<int, ReminderPayload>> scheduleFailures =
+      ValueNotifier({});
+
+  void _setScheduleFailure(int id, ReminderPayload? payload) {
+    final next = Map<int, ReminderPayload>.from(scheduleFailures.value);
+    if (payload == null) {
+      if (next.remove(id) == null) return;
+    } else {
+      next[id] = payload;
+    }
+    scheduleFailures.value = Map.unmodifiable(next);
+  }
+
   static ReminderService? _instance;
   static ReminderService get instance => _instance ??= _createDefault();
   static set instance(ReminderService service) => _instance = service;
@@ -144,7 +170,7 @@ abstract class ReminderService {
 
   /// Initializes local notification service and binds notification tap handler.
   Future<void> init({
-    required void Function(ReminderPayload payload) onNotificationSelected,
+    void Function(ReminderPayload payload)? onNotificationSelected,
   });
 
   /// Checks notification and alarm permissions status.
@@ -179,7 +205,7 @@ abstract class ReminderService {
 }
 
 /// Default no-op reminder service (used for unsupported platforms or headless default).
-class NoopReminderService implements ReminderService {
+class NoopReminderService extends ReminderService {
   void Function(ReminderPayload payload)? _onNotificationSelected;
 
   @override
@@ -192,7 +218,7 @@ class NoopReminderService implements ReminderService {
 
   @override
   Future<void> init({
-    required void Function(ReminderPayload payload) onNotificationSelected,
+    void Function(ReminderPayload payload)? onNotificationSelected,
   }) async {
     _onNotificationSelected = onNotificationSelected;
   }
@@ -233,7 +259,7 @@ class NoopReminderService implements ReminderService {
 }
 
 /// In-memory implementation of ReminderService for unit and widget testing.
-class InMemoryReminderService implements ReminderService {
+class InMemoryReminderService extends ReminderService {
   final Map<int, ScheduledReminderRecord> scheduled = {};
   final List<int> cancelledIds = [];
   int cancelAllCount = 0;
@@ -253,7 +279,7 @@ class InMemoryReminderService implements ReminderService {
 
   @override
   Future<void> init({
-    required void Function(ReminderPayload payload) onNotificationSelected,
+    void Function(ReminderPayload payload)? onNotificationSelected,
   }) async {
     _onNotificationSelected = onNotificationSelected;
   }
@@ -358,71 +384,148 @@ class InMemoryReminderService implements ReminderService {
 }
 
 /// Production Android and Windows implementation using flutter_local_notifications.
-class FlutterLocalNotificationsReminderService implements ReminderService {
+class FlutterLocalNotificationsReminderService extends ReminderService {
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
+  Completer<void>? _initCompleter;
   void Function(ReminderPayload payload)? _onNotificationSelected;
   final Map<int, Timer> _activeTimers = {};
+  final Map<int, int> _revision = {};
+  Future<void> _chain = Future.value();
+  List<Task>? _queuedReschedule;
+  ReminderPayload? _pendingLaunchPayload;
+  bool _consumedLaunchPayload = false;
+  int _restoreGeneration = 0;
 
   @override
   void Function(ReminderPayload payload)? get onNotificationSelected =>
       _onNotificationSelected;
 
   @override
-  set onNotificationSelected(void Function(ReminderPayload payload)? handler) =>
-      _onNotificationSelected = handler;
+  set onNotificationSelected(void Function(ReminderPayload payload)? handler) {
+    _onNotificationSelected = handler;
+    final pending = _pendingLaunchPayload;
+    if (handler != null && pending != null) {
+      _pendingLaunchPayload = null;
+      handler(pending);
+    }
+  }
 
   @visibleForTesting
   int get activeTimerCount => _activeTimers.length;
 
   @visibleForTesting
-  void setInitializedForTest(bool val) => _initialized = val;
+  String? lastScheduleError;
+
+  @visibleForTesting
+  void setInitializedForTest(bool val) {
+    _initialized = val;
+    _initCompleter ??= Completer<void>();
+    if (val && !_initCompleter!.isCompleted) {
+      _initCompleter!.complete();
+    }
+  }
 
   FlutterLocalNotificationsReminderService({
     FlutterLocalNotificationsPlugin? plugin,
   }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
+  int _bump(int notifId) => _revision[notifId] = (_revision[notifId] ?? 0) + 1;
+
+  Future<void> _enqueue(Future<void> Function() op) {
+    _chain = _chain.catchError((_) {}).then((_) => op());
+    return _chain;
+  }
+
+  void _deliverPayload(ReminderPayload payload, {bool fromLaunch = false}) {
+    if (fromLaunch) {
+      if (_consumedLaunchPayload) return;
+      _consumedLaunchPayload = true;
+    }
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      DesktopShellService.instance.restoreWindow();
+    }
+    final handler = _onNotificationSelected;
+    if (handler != null) {
+      handler(payload);
+    } else {
+      _pendingLaunchPayload = payload;
+    }
+  }
+
   @override
   Future<void> init({
-    required void Function(ReminderPayload payload) onNotificationSelected,
+    void Function(ReminderPayload payload)? onNotificationSelected,
   }) async {
-    _onNotificationSelected = onNotificationSelected;
+    if (onNotificationSelected != null) {
+      _onNotificationSelected = onNotificationSelected;
+    }
     if (_initialized) return;
+    if (_initCompleter != null) return _initCompleter!.future;
+
+    final gate = Completer<void>();
+    _initCompleter = gate;
 
     try {
-      tz.initializeTimeZones();
-    } catch (_) {}
+      try {
+        tz.initializeTimeZones();
+      } catch (_) {}
 
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-    const windowsSettings = WindowsInitializationSettings(
-      appName: 'MatrixFlow AI',
-      appUserModelId: 'MatrixFlow.MatrixFlowApp.1.0',
-      guid: '69a03975-2989-4d05-b778-5e824707612f',
-    );
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      windows: windowsSettings,
-    );
+      const androidSettings = AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
+      const windowsSettings = WindowsInitializationSettings(
+        appName: 'MatrixFlow AI',
+        appUserModelId: 'MatrixFlow.MatrixFlowApp.1.0',
+        guid: '69a03975-2989-4d05-b778-5e824707612f',
+      );
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        windows: windowsSettings,
+      );
 
-    try {
       await _plugin.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (response) {
-          final raw = response.payload;
-          final payload = ReminderPayload.deserialize(raw);
-          if (defaultTargetPlatform == TargetPlatform.windows) {
-            DesktopShellService.instance.restoreWindow();
-          }
+          final payload = ReminderPayload.deserialize(response.payload);
           if (payload != null) {
-            _onNotificationSelected?.call(payload);
+            _deliverPayload(payload);
+          } else if (defaultTargetPlatform == TargetPlatform.windows) {
+            DesktopShellService.instance.restoreWindow();
           }
         },
       );
       _initialized = true;
+
+      try {
+        final dynamic raw =
+            (_plugin as dynamic).getNotificationAppLaunchDetails();
+        if (raw is Future) {
+          final launch = await raw;
+          if (launch is NotificationAppLaunchDetails &&
+              launch.didNotificationLaunchApp) {
+            final payload = ReminderPayload.deserialize(
+              launch.notificationResponse?.payload,
+            );
+            if (payload != null) {
+              _deliverPayload(payload, fromLaunch: true);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to read notification launch details: $e');
+      }
+
+      final queued = _queuedReschedule;
+      _queuedReschedule = null;
+      if (queued != null) {
+        await _rescheduleReady(queued);
+      }
     } catch (e) {
+      _initCompleter = null;
       debugPrint('Failed to initialize local notifications: $e');
+    } finally {
+      if (!gate.isCompleted) gate.complete();
     }
   }
 
@@ -432,8 +535,11 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
       if (defaultTargetPlatform == TargetPlatform.windows) {
         return ReminderPermissionStatus.granted;
       }
-      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidImpl =
+          _plugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >();
       if (androidImpl == null) return ReminderPermissionStatus.unsupported;
 
       final enabled = await androidImpl.areNotificationsEnabled() ?? false;
@@ -456,8 +562,11 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
       if (defaultTargetPlatform == TargetPlatform.windows) {
         return true;
       }
-      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidImpl =
+          _plugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >();
       if (androidImpl == null) return false;
 
       final granted =
@@ -478,6 +587,28 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
     }
   }
 
+  NotificationDetails _details({
+    String? body,
+    required bool sound,
+    required bool vibrate,
+  }) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        'matrixflow_reminders',
+        'MatrixFlow Reminders',
+        channelDescription: 'Task and subtask deadline reminders',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: sound,
+        enableVibration: vibrate,
+      ),
+      windows: WindowsNotificationDetails(
+        subtitle: (body != null && body.trim().isNotEmpty) ? body : null,
+        duration: WindowsNotificationDuration.long,
+      ),
+    );
+  }
+
   @override
   Future<void> scheduleReminder({
     required String boardId,
@@ -488,47 +619,39 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
     required int triggerAtMs,
     bool sound = true,
     bool vibrate = true,
-  }) async {
-    if (!_initialized && defaultTargetPlatform != TargetPlatform.windows) return;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    // Overdue suppression: discard if older than 5 minutes
-    if (nowMs - triggerAtMs > 5 * 60 * 1000) {
-      return;
-    }
-
+  }) {
     final notifId = generateNotificationId(taskId, subtaskId: subtaskId);
-    final payload = ReminderPayload(
-      boardId: boardId,
-      taskId: taskId,
-      subtaskId: subtaskId,
-    ).serialize();
-
-    final androidDetails = AndroidNotificationDetails(
-      'matrixflow_reminders',
-      'MatrixFlow Reminders',
-      channelDescription: 'Task and subtask deadline reminders',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: sound,
-      enableVibration: vibrate,
-    );
-    final windowsDetails = WindowsNotificationDetails(
-      subtitle: (body != null && body.trim().isNotEmpty) ? body : null,
-      duration: WindowsNotificationDuration.long,
-    );
-    final notifDetails = NotificationDetails(
-      android: androidDetails,
-      windows: windowsDetails,
-    );
-
-    // Cancel any previous timer for this notifId
+    final gen = _bump(notifId);
     _activeTimers[notifId]?.cancel();
     _activeTimers.remove(notifId);
+    return _enqueue(() async {
+      if (_revision[notifId] != gen) return;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (nowMs - triggerAtMs > 5 * 60 * 1000) return;
+      if (!_initialized) {
+        _setScheduleFailure(
+          notifId,
+          ReminderPayload(
+            boardId: boardId,
+            taskId: taskId,
+            subtaskId: subtaskId,
+          ),
+        );
+        return;
+      }
+      if (_revision[notifId] != gen) return;
 
-    try {
-      if (triggerAtMs <= nowMs) {
-        // Immediate notification for near-past window (< 5m)
-        if (_initialized) {
+      final payload =
+          ReminderPayload(
+            boardId: boardId,
+            taskId: taskId,
+            subtaskId: subtaskId,
+          ).serialize();
+      final notifDetails = _details(body: body, sound: sound, vibrate: vibrate);
+
+      var scheduled = false;
+      try {
+        if (triggerAtMs <= nowMs) {
           await _plugin.show(
             notifId,
             title,
@@ -536,112 +659,182 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
             notifDetails,
             payload: payload,
           );
+          scheduled = true;
+          return;
         }
-      } else if (defaultTargetPlatform == TargetPlatform.windows) {
-        // On Windows desktop, maintain an in-process Timer to reliably fire
-        // when the app is running in the foreground or minimized to system tray.
-        final delayMs = triggerAtMs - nowMs;
-        _activeTimers[notifId] = Timer(Duration(milliseconds: delayMs), () async {
-          _activeTimers.remove(notifId);
-          try {
-            if (_initialized) {
-              await _plugin.show(
-                notifId,
-                title,
-                body,
-                notifDetails,
-                payload: payload,
-              );
-            }
-          } catch (e) {
-            debugPrint('Error showing scheduled Windows notification: $e');
-          }
-        });
-
-        // Also attempt native WinRT schedule if supported
-        try {
-          if (_initialized) {
-            final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
-              tz.local,
-              triggerAtMs,
-            );
-            await _plugin.zonedSchedule(
-              notifId,
-              title,
-              body,
-              scheduledDate,
-              notifDetails,
-              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-              payload: payload,
-            );
-          }
-        } catch (_) {}
-      } else {
-        final androidImpl = _plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-        final canExact =
-            await androidImpl?.canScheduleExactNotifications() ?? true;
-        final scheduleMode =
-            canExact
-                ? AndroidScheduleMode.exactAllowWhileIdle
-                : AndroidScheduleMode.inexactAllowWhileIdle;
-
-        final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
-          tz.local,
-          triggerAtMs,
-        );
-
-        try {
-          await _plugin.zonedSchedule(
-            notifId,
-            title,
-            body,
-            scheduledDate,
-            notifDetails,
-            androidScheduleMode: scheduleMode,
+        if (defaultTargetPlatform == TargetPlatform.windows) {
+          scheduled = await _scheduleWindows(
+            notifId: notifId,
+            gen: gen,
+            title: title,
+            body: body,
+            triggerAtMs: triggerAtMs,
+            notifDetails: notifDetails,
             payload: payload,
           );
-        } catch (_) {
-          // Fallback to inexact if exact schedule threw SecurityException on Android
+          return;
+        }
+        await _scheduleAndroid(
+          notifId: notifId,
+          gen: gen,
+          title: title,
+          body: body,
+          triggerAtMs: triggerAtMs,
+          notifDetails: notifDetails,
+          payload: payload,
+        );
+        scheduled = true;
+      } catch (e) {
+        lastScheduleError = e.toString();
+        if (_revision[notifId] == gen) {
+          _setScheduleFailure(
+            notifId,
+            ReminderPayload(
+              boardId: boardId,
+              taskId: taskId,
+              subtaskId: subtaskId,
+            ),
+          );
+        }
+        debugPrint('Error scheduling notification: $e');
+      } finally {
+        if (scheduled && _revision[notifId] == gen) {
+          _setScheduleFailure(notifId, null);
+          lastScheduleError = null;
+        }
+        // A cancel can finish while the OS is still accepting this request.
+        // Compensate before allowing the next queued schedule to start.
+        if (_revision[notifId] != gen) {
           try {
-            await _plugin.zonedSchedule(
-              notifId,
-              title,
-              body,
-              scheduledDate,
-              notifDetails,
-              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-              payload: payload,
-            );
-          } catch (_) {
-            try {
-              await _plugin.show(
-                notifId,
-                title,
-                body,
-                notifDetails,
-                payload: payload,
-              );
-            } catch (_) {}
+            await _plugin.cancel(notifId);
+          } catch (e) {
+            debugPrint('Error cleaning up superseded notification: $e');
           }
         }
       }
+    });
+  }
+
+  Future<bool> _scheduleWindows({
+    required int notifId,
+    required int gen,
+    required String title,
+    String? body,
+    required int triggerAtMs,
+    required NotificationDetails notifDetails,
+    required String payload,
+  }) async {
+    var nativeOk = false;
+    try {
+      final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
+        tz.local,
+        triggerAtMs,
+      );
+      if (_revision[notifId] != gen) return false;
+      await _plugin.zonedSchedule(
+        notifId,
+        title,
+        body,
+        scheduledDate,
+        notifDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
+      );
+      nativeOk = true;
     } catch (e) {
-      debugPrint('Error scheduling notification: $e');
+      if (_revision[notifId] == gen) {
+        _setScheduleFailure(notifId, ReminderPayload.deserialize(payload));
+      }
+      debugPrint('Native Windows schedule unavailable: $e');
+    }
+    if (nativeOk || _revision[notifId] != gen) return nativeOk;
+    final delayMs = triggerAtMs - DateTime.now().millisecondsSinceEpoch;
+    if (delayMs <= 0) return false;
+    _activeTimers[notifId] = Timer(Duration(milliseconds: delayMs), () async {
+      _activeTimers.remove(notifId);
+      if (_revision[notifId] != gen) return;
+      try {
+        await _plugin.show(
+          notifId,
+          title,
+          body,
+          notifDetails,
+          payload: payload,
+        );
+      } catch (e) {
+        debugPrint('Error showing scheduled Windows notification: $e');
+      }
+    });
+    return false;
+  }
+
+  Future<void> _scheduleAndroid({
+    required int notifId,
+    required int gen,
+    required String title,
+    String? body,
+    required int triggerAtMs,
+    required NotificationDetails notifDetails,
+    required String payload,
+  }) async {
+    final androidImpl =
+        _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+    final canExact = await androidImpl?.canScheduleExactNotifications() ?? true;
+    if (_revision[notifId] != gen) return;
+    final scheduleMode =
+        canExact
+            ? AndroidScheduleMode.exactAllowWhileIdle
+            : AndroidScheduleMode.inexactAllowWhileIdle;
+    final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
+      tz.local,
+      triggerAtMs,
+    );
+    try {
+      await _plugin.zonedSchedule(
+        notifId,
+        title,
+        body,
+        scheduledDate,
+        notifDetails,
+        androidScheduleMode: scheduleMode,
+        payload: payload,
+      );
+    } catch (_) {
+      if (_revision[notifId] != gen) return;
+      try {
+        await _plugin.zonedSchedule(
+          notifId,
+          title,
+          body,
+          scheduledDate,
+          notifDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: payload,
+        );
+      } catch (second) {
+        rethrow;
+      }
     }
   }
 
   @override
-  Future<void> cancelReminder(String taskId, {String? subtaskId}) async {
+  Future<void> cancelReminder(String taskId, {String? subtaskId}) {
     final notifId = generateNotificationId(taskId, subtaskId: subtaskId);
+    _bump(notifId);
+    _setScheduleFailure(notifId, null);
     _activeTimers[notifId]?.cancel();
     _activeTimers.remove(notifId);
-    if (!_initialized) return;
-    try {
-      await _plugin.cancel(notifId);
-    } catch (e) {
-      debugPrint('Error canceling notification: $e');
-    }
+    return _enqueue(() async {
+      if (!_initialized) return;
+      try {
+        await _plugin.cancel(notifId);
+      } catch (e) {
+        debugPrint('Error canceling notification: $e');
+      }
+    });
   }
 
   @override
@@ -649,39 +842,61 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
     String boardId,
     List<Task> tasksOnBoard,
   ) async {
-    for (final t in tasksOnBoard) {
-      if (t.reminderAt != null) {
-        await cancelReminder(t.id);
-      }
-      for (final s in t.subtasks) {
-        if (s.reminderAt != null) {
-          await cancelReminder(t.id, subtaskId: s.id);
-        }
-      }
-    }
+    await Future.wait([
+      for (final t in tasksOnBoard) ...[
+        cancelReminder(t.id),
+        for (final s in t.subtasks) cancelReminder(t.id, subtaskId: s.id),
+      ],
+    ]);
   }
 
   @override
-  Future<void> cancelAll() async {
+  Future<void> cancelAll() {
+    _restoreGeneration++;
+    scheduleFailures.value = {};
+    for (final id in _revision.keys.toList()) {
+      _bump(id);
+    }
     for (final timer in _activeTimers.values) {
       timer.cancel();
     }
     _activeTimers.clear();
-    if (!_initialized) return;
-    try {
-      await _plugin.cancelAll();
-    } catch (e) {
-      debugPrint('Error canceling all notifications: $e');
-    }
+    _queuedReschedule = null;
+    return _enqueue(() async {
+      if (!_initialized) return;
+      try {
+        await _plugin.cancelAll();
+      } catch (e) {
+        debugPrint('Error canceling all notifications: $e');
+      }
+    });
   }
 
   @override
   Future<void> rescheduleAllFuture(List<Task> allTasks) async {
-    if (!_initialized) return;
+    if (!_initialized) {
+      _queuedReschedule =
+          allTasks.map((t) => Task.fromJson(t.toJson())).toList();
+      return;
+    }
+    await _rescheduleReady(
+      allTasks.map((t) => Task.fromJson(t.toJson())).toList(),
+    );
+  }
+
+  Future<void> _rescheduleReady(List<Task> allTasks) async {
+    final batch = _restoreGeneration;
+    final revisions = Map<int, int>.from(_revision);
+    bool current(String id, [String? sub]) {
+      final key = generateNotificationId(id, subtaskId: sub);
+      return (_revision[key] ?? 0) == (revisions[key] ?? 0);
+    }
+
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     for (final t in allTasks) {
+      if (batch != _restoreGeneration) return;
       if (t.completed) continue;
-      if (t.reminderAt != null && t.reminderAt! > nowMs) {
+      if (current(t.id) && t.reminderAt != null && t.reminderAt! > nowMs) {
         await scheduleReminder(
           boardId: t.boardId,
           taskId: t.id,
@@ -691,14 +906,17 @@ class FlutterLocalNotificationsReminderService implements ReminderService {
         );
       }
       for (final s in t.subtasks) {
+        if (batch != _restoreGeneration) return;
         if (s.completed) continue;
-        if (s.reminderAt != null && s.reminderAt! > nowMs) {
+        if (current(t.id, s.id) &&
+            s.reminderAt != null &&
+            s.reminderAt! > nowMs) {
           await scheduleReminder(
             boardId: t.boardId,
             taskId: t.id,
             subtaskId: s.id,
             title: s.title,
-            body: s.notesMarkdown,
+            body: t.notesMarkdown,
             triggerAtMs: s.reminderAt!,
           );
         }

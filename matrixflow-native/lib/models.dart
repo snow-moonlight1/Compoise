@@ -374,6 +374,7 @@ class AppSettings {
   bool suppressGroupPrompt;
   bool suppressLongTermPrompt;
   bool hideCompleted;
+  bool showCompletionRate;
   int urgencyThresholdDays;
   bool closeToTray;
   String globalShortcut;
@@ -391,6 +392,7 @@ class AppSettings {
     this.suppressGroupPrompt = false,
     this.suppressLongTermPrompt = false,
     this.hideCompleted = false,
+    this.showCompletionRate = false,
     this.urgencyThresholdDays = 3,
     this.closeToTray = false,
     this.globalShortcut = 'Ctrl+Alt+M',
@@ -434,6 +436,7 @@ class AppSettings {
     suppressGroupPrompt: (j['suppressGroupPrompt'] as bool?) ?? false,
     suppressLongTermPrompt: (j['suppressLongTermPrompt'] as bool?) ?? false,
     hideCompleted: (j['hideCompleted'] as bool?) ?? false,
+    showCompletionRate: (j['showCompletionRate'] as bool?) ?? false,
     urgencyThresholdDays: ((j['urgencyThresholdDays'] as num?)?.toInt() ?? 3)
         .clamp(1, 14),
     closeToTray: (j['closeToTray'] as bool?) ?? false,
@@ -456,6 +459,7 @@ class AppSettings {
       'suppressGroupPrompt': suppressGroupPrompt,
       'suppressLongTermPrompt': suppressLongTermPrompt,
       'hideCompleted': hideCompleted,
+      if (!isV1) 'showCompletionRate': showCompletionRate,
       'urgencyThresholdDays': urgencyThresholdDays,
       if (!isV1) 'closeToTray': closeToTray,
       if (!isV1) 'globalShortcut': globalShortcut,

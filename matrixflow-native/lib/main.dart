@@ -5,17 +5,15 @@ import 'package:provider/provider.dart';
 import 'screens/matrix_screen.dart';
 import 'models.dart';
 import 'services/desktop_shell_service.dart';
+import 'services/desktop_shell_windows.dart';
 import 'storage.dart';
 import 'theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  DesktopShellService.instance.init();
-  ReminderService.instance.init(
-    onNotificationSelected: (payload) {
-      ReminderService.instance.onNotificationSelected?.call(payload);
-    },
-  );
+  await ensureWindowsWindowManager();
+  await DesktopShellService.instance.init();
+  await ReminderService.instance.init();
   runApp(const MatrixFlowApp());
 }
 

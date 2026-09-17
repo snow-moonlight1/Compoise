@@ -17,6 +17,7 @@ class TaskUndoSnapshot {
   final Task task;
   final int originalIndex;
   final DateTime timestamp;
+  final int commandSeq;
 
   TaskUndoSnapshot({
     required this.actionType,
@@ -25,6 +26,7 @@ class TaskUndoSnapshot {
     required this.boardEpoch,
     required this.task,
     required this.originalIndex,
+    this.commandSeq = 0,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -34,6 +36,7 @@ class TaskUndoSnapshot {
     required Task task,
     required int boardEpoch,
     required int originalIndex,
+    int commandSeq = 0,
   }) {
     return TaskUndoSnapshot(
       actionType: actionType,
@@ -42,6 +45,7 @@ class TaskUndoSnapshot {
       boardEpoch: boardEpoch,
       task: Task.fromJson(task.toJson()),
       originalIndex: originalIndex,
+      commandSeq: commandSeq,
     );
   }
 }

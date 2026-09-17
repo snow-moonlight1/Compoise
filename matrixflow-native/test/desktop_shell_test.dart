@@ -102,20 +102,31 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
           value: store,
-          child: const MaterialApp(
+          child: MaterialApp(
+            theme: ThemeData(
+              useMaterial3: true,
+              platform: TargetPlatform.windows,
+            ),
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            supportedLocales: [Locale('en'), Locale('zh'), Locale('ja')],
-            home: SettingsScreen(),
+            supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
+            home: const SettingsScreen(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       // Scroll to Desktop & System section
-      await tester.scrollUntilVisible(
+      await tester.dragUntilVisible(
         find.text(store.t['desktopSection']!),
-        500,
-        scrollable: find.byType(Scrollable).first,
+        find.descendant(
+          of: find.byKey(const ValueKey('settings-list')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        ),
+        const Offset(0, -240),
       );
       await tester.pumpAndSettle();
 

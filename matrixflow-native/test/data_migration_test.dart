@@ -367,6 +367,7 @@ void main() {
       expect(settingsMap.containsKey('viewMode'), isFalse);
       expect(settingsMap.containsKey('fontSize'), isFalse);
       expect(settingsMap.containsKey('closeToTray'), isFalse);
+      expect(settingsMap.containsKey('showCompletionRate'), isFalse);
 
       // Can be imported into fresh store and safely falls back
       final (newStore, _) = await makeStore();

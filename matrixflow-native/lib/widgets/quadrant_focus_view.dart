@@ -76,10 +76,10 @@ class QuadrantFocusView extends StatelessWidget {
 
         // Three collapsed bottom cards in numerical order
         Container(
-          constraints: const BoxConstraints(minHeight: 60, maxHeight: 78),
+          constraints: const BoxConstraints(minHeight: 60),
           padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (final q in otherQuadrants) ...[
                 Expanded(
@@ -186,7 +186,7 @@ class _CollapsedQuadrantCardState extends State<_CollapsedQuadrantCard> {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [

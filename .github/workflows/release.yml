@@ -29,21 +29,25 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Keystore (if secret provided)
+      - name: Require release signing credentials
         shell: bash
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > matrixflow-native/android/app/release.jks
-            cat <<EOF > matrixflow-native/android/key.properties
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] || \
+             [ -z "${{ secrets.ANDROID_STORE_PASSWORD }}" ] || \
+             [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ] || \
+             [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ]; then
+            echo "Formal release builds must provide ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_PASSWORD, and ANDROID_KEY_ALIAS."
+            echo "Refusing to publish a debug-signed APK."
+            exit 1
+          fi
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > matrixflow-native/android/app/release.jks
+          cat <<EOF > matrixflow-native/android/key.properties
           storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           storeFile=release.jks
           EOF
-            echo "Release keystore configured."
-          else
-            echo "No keystore secret found; falling back to default/debug signing."
-          fi
+          echo "Release keystore configured."
 
       - name: Install dependencies & verify
         working-directory: matrixflow-native
@@ -154,5 +158,5 @@ jobs:
         with:
           files: release_artifacts/*
           generate_release_notes: true
-          draft: false
+          draft: true
           prerelease: false

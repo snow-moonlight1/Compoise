@@ -71,7 +71,15 @@ android {
             if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
                 signingConfig = releaseSigning
             } else {
-                // Fallback gracefully to debug signing for local test/dev builds without keystore
+                val requireReleaseSigning =
+                    System.getenv("CI") == "true" ||
+                        System.getenv("REQUIRE_RELEASE_SIGNING") == "true"
+                if (requireReleaseSigning) {
+                    throw GradleException(
+                        "Release signing credentials are required in CI. " +
+                            "Refusing to publish a debug-signed APK.",
+                    )
+                }
                 signingConfig = signingConfigs.getByName("debug")
             }
         }
