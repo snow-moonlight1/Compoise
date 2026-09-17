@@ -18,8 +18,8 @@ MatrixFlow AI（以下简称“我们”或“本应用”）是一款致力于�
 
 ### 2. BYOK 自带密钥与 AI 服务直连
 - **BYOK 机制（Bring Your Own Key）**：本应用支持用户自主输入大语言模型服务商（包括 DeepSeek、火山引擎、阿里云百炼或任何 OpenAI 兼容协议服务商）的 API Key。
-- **端到端直接通信**：当您发起 AI 任务智能分类、自动分组或长期目标拆解时，请求将通过强加密的 HTTPS 协议**直接从您的设备发送给您指定的服务商官方接口**。
-- **绝不中转密钥与待办**：MatrixFlow 团队绝无任何私有代理或数据抓取服务器，绝不收集、上传或转售您的 API Key 或待办内容。您的密钥仅以安全明文持久化在本地设备沙盒中。
+- **端到端直接通信**：当您发起 AI 任务智能分类、自动分组或长期目标拆解时，请求将**直接从您的设备发送给配置的 API 地址**。内置预设使用 HTTPS；自定义地址可能指向第三方代理或使用 HTTP，接收方与传输安全取决于您的配置。
+- **绝不中转密钥与待办**：MatrixFlow 团队绝无任何私有代理或数据抓取服务器，绝不收集、上传或转售您的 API Key 或待办内容。您的密钥以明文保存在设备的应用数据中（SharedPreferences），应用未对其额外加密。
 
 ### 3. 零遥测与零第三方追踪
 - **无广告 SDK**：应用内不包含任何商业广告组件或广告联盟 SDK。
@@ -38,7 +38,7 @@ MatrixFlow AI（以下简称“我们”或“本应用”）是一款致力于�
 | `VIBRATE` | Android | 震动控制 | 用于到期提醒震动提示以及任务长按拖拽时的轻微触觉反馈。 |
 
 ### 5. 数据导出与备份控制
-- 用户可随时使用内置的「数据备份」功能将全部待办与看板导出为标准 JSON 格式。导出的文件完全归用户个人掌控，由用户决定保存位置或通过何种网盘传输。
+- 用户可随时使用内置的「数据备份」功能将全部待办与看板导出为标准 JSON 格式。备份为未加密的明文 JSON，包含任务、备注以及 AI 配置中的 API Key。导出的文件由用户决定保存位置和传输方式。
 
 ### 6. 联系我们
 如果您对本隐私政策有任何疑问或改进建议，欢迎通过 GitHub 仓库提交 Issue 或 Pull Request：  
@@ -51,14 +51,14 @@ GitHub: [https://github.com/matrixflow/matrixflow](https://github.com/matrixflow
 MatrixFlow AI ("we", "us", or "the app") is a **Local-First, privacy-centric** Eisenhower Matrix task management application. We believe your tasks, notes, and personal data belong exclusively to you. MatrixFlow is architected with a strict **Zero-Data Collection, 100% User-Owned** philosophy.
 
 ### 1. Data Storage & Local-First Philosophy
-- **100% On-Device Storage**: All tasks, subtasks, notes, quadrant categories, custom boards, and completion stats are stored locally on your device (via secure platform storage).
+- **100% On-Device Storage**: All tasks, subtasks, notes, quadrant categories, custom boards, and completion stats are stored locally on your device (via SharedPreferences, without application-level encryption).
 - **No Central Servers**: There are no user accounts, no login walls, and no central servers operated by MatrixFlow. We never receive, inspect, or retain your task contents.
 - **Full Offline Availability**: Core productivity features operate completely without an active internet connection.
 
 ### 2. BYOK (Bring Your Own Key) & Direct AI Connections
 - **BYOK Architecture**: Users provide their own API Keys for AI model providers (such as DeepSeek, Volcengine, Alibaba Bailian, OpenAI, or custom compatible endpoints).
-- **End-to-End Direct Transmission**: When you use AI task classification or goal decomposition, your device communicates **directly with the designated provider's official API** over HTTPS.
-- **Zero Proxy or Intermediary**: MatrixFlow never routes, intercepts, proxies, or stores your API keys or prompts on any intermediary server. Keys remain encrypted or sandboxed on your local hardware.
+- **End-to-End Direct Transmission**: When you use AI task classification or goal decomposition, your device communicates **directly with the configured API address**. Built-in presets use HTTPS; custom addresses may point to third-party proxies or use HTTP. The recipient and transport security depend on your configuration.
+- **Zero Proxy or Intermediary**: MatrixFlow never routes, intercepts, proxies, or stores your API keys or prompts on any intermediary server. Keys are stored as plaintext in local application data using SharedPreferences; the app does not add encryption.
 
 ### 3. Zero Telemetry & Zero Third-Party Tracking
 - **No Ads**: The application contains no advertising SDKs or tracking pixels.
@@ -77,7 +77,7 @@ We request only the minimal permissions strictly necessary to deliver productivi
 | `VIBRATE` | Android | Haptic Feedback | Provides subtle haptic sensations during drag-and-drop and alarms. |
 
 ### 5. Data Backup & User Ownership
-You can export and import your tasks at any time in transparent JSON format. You retain complete ownership over where your backup archives are saved.
+You can export and import your tasks at any time in transparent JSON format. Backups are unencrypted plaintext JSON and include tasks, notes, and the API Key in your AI configuration. You control where the files are stored and how they are transferred.
 
 ### 6. Contact & Open Source Inquiries
 For questions or suggestions regarding privacy, please visit our open-source project repository:  
