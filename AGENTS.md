@@ -2,7 +2,7 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)。
 
-> **2026-09-17 当前派单覆盖：** 用户实机反馈后的主线交互返修以 [UX 实施计划](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md) 为准，下一实施包 **UX04**，每位 Agent 一包。产品代码已提交至 `main / 3e166b4`（foundation `c7902b1` + UX01–03）。旧下文 `747eb35 / WP03-N / 77项` 为历史；UX03 全量 321 项、analyze 0 issues，双端实机未验。UX01–03 已实现并入库；UX04–08 未实施；继续暂停 WP10/WP29/UI 实验，不将本次明确安排的返修误认为未授权 UI 实验。
+> **2026-09-17 当前派单覆盖：** 用户实机反馈后的主线交互返修以 [UX 实施计划](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md) 为准，下一实施包 **UX05**，每位 Agent 一包。UX01–03 已提交 `3e166b4`；UX04 字体策略已实现、324 项自动化通过，双端实机未验。UX05–08 未实施。继续暂停 WP10/WP29/UI 实验。
 
 ## 运行与验证
 

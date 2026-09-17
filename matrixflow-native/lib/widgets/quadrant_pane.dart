@@ -171,7 +171,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                           maxLines: 2,
                           overflow: TextOverflow.visible,
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             height: 1.2,
                           ),
                         ),

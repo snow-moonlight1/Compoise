@@ -1,6 +1,6 @@
 # 架构
 
-> 2026-09-17 更新：产品代码已提交 `main / 3e166b4`。命令台/统计条已删除；搜索与归档为纵向筛选（draft/apply/reset）。自动化 321 项通过，双端实机未验；下一包 UX04（Windows 字体）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
+> 2026-09-17 更新：UX01–03 已提交；UX04 为 Windows CJK 字体策略与预览。自动化 324 项通过，双端实机未验；下一包 UX05（父子行对齐）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
 本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 

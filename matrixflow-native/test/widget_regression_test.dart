@@ -3010,11 +3010,13 @@ void main() {
       expect(find.text(store.t['fontPreview']!), findsOneWidget);
 
       // Select 'large' font size
+      await tester.ensureVisible(find.byKey(const ValueKey('font-size-large')));
       await tester.tap(find.byKey(const ValueKey('font-size-large')));
       await tester.pumpAndSettle();
       expect(store.settings.fontSize, FontSizePref.large);
 
       // Select 'serif' font family
+      await tester.ensureVisible(find.byKey(const ValueKey('font-family-serif')));
       await tester.tap(find.byKey(const ValueKey('font-family-serif')));
       await tester.pumpAndSettle();
       expect(store.settings.fontFamily, FontFamilyPref.serif);

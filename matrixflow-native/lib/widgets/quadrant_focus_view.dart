@@ -202,7 +202,7 @@ class _CollapsedQuadrantCardState extends State<_CollapsedQuadrantCard> {
                       Text(
                         '${widget.count}',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           color: widget.accent,
                         ),
                       ),

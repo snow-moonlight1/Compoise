@@ -1,6 +1,6 @@
 # MatrixFlow AI Native 客户端 (Flutter)
 
-[![Flutter Tests](https://img.shields.io/badge/Flutter%20Tests-321%2F321%20Passed-brightgreen)](test/)
+[![Flutter Tests](https://img.shields.io/badge/Flutter%20Tests-324%2F324%20Passed-brightgreen)](test/)
 [![Analyze](https://img.shields.io/badge/Analyze-0%20Issues-brightgreen)](lib/)
 [![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20Windows-blue)]()
 
@@ -45,7 +45,7 @@ lib/
 
 ---
 
-## 🧪 自动化测试套件 (321/321 Passed)
+## 🧪 自动化测试套件 (324/324 Passed)
 
 项目具备完善的自动化测试基线，涵盖数据模型、状态演进、多端交互与平台适配：
 
@@ -73,7 +73,7 @@ lib/
 # 静态分析（确保 0 issues）
 flutter analyze --no-pub
 
-# 运行全量单元与组件回归测试（确保 321/321 passed）
+# 运行全量单元与组件回归测试（确保 324/324 passed）
 flutter test --no-pub
 
 # 本地调试启动

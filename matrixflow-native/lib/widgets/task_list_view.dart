@@ -166,7 +166,7 @@ class _TaskListViewState extends State<TaskListView> {
                         child: Text(
                           t[titleKey]!,
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurface,
                           ),
                         ),

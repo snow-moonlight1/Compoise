@@ -13,6 +13,7 @@ import '../services/desktop_shell_service.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
 import '../theme.dart';
+import '../ui/font_policy.dart';
 import '../ui/platform_ui_policy.dart';
 import 'onboarding_screen.dart';
 
@@ -342,7 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       '${store.settings.urgencyThresholdDays}${t['daysLeft']}',
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -809,46 +810,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 14),
 
-            Container(
-              key: const ValueKey('font-preview-card'),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.4,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.4,
+            Builder(
+              builder: (context) {
+                final fonts = AppFontPolicy.of(context);
+                final family = fonts.familyFor(store.settings.fontFamily);
+                final fallback = fonts.fallbackFor(store.settings.fontFamily);
+                final scale = fontScaleFactor(store.settings.fontSize);
+                return Container(
+                  key: const ValueKey('font-preview-card'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
                   ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      shape: BoxShape.circle,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.4,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      t['fontPreview'] ?? 'Preview',
-                      style: TextStyle(
-                        fontFamily: fontFamilyFor(store.settings.fontFamily),
-                        fontFamilyFallback: fontFallbackFor(
-                          store.settings.fontFamily,
-                        ),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14 * fontScaleFactor(store.settings.fontSize),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.4,
                       ),
                     ),
                   ),
-                ],
-              ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t['fontPreviewTitle'] ??
+                            'Urgent and Important · MatrixFlow 123',
+                        key: const ValueKey('font-preview-title'),
+                        style: TextStyle(
+                          fontFamily: family,
+                          fontFamilyFallback: fallback,
+                          fontWeight: fonts.titleWeight,
+                          fontSize: 16 * scale,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        t['fontPreview'] ??
+                            'Preview: Urgent & Important Task 123',
+                        key: const ValueKey('font-preview-body'),
+                        style: TextStyle(
+                          fontFamily: family,
+                          fontFamilyFallback: fallback,
+                          fontWeight: fonts.bodyWeight,
+                          fontSize: 14 * scale,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        t['fontPreviewSample'] ??
+                            '紧急且重要，购买牛奶；MatrixFlow 123；日本語テスト',
+                        key: const ValueKey('font-preview-sample'),
+                        style: TextStyle(
+                          fontFamily: family,
+                          fontFamilyFallback: fallback,
+                          fontWeight: fonts.bodyWeight,
+                          fontSize: 14 * scale,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (store.settings.fontFamily ==
+                          FontFamilyPref.monospace) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          t['fontMonospaceHint'] ??
+                              'Monospace applies to Latin letters; CJK falls back to a proportional font.',
+                          key: const ValueKey('font-monospace-hint'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 8),
 
@@ -1362,7 +1403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text(
               text,
               style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

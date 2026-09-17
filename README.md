@@ -1,6 +1,6 @@
 # MatrixFlow AI — 四象限智能待办清单 / Local-First Eisenhower Matrix
 
-[![Flutter Test](https://img.shields.io/badge/Flutter%20Tests-321%2F321%20Passed-brightgreen)](matrixflow-native/)
+[![Flutter Test](https://img.shields.io/badge/Flutter%20Tests-324%2F324%20Passed-brightgreen)](matrixflow-native/)
 [![Analyze](https://img.shields.io/badge/Analyze-0%20Issues-brightgreen)](matrixflow-native/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows-blue)](matrixflow-native/)
@@ -51,7 +51,7 @@ martix/
 │   │   └── widgets/          # 任务卡片、十字象限面板、首页动作与看板选择器
 │   ├── android/              # 原生 Android 工程 (build.gradle.kts, 签名隔离, 权限合规)
 │   ├── windows/              # 原生 Windows 桌面工程 (C++ Runner, Win32 窗口, 托盘与图标)
-│   └── test/                 # 全量自动化测试套件 (321 项，UX03 基线)
+│   └── test/                 # 全量自动化测试套件 (324 项，UX04 基线)
 ├── docs/                     # 架构文档、发行规划、隐私政策、版本交接记录
 ├── scripts/                  # 自动化构建打包脚本 (build_release.ps1)
 ├── .github/workflows/        # CI/CD 流水线 (Tag 触发自动构建发布 Release)
@@ -80,7 +80,7 @@ flutter pub get
 # 2. 静态代码质量检查 (0 issues)
 flutter analyze --no-pub
 
-# 3. 运行全量自动化测试 (321/321 passed)
+# 3. 运行全量自动化测试 (324/324 passed)
 flutter test --no-pub
 
 # 4. 本地启动运行 (自动检测当前连接的设备或 Windows 桌面)

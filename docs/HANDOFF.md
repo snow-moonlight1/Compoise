@@ -2,24 +2,24 @@
 
 最后更新：2026-09-17。
 
-## 当前任务：UX01–UX03 已提交；下一包 UX04（2026-09-17）
+## 当前任务：UX04 已实现、自动化通过（2026-09-17）；下一包 UX05
 
-- 工作区已按层提交，产品代码基线 `3e166b4`（其上还有本轮交接文档提交）。不再是 `3a711c8` + 大量未提交改动。
-- 提交：`c7902b1` 基础 F/SR 修复；`e509166` 基础复审文档；`3e166b4` UX01–UX03。未改 React，未发布。
-- UX03：搜索/归档纵向筛选，draft/apply/reset，未改 `task_query.dart`。定向 9/9，全量 321/321，analyze 0 issues。见 [UX03 返修记录](UX03_FIX_2026-09-17.md)。
-- **下一包 UX04**（Windows 中文字体与字体预览），只做该包；UX04–08 未实施。Android/Windows **实机未验**，未重新构建双端产物。
-- 约束：不要恢复命令台、统计条、七按钮头、常驻左侧新建栏、横向 Chip 筛选。继续暂停 WP10/WP29/UI 实验。F21 包名与 F22 正式签名仍未关闭。
+- Windows 字体策略：黑体用 Microsoft YaHei UI；系统/等宽带 CJK 回退；Android 不写 Windows 字体。设置预览含中英日与数字、标题/正文字重。见 [UX04 返修记录](UX04_FIX_2026-09-17.md)。
+- 定向 UX04 **3/3**，全量 **324/324**，analyze **0 issues**。
+- **下一包 UX05**（矩阵父子同行对齐），只做该包；UX05–08 未实施。Windows 字体 DPI/IME 选区 **实机未验**。
+- 工作区已从堆积未提交收口：`c7902b1` foundation、`e509166` 复审文档、`3e166b4` UX01–03、`7bfdf0d` 交接文档。未改 React。继续暂停 WP10/WP29/UI 实验。
+- 约束：不要恢复命令台、统计条、七按钮头、常驻左侧新建栏、横向 Chip。F21/F22 仍未关闭。
 
-### 下一轮启动提示词（UX04）
+### 下一轮启动提示词（UX05）
 
 ```text
 在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
 阅读 AGENTS.md、docs/HANDOFF.md 顶部及
-docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 4.6 / 6 节 UX04。
-本次只领取 UX04，完成后交接，不自动继续 UX05。
-产品代码基线 3e166b4，工作区应交接为干净；先 git status，不要 reset。
-UX01 已删命令台与统计条；UX02 已完成双端导航与 showCompletionRate；UX03 已完成搜索/归档纵向筛选。见 docs/UX03_FIX_2026-09-17.md。
-本包处理 Windows 中文字体与设置预览：先用合成字符串复现，再按实际可用字体安排 CJK 回退；不改用户已选字体，不提前做父子行/动画。
+docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 4.6 / 6 节 UX05。
+本次只领取 UX05，完成后交接，不自动继续 UX06。
+先 git status；UX04 可能尚未单独提交或刚提交，保护未提交改动，禁止 reset。
+UX01–03 已入库；UX04 已完成 Windows CJK 字体策略与预览。见 docs/UX04_FIX_2026-09-17.md。
+本包按 4.6 把矩阵父子行提到同一列坐标系，子项不嵌进父正文；聚焦可 16dp 层级。不提前做完成划线动画或象限几何过渡。
 不改 React，不引入服务，不做 UI 实验或 WP10/WP29。
 运行本包定向用例及 flutter test/analyze --no-pub；双端实机未测项写明。
 ```
