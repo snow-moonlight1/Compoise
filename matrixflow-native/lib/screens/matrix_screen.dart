@@ -9,8 +9,7 @@ import '../ui/platform_ui_policy.dart';
 import '../widgets/board_picker.dart';
 import '../widgets/home_actions.dart';
 import '../widgets/input_sheet.dart';
-import '../widgets/quadrant_focus_view.dart';
-import '../widgets/quadrant_pane.dart';
+import '../widgets/quadrant_transition_layout.dart';
 import '../widgets/task_detail_panel.dart';
 import '../widgets/task_list_view.dart';
 import '../widgets/text_prompt.dart';
@@ -32,6 +31,11 @@ class _MatrixHomeState extends State<MatrixHome> {
   final Set<String> _selectedIds = {};
   final Set<String> _expandedKeys = {};
   int? _focusedQuadrant;
+  // List mode: while the focus overlay fades out the transition layout stays
+  // mounted with the last focused quadrant, then the list view returns.
+  bool _listExitFading = false;
+  int? _listExitFrom;
+  ViewMode? _lastViewMode;
   final Map<String, double> _focusScrollOffsets = {};
 
   final Map<String, int> _subtaskCounts = {};
@@ -219,7 +223,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
 
     return PopScope(
-      canPop: !_selecting && _focusedQuadrant == null,
+      canPop: !_selecting && _focusedQuadrant == null && !_listExitFading,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (_selecting) {
@@ -230,9 +234,7 @@ class _MatrixHomeState extends State<MatrixHome> {
           return;
         }
         if (_focusedQuadrant != null) {
-          setState(() {
-            _focusedQuadrant = null;
-          });
+          _requestExitFocus();
           return;
         }
       },
@@ -319,7 +321,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                     _selectedIds.clear();
                   });
                 } else if (_focusedQuadrant != null) {
-                  setState(() => _focusedQuadrant = null);
+                  _requestExitFocus();
                 } else if (_activeDetailTaskId != null) {
                   _closeDetail();
                 }
@@ -345,15 +347,23 @@ class _MatrixHomeState extends State<MatrixHome> {
                                 .where((t) => t.id == _activeDetailTaskId)
                                 .firstOrNull;
 
+                    final viewMode = store.settings.viewMode;
+                    // Switching the presentation mode never leaves a dangling
+                    // focus: exit focus first, the new mode applies this frame.
+                    if (_focusedQuadrant != null && _lastViewMode != viewMode) {
+                      _focusedQuadrant = null;
+                      _listExitFading = false;
+                      _listExitFrom = null;
+                    }
+                    _lastViewMode = viewMode;
+
+                    final showListView =
+                        viewMode == ViewMode.list &&
+                        _focusedQuadrant == null &&
+                        !_listExitFading;
                     final activeCenter =
-                        _focusedQuadrant != null
-                            ? _focusView(
-                              wide: wide,
-                              focusedQ: _focusedQuadrant!,
-                            )
-                            : store.settings.viewMode == ViewMode.grid
-                            ? _grid(wide: wide)
-                            : TaskListView(
+                        showListView
+                            ? TaskListView(
                               selecting: _selecting,
                               selectedIds: _selectedIds,
                               expandedIds: _expandedIdsFor(store),
@@ -366,8 +376,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                               onToggleExpand: (id) => _toggleExpand(store, id),
                               onEnsureExpanded:
                                   (id) => _ensureExpanded(store, id),
-                              onQuadrantTap:
-                                  (q) => setState(() => _focusedQuadrant = q),
+                              onQuadrantTap: _requestFocusQuadrant,
                               onEdit:
                                   (task) => _openTaskDetail(
                                     context,
@@ -381,6 +390,47 @@ class _MatrixHomeState extends State<MatrixHome> {
                                     isWide: wide,
                                     subtaskId: subtaskId,
                                   ),
+                            )
+                            : QuadrantTransitionLayout(
+                              focusedQuadrant:
+                                  _focusedQuadrant ?? _listExitFrom,
+                              viewMode: viewMode,
+                              selecting: _selecting,
+                              selectedIds: _selectedIds,
+                              expandedIds: _expandedIdsFor(store),
+                              onSelect:
+                                  (id) => setState(() {
+                                    if (!_selectedIds.add(id)) {
+                                      _selectedIds.remove(id);
+                                    }
+                                  }),
+                              onToggleExpand: (id) => _toggleExpand(store, id),
+                              onEnsureExpanded:
+                                  (id) => _ensureExpanded(store, id),
+                              onFocusQuadrant: _requestFocusQuadrant,
+                              onExitFocus: _requestExitFocus,
+                              onEdit:
+                                  (task) => _openTaskDetail(
+                                    context,
+                                    task,
+                                    isWide: wide,
+                                  ),
+                              onEditSubtask:
+                                  (task, subtaskId) => _openTaskDetail(
+                                    context,
+                                    task,
+                                    isWide: wide,
+                                    subtaskId: subtaskId,
+                                  ),
+                              fadeOutOnly:
+                                  _listExitFading && _focusedQuadrant == null,
+                              onFadeOutDone: () {
+                                if (!mounted) return;
+                                setState(() {
+                                  _listExitFading = false;
+                                  _listExitFrom = null;
+                                });
+                              },
                             );
 
                     Widget mainContent;
@@ -550,103 +600,26 @@ class _MatrixHomeState extends State<MatrixHome> {
     return const SizedBox.shrink();
   }
 
-  Widget _focusView({required bool wide, required int focusedQ}) {
-    final store = context.read<Store>();
-    return QuadrantFocusView(
-      focusedQuadrant: focusedQ,
-      selecting: _selecting,
-      selectedIds: _selectedIds,
-      expandedIds: _expandedIdsFor(store),
-      onSelect:
-          (id) => setState(() {
-            if (!_selectedIds.add(id)) _selectedIds.remove(id);
-          }),
-      onToggleExpand: (id) => _toggleExpand(store, id),
-      onEnsureExpanded: (id) => _ensureExpanded(store, id),
-      onSwitchQuadrant: (newQ) => setState(() => _focusedQuadrant = newQ),
-      onExitFocus: () => setState(() => _focusedQuadrant = null),
-      onEdit: (task) => _openTaskDetail(context, task, isWide: wide),
-      onEditSubtask:
-          (task, subtaskId) => _openTaskDetail(
-            context,
-            task,
-            isWide: wide,
-            subtaskId: subtaskId,
-          ),
-    );
+  void _requestFocusQuadrant(int q) {
+    setState(() {
+      _listExitFading = false;
+      _listExitFrom = null;
+      _focusedQuadrant = q;
+    });
   }
 
-  Widget _grid({required bool wide}) {
-    final theme = Theme.of(context);
-    final dividerColor =
-        theme.brightness == Brightness.light
-            ? const Color(0xFFD5DAE1)
-            : theme.colorScheme.outlineVariant;
-
-    Widget pane(int q) => QuadrantPane(
-      quadrant: q,
-      selecting: _selecting,
-      selectedIds: _selectedIds,
-      expandedIds: _expandedIdsFor(context.read<Store>()),
-      onSelect:
-          (id) => setState(() {
-            if (!_selectedIds.add(id)) _selectedIds.remove(id);
-          }),
-      onToggleExpand: (id) => _toggleExpand(context.read<Store>(), id),
-      onEnsureExpanded: (id) => _ensureExpanded(context.read<Store>(), id),
-      onQuadrantTap: () => setState(() => _focusedQuadrant = q),
-      onEdit: (task) => _openTaskDetail(context, task, isWide: wide),
-      onEditSubtask:
-          (task, subtaskId) => _openTaskDetail(
-            context,
-            task,
-            isWide: wide,
-            subtaskId: subtaskId,
-          ),
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final grid = SizedBox(
-          height: constraints.maxHeight < 440 ? 440 : constraints.maxHeight,
-          child: Column(
-            children: [
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: pane(qDo)),
-                    VerticalDivider(
-                      width: 1,
-                      thickness: 1,
-                      color: dividerColor,
-                    ),
-                    Expanded(child: pane(qPlan)),
-                  ],
-                ),
-              ),
-              Divider(height: 1, thickness: 1, color: dividerColor),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: pane(qDelegate)),
-                    VerticalDivider(
-                      width: 1,
-                      thickness: 1,
-                      color: dividerColor,
-                    ),
-                    Expanded(child: pane(qEliminate)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-        return constraints.maxHeight < 440
-            ? SingleChildScrollView(child: grid)
-            : grid;
-      },
-    );
+  void _requestExitFocus() {
+    if (_focusedQuadrant == null) return;
+    final store = context.read<Store>();
+    setState(() {
+      if (store.settings.viewMode == ViewMode.list) {
+        // Keep the focus overlay alive for its fade-out; the list view comes
+        // back when the transition layout reports completion.
+        _listExitFrom = _focusedQuadrant;
+        _listExitFading = true;
+      }
+      _focusedQuadrant = null;
+    });
   }
 
   Widget _header(
@@ -673,7 +646,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                   PlatformUiPolicy.minActionSize,
                 ),
               ),
-              onPressed: () => setState(() => _focusedQuadrant = null),
+              onPressed: _requestExitFocus,
             ),
             const SizedBox(width: 4),
           ],
@@ -749,6 +722,8 @@ class _MatrixHomeState extends State<MatrixHome> {
       _activeDetailTaskId = null;
       _detailDirty = false;
       _focusedQuadrant = null;
+      _listExitFading = false;
+      _listExitFrom = null;
     });
   }
 
@@ -888,7 +863,11 @@ class _MatrixHomeState extends State<MatrixHome> {
     if (ok == true && context.mounted) {
       store.deleteBoard(boardId);
       _focusScrollOffsets.removeWhere((k, _) => k.startsWith('$boardId-'));
-      setState(() => _focusedQuadrant = null);
+      setState(() {
+        _focusedQuadrant = null;
+        _listExitFading = false;
+        _listExitFrom = null;
+      });
     }
   }
 
@@ -937,6 +916,8 @@ class _MatrixHomeState extends State<MatrixHome> {
         _activeDetailTaskId = null;
         _detailDirty = false;
         _focusedQuadrant = null;
+        _listExitFading = false;
+        _listExitFrom = null;
       });
       store.clearBoard(boardId);
       _focusScrollOffsets.removeWhere((k, _) => k.startsWith('$boardId-'));

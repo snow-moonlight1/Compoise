@@ -1,29 +1,39 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-17。
+最后更新：2026-09-18（UX07 收尾）。
 
-## 当前任务：UX05 已提交；下一包 UX06（2026-09-17 收尾）
+## 当前任务：UX07 已实现；下一包 UX08（2026-09-18）
 
-- HEAD `main / 7b8987b`，工作区干净。本 Session：分批入库 foundation + UX01–03，随后实现并提交 UX04、UX05。
-- UX05：矩阵父子标题/框列同列；聚焦/列表/详情子项缩进 16dp；矩阵去掉内嵌添加子项，详情保留。见 [UX05 返修记录](UX05_FIX_2026-09-17.md)。
-- 验证：UX05 定向 4/4，全量 **328/328**，analyze **0 issues**。Android/Windows **实机未验**，未重新构建产物。
-- 本轮重要文件：`lib/widgets/task_card.dart`、`quadrant_pane.dart`、`task_list_view.dart`、`quadrant_focus_view.dart`、`task_detail_panel.dart`、`screens/matrix_screen.dart`、`test/ux05_regression_test.dart`。
-- **下一包 UX06**（完成划线动画、reduceMotion、hideCompleted 安全退场），只做该包；UX06–08 未实施。
+- HEAD 为 `main / 43ac261`（用户提交）；**UX06、UX07 改动未提交 Git**，提交需用户确认。
+- UX07：新增 `lib/widgets/quadrant_transition_layout.dart`——四个 `QuadrantPane` 常驻同一 Stack，矩阵↔聚焦只做矩形插值（进入 320ms / 切换 300ms / 退出 280ms easeInOutCubic），打断按布局比例冻结当前几何再重定向；删除替树式 `quadrant_focus_view.dart`。减少动画一帧终态。列表模式为轻量淡入淡出叠层，退出回列表原滚动。详见 [UX07 返修记录](UX07_FIX_2026-09-18.md)。
+- 验证：UX07 定向 **10/10**，全量 **352/352**（342 + 10），analyze **0 issues**。Android/Windows **实机未验**，未重新构建双端产物。
+- 本轮重要文件：新增 `lib/widgets/quadrant_transition_layout.dart`、`test/ux07_regression_test.dart`；改 `screens/matrix_screen.dart`、删除 `widgets/quadrant_focus_view.dart`、`test/widget_regression_test.dart`（`focus-view-active` 标记键、`matrix-divider-v/h` 键）。
+- **下一包 UX08**（全路径验收与文档收口，计划第 7 节）：逐项登记 30 条场景、双端构建、残留文案扫描；不要把「应当通过」填成已通过。
+- 约束：不要恢复命令台、统计条、横滑 Chip、矩阵内嵌添加子项，不要回退替树式聚焦。继续暂停 WP10/WP29/UI 实验。F21 包名与 F22 正式签名仍未关闭。
+
+## 先前任务：UX06 已实现（2026-09-18）
+
+- HEAD 仍为 `main / 7b8987b`；**UX06 未提交 Git**（工作区含 UX06 改动，提交需用户确认）。基线 328 项。
+- UX06：可中断逐行完成划线动画（220ms easeOut，行段来自 `TextPainter.getBoxesForSelection`）；`reduceMotion` 全链路（应用设置 OR 系统减少动画，设入「显示」并三语齐备）；hideCompleted/筛选导致的消失改为先播退场再移除，业务状态在点击瞬间落盘。详见 [UX06 返修记录](UX06_FIX_2026-09-18.md)。
+- 验证：UX06 定向 **14/14**，全量 **342/342**（328 + 14），analyze **0 issues**。Android/Windows **实机未验**，未重新构建双端产物。
+- 本轮重要文件：新增 `lib/widgets/animated_task_title.dart`、`lib/widgets/task_exit.dart`、`lib/ui/motion_policy.dart`；改 `widgets/task_card.dart`、`widgets/anim.dart`、`widgets/quadrant_pane.dart`、`widgets/task_list_view.dart`、`screens/search_screen.dart`、`screens/completed_screen.dart`、`screens/settings_screen.dart`、`models.dart`、`l10n.dart`，以及 `test/ux06_regression_test.dart`、`test/widget_regression_test.dart`。
+- 契约变更：`widget_regression_test.dart` 三条旧断言原先断言 `Text.style.decoration == lineThrough`（镜像旧实现），已改为读画线 painter 的 `progress`/`lineCount`。
+- **下一包 UX07**（象限连续聚焦几何动画），应复用 `MotionPolicy` 的时长常量；UX07–08 未实施。
 - 约束：不要恢复命令台、统计条、横滑 Chip、矩阵内嵌添加子项。继续暂停 WP10/WP29/UI 实验。F21 包名与 F22 正式签名仍未关闭。
 - 本 Session 提交：`c7902b1` foundation；`e509166` 复审文档；`3e166b4` UX01–03；`7bfdf0d` 交接文档；`87928cb` UX04；`7b8987b` UX05。
 
-### 下一轮启动提示词（UX06）
+### 下一轮启动提示词（UX08）
 
 ```text
 在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
 阅读 AGENTS.md、docs/HANDOFF.md 顶部及
-docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 4.7 / 5.2 / 6 节 UX06。
-本次只领取 UX06，完成后交接，不自动继续 UX07。
-当前 HEAD 为 7b8987b，工作区应交接为干净；先 git status，不要 reset。
-UX05 已完成矩阵父子同列与聚焦 16dp 层级。见 docs/UX05_FIX_2026-09-17.md。
-本包做可中断逐行划线动画、reduceMotion，以及 hideCompleted 时的安全退场。业务立即持久化，不要重写撤销系统。
-不改 React，不引入服务，不做 UI 实验或 WP10/WP29。
-运行本包定向用例及 flutter test/analyze --no-pub；双端实机未测项写明。
+docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 6/7 节 UX08。
+本次只做 UX08 全路径验收与文档收口，不开始新功能包。
+先 git status：UX06、UX07 改动可能尚未提交，不要 reset，保护这些改动。
+按第 7.2 节 30 条场景逐项登记（设备、尺寸/DPI、结果、证据），缺设备标未测；
+跑全量 test/analyze 与双端构建（沿 docs/DEVELOPMENT.md 与 scripts/build_release.ps1）；
+逐页扫残留文案（命令台/统计条/完成趋势），修当前使用说明，保留历史 CHANGELOG。
+不把「应当通过」填成已通过；不借 UX 验收宣称 F21/F22/发布闭环。
 ```
 
 ## 先前任务：UX01 已实现、自动化通过（2026-09-17）

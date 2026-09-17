@@ -30,6 +30,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'completionRateSummary':
         'All boards: {done}/{total} completed ({percent}%)',
     'completionRateEmpty': 'All boards: no tasks',
+    'reduceMotion': 'Reduce animation',
+    'reduceMotionDesc':
+        'Jump straight to the final state instead of playing entrance, strikethrough and exit animations. Follows the system reduce-animation setting when it is on. Tasks are still saved immediately.',
     'shortcutHintWindows': 'Tip: Ctrl + Enter to submit',
     'onboardingNavAndroid':
         'Search, add a task, or open More from the bottom bar.',
@@ -428,6 +431,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'showCompletionRateDesc': '在更多面板中显示全部看板的任务完成比例',
     'completionRateSummary': '全部看板：已完成 {done}/{total} 项（{percent}%）',
     'completionRateEmpty': '全部看板：暂无任务',
+    'reduceMotion': '减少动画',
+    'reduceMotionDesc':
+        '不播放入场、完成划线和退场动画，直接显示最终状态；系统开启减少动画时同样生效。任务仍会立即保存。',
     'shortcutHintWindows': '提示：Ctrl+Enter 提交',
     'onboardingNavAndroid': '底部可搜索、添加任务或打开更多。',
     'onboardingNavWindows': '顶部可搜索、添加任务或打开更多。Ctrl+N 新建，Ctrl+F 搜索。',
@@ -797,6 +803,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'showCompletionRateDesc': 'その他パネルの下部に全ボードの完了割合を表示します。',
     'completionRateSummary': '全ボード：{done}/{total} 件完了（{percent}%）',
     'completionRateEmpty': '全ボード：タスクはありません',
+    'reduceMotion': 'アニメーションを減らす',
+    'reduceMotionDesc':
+        '入場・完了の取り消し線・退場アニメーションを再生せず、最終状態をすぐ表示します。システム側の設定が有効な場合も同様です。タスクはすぐに保存されます。',
     'shortcutHintWindows': 'ヒント：Ctrl + Enter で送信',
     'onboardingNavAndroid': '下部から検索、追加、その他を開けます。',
     'onboardingNavWindows': '上部から検索、追加、その他を開けます。Ctrl+N で追加、Ctrl+F で検索。',

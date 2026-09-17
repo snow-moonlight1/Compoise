@@ -912,6 +912,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               (v) => store.updateSettings((s) => s..showCompletionRate = v),
               key: const ValueKey('show-completion-rate-toggle'),
             ),
+            const SizedBox(height: 8),
+            _toggle(
+              context,
+              t['reduceMotion'] ?? 'Reduce animation',
+              t['reduceMotionDesc'] ??
+                  'Jump straight to the final state instead of playing entrance, strikethrough and exit animations.',
+              store.settings.reduceMotion,
+              (v) => store.updateSettings((s) => s..reduceMotion = v),
+              key: const ValueKey('reduce-motion-toggle'),
+            ),
             const SizedBox(height: 20),
 
             if (policy.showDesktopSettings) ...[

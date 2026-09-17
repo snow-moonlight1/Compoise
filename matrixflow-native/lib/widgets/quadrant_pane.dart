@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
+import '../ui/motion_policy.dart';
 import 'input_sheet.dart';
 import 'task_card.dart';
+import 'task_exit.dart';
 
 /// One quadrant column: header (dot, title, count, clear) + drag target list.
 class QuadrantPane extends StatefulWidget {
@@ -48,12 +50,23 @@ class _QuadrantPaneState extends State<QuadrantPane> {
   bool _hovering = false;
   ScrollController? _internalScrollController;
 
+  /// Short-lived display snapshots of rows that just left [Store.tasksIn]
+  /// (completed while hiding completed, auto-completed parent, filter change).
+  late final ExitRetention<Task> _exitRetention = ExitRetention<Task>(
+    onChange: _onExitRetentionTick,
+  );
+
+  void _onExitRetentionTick() {
+    if (mounted) setState(() {});
+  }
+
   ScrollController get _scrollController =>
       widget.scrollController ??
       (_internalScrollController ??= ScrollController());
 
   @override
   void dispose() {
+    _exitRetention.dispose();
     _internalScrollController?.dispose();
     super.dispose();
   }
@@ -103,7 +116,20 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     final t = store.t;
     final theme = Theme.of(context);
     final q = widget.quadrant;
-    final tasks = store.tasksIn(q);
+    final live = store.tasksIn(q);
+    final entries = _exitRetention.sync(
+      items: live,
+      epochKey: '${store.activeBoardId}#${store.boardEpoch(store.activeBoardId)}',
+      idOf: (task) => task.id,
+      keepIfMissing:
+          (task) => store.tasks.any(
+            (t) =>
+                t.id == task.id &&
+                t.boardId == store.activeBoardId &&
+                t.quadrant == q,
+          ),
+      reduceMotion: MotionPolicy.reduceMotionOf(context),
+    );
     final accent = Color(quadrantColors[q]!);
     final titleKey = switch (q) {
       qDo => 'q1',
@@ -182,7 +208,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${tasks.length}',
+                        '${live.length}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.55,
@@ -208,7 +234,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
               ),
               Expanded(
                 child:
-                    tasks.isEmpty
+                    entries.isEmpty
                         ? Center(
                           child: Text(
                             t['empty']!,
@@ -226,12 +252,14 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
                           padding: const EdgeInsets.fromLTRB(4, 2, 4, 16),
-                          itemCount: tasks.length,
+                          itemCount: entries.length,
                           itemBuilder: (context, i) {
-                            final task = tasks[i];
-                            return LongPressDraggable<Task>(
+                            final entry = entries[i];
+                            final task = entry.item;
+                            final draggable = LongPressDraggable<Task>(
                               key: ValueKey(task.id),
-                              maxSimultaneousDrags: widget.selecting ? 0 : 1,
+                              maxSimultaneousDrags:
+                                  widget.selecting || entry.exiting ? 0 : 1,
                               data: task,
                               hapticFeedbackOnStart: true,
                               onDragStarted: () => HapticFeedback.lightImpact(),
@@ -244,6 +272,11 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                                 child: _card(context, task, i),
                               ),
                               child: _card(context, task, i),
+                            );
+                            return ExitingRow(
+                              key: ValueKey('exit-${task.id}'),
+                              exiting: entry.exiting,
+                              child: draggable,
                             );
                           },
                         ),

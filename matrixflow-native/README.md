@@ -24,6 +24,7 @@ lib/
 ├── ai_service.dart              # OpenAI / OpenAI Responses / Anthropic 三协议直连客户端
 ├── shortcuts.dart               # 键盘快捷键与 Windows 帮助（无命令台）
 ├── ui/platform_ui_policy.dart   # 触摸/桌面壳层与并排详情宽度
+├── ui/motion_policy.dart        # 动效时长常量与减少动画策略（应用设置 OR 系统）
 ├── screens/
 │   ├── matrix_screen.dart       # 十字四象限主界面、双端首页动作与批量操作
 │   ├── settings_screen.dart     # 显示/任务行为/AI/提醒/桌面/数据/帮助
@@ -34,12 +35,15 @@ lib/
 │   ├── reminder_service.dart    # 跨平台本地通知调度器 (Android AlarmManager & WinRT Toast)
 │   └── desktop_shell_service.dart # Windows 托盘生命周期、关闭到托盘与主窗口控制
 └── widgets/
-    ├── task_card.dart           # 任务卡片 (首行复选框、逐行删除线、长按拖拽、滑动操作)
+    ├── task_card.dart           # 任务卡片 (首行复选框、逐行划线动画、长按拖拽、滑动操作)
     ├── quadrant_pane.dart       # 极简无框十字象限面板
+    ├── quadrant_transition_layout.dart # 矩阵↔单象限聚焦连续几何过渡（四区同一 Stack）
     ├── task_detail_panel.dart   # 任务详情侧边栏/抽屉 (父子任务多行编辑、截止日期选择、AI 拆解)
     ├── home_actions.dart        # 双端首页搜索/新建/更多
     ├── board_picker.dart        # 看板选择与管理
     ├── task_list_view.dart      # 宫格/列表视图切换
+    ├── animated_task_title.dart # 逐行完成划线（TextPainter 行度量，可打断/可反向）
+    ├── task_exit.dart           # 完成/筛选导致的短期退场快照缓存（不写回任务）
     └── input_sheet.dart         # 换行快速批量添加与 AI 交互面板
 ```
 

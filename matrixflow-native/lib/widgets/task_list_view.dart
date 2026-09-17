@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
+import '../ui/motion_policy.dart';
 import 'input_sheet.dart';
 import 'task_card.dart';
+import 'task_exit.dart';
 
 /// List view presentation of tasks grouped by quadrant sections.
 /// Reuses the same TaskCard items, callbacks, DragTarget, and store mutations.
@@ -39,6 +41,27 @@ class TaskListView extends StatefulWidget {
 
 class _TaskListViewState extends State<TaskListView> {
   int? _hoveringQuadrant;
+
+  /// One exit cache per quadrant section; rows are snapshots, never written back.
+  final Map<int, ExitRetention<Task>> _retention = {};
+
+  ExitRetention<Task> _retentionFor(int q) => _retention.putIfAbsent(
+    q,
+    () => ExitRetention<Task>(
+      onChange: () {
+        if (mounted) setState(() {});
+      },
+    ),
+  );
+
+  @override
+  void dispose() {
+    for (final entry in _retention.values) {
+      entry.dispose();
+    }
+    _retention.clear();
+    super.dispose();
+  }
 
   void _showMovedNotice(BuildContext context, String taskTitle, int targetQ) {
     final store = context.read<Store>();
@@ -87,7 +110,20 @@ class _TaskListViewState extends State<TaskListView> {
     ThemeData theme,
     int q,
   ) {
-    final tasks = store.tasksIn(q);
+    final live = store.tasksIn(q);
+    final entries = _retentionFor(q).sync(
+      items: live,
+      epochKey: 'list-${store.activeBoardId}#${store.boardEpoch(store.activeBoardId)}',
+      idOf: (task) => task.id,
+      keepIfMissing:
+          (task) => store.tasks.any(
+            (t) =>
+                t.id == task.id &&
+                t.boardId == store.activeBoardId &&
+                t.quadrant == q,
+          ),
+      reduceMotion: MotionPolicy.reduceMotionOf(context),
+    );
     final accent = Color(quadrantColors[q]!);
     final titleKey = switch (q) {
       qDo => 'q1',
@@ -183,7 +219,7 @@ class _TaskListViewState extends State<TaskListView> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '${tasks.length}',
+                          '${live.length}',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: accent,
                             fontWeight: FontWeight.w700,
@@ -206,7 +242,7 @@ class _TaskListViewState extends State<TaskListView> {
               ),
 
               // Tasks or Empty State
-              if (tasks.isEmpty)
+              if (entries.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -226,12 +262,14 @@ class _TaskListViewState extends State<TaskListView> {
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: tasks.length,
+                  itemCount: entries.length,
                   itemBuilder: (context, i) {
-                    final task = tasks[i];
-                    return LongPressDraggable<Task>(
+                    final entry = entries[i];
+                    final task = entry.item;
+                    final draggable = LongPressDraggable<Task>(
                       key: ValueKey('list-drag-${task.id}'),
-                      maxSimultaneousDrags: widget.selecting ? 0 : 1,
+                      maxSimultaneousDrags:
+                          widget.selecting || entry.exiting ? 0 : 1,
                       data: task,
                       hapticFeedbackOnStart: true,
                       onDragStarted: () => HapticFeedback.lightImpact(),
@@ -244,6 +282,11 @@ class _TaskListViewState extends State<TaskListView> {
                         child: _taskCard(context, store, task, i),
                       ),
                       child: _taskCard(context, store, task, i),
+                    );
+                    return ExitingRow(
+                      key: ValueKey('list-exit-${task.id}'),
+                      exiting: entry.exiting,
+                      child: draggable,
                     );
                   },
                 ),

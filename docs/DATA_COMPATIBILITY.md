@@ -106,6 +106,7 @@ MatrixFlow AI 是以“本地优先”（Local-First）为核心原则构建的�
      - WP27-B-N 已在 `Task` 与 `SubTask` 中接入可选 `completedAt`（`int?`，毫秒时间戳），记录任务完成时刻；未完成或反选时为 `null`；v2 导出包含该字段，v1 降级导出时安全剔除；旧备份缺失时回退 `null`，严禁借 `createdAt` 伪造时间。
    - 设置级字段（如显示偏好、开关）：在 `AppSettings` 中声明并提供显式默认参数。
      - UX02 增加可选 `showCompletionRate`（`bool`，默认 `false`）。旧安装、旧 v1/v2 备份缺字段均回退 false；v2 导出包含该字段，v1 降级导出时安全剔除。开启后仅在首页更多面板底部显示全部看板父任务完成比例，不出现在归档/搜索/聚焦内容区。
+     - UX06 增加可选 `reduceMotion`（`bool`，默认 `false`）。旧安装、旧 v1/v2 备份缺字段均回退 false；v2 导出包含该字段，v1 降级导出时安全剔除。开启后（或与系统减少动画取 OR）入场、完成划线与退场动画直接到终态，不影响任务状态的即时持久化。
 2. **实现 `fromJson` 缺省兜底**：
    - 反序列化处严禁假定字段必填，必须使用 `(j['field'] as T?) ?? defaultVal` 或枚举安全匹配 `firstWhere(..., orElse: () => defaultVal)`。
 3. **加入 `toJson` 与导出白名单**：

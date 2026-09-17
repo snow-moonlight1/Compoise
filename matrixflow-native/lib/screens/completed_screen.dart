@@ -6,9 +6,11 @@ import '../models.dart';
 import '../storage.dart';
 import '../task_query.dart';
 import '../task_stats.dart';
+import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/anim.dart';
 import '../widgets/task_detail_panel.dart';
+import '../widgets/task_exit.dart';
 import '../widgets/task_filter_panel.dart';
 
 class CompletedScreen extends StatefulWidget {
@@ -26,6 +28,20 @@ class _CompletedScreenState extends State<CompletedScreen> {
   String? _activeDetailTaskId;
   bool _detailDirty = false;
   final _detailKey = GlobalKey();
+
+  /// Restoring a task drops it out of this list immediately in the data layer;
+  /// the cache keeps one leaving row on screen so the change is visible.
+  late final ExitRetention<Task> _exitRetention = ExitRetention<Task>(
+    onChange: () {
+      if (mounted) setState(() {});
+    },
+  );
+
+  @override
+  void dispose() {
+    _exitRetention.dispose();
+    super.dispose();
+  }
 
   String _boardName(Store store, String boardId) {
     return resolveBoardName(
@@ -124,6 +140,20 @@ class _CompletedScreenState extends State<CompletedScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 900;
+            // Resolved before the empty/list branch so the last restored row
+            // still animates out instead of being swapped for the empty state.
+            final entries = _exitRetention.sync(
+              items: completedTasks,
+              epochKey:
+                  'archive-$activeBoardId#${store.boardEpoch(activeBoardId)}'
+                  '#${_applied.scope.name}',
+              idOf: (task) => task.id,
+              keepIfMissing:
+                  (task) => store.tasks.any(
+                    (candidate) => candidate.id == task.id,
+                  ),
+              reduceMotion: MotionPolicy.reduceMotionOf(context),
+            );
             final detailTask =
                 _activeDetailTaskId == null
                     ? null
@@ -150,14 +180,14 @@ class _CompletedScreenState extends State<CompletedScreen> {
                 ),
                 Expanded(
                   child:
-                      completedTasks.isEmpty
+                      entries.isEmpty
                           ? _buildEmptyState(context, t, theme)
                           : _buildList(
                             context,
                             store,
                             t,
                             theme,
-                            completedTasks,
+                            entries,
                             activeBoardId,
                             isWide,
                           ),
@@ -317,7 +347,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
     Store store,
     Map<String, String> t,
     ThemeData theme,
-    List<Task> tasks,
+    List<ExitEntry<Task>> entries,
     String activeBoardId,
     bool isWide,
   ) {
@@ -325,10 +355,11 @@ class _CompletedScreenState extends State<CompletedScreen> {
 
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      itemCount: tasks.length,
+      itemCount: entries.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final task = tasks[index];
+        final entry = entries[index];
+        final task = entry.item;
         final isExpanded = _expandedIds.contains(task.id);
         final q = task.quadrant;
         final qColor = Color(quadrantColors[q] ?? 0xFF888888);
@@ -338,7 +369,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
             _applied.scope == TaskScopeFilter.allBoards ||
             task.boardId != activeBoardId;
 
-        return InkWell(
+        final row = InkWell(
           key: ValueKey('completed-item-${task.id}'),
           borderRadius: BorderRadius.circular(8),
           onTap: () => _openDetail(context, task, isWide: isWide),
@@ -633,6 +664,11 @@ class _CompletedScreenState extends State<CompletedScreen> {
               ],
             ),
           ),
+        );
+        return ExitingRow(
+          key: ValueKey('archive-exit-${task.id}'),
+          exiting: entry.exiting,
+          child: row,
         );
       },
     );

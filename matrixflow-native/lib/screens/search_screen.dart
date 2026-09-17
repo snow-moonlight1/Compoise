@@ -5,8 +5,11 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../task_query.dart';
+import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
+import '../widgets/animated_task_title.dart';
 import '../widgets/task_detail_panel.dart';
+import '../widgets/task_exit.dart';
 import '../widgets/task_filter_panel.dart';
 
 /// Screen for searching and multi-dimensional filtering across tasks and subtasks.
@@ -30,8 +33,19 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _detailDirty = false;
   final _detailKey = GlobalKey();
 
+  /// Lightweight exit cache so a row that stops matching the query (for
+  /// example a task completed under an "incomplete" filter) still leaves with
+  /// visible feedback instead of teleporting away.
+  late final ExitRetention<TaskSearchResult> _exitRetention =
+      ExitRetention<TaskSearchResult>(
+        onChange: () {
+          if (mounted) setState(() {});
+        },
+      );
+
   @override
   void dispose() {
+    _exitRetention.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     _listController.dispose();
@@ -140,6 +154,24 @@ class _SearchScreenState extends State<SearchScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 900;
+            // Exit cache is resolved before the empty/results branch, otherwise
+            // the last leaving row would be replaced by the empty state.
+            final entries = _exitRetention.sync(
+              items: results,
+              // Query and criteria are part of the epoch: rows that stop
+              // matching because the user typed or re-filtered disappear at
+              // once, while rows that vanish because their own state changed
+              // keep the exit animation.
+              epochKey:
+                  'search-$activeBoardId#${store.boardEpoch(activeBoardId)}'
+                  '#${_searchController.text}#${_applied.scope.name}'
+                  '#${_applied.status.name}#${_applied.quadrant}'
+                  '#${_applied.date.name}',
+              idOf: (hit) => hit.resultKey,
+              keepIfMissing:
+                  (hit) => store.tasks.any((task) => task.id == hit.task.id),
+              reduceMotion: MotionPolicy.reduceMotionOf(context),
+            );
             final detailTask =
                 _activeDetailTaskId == null
                     ? null
@@ -166,7 +198,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 _buildResultsSummary(context, t, theme, results.length),
                 Expanded(
                   child:
-                      results.isEmpty
+                      entries.isEmpty
                           ? _buildEmptyState(
                             context,
                             t,
@@ -178,7 +210,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             store,
                             t,
                             theme,
-                            results,
+                            entries,
                             isWide,
                             policy,
                           ),
@@ -406,7 +438,7 @@ class _SearchScreenState extends State<SearchScreen> {
     Store store,
     Map<String, String> t,
     ThemeData theme,
-    List<TaskSearchResult> results,
+    List<ExitEntry<TaskSearchResult>> entries,
     bool isWide,
     PlatformUiPolicy policy,
   ) {
@@ -417,10 +449,11 @@ class _SearchScreenState extends State<SearchScreen> {
     return ListView.separated(
       controller: _listController,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      itemCount: results.length,
+      itemCount: entries.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final hit = results[index];
+        final entry = entries[index];
+        final hit = entry.item;
         final task = hit.task;
         final subtask = hit.matchedSubtask;
         final isSubtask = hit.isSubtaskMatch;
@@ -429,7 +462,7 @@ class _SearchScreenState extends State<SearchScreen> {
         final qColor = Color(quadrantColors[q]!);
         final isOtherBoard = hit.board.id != activeBoardId;
 
-        return InkWell(
+        final row = InkWell(
           key: ValueKey('search-item-${hit.resultKey}'),
           borderRadius: BorderRadius.circular(8),
           onTap: () {
@@ -525,11 +558,12 @@ class _SearchScreenState extends State<SearchScreen> {
                       const SizedBox(height: 4),
 
                       // Title
-                      Text(
-                        hit.displayTitle,
+                      AnimatedStrikeThroughText(
+                        key: ValueKey('search-title-anim-${hit.resultKey}'),
+                        text: hit.displayTitle,
+                        completed: isCompleted,
+                        strikeKey: ValueKey('search-strike-${hit.resultKey}'),
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          decoration:
-                              isCompleted ? TextDecoration.lineThrough : null,
                           color:
                               isCompleted
                                   ? theme.disabledColor
@@ -592,6 +626,11 @@ class _SearchScreenState extends State<SearchScreen> {
               ],
             ),
           ),
+        );
+        return ExitingRow(
+          key: ValueKey('search-exit-${hit.resultKey}'),
+          exiting: entry.exiting,
+          child: row,
         );
       },
     );

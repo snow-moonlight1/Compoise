@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
+import '../ui/motion_policy.dart';
 import 'anim.dart';
+import 'animated_task_title.dart';
 
 export '../deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 
@@ -60,8 +62,7 @@ class TaskCard extends StatelessWidget {
     final daysLeft =
         task.deadline == null ? null : calendarDaysLeft(task.deadline!);
 
-    final disableAnimations =
-        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = MotionPolicy.reduceMotionOf(context);
 
     return StaggerIn(
       key: ValueKey('stagger-${task.id}'),
@@ -71,13 +72,9 @@ class TaskCard extends StatelessWidget {
         direction:
             selecting ? DismissDirection.none : DismissDirection.horizontal,
         movementDuration:
-            disableAnimations
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
         resizeDuration:
-            disableAnimations
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
         background: _buildSwipeBackground(
           context: context,
           alignment: Alignment.centerLeft,
@@ -171,18 +168,7 @@ class TaskCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: selecting ? onSelect : onEdit,
-                  onSecondaryTapDown:
-                      selecting
-                          ? null
-                          : (details) => _showContextMenu(
-                            context,
-                            details.globalPosition,
-                          ),
-                  child: _parentRow(context, store, t, theme, daysLeft),
-                ),
+                _parentRow(context, store, t, theme, daysLeft),
                 if (task.subtasks.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(left: checkColumnWidth),
@@ -218,7 +204,15 @@ class TaskCard extends StatelessWidget {
           },
         ),
         Expanded(
-          child: Padding(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: selecting ? onSelect : onEdit,
+            onSecondaryTapDown:
+                selecting
+                    ? null
+                    : (details) =>
+                        _showContextMenu(context, details.globalPosition),
+            child: Padding(
             padding: const EdgeInsets.only(top: 13, right: 8, bottom: 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,26 +221,26 @@ class TaskCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: StrikeThrough(
-                        crossed: task.completed,
-                        child: Text(
-                          task.title,
-                          key: ValueKey('task-title-${task.id}'),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontSize: 16,
-                            height: 1.4,
-                            fontWeight: FontWeight.w500,
-                            color:
-                                task.completed
-                                    ? theme.colorScheme.onSurface.withValues(
-                                      alpha: 0.38,
-                                    )
-                                    : (theme.brightness == Brightness.light
-                                        ? const Color(0xFF242A32)
-                                        : null),
-                          ),
+                      child: AnimatedStrikeThroughText(
+                        key: ValueKey('task-title-anim-${task.id}'),
+                        text: task.title,
+                        completed: task.completed,
+                        textKey: ValueKey('task-title-${task.id}'),
+                        strikeKey: ValueKey('task-strike-${task.id}'),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontSize: 16,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              task.completed
+                                  ? theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.38,
+                                  )
+                                  : (theme.brightness == Brightness.light
+                                      ? const Color(0xFF242A32)
+                                      : null),
                         ),
                       ),
                     ),
@@ -304,6 +298,7 @@ class TaskCard extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
             ),
           ),
         ),
@@ -396,23 +391,24 @@ class TaskCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        StrikeThrough(
-                          crossed: sub.completed,
-                          child: Text(
-                            sub.title,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 14,
-                              height: 1.4,
-                              fontWeight: FontWeight.w400,
-                              color:
-                                  sub.completed
-                                      ? theme.colorScheme.onSurface.withValues(
-                                        alpha: 0.38,
-                                      )
-                                      : null,
-                            ),
+                        AnimatedStrikeThroughText(
+                          key: ValueKey('subtask-title-anim-${sub.id}'),
+                          text: sub.title,
+                          completed: sub.completed,
+                          textKey: ValueKey('subtask-title-text-${sub.id}'),
+                          strikeKey: ValueKey('subtask-strike-${sub.id}'),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 14,
+                            height: 1.4,
+                            fontWeight: FontWeight.w400,
+                            color:
+                                sub.completed
+                                    ? theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.38,
+                                    )
+                                    : null,
                           ),
                         ),
                         if (sub.deadline != null)
@@ -471,11 +467,15 @@ class TaskCard extends StatelessWidget {
             child: SizedBox(
               width: visualSize,
               height: visualSize,
-              child: Checkbox(
-                value: value,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                onChanged: (_) => onToggle(),
+              // Only the surrounding 48dp GestureDetector handles the tap, so a
+              // single tap performs exactly one business write.
+              child: IgnorePointer(
+                child: Checkbox(
+                  value: value,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  onChanged: (_) => onToggle(),
+                ),
               ),
             ),
           ),

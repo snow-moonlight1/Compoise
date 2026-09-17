@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../ui/motion_policy.dart';
+
 /// Fade + slide-up entrance, delayed by [index] * 45ms. Plays once per
 /// element (state is kept as long as the widget key stays stable).
+/// When motion is reduced the child is shown at its final state immediately:
+/// no queued delay, no fade.
 class StaggerIn extends StatefulWidget {
   final int index;
   final Widget child;
@@ -17,12 +21,30 @@ class _StaggerInState extends State<StaggerIn> with SingleTickerProviderStateMix
   late final Animation<double> _fade =
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
 
+  bool _resolved = false;
+
   @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration(milliseconds: widget.index.clamp(0, 12) * 45), () {
-      if (mounted) _controller.forward();
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_resolved) return;
+    _resolved = true;
+    if (MotionPolicy.reduceMotionNow(context)) {
+      _controller.value = 1;
+      return;
+    }
+    Future.delayed(
+      MotionPolicy.entranceStep * widget.index.clamp(0, 12),
+      _start,
+    );
+  }
+
+  void _start() {
+    if (!mounted) return;
+    if (MotionPolicy.reduceMotionNow(context)) {
+      _controller.value = 1;
+      return;
+    }
+    _controller.forward();
   }
 
   @override

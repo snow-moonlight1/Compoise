@@ -17,9 +17,8 @@ import 'package:matrixflow_native/screens/settings_screen.dart';
 import 'package:matrixflow_native/services/desktop_shell_service.dart';
 import 'package:matrixflow_native/storage.dart';
 import 'package:matrixflow_native/theme.dart';
-import 'package:matrixflow_native/widgets/anim.dart';
+import 'package:matrixflow_native/widgets/animated_task_title.dart';
 import 'package:matrixflow_native/widgets/input_sheet.dart';
-import 'package:matrixflow_native/widgets/quadrant_focus_view.dart';
 import 'package:matrixflow_native/widgets/quadrant_pane.dart';
 import 'package:matrixflow_native/widgets/task_card.dart';
 import 'package:matrixflow_native/widgets/task_detail_panel.dart';
@@ -210,6 +209,22 @@ Future<void> toggleShowCompleted(WidgetTester tester) async {
     Navigator.of(tester.element(panel)).pop();
     await tester.pumpAndSettle();
   }
+}
+
+/// UX06: completed titles draw per-line segments with a painter instead of
+/// [TextDecoration.lineThrough], so assertions read the painter progress.
+double strikeProgressOf(WidgetTester tester, String taskId) {
+  final paint = tester.widget<CustomPaint>(
+    find.byKey(ValueKey('task-strike-$taskId')),
+  );
+  return (paint.foregroundPainter as StrikeThroughPainter).progress;
+}
+
+int strikeLineCountOf(WidgetTester tester, String taskId) {
+  final paint = tester.widget<CustomPaint>(
+    find.byKey(ValueKey('task-strike-$taskId')),
+  );
+  return (paint.foregroundPainter as StrikeThroughPainter).lineCount;
 }
 
 void main() {
@@ -653,11 +668,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
-      final title = tester.widget<Text>(find.text('already done'));
-      expect(title.style?.decoration, TextDecoration.lineThrough);
+      // UX06: the line is drawn per visible line, not by Text.decoration.
+      expect(strikeProgressOf(tester, task.id), 1.0);
       expect(
         find.descendant(
-          of: find.byType(StrikeThrough),
+          of: find.byType(AnimatedStrikeThroughText),
           matching: find.byType(FractionallySizedBox),
         ),
         findsNothing,
@@ -684,10 +699,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
-      expect(
-        tester.widget<Text>(find.text('still open')).style?.decoration,
-        isNot(TextDecoration.lineThrough),
-      );
+      expect(strikeProgressOf(tester, task.id), 0.0);
       expect(find.text('Selected'), findsOneWidget);
       expect(task.completed, isFalse);
       expect(selects, 0);
@@ -734,13 +746,12 @@ void main() {
       store.addTasks([task]);
       await tester.pumpWidget(pumpTaskCard(store, task));
       await tester.pumpAndSettle();
-      final title = tester.widget<Text>(
-        find.text('first line\nsecond line\nthird line'),
-      );
-      expect(title.style?.decoration, TextDecoration.lineThrough);
+      // UX06: one drawn segment per visible line instead of one decoration.
+      expect(strikeProgressOf(tester, task.id), 1.0);
+      expect(strikeLineCountOf(tester, task.id), 3);
       expect(
         find.descendant(
-          of: find.byType(StrikeThrough),
+          of: find.byType(AnimatedStrikeThroughText),
           matching: find.byType(FractionallySizedBox),
         ),
         findsNothing,
@@ -861,10 +872,7 @@ void main() {
             .value,
         isTrue,
       );
-      expect(
-        tester.widget<Text>(find.text('finish me')).style?.decoration,
-        TextDecoration.lineThrough,
-      );
+      expect(strikeProgressOf(tester, done.id), 1.0);
 
       await tester.tap(find.text('leave open'));
       await tester.pumpAndSettle();
@@ -887,10 +895,8 @@ void main() {
       await toggleShowCompleted(tester);
       await tester.pumpAndSettle();
       expect(find.text('finish me'), findsOneWidget);
-      expect(
-        tester.widget<Text>(find.text('finish me')).style?.decoration,
-        TextDecoration.lineThrough,
-      );
+      // Re-shown completed tasks render the terminal line, never a replay.
+      expect(strikeProgressOf(tester, done.id), 1.0);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(app(store, const MatrixHome()));
@@ -980,8 +986,9 @@ void main() {
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
 
-      expect(find.byType(VerticalDivider), findsNWidgets(2));
-      expect(find.byType(Divider), findsOneWidget);
+      // UX07: the cross is painted by the transition layout, not Divider widgets.
+      expect(find.byKey(const ValueKey('matrix-divider-v')), findsOneWidget);
+      expect(find.byKey(const ValueKey('matrix-divider-h')), findsOneWidget);
 
       expect(
         find.descendant(
@@ -1327,7 +1334,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Focus view is shown
-      expect(find.byType(QuadrantFocusView), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-view-active')), findsOneWidget);
       expect(find.byKey(const ValueKey('focus-back-btn')), findsOneWidget);
 
       // Q1 task in main area
@@ -1378,19 +1385,19 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('focus-back-btn')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(QuadrantFocusView), findsNothing);
+      expect(find.byKey(const ValueKey('focus-view-active')), findsNothing);
       expect(find.byKey(const ValueKey('focus-back-btn')), findsNothing);
       expect(find.byType(QuadrantPane), findsNWidgets(4));
 
       // Re-enter Q3 focus by tapping Q3 header
       await tester.tap(find.byKey(const ValueKey('quadrant-header-3')));
       await tester.pumpAndSettle();
-      expect(find.byType(QuadrantFocusView), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-view-active')), findsOneWidget);
 
       // Tap Q3 header inside focus view to restore matrix
       await tester.tap(find.byKey(const ValueKey('quadrant-header-3')));
       await tester.pumpAndSettle();
-      expect(find.byType(QuadrantFocusView), findsNothing);
+      expect(find.byKey(const ValueKey('focus-view-active')), findsNothing);
       expect(find.byType(QuadrantPane), findsNWidgets(4));
 
       await tester.pumpWidget(const SizedBox());
@@ -1451,7 +1458,7 @@ void main() {
       // Enter Q1 focus on first board
       await tester.tap(find.byKey(const ValueKey('quadrant-header-1')));
       await tester.pumpAndSettle();
-      expect(find.byType(QuadrantFocusView), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-view-active')), findsOneWidget);
 
       // Open board switcher and pick second board
       await tester.tap(find.text(store.boards.first.name));
@@ -1460,7 +1467,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Focus view has exited, showing 4 quadrants of second board
-      expect(find.byType(QuadrantFocusView), findsNothing);
+      expect(find.byKey(const ValueKey('focus-view-active')), findsNothing);
       expect(find.text('Second Board'), findsOneWidget);
       expect(find.byType(QuadrantPane), findsNWidgets(4));
 
@@ -2958,7 +2965,7 @@ void main() {
       // Tap quadrant header in list view: enters single quadrant focus view
       await tester.tap(find.byKey(const ValueKey('list-quadrant-header-1')));
       await tester.pumpAndSettle();
-      expect(find.byType(QuadrantFocusView), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-view-active')), findsOneWidget);
 
       // Exit focus view: returns to list view
       await tester.tap(find.byTooltip('Back'));
