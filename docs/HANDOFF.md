@@ -6,7 +6,8 @@
 
 - HEAD 为 `main / eee6df9`（本 Session 提交：`feat(ux): UX06 逐行完成划线与减少动画、UX07 四象限连续聚焦几何过渡`）；工作区干净，无未提交改动。
 - UX07：新增 `lib/widgets/quadrant_transition_layout.dart`——四个 `QuadrantPane` 常驻同一 Stack，矩阵↔聚焦只做矩形插值（进入 320ms / 切换 300ms / 退出 280ms easeInOutCubic），打断按布局比例冻结当前几何再重定向；删除替树式 `quadrant_focus_view.dart`。减少动画一帧终态。列表模式为轻量淡入淡出叠层，退出回列表原滚动。详见 [UX07 返修记录](UX07_FIX_2026-09-18.md)。
-- 验证：UX07 定向 **10/10**，全量 **352/352**（342 + 10），analyze **0 issues**。Android/Windows **实机未验**，未重新构建双端产物。
+- 验证：UX07 定向 **10/10**，全量 **352/352**（342 + 10），analyze **0 issues**。
+- **2026-09-19 补记（打包轮，非功能改动）**：`scripts\build_release.ps1 -Platform All` 重跑通过，双端 Release 产物已重建并更新 `release_dist`（APK 24.7 MB / Windows 便携包 12.28 MB / SHA256SUMS 已重算，版本号仍 1.0.0+1）。手机（Redmi 23117RK66C / Android 16）在打包前已装入同一份 APK（与发行包 SHA256 一致：`36b6a00a…80a6eb4`），Windows 端已启动供试用；但**打包过程中手机从 adb 掉线，且截至收尾尚未收到用户实机反馈**，因此 UX01–07 仍登记为「实机未验」。下一轮需：手机重新连线后补一次 `flutter install --release` 确认，并按第 7.2 节收集用户实测结果。
 - 本轮重要文件：新增 `lib/widgets/quadrant_transition_layout.dart`、`test/ux07_regression_test.dart`；改 `screens/matrix_screen.dart`、删除 `widgets/quadrant_focus_view.dart`、`test/widget_regression_test.dart`（`focus-view-active` 标记键、`matrix-divider-v/h` 键）。
 - **下一包 UX08**（全路径验收与文档收口，计划第 7 节）：逐项登记 30 条场景、双端构建、残留文案扫描；不要把「应当通过」填成已通过。
 - 约束：不要恢复命令台、统计条、横滑 Chip、矩阵内嵌添加子项，不要回退替树式聚焦。继续暂停 WP10/WP29/UI 实验。F21 包名与 F22 正式签名仍未关闭。
@@ -174,6 +175,9 @@ docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 6/7 节 UX08。
 | Android Release APK 构建与打包（WP28-B） | **通过**；`flutter build apk --release --no-pub` 成功产出 `matrixflow-v1.0.0-android.apk`（24.6 MB），核心库脱糖与安全签名配置通过 |
 | Windows Release 便携包构建（WP28-B） | **通过**；`flutter build windows --release --no-pub` 成功编译，产出 `matrixflow-v1.0.0-windows-portable.zip`（12.0 MB） |
 | 一键打包脚本与校验和生成（WP28-B） | **通过**；PowerShell `scripts/build_release.ps1` 自动化执行并通过 `SHA256SUMS.txt` 校验 |
+| 双端 Release 重新打包（2026-09-19，UX01–07 代码） | **构建通过**；`build_release.ps1 -Platform All` 退出码 0：Android 90.7s / Windows 64.4s，产出 `matrixflow-v1.0.0-android.apk`（24.7 MB）与 `matrixflow-v1.0.0-windows-portable.zip`（12.28 MB），SHA256 已重算。**实机结果未收到** |
+| Android 真机安装（2026-09-19） | **已安装、内容一致**；Redmi 23117RK66C（Android 16）装入的 APK 与 `release_dist` 发行包 SHA256 相同；随后手机从 adb 掉线，且用户尚未反馈测试结果 |
+| Windows 端启动（2026-09-19） | **已启动待测**；`build\windows\x64\runner\Release\matrixflow_native.exe` 已运行，未经用户验收 |
 | Windows 实机 Toast 横幅与操作中心（WP25-N-Windows） | **未测**；Windows 通知在 Windows headless 与自动化测试中验证通过，物理 Windows 桌面交互与锁屏横幅需后续实机运行体验 |
 | Android 物理真机通知/闹钟响铃（WP25-N-Android） | **未测**；Flutter Local Notifications 逻辑与调度完整覆盖，物理设备需后续真机安装测试 |
 | 真实模型分类 | **未测**；mock 只证明请求契约 |
