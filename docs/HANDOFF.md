@@ -1,8 +1,59 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-18（UX07 收尾）。
+最后更新：2026-09-22（OS02 完成）。
 
-## 当前任务：UX07 已实现；下一包 UX08（2026-09-18）
+## 当前任务：OS01–OS02 已完成，下一包 OS03（2026-09-22）
+
+- 用户已认可主要实机体验，四项尾项（去斜体、父子文字/复选框层级、deepseek-flash 默认、JSON 备份评估）及全库 review 问题按 OS 包串行实施，不重启全局 UI 返工。
+- **OS02 已完成**：新增 `TaskHierarchyCheckbox` / `TaskHierarchyStyle`，把父/子标题固定为 16/14dp、复选框实际绘制固定为 22/18dp，同时保留 48×48dp 命中区；主卡片、搜索、详情子项、已完成页共用该策略。矩阵父子复选框 x 中心和标题起点继续同列，聚焦/列表仍按既有 16dp 缩进。新增 3 项 OS02 默认回归，专项连同 UX03/UX05 **16/16**，默认 `flutter test --no-pub` **362/362**，`flutter analyze --no-pub` **0 issues**。本包未重新打 Android/Windows 包，也未新增双端实机截图验收。**下一包 OS03；OS03–OS27 尚未实施。**
+- **OS01 已完成**：`quadrant_pane.dart` 与 `task_list_view.dart` 的两处空状态显式斜体已移除，未改变字号、颜色、布局或任务内容；生产 `lib/` 扫描不再有主动 `fontStyle` 设置，未新增只复述样式的 golden。OS01 当时默认 `flutter test --no-pub` **359/359** 通过，`flutter analyze --no-pub` **0 issues**；专项 `foundation_regression_test.dart` **24/24** 通过。阅读 [全库审查报告](FLUTTER_REVIEW_2026-09-22.md) 与 [实施计划 OS01–OS27](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。旧 UX08 收口并入 OS27，不把用户总体认可伪写成 30 条逐项通过。
+- 审查基线：`main / 9c622fd` 加接手时已有 R1–R5/S1 未提交修复。默认 **359/359**、analyze **0 issues**；新增显式探针 **7 个预期行为断言失败，7/7 反例复现**，覆盖损坏启动覆盖、重复子项 ID、自定义模型改写、跨协议缓存、未知 provider 设置断言、远期日期断言及退场键盘操作。探针不在默认测试发现范围。
+- 结论：现有架构适合渐进维护，稳定发行前应修数据与关键流程；不要求整体重写。JSON v2 继续作为默认备份的建议见报告 ADR，v1 读取保留。架构/性能可分阶段，公开源码与正式发版门槛分开。
+- 前一审查轮新增审查报告、计划及 `test/review/preopensource_review_probe.dart`，当时未改产品实现；这些文件与前轮 R1–R5/S1 改动仍可能未提交。OS01–OS02 均未重新打包、未运行真实 AI 或新增设备验收；先 git status，保护已有改动。
+- 后续启动提示词见新计划第 5 节。F21/F22 包名/签名仍未关闭，归 OS26 核对；WP10/WP29/UI 实验继续暂停。
+
+## 历史任务：R1–R5 与 S1 已修复；当时下一包 UX08（2026-09-20）
+
+- **S1 独立复核通过（2026-09-20）**：原始/补充探针与正式状态回归合计 19/19；额外补测淡出中 Escape、子组件切模式回调去重，扩展探针 9/9；全量 359/359、analyze 0 issues。此次检查范围内未发现新的阻塞问题，详见 [独立复核补记](UX_STATE_FIX_REVIEW_2026-09-20.md)。本轮未改产品代码、未提交、未重打包、未实机。
+
+- S1（复审留下的相邻路径）：列表聚焦淡出期间连续切换宫格/列表不再留下 `_listExitFading`；Windows Escape 与系统返回共用强制结束退出。S1 已转入 `test/ux_state_regression_test.dart`。复审原文见 [修复效果复审](UX_STATE_FIX_REVIEW_2026-09-20.md)。
+- 验证：补充探针 **7/7**，正式状态回归 **7/7**，全量 **359/359**，analyze **0 issues**。Android/Windows **实机未验**，未提交、未重打包。
+- **下一包 UX08**。先 git status，不要 reset；工作区含 R1–R5、S1 与复审文档。
+
+## 2026-09-20 修复复审补记（S1 随后已修）
+
+- 复审当时确认 R1–R5 原始探针和正式回归 **11/11 通过**，全量 **358/358**；补充探针 **6/7**，失败项为 S1。详见 [修复效果复审](UX_STATE_FIX_REVIEW_2026-09-20.md)。
+- 复审当轮未改产品实现。S1 已在本文件顶部的修复轮转绿。
+
+## 先前任务：R1–R5 已修复；当时下一包 UX08（2026-09-19）
+
+- 用户指向 [UX 返修计划](IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md)。UX08 仍禁止借验收加功能；复审的 5 条卡住/交叉路径先修完再收口。
+- 基线 `main / 9c622fd` + 复审未提交文档。产品改动：`lib/widgets/quadrant_transition_layout.dart`、`lib/screens/matrix_screen.dart`、`lib/widgets/task_exit.dart`；默认回归 `test/ux_state_regression_test.dart`（6 项）。详见 [状态交叉修复](UX_STATE_FIX_2026-09-19.md)。
+- 验证：定向 **6/6**，全量 **358/358**（352 + 6），analyze **0 issues**。Android/Windows **实机未验**，未重打包。
+- **下一包 UX08**（全路径验收与文档收口）：按第 7.2 节 30 条逐项登记，缺设备标未测；不要把「应当通过」填成已通过。本轮未开始 UX08。
+- 约束：不要恢复命令台、统计条、横滑 Chip、矩阵内嵌添加子项，不要回退替树式聚焦。继续暂停 WP10/WP29/UI 实验。F21 包名与 F22 正式签名仍未关闭。
+
+### 下一轮启动提示词（UX08）
+
+```text
+在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
+阅读 AGENTS.md、docs/HANDOFF.md 顶部及
+docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md 第 6/7 节 UX08。
+本次只做 UX08 全路径验收与文档收口，不开始新功能包。
+先 git status：R1–R5 修复与复审文档可能尚未提交，不要 reset，保护这些改动。
+按第 7.2 节 30 条场景逐项登记（设备、尺寸/DPI、结果、证据），缺设备标未测；
+跑全量 test/analyze 与双端构建（沿 docs/DEVELOPMENT.md 与 scripts/build_release.ps1）；
+逐页扫残留文案（命令台/统计条/完成趋势），修当前使用说明，保留历史 CHANGELOG。
+不把「应当通过」填成已通过；不借 UX 验收宣称 F21/F22/发布闭环。
+```
+
+## 2026-09-19 状态机复审（随后已修复）
+
+- 用户已反馈双端实测未发现大问题。复审针对隐蔽状态交叉，详见 [UX 状态复审报告](UX_STATE_REVIEW_2026-09-19.md)。
+- 当时基线 `9c622fd`；默认 352/352、analyze 0 issues，独立探针 5 个反例均复现：R1 退出淡出期间重新聚焦后永久透明、R2 Windows 打开详情丢失退出回调（均 P1）；R5 减少动画退出触发构建期 setState、R3 象限子树重建中断完成反馈、R4 退场缓存冻结顺序（P2）。
+- 复审当轮未改产品实现。上述反例已在本文件顶部的修复轮转入默认回归并转绿。
+
+## 先前任务：UX07 已实现；当时下一包 UX08（2026-09-18）
 
 - HEAD 为 `main / eee6df9`（本 Session 提交：`feat(ux): UX06 逐行完成划线与减少动画、UX07 四象限连续聚焦几何过渡`）；工作区干净，无未提交改动。
 - UX07：新增 `lib/widgets/quadrant_transition_layout.dart`——四个 `QuadrantPane` 常驻同一 Stack，矩阵↔聚焦只做矩形插值（进入 320ms / 切换 300ms / 退出 280ms easeInOutCubic），打断按布局比例冻结当前几何再重定向；删除替树式 `quadrant_focus_view.dart`。减少动画一帧终态。列表模式为轻量淡入淡出叠层，退出回列表原滚动。详见 [UX07 返修记录](UX07_FIX_2026-09-18.md)。

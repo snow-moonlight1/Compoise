@@ -1,6 +1,8 @@
 # 架构
 
-> 2026-09-18 更新：UX01–07 已实现。UX06 为逐行完成划线动画、`reduceMotion` 与 hideCompleted 安全退场；UX07 为四象限同一 Stack 的连续聚焦几何（`lib/widgets/quadrant_transition_layout.dart`，替树式聚焦已删除），动效时长集中在 `lib/ui/motion_policy.dart`。自动化 352 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
+> **2026-09-22 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01 已完成两处空状态斜体清理；OS02 已统一父/子标题与复选框视觉层级，并保持 48dp 命中区；下一包 OS03。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
+
+> 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
 本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 

@@ -118,7 +118,9 @@ MatrixFlow 遵循绝对的安全合规原则，API Key 仅保存在本地设备�
 
 ## 📖 相关文档 / Documentation
 
-- [当前实机反馈交互返修计划：UX01–UX08（UX01 自动化通过，下一包 UX02）](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md)
+- [当前实施计划：实机尾项与开源准备 OS01–OS27（OS01–OS02 已完成，下一包 OS03）](docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)
+- [Flutter 全库审查：缺陷证据、架构评估与 JSON 决策](docs/FLUTTER_REVIEW_2026-09-22.md)
+- [历史实机反馈交互返修计划：UX01–UX08](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md)
 - [当前任务与交接状态 (HANDOFF.md)](docs/HANDOFF.md)
 - [开源合规与发行规划 (RELEASE_PLAN.md)](docs/RELEASE_PLAN.md)
 - [隐私政策 (PRIVACY_POLICY.md)](docs/PRIVACY_POLICY.md)
