@@ -67,6 +67,7 @@ class _MatrixHomeState extends State<MatrixHome> {
   bool _detailDirty = false;
   bool _composerOpen = false;
   final _detailKey = GlobalKey();
+  final _quadrantTransitionKey = GlobalKey();
 
   Future<bool> _protectDetailDraft() async {
     if (!_detailDirty) return true;
@@ -237,6 +238,7 @@ class _MatrixHomeState extends State<MatrixHome> {
           _requestExitFocus();
           return;
         }
+        _finishListExitNow();
       },
       child: Shortcuts.manager(
         manager: EditingAwareShortcutManager(),
@@ -322,6 +324,8 @@ class _MatrixHomeState extends State<MatrixHome> {
                   });
                 } else if (_focusedQuadrant != null) {
                   _requestExitFocus();
+                } else if (_listExitFading) {
+                  _finishListExitNow();
                 } else if (_activeDetailTaskId != null) {
                   _closeDetail();
                 }
@@ -348,9 +352,11 @@ class _MatrixHomeState extends State<MatrixHome> {
                                 .firstOrNull;
 
                     final viewMode = store.settings.viewMode;
-                    // Switching the presentation mode never leaves a dangling
-                    // focus: exit focus first, the new mode applies this frame.
-                    if (_focusedQuadrant != null && _lastViewMode != viewMode) {
+                    // Switching matrix/list is a hard session end: drop both
+                    // an active focus and an in-flight list fade so the new
+                    // mode cannot keep a dangling _listExitFading flag.
+                    if (_lastViewMode != viewMode &&
+                        (_focusedQuadrant != null || _listExitFading)) {
                       _focusedQuadrant = null;
                       _listExitFading = false;
                       _listExitFrom = null;
@@ -392,6 +398,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                                   ),
                             )
                             : QuadrantTransitionLayout(
+                              key: _quadrantTransitionKey,
                               focusedQuadrant:
                                   _focusedQuadrant ?? _listExitFrom,
                               viewMode: viewMode,
@@ -425,7 +432,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                               fadeOutOnly:
                                   _listExitFading && _focusedQuadrant == null,
                               onFadeOutDone: () {
-                                if (!mounted) return;
+                                if (!mounted || !_listExitFading) return;
                                 setState(() {
                                   _listExitFading = false;
                                   _listExitFrom = null;
@@ -598,6 +605,14 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
 
     return const SizedBox.shrink();
+  }
+
+  void _finishListExitNow() {
+    if (!_listExitFading) return;
+    setState(() {
+      _listExitFading = false;
+      _listExitFrom = null;
+    });
   }
 
   void _requestFocusQuadrant(int q) {

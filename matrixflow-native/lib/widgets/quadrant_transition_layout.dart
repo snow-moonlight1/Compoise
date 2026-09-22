@@ -94,8 +94,16 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
   late final AnimationController _listFade = AnimationController(
     vsync: this,
     duration: QuadrantTransitionLayout.listFadeDuration,
-    value: _inListMode && widget.focusedQuadrant != null ? 0 : 1,
+    value:
+        _inListMode && widget.focusedQuadrant != null && !widget.fadeOutOnly
+            ? 0
+            : 1,
   )..addStatusListener(_onListFadeStatus);
+
+  /// Bumped on every list fade-out start or cancel so a stale dismissed
+  /// callback cannot complete a newer focus session (R1/R2/R5).
+  int _listFadeGeneration = 0;
+  int _listFadeNotifiedGeneration = -1;
 
   int? _fromState;
   int? _toState;
@@ -123,12 +131,21 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
     super.didChangeDependencies();
     if (_depsResolved) return;
     _depsResolved = true;
+    if (widget.fadeOutOnly) {
+      // Recreated mid-exit (sidebar reparent without a stable key): finish
+      // immediately. Replaying an enter/exit from this new State would stick
+      // at opacity 0 because reverse() from 0 never fires dismissed again.
+      _listFadeGeneration++;
+      _listFade
+        ..stop()
+        ..value = 0;
+      _scheduleFadeOutDone();
+      return;
+    }
     if (MotionPolicy.reduceMotionNow(context)) {
       _geometry.value = 1;
       _listFade.value = 1;
-    } else if (_inListMode &&
-        widget.focusedQuadrant != null &&
-        !widget.fadeOutOnly) {
+    } else if (_inListMode && widget.focusedQuadrant != null) {
       _listFade.forward();
     }
   }
@@ -145,19 +162,28 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
       _frozenFromBlend = null;
       _frozenPaneOpacity = null;
       _fromState = _toState;
-      if (_inListMode && widget.focusedQuadrant != null) {
+      // Invalidate any in-flight list fade. Restoring opacity to 1 while
+      // fadeOutOnly is still true would stop reverse() and never dismiss.
+      _listFadeGeneration++;
+      if (widget.fadeOutOnly) {
+        _listFade
+          ..stop()
+          ..value = 0;
+        _scheduleFadeOutDone();
+      } else if (_inListMode && widget.focusedQuadrant != null) {
         _listFade.value = 1;
       }
     }
     if (widget.focusedQuadrant != oldWidget.focusedQuadrant) {
       _retarget(widget.focusedQuadrant);
     }
-    if (widget.fadeOutOnly && !oldWidget.fadeOutOnly) {
-      if (MotionPolicy.reduceMotionNow(context)) {
-        _listFade.value = 0;
-        _notifyFadeOutDone();
+    if (widget.fadeOutOnly != oldWidget.fadeOutOnly) {
+      if (widget.fadeOutOnly) {
+        _beginListFadeOut();
       } else {
-        _listFade.reverse();
+        // Re-focus (or any new session) must reverse the outgoing fade from
+        // the current opacity; a stale dismissed callback is invalidated.
+        _cancelListFadeOut();
       }
     }
   }
@@ -169,15 +195,44 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
     super.dispose();
   }
 
-  void _notifyFadeOutDone() {
+  void _beginListFadeOut() {
+    _listFadeGeneration++;
+    if (MotionPolicy.reduceMotionNow(context) || _listFade.value == 0) {
+      _listFade
+        ..stop()
+        ..value = 0;
+      _scheduleFadeOutDone();
+      return;
+    }
+    _listFade.reverse();
+  }
+
+  void _cancelListFadeOut() {
+    _listFadeGeneration++;
+    if (MotionPolicy.reduceMotionNow(context)) {
+      _listFade
+        ..stop()
+        ..value = 1;
+      return;
+    }
+    _listFade.forward();
+  }
+
+  void _scheduleFadeOutDone() {
+    final generation = _listFadeGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onFadeOutDone?.call();
+      if (!mounted) return;
+      if (generation != _listFadeGeneration) return;
+      if (generation == _listFadeNotifiedGeneration) return;
+      if (!widget.fadeOutOnly) return;
+      _listFadeNotifiedGeneration = generation;
+      widget.onFadeOutDone?.call();
     });
   }
 
   void _onListFadeStatus(AnimationStatus status) {
     if (status == AnimationStatus.dismissed && widget.fadeOutOnly) {
-      widget.onFadeOutDone?.call();
+      _scheduleFadeOutDone();
     }
   }
 
@@ -510,6 +565,7 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
         (_toState != q && _fromState == q && progress < 0.5);
 
     return Positioned.fromRect(
+      key: ValueKey('q-region-$q'),
       rect: rect,
       child: ClipRect(
         child: Stack(

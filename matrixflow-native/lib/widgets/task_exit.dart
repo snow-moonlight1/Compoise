@@ -72,23 +72,26 @@ class ExitRetention<T> {
     }
 
     final present = <String>{for (final item in items) idOf(item)};
+    final liveIds = [for (final item in items) idOf(item)];
 
-    // 1. Refresh snapshots and fold the previous order into the new one.
-    // Iterating a copy: _remove mutates _order while we walk it.
-    final merged = <String>[];
+    // Drop snapshots that no longer exist; cancel a pending exit if the
+    // row reappeared (undo / un-check / restore).
     for (final id in _order.toList()) {
       if (present.contains(id)) {
-        // Reappeared (undo / un-check / restored): cancel a pending exit.
         _timers.remove(id)?.cancel();
-        merged.add(id);
         continue;
       }
       final snapshot = _items[id];
       if (snapshot == null || !keepIfMissing(snapshot)) {
-        // Deleted, cleared or imported away: leave immediately, no snapshot.
         _remove(id);
-        continue;
       }
+    }
+
+    final exiting = <String>[
+      for (final id in _order)
+        if (!present.contains(id)) id,
+    ];
+    for (final id in exiting) {
       _timers.putIfAbsent(
         id,
         () => Timer(MotionPolicy.exitHold + MotionPolicy.exitCollapse, () {
@@ -96,18 +99,18 @@ class ExitRetention<T> {
           onChange();
         }),
       );
-      merged.add(id);
     }
 
-    // 2. Insert current items; new ones take their current index.
-    final seen = merged.toSet();
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      final id = idOf(item);
-      _items[id] = item;
-      if (seen.contains(id)) continue;
-      merged.insert(i.clamp(0, merged.length), id);
-      seen.add(id);
+    // Live rows follow the current query order. Exiting snapshots are
+    // re-inserted at their last visual index so a reorder of still-present
+    // items is not frozen by the retention cache.
+    final merged = List<String>.from(liveIds);
+    for (final id in exiting) {
+      merged.insert(_order.indexOf(id).clamp(0, merged.length), id);
+    }
+
+    for (final item in items) {
+      _items[idOf(item)] = item;
     }
 
     _order
