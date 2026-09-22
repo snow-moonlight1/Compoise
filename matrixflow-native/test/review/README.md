@@ -1,4 +1,16 @@
-# WP28 基础复审探针
+# 显式审查探针
+
+## Flutter 全库审查（2026-09-22）
+
+`preopensource_review_probe.dart` 在 `9c622fd` 加 R1–R5/S1 工作区基线上有 7 个预期行为断言失败：损坏启动覆盖、重复子项 ID、自定义模型 round-trip、跨协议发现缓存、未知 provider 设置页、远期提醒日期和退场键盘操作。均为合成数据/mock，不访问真实用户数据或商业 AI。
+
+```powershell
+& D:/Dev_SDKs/Flutter_SDK/bin/flutter.bat test --no-pub test/review/preopensource_review_probe.dart --reporter expanded
+```
+
+默认 359 项通过不覆盖这七个反例。按 [实施计划](../../../docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md) 对应包修复后，将断言迁入默认可发现回归；不要把预期改成错误行为。完整依据见 [全库审查报告](../../../docs/FLUTTER_REVIEW_2026-09-22.md)。以下旧探针记录属于各自历史基线。
+
+## WP28 基础复审探针
 
 ## 二次复审（2026-09-16）
 
