@@ -7,6 +7,7 @@ import '../storage.dart';
 import '../ui/motion_policy.dart';
 import 'anim.dart';
 import 'animated_task_title.dart';
+import 'task_hierarchy_checkbox.dart';
 
 export '../deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 
@@ -14,9 +15,11 @@ export '../deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 enum TaskRowLayout { matrixCompact, hierarchical }
 
 class TaskCard extends StatelessWidget {
-  static const double checkColumnWidth = 48;
-  static const double parentCheckVisual = 22;
-  static const double childCheckVisual = 18;
+  static const double checkColumnWidth = TaskHierarchyStyle.hitTargetSize;
+  static const double parentCheckVisual =
+      TaskHierarchyStyle.parentCheckboxVisualSize;
+  static const double childCheckVisual =
+      TaskHierarchyStyle.childCheckboxVisualSize;
   static const double hierarchicalIndent = 16;
 
   final Task task;
@@ -195,8 +198,9 @@ class TaskCard extends StatelessWidget {
       children: [
         _checkColumn(
           key: ValueKey('complete-${task.id}'),
+          visualKey: ValueKey('complete-${task.id}-visual'),
           semanticsLabel: t['markTaskComplete'],
-          visualSize: parentCheckVisual,
+          level: TaskHierarchyLevel.parent,
           value: task.completed,
           onToggle: () {
             store.setParentCompleted(task, !task.completed);
@@ -230,7 +234,7 @@ class TaskCard extends StatelessWidget {
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          fontSize: 16,
+                          fontSize: TaskHierarchyStyle.parentTitleSize,
                           height: 1.4,
                           fontWeight: FontWeight.w500,
                           color:
@@ -364,8 +368,9 @@ class TaskCard extends StatelessWidget {
             children: [
               _checkColumn(
                 key: ValueKey('task-subtask-check-${sub.id}'),
+                visualKey: ValueKey('task-subtask-check-${sub.id}-visual'),
                 semanticsLabel: t['markTaskComplete'],
-                visualSize: childCheckVisual,
+                level: TaskHierarchyLevel.child,
                 value: sub.completed,
                 onToggle: () {
                   store.setSubtaskCompleted(task.id, sub.id, !sub.completed);
@@ -400,7 +405,7 @@ class TaskCard extends StatelessWidget {
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 14,
+                            fontSize: TaskHierarchyStyle.childTitleSize,
                             height: 1.4,
                             fontWeight: FontWeight.w400,
                             color:
@@ -448,39 +453,19 @@ class TaskCard extends StatelessWidget {
 
   Widget _checkColumn({
     required Key key,
+    required Key visualKey,
     required String? semanticsLabel,
-    required double visualSize,
+    required TaskHierarchyLevel level,
     required bool value,
     required VoidCallback onToggle,
   }) {
-    return Semantics(
-      label: semanticsLabel,
-      button: true,
-      child: SizedBox(
-        width: checkColumnWidth,
-        height: checkColumnWidth,
-        child: GestureDetector(
-          key: key,
-          behavior: HitTestBehavior.opaque,
-          onTap: onToggle,
-          child: Center(
-            child: SizedBox(
-              width: visualSize,
-              height: visualSize,
-              // Only the surrounding 48dp GestureDetector handles the tap, so a
-              // single tap performs exactly one business write.
-              child: IgnorePointer(
-                child: Checkbox(
-                  value: value,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  onChanged: (_) => onToggle(),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return TaskHierarchyCheckbox(
+      level: level,
+      value: value,
+      semanticsLabel: semanticsLabel,
+      hitTargetKey: key,
+      visualKey: visualKey,
+      onChanged: (_) => onToggle(),
     );
   }
 

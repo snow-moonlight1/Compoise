@@ -12,6 +12,7 @@ import '../widgets/anim.dart';
 import '../widgets/task_detail_panel.dart';
 import '../widgets/task_exit.dart';
 import '../widgets/task_filter_panel.dart';
+import '../widgets/task_hierarchy_checkbox.dart';
 
 class CompletedScreen extends StatefulWidget {
   final String? initialBoardId;
@@ -378,31 +379,22 @@ class _CompletedScreenState extends State<CompletedScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Completed Checkbox: tapping it restores task
-                Semantics(
-                  label: t['restoreTask'] ?? 'Restore',
-                  button: true,
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Center(
-                      child: Checkbox(
-                        key: ValueKey('completed-check-${task.id}'),
-                        value: true,
-                        onChanged: (_) {
-                          store.restoreTask(task);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                t['taskRestored'] ?? 'Task restored',
-                              ),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        },
+                // Completed checkbox: tapping it restores the task.
+                TaskHierarchyCheckbox(
+                  hitTargetKey: ValueKey('completed-check-${task.id}'),
+                  visualKey: ValueKey('completed-check-${task.id}-visual'),
+                  level: TaskHierarchyLevel.parent,
+                  value: true,
+                  semanticsLabel: t['restoreTask'] ?? 'Restore',
+                  onChanged: (_) {
+                    store.restoreTask(task);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(t['taskRestored'] ?? 'Task restored'),
+                        duration: const Duration(seconds: 2),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 8),
 
@@ -466,7 +458,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize: 15,
+                            fontSize: TaskHierarchyStyle.parentTitleSize,
                             height: 1.35,
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.5,
@@ -581,6 +573,9 @@ class _CompletedScreenState extends State<CompletedScreen> {
                                             s.title,
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
+                                                  fontSize:
+                                                      TaskHierarchyStyle
+                                                          .childTitleSize,
                                                   decoration:
                                                       s.completed
                                                           ? TextDecoration

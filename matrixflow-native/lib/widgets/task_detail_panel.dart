@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import 'input_sheet.dart';
+import 'task_hierarchy_checkbox.dart';
 
 /// Confirms discarding an unsaved detail draft. Returns true when the user
 /// chooses to discard, false when they keep editing or dismiss the dialog.
@@ -1312,19 +1313,20 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                       : null,
                               child: Row(
                                 children: [
-                                  SizedBox(
-                                    width: 32,
-                                    height: 32,
-                                    child: Checkbox(
-                                      value: sub.completed,
-                                      onChanged: (v) {
-                                        setState(() {
-                                          sub.completed = v ?? false;
-                                        });
-                                      },
+                                  TaskHierarchyCheckbox(
+                                    hitTargetKey: ValueKey(
+                                      'detail-subtask-check-${sub.id}',
                                     ),
+                                    visualKey: ValueKey(
+                                      'detail-subtask-check-${sub.id}-visual',
+                                    ),
+                                    level: TaskHierarchyLevel.child,
+                                    value: sub.completed,
+                                    semanticsLabel: t['markTaskComplete'],
+                                    onChanged: (v) {
+                                      setState(() => sub.completed = v);
+                                    },
                                   ),
-                                  const SizedBox(width: 8),
                                   Expanded(
                                     child: InkWell(
                                       key: ValueKey('subtask-item-${sub.id}'),
@@ -1343,6 +1345,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                             Text(
                                               sub.title,
                                               style: TextStyle(
+                                                fontSize:
+                                                    TaskHierarchyStyle
+                                                        .childTitleSize,
                                                 decoration:
                                                     sub.completed
                                                         ? TextDecoration

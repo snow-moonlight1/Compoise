@@ -11,6 +11,7 @@ import '../widgets/animated_task_title.dart';
 import '../widgets/task_detail_panel.dart';
 import '../widgets/task_exit.dart';
 import '../widgets/task_filter_panel.dart';
+import '../widgets/task_hierarchy_checkbox.dart';
 
 /// Screen for searching and multi-dimensional filtering across tasks and subtasks.
 class SearchScreen extends StatefulWidget {
@@ -443,9 +444,6 @@ class _SearchScreenState extends State<SearchScreen> {
     PlatformUiPolicy policy,
   ) {
     final activeBoardId = widget.initialBoardId ?? store.activeBoardId;
-    final checkSize =
-        policy.isTouchLayout ? PlatformUiPolicy.minActionSize : 32.0;
-
     return ListView.separated(
       controller: _listController,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -473,37 +471,25 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Semantics(
-                  label: t['toggleComplete'] ?? t['completed'] ?? 'Completed',
-                  button: true,
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      key: ValueKey('search-check-${hit.resultKey}'),
-                      onTap: () {
-                        final val = !isCompleted;
-                        if (isSubtask && subtask != null) {
-                          subtask.completed = val;
-                        } else {
-                          task.completed = val;
-                        }
-                        store.updateTask(task);
-                      },
-                      child: SizedBox(
-                        key: ValueKey('search-check-hit-${hit.resultKey}'),
-                        width: checkSize,
-                        height: checkSize,
-                        child: IgnorePointer(
-                          child: Center(
-                            child: Checkbox(
-                              value: isCompleted,
-                              onChanged: (_) {},
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                TaskHierarchyCheckbox(
+                  key: ValueKey('search-check-${hit.resultKey}'),
+                  hitTargetKey: ValueKey('search-check-hit-${hit.resultKey}'),
+                  visualKey: ValueKey('search-check-visual-${hit.resultKey}'),
+                  level:
+                      isSubtask
+                          ? TaskHierarchyLevel.child
+                          : TaskHierarchyLevel.parent,
+                  value: isCompleted,
+                  semanticsLabel:
+                      t['toggleComplete'] ?? t['completed'] ?? 'Completed',
+                  onChanged: (val) {
+                    if (isSubtask && subtask != null) {
+                      subtask.completed = val;
+                    } else {
+                      task.completed = val;
+                    }
+                    store.updateTask(task);
+                  },
                 ),
                 const SizedBox(width: 8),
 
@@ -564,6 +550,11 @@ class _SearchScreenState extends State<SearchScreen> {
                         completed: isCompleted,
                         strikeKey: ValueKey('search-strike-${hit.resultKey}'),
                         style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: TaskHierarchyStyle.titleSize(
+                            isSubtask
+                                ? TaskHierarchyLevel.child
+                                : TaskHierarchyLevel.parent,
+                          ),
                           color:
                               isCompleted
                                   ? theme.disabledColor
