@@ -251,7 +251,6 @@ class _TaskListViewState extends State<TaskListView> {
                   child: Text(
                     t['noTasksInQuadrant'] ?? t['empty'] ?? 'No tasks',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontStyle: FontStyle.italic,
                       color: theme.colorScheme.onSurface.withValues(
                         alpha: 0.35,
                       ),

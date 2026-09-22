@@ -239,7 +239,6 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                           child: Text(
                             t['empty']!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontStyle: FontStyle.italic,
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.35,
                               ),
