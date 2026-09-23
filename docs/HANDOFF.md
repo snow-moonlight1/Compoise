@@ -1,8 +1,16 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-23（OS06/OS07 连续完成）。
+最后更新：2026-09-23（OS08/OS09 连续实施）。
 
-## 当前任务：OS01–OS07 已完成，下一包 OS08（2026-09-23）
+## 当前任务：OS01–OS09 已实施，下一包 OS10（2026-09-23）
+
+- 本轮接手 `main / 5c0c41d13f0d9c0e338890b4c37cb4f668adf87b`，工作区干净；用户授权连续 OS08、OS09，不开始 OS10。实际路径为 `D:\Dev_project\martix`。未改冻结 React/Tauri/Capacitor。
+- OS08：默认 v2/v1 JSON 省略 `customApiKey` 键；设置页每次选择排除或明文包含，取消/导出失败无成功提示。显式包含从 `CredentialStore` 读出。旧 v1/v2 含 key 备份可读；覆盖导入默认保留本机 key，预览时明确选择才替换；merge 不导入配置。预览、错误、文件名和日志无 key 值。
+- OS09：新增可替换 `CredentialStore`，默认 `flutter_secure_storage 10.3.4`（BSD-3-Clause；Windows 子包 4.1.0）。旧明文仅在系统存储写入并读回后清理 `matrixflow-config` 及 OS06 双槽，清理可重试；失败显示状态并暂停普通保存，也阻止配置编辑绕过迁移。Android Keystore/AES-GCM，compileSdk 36、最低 API 23；Windows Credential Manager 保存 AES-GCM 密钥、应用目录保存加密文件，构建需要 ATL。Android 关闭应用自动备份及设备转移，避免仅恢复密文；Windows 文件和系统凭据不保证可独立搬迁。跨设备用手动 JSON 明确选含密钥导出/导入。旧键清理是逻辑存储键更新，不承诺对设备闪存作安全擦除。
+- 验证：合成 sentinel 专项 12/12；Windows 原生 integration 写/读/删独立无效探针键 1/1；默认全量 `flutter test --no-pub` 403/403，`flutter analyze --no-pub` 0 issues；Android debug APK 构建通过。Android 无连接设备，系统级存取未测。未使用真实密钥或用户备份。既有 OS06 SharedPreferences 掉电/强杀及多实例边界未改变。
+- 下一包 OS10；WP10/WP29/UI 实验继续暂停。
+
+## 历史任务：OS01–OS07 已完成，当时下一包 OS08（2026-09-23）
 
 - 本轮接手 `main / e58431e9ffd93b08d557f500eeb733ac6a97f23f`，工作区干净；用户明确授权连续完成 OS06、OS07，未开始 OS08。实际仓库路径是 `D:\Dev_project\martix`（用户消息中的 `D:\Dev\_project\martix` 不存在）。未改冻结 React/Tauri/Capacitor。
 - **OS06**：新增 `lib/save_protocol.dart` 双槽完整快照（任务、板、配置、设置、活跃板、onboarding）和校验/提交指针，Store 启动优先读已提交槽，旧键继续镜像；`flush` 暴露 `SaveResult`，失败横幅可重试且成功清错。写入 false、异常、指针前及镜像中断的合成测试分别验证重启为完整旧/新批次。OS05 恢复副本也包含批次原始键。SharedPreferences 方法完成不是掉电原子性；强杀、掉电及多实例竞争本轮无平台证据。

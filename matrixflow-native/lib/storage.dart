@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai_service.dart';
+import 'credential_store.dart';
 import 'deadline_policy.dart';
 import 'l10n.dart';
 import 'import_preflight.dart';
@@ -18,6 +19,7 @@ import 'services/reminder_service.dart';
 import 'task_commands.dart';
 
 export 'data_migrations.dart';
+export 'credential_store.dart';
 export 'deadline_policy.dart';
 export 'import_preflight.dart';
 export 'save_protocol.dart';
@@ -35,6 +37,15 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   static const _kHasSeenOnboarding = 'matrixflow-has-seen-onboarding';
 
   final AIService ai;
+  final CredentialStore credentialStore;
+  static CredentialStore? testCredentialStore;
+  String _confirmedCredential = '';
+  String? _pendingCredentialValue;
+  String? _pendingCredentialRollback;
+  String? _legacyCredentialForMigration;
+  Future<void> _credentialWrites = Future.value();
+  String? credentialError;
+  bool _credentialMigrationPending = false;
   late SharedPreferences _prefs;
   SaveProtocol? _saveProtocol;
   Map<String, String>? _savedValues;
@@ -67,9 +78,17 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   final List<Locale>? initialDeviceLocales;
 
-  Store({AIService? aiService, List<Locale>? deviceLocales, this.saveWriter})
-    : ai = aiService ?? AIService(),
-      initialDeviceLocales = deviceLocales;
+  Store({
+    AIService? aiService,
+    List<Locale>? deviceLocales,
+    this.saveWriter,
+    CredentialStore? credentialStore,
+  }) : ai = aiService ?? AIService(),
+       credentialStore =
+           credentialStore ??
+           testCredentialStore ??
+           const SystemCredentialStore(),
+       initialDeviceLocales = deviceLocales;
 
   Future<void> retryReminder(ReminderPayload payload) async {
     final service = ReminderService.instance;
@@ -275,6 +294,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return;
     }
+    if (!await retryCredentialMigration()) {
+      notifyListeners();
+      return;
+    }
     _persistAll();
     _applyDeadlinePromotion();
     ReminderService.instance.rescheduleAllFuture(tasks);
@@ -325,6 +348,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final validIds = boards.map((board) => board.id).toSet();
     for (final task in tasks) {
       if (!validIds.contains(task.boardId)) task.boardId = boards.first.id;
+    }
+    if (!await retryCredentialMigration()) {
+      notifyListeners();
+      return false;
     }
     _persistAll();
     _applyDeadlinePromotion();
@@ -1132,10 +1159,147 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void updateAIConfig(AIConfig config) {
-    aiConfig = config;
+  Future<bool> updateAIConfig(AIConfig config) async {
+    if (_credentialMigrationPending) {
+      aiConfig.apiKey = _legacyCredentialForMigration ?? aiConfig.apiKey;
+      credentialError = t['credentialMigrationError'];
+      if (!_disposed) notifyListeners();
+      return false;
+    }
+    final requested = config.apiKey;
+    aiConfig = _copyConfig(config);
+    // Keep the editable value visible while the secure write is pending. No
+    // ordinary snapshot includes it; failure restores the confirmed value.
+    aiConfig.apiKey = requested;
     _saveConfig();
     notifyListeners();
+    if (requested == _confirmedCredential) {
+      _pendingCredentialValue = null;
+      credentialError = null;
+      return true;
+    }
+    _pendingCredentialValue = requested;
+    final previous = _credentialWrites;
+    final result = Completer<bool>();
+    _credentialWrites = () async {
+      await previous;
+      try {
+        if (requested.isEmpty) {
+          await credentialStore.delete();
+          if (await credentialStore.read() != null) {
+            throw StateError('Credential delete failed');
+          }
+        } else {
+          await credentialStore.write(requested);
+          if (await credentialStore.read() != requested) {
+            throw StateError('Credential verification failed');
+          }
+        }
+        _confirmedCredential = requested;
+        aiConfig.apiKey = requested;
+        credentialError = null;
+        if (_pendingCredentialValue == requested) {
+          _pendingCredentialValue = null;
+        }
+        result.complete(true);
+      } catch (_) {
+        credentialError = t['credentialStoreError'];
+        aiConfig.apiKey = _confirmedCredential;
+        result.complete(false);
+      }
+      notifyListeners();
+    }();
+    return result.future;
+  }
+
+  Future<bool> retryCredentialMigration() async {
+    final rollback = _pendingCredentialRollback;
+    if (rollback != null) return _restoreCredential(rollback);
+    final legacy = _legacyCredentialForMigration ?? aiConfig.apiKey;
+    try {
+      final secured = await credentialStore.read();
+      if (secured != null) {
+        _confirmedCredential = secured;
+      } else if (legacy.isNotEmpty) {
+        await credentialStore.write(legacy);
+        if (await credentialStore.read() != legacy) {
+          throw StateError('Credential verification failed');
+        }
+        _confirmedCredential = legacy;
+      } else {
+        _confirmedCredential = '';
+      }
+      if (!await _saveProtocol!.scrubCredentials()) {
+        throw StateError('Legacy scrub failed');
+      }
+      aiConfig.apiKey = _confirmedCredential;
+      credentialError = null;
+      _credentialMigrationPending = false;
+      _legacyCredentialForMigration = null;
+      return true;
+    } catch (_) {
+      credentialError = t['credentialMigrationError'];
+      _credentialMigrationPending = true;
+      _legacyCredentialForMigration = legacy;
+      return false;
+    }
+  }
+
+  Future<bool> retryCredential() async {
+    final rollback = _pendingCredentialRollback;
+    if (rollback != null) {
+      return _restoreCredential(rollback);
+    }
+    final pending = _pendingCredentialValue;
+    if (pending != null) {
+      final config = _copyConfig(aiConfig);
+      config.apiKey = pending;
+      return updateAIConfig(config);
+    }
+    final wasPending = _credentialMigrationPending;
+    final success = await retryCredentialMigration();
+    if (success && wasPending && ready && !_disposed) {
+      _applyDeadlinePromotion();
+      ReminderService.instance.rescheduleAllFuture(tasks);
+      _deadlineTimer ??= Timer.periodic(
+        const Duration(hours: 1),
+        (_) => _applyDeadlinePromotion(),
+      );
+      WidgetsBinding.instance.addObserver(this);
+      notifyListeners();
+    }
+    return success;
+  }
+
+  AIConfig _copyConfig(AIConfig source) => AIConfig(
+    provider: source.provider,
+    protocol: source.protocol,
+    baseUrl: source.baseUrl,
+    apiKey: source.apiKey,
+    model: source.model,
+    enableThinking: source.enableThinking,
+  );
+
+  Future<bool> _restoreCredential(String value) async {
+    try {
+      if (value.isEmpty) {
+        await credentialStore.delete();
+      } else {
+        await credentialStore.write(value);
+      }
+      if (await credentialStore.read() != (value.isEmpty ? null : value)) {
+        throw StateError('Credential rollback verification failed');
+      }
+      _pendingCredentialRollback = null;
+      credentialError = null;
+      if (!_disposed) notifyListeners();
+      return true;
+    } catch (_) {
+      _pendingCredentialRollback = value;
+      credentialError = t['credentialStoreError'];
+      if (!_disposed) notifyListeners();
+      return false;
+    }
   }
 
   // --- import / export (ExportData v2 standard, v1 downgrade compatible) ---
@@ -1149,6 +1313,28 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       aiConfig: aiConfig,
     ).toJson(targetVersion: version),
   );
+
+  Future<String> exportJsonWithCredential({
+    int version = ExportData.currentVersion,
+  }) async {
+    await _credentialWrites;
+    if (credentialError != null) throw StateError('Credential unavailable');
+    final secured = await credentialStore.read();
+    if (secured == null && _confirmedCredential.isNotEmpty) {
+      throw StateError('Credential unavailable');
+    }
+    final config = _copyConfig(aiConfig);
+    config.apiKey = secured ?? '';
+    return jsonEncode(
+      ExportData(
+        version: version,
+        boards: boards,
+        tasks: tasks,
+        settings: settings,
+        aiConfig: config,
+      ).toJson(targetVersion: version, includeCredential: true),
+    );
+  }
 
   /// Returns the number of tasks imported. [mode] is 'merge' or 'overwrite'.
   int importData(Map<String, dynamic> json, String mode) {
@@ -1169,8 +1355,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       );
 
   /// Persist the proposed complete state before changing live state.
-  Future<SaveResult> applyImport(ImportPlan plan) async {
-    if (plan.conflicts != 0 || hasStartupRecovery) {
+  Future<SaveResult> applyImport(
+    ImportPlan plan, {
+    bool importCredential = false,
+  }) async {
+    await _credentialWrites;
+    if (plan.conflicts != 0 || hasStartupRecovery || credentialError != null) {
       return const SaveResult(false, 0);
     }
     final preceding = await flush();
@@ -1180,7 +1370,32 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       return const SaveResult(false, 0);
     }
     final nextSettings = plan.settings ?? settings;
-    final nextConfig = plan.aiConfig ?? aiConfig;
+    final nextConfig =
+        plan.aiConfig == null ? aiConfig : _copyConfig(plan.aiConfig!);
+    final oldCredential = _confirmedCredential;
+    final newCredential =
+        importCredential && plan.hasCredential
+            ? plan.aiConfig!.apiKey
+            : oldCredential;
+    nextConfig.apiKey = newCredential;
+    if (newCredential != oldCredential) {
+      try {
+        if (newCredential.isEmpty) {
+          await credentialStore.delete();
+        } else {
+          await credentialStore.write(newCredential);
+        }
+        if ((await credentialStore.read()) !=
+            (newCredential.isEmpty ? null : newCredential)) {
+          throw StateError('Credential verification failed');
+        }
+      } catch (_) {
+        await _restoreCredential(oldCredential);
+        credentialError = t['credentialStoreError'];
+        if (!_disposed) notifyListeners();
+        return const SaveResult(false, 0);
+      }
+    }
     final active =
         plan.mode == 'overwrite' ? plan.boards.first.id : activeBoardId;
     final values = _snapshotValues(
@@ -1193,11 +1408,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final result = await _saveProtocol!.commit(values);
     lastSaveResult = result;
     if (!result.success) {
+      if (newCredential != oldCredential) {
+        await _restoreCredential(oldCredential);
+      }
       persistenceError = t['storageWriteError'];
       if (!_disposed) notifyListeners();
       return result;
     }
     _savedValues = values;
+    _confirmedCredential = newCredential;
+    credentialError = null;
     _dirtyRevision++;
     _savedRevision = _dirtyRevision;
     persistenceError = null;
@@ -1217,7 +1437,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     boards = plan.boards;
     tasks = plan.tasks;
     settings = plan.settings ?? settings;
-    aiConfig = plan.aiConfig ?? aiConfig;
+    if (plan.aiConfig != null) {
+      aiConfig = _copyConfig(plan.aiConfig!);
+      aiConfig.apiKey = _confirmedCredential;
+    }
     if (plan.mode == 'overwrite') activeBoardId = boards.first.id;
     try {
       if (plan.mode == 'overwrite') ReminderService.instance.cancelAll();
@@ -1277,7 +1500,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _write(String key, String value) {
-    if (!ready || _disposed || hasStartupRecovery) return;
+    if (!ready || _disposed || hasStartupRecovery || credentialError != null) {
+      return;
+    }
     _dirtyRevision++;
     if (!_saveScheduled) {
       _saveScheduled = true;
@@ -1330,7 +1555,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _kBoards: jsonEncode(
       (boardsValue ?? boards).map((board) => board.toJson()).toList(),
     ),
-    _kConfig: jsonEncode((configValue ?? aiConfig).toJson()),
+    _kConfig: jsonEncode(
+      (configValue ?? aiConfig).toJson(includeCredential: false),
+    ),
     _kSettings: jsonEncode((settingsValue ?? settings).toJson()),
     _kActiveBoard: activeValue ?? activeBoardId,
     _kHasSeenOnboarding: hasSeenOnboarding.toString(),
@@ -1343,7 +1570,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _write(_kActiveBoard, activeBoardId);
   }
 
-  void _saveConfig() => _write(_kConfig, jsonEncode(aiConfig.toJson()));
+  void _saveConfig() =>
+      _write(_kConfig, jsonEncode(aiConfig.toJson(includeCredential: false)));
   void _saveSettings() => _write(_kSettings, jsonEncode(settings.toJson()));
 
   List<Locale> _resolvePlatformLocales() {

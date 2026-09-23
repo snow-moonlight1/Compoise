@@ -24,7 +24,7 @@ if (hasKeystore) {
 
 android {
     namespace = "com.matrixflow.matrixflow_native"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36 // flutter_secure_storage 10.3.4 compiles against API 36.
     ndkVersion = "28.0.12433566"
 
     compileOptions {
@@ -39,7 +39,7 @@ android {
 
     defaultConfig {
         applicationId = "com.matrixflow.app"
-        minSdk = flutter.minSdkVersion
+        minSdk = 23 // flutter_secure_storage 10.x requires Android 6.0+.
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

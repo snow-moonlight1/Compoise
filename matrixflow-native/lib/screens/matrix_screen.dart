@@ -492,6 +492,30 @@ class _MatrixHomeState extends State<MatrixHome> {
                           constraints.maxWidth,
                         ),
                         const ReminderFailureBanner(),
+                        if (store.credentialError != null)
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    store.credentialError!,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    if (await store.retryCredential()) {
+                                      await store.retrySave();
+                                    }
+                                  },
+                                  child: Text(t['retrySave']!),
+                                ),
+                              ],
+                            ),
+                          ),
                         if (store.persistenceError != null)
                           Padding(
                             padding: const EdgeInsets.all(8),

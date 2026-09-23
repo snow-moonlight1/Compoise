@@ -132,6 +132,75 @@ class SaveProtocol {
   Future<bool> _set(String key, String value) =>
       writer?.call(key, value) ?? prefs.setString(key, value);
 
+  /// Remove legacy plaintext from both batch slots and the compatibility
+  /// mirror. Safe to repeat after interruption. Call only after a secure-store
+  /// write has been read back successfully (or when no credential exists).
+  Future<bool> scrubCredentials() async {
+    for (final slot in [_slotA, _slotB]) {
+      final raw = prefs.getString(slot);
+      if (raw == null) continue;
+      String updated;
+      try {
+        final batch = jsonDecode(raw) as Map<String, dynamic>;
+        final values = Map<String, String>.from(batch['values'] as Map);
+        final config =
+            jsonDecode(values['matrixflow-config']!) as Map<String, dynamic>;
+        if (!config.containsKey('customApiKey')) continue;
+        config.remove('customApiKey');
+        values['matrixflow-config'] = jsonEncode(config);
+        final body = jsonEncode({
+          'revision': batch['revision'],
+          'values': values,
+        });
+        updated = jsonEncode({
+          'revision': batch['revision'],
+          'values': values,
+          'check': _checksum(body),
+        });
+      } catch (_) {
+        // An uncommitted damaged slot cannot be used for recovery. Keep the
+        // committed slot, but remove this copy in case it contains plaintext.
+        if (slot == _activeSlot || !await prefs.remove(slot)) return false;
+        continue;
+      }
+      try {
+        if (!await _set(slot, updated) || prefs.getString(slot) != updated) {
+          return false;
+        }
+      } catch (_) {
+        return false;
+      }
+    }
+    final mirror = prefs.getString('matrixflow-config');
+    if (mirror != null) {
+      String? updated;
+      try {
+        final config = jsonDecode(mirror) as Map<String, dynamic>;
+        if (config.containsKey('customApiKey')) {
+          config.remove('customApiKey');
+          updated = jsonEncode(config);
+        }
+      } catch (_) {
+        // A committed slot is authoritative. A malformed compatibility mirror
+        // must not leave a possible plaintext copy behind.
+        if (_activeSlot == null || !await prefs.remove('matrixflow-config')) {
+          return false;
+        }
+      }
+      if (updated != null) {
+        try {
+          if (!await _set('matrixflow-config', updated) ||
+              prefs.getString('matrixflow-config') != updated) {
+            return false;
+          }
+        } catch (_) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   static int _checksum(String value) {
     var a = 1;
     var b = 0;

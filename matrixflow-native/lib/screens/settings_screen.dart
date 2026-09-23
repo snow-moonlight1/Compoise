@@ -725,6 +725,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               t['dataManagement']!,
               Icons.cloud_sync_outlined,
             ),
+            if (store.credentialError != null)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      store.credentialError!,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      if (await store.retryCredential()) {
+                        await store.retrySave();
+                      }
+                    },
+                    child: Text(t['retrySave']!),
+                  ),
+                ],
+              ),
             Row(
               children: [
                 Expanded(
@@ -1455,7 +1474,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_fileBusy) return;
     setState(() => _fileBusy = true);
     try {
-      final bytes = Uint8List.fromList(utf8.encode(store.exportJson()));
+      final includeCredential = await showDialog<bool>(
+        context: context,
+        builder:
+            (dialogContext) => AlertDialog(
+              title: Text(store.t['exportCredentialTitle']!),
+              content: Text(store.t['exportCredentialWarning']!),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(store.t['cancel']!),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text(store.t['exportWithoutCredential']!),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: Text(store.t['exportWithCredential']!),
+                ),
+              ],
+            ),
+      );
+      if (includeCredential == null || !context.mounted) return;
+      final json =
+          includeCredential
+              ? await store.exportJsonWithCredential()
+              : store.exportJson();
+      final bytes = Uint8List.fromList(utf8.encode(json));
       final path = await FilePicker.platform.saveFile(
         fileName:
             'matrixflow_backup_${DateTime.now().toIso8601String().split('T').first}.json',
@@ -1472,7 +1518,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(path)));
+        ).showSnackBar(SnackBar(content: Text(store.t['exportSuccess']!)));
       }
     } catch (_) {
       if (context.mounted) {
@@ -1595,19 +1641,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
 
       final warningDetails = plan.warnings.take(8).map(warningText).join('\n');
-      final sure = await showDialog<bool>(
+      final choice = await showDialog<String>(
         context: context,
         builder:
             (dialogContext) => AlertDialog(
               title: Text(t['importPreview']!),
               content: SingleChildScrollView(
                 child: Text(
-                  '${mode == 'overwrite' ? t['confirmImport'] : t['importModeMergeDesc']}\n\n$summary\n\n$warningDetails\n\n${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
+                  '${mode == 'overwrite' ? t['confirmImport'] : t['importModeMergeDesc']}\n\n$summary\n\n${plan.hasCredential ? t['importCredentialPresent'] : ''}\n\n$warningDetails\n\n${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: Text(t['cancel']!),
                 ),
                 FilledButton(
@@ -1617,15 +1663,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onPressed:
                       plan.conflicts > 0
                           ? null
-                          : () => Navigator.pop(dialogContext, true),
-                  child: Text(t['confirm']!),
+                          : () => Navigator.pop(dialogContext, 'keep'),
+                  child: Text(
+                    plan.hasCredential
+                        ? t['importKeepCredential']!
+                        : t['confirm']!,
+                  ),
                 ),
+                if (plan.hasCredential)
+                  TextButton(
+                    onPressed:
+                        plan.conflicts > 0
+                            ? null
+                            : () => Navigator.pop(dialogContext, 'replace'),
+                    child: Text(t['importReplaceCredential']!),
+                  ),
               ],
             ),
       );
-      if (sure != true || !context.mounted) return;
+      if (choice == null || !context.mounted) return;
       applying = true;
-      final result = await store.applyImport(plan);
+      final result = await store.applyImport(
+        plan,
+        importCredential: choice == 'replace',
+      );
       if (!result.success) {
         throw StateError('Import save failed');
       }

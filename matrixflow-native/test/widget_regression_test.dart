@@ -74,6 +74,7 @@ class ControlledAI extends AIService {
 
 class TestPicker extends FilePicker {
   Uint8List? savedBytes;
+  bool failSave = false;
   bool failPick = false;
   Uint8List? incoming;
   @override
@@ -86,6 +87,7 @@ class TestPicker extends FilePicker {
     Uint8List? bytes,
     bool lockParentWindow = false,
   }) async {
+    if (failSave) throw StateError('synthetic save failure');
     savedBytes = bytes;
     return null;
   }
@@ -246,14 +248,51 @@ void main() {
       );
       await tester.tap(find.text('Export JSON'));
       await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text(store.t['cancel']!).last);
+      await tester.pumpAndSettle();
+      expect(picker.savedBytes, isNull);
+      await tester.tap(find.text('Export JSON'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(store.t['exportWithoutCredential']!));
+      await tester.pumpAndSettle();
       final json = jsonDecode(utf8.decode(picker.savedBytes!));
       expect(json['tasks'][0]['title'], '备份任务');
+      expect(json['aiConfig'], isNot(contains('customApiKey')));
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(SelectableText), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('explicit plaintext export requires choice; picker failure has no success', (tester) async {
+    final store = await setup(tester);
+    expect(await tester.runAsync(() => store.updateAIConfig(
+        AIConfig(apiKey: 'SYNTHETIC_EXPORT_INVALID'))), isTrue);
+    final picker = TestPicker();
+    FilePicker.platform = picker;
+    await tester.pumpWidget(app(store, const SettingsScreen()));
+    await tester.scrollUntilVisible(find.text('Export JSON'), 400,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Export JSON'));
+    await tester.pumpAndSettle();
+    expect(find.text(store.t['exportCredentialWarning']!), findsOneWidget);
+    await tester.tap(find.text(store.t['exportWithCredential']!));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pumpAndSettle();
+    expect(utf8.decode(picker.savedBytes!), contains('SYNTHETIC_EXPORT_INVALID'));
+    picker.failSave = true;
+    picker.savedBytes = null;
+    await tester.tap(find.text('Export JSON'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(store.t['exportWithoutCredential']!));
+    await tester.pumpAndSettle();
+    expect(picker.savedBytes, isNull);
+    expect(find.text(store.t['exportError']!), findsOneWidget);
+    expect(find.text(store.t['exportSuccess']!), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('file picker exception is shown and import can be retried', (
     tester,
@@ -3531,5 +3570,4 @@ void main() {
     },
   );
 }
-
 

@@ -175,9 +175,10 @@ class Task {
             .map(SubTask.fromJson)
             .toList(),
     reasoning: j['reasoning'] as String?,
-    urgencyMode: (j['urgencyMode'] as String?) == 'manual'
-        ? UrgencyMode.manual
-        : UrgencyMode.auto,
+    urgencyMode:
+        (j['urgencyMode'] as String?) == 'manual'
+            ? UrgencyMode.manual
+            : UrgencyMode.auto,
     notesMarkdown: j['notesMarkdown'] as String?,
     reminderAt: _timestamp(j['reminderAt']),
     reminderTimezone: j['reminderTimezone'] as String?,
@@ -325,12 +326,12 @@ class AIConfig {
     );
   }
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson({bool includeCredential = true}) => {
     'provider': AIProtocolX.toWire(protocol),
     'providerId': provider,
     'protocol': AIProtocolX.toWire(protocol),
     'customBaseUrl': baseUrl,
-    'customApiKey': apiKey,
+    if (includeCredential) 'customApiKey': apiKey,
     'customModel': model,
     'enableThinking': enableThinking,
   };
@@ -503,8 +504,8 @@ class ExportData {
     required this.tasks,
     required this.settings,
     required this.aiConfig,
-  })  : versionNumber = version ?? currentVersion,
-        timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
+  }) : versionNumber = version ?? currentVersion,
+       timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
 
   factory ExportData.fromJson(Map<String, dynamic> j) {
     final v = (j['version'] as num?)?.toInt() ?? legacyVersion;
@@ -514,24 +515,31 @@ class ExportData {
     return ExportData(
       version: v,
       timestamp: (j['timestamp'] as num?)?.toInt(),
-      boards: ((j['boards'] as List?) ?? [])
-          .cast<Map<String, dynamic>>()
-          .map(Board.fromJson)
-          .toList(),
-      tasks: ((j['tasks'] as List?) ?? [])
-          .cast<Map<String, dynamic>>()
-          .map(Task.fromJson)
-          .toList(),
-      settings: j['settings'] != null && j['settings'] is Map<String, dynamic>
-          ? AppSettings.fromJson(j['settings'] as Map<String, dynamic>)
-          : AppSettings(),
-      aiConfig: j['aiConfig'] != null && j['aiConfig'] is Map<String, dynamic>
-          ? AIConfig.fromJson(j['aiConfig'] as Map<String, dynamic>)
-          : AIConfig(),
+      boards:
+          ((j['boards'] as List?) ?? [])
+              .cast<Map<String, dynamic>>()
+              .map(Board.fromJson)
+              .toList(),
+      tasks:
+          ((j['tasks'] as List?) ?? [])
+              .cast<Map<String, dynamic>>()
+              .map(Task.fromJson)
+              .toList(),
+      settings:
+          j['settings'] != null && j['settings'] is Map<String, dynamic>
+              ? AppSettings.fromJson(j['settings'] as Map<String, dynamic>)
+              : AppSettings(),
+      aiConfig:
+          j['aiConfig'] != null && j['aiConfig'] is Map<String, dynamic>
+              ? AIConfig.fromJson(j['aiConfig'] as Map<String, dynamic>)
+              : AIConfig(),
     );
   }
 
-  Map<String, dynamic> toJson({int? targetVersion}) {
+  Map<String, dynamic> toJson({
+    int? targetVersion,
+    bool includeCredential = false,
+  }) {
     final v = targetVersion ?? versionNumber;
     return {
       'version': v,
@@ -539,7 +547,7 @@ class ExportData {
       'boards': boards.map((b) => b.toJson()).toList(),
       'tasks': tasks.map((t) => t.toJson(targetVersion: v)).toList(),
       'settings': settings.toJson(targetVersion: v),
-      'aiConfig': aiConfig.toJson(),
+      'aiConfig': aiConfig.toJson(includeCredential: includeCredential),
     };
   }
 }

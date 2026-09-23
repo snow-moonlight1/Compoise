@@ -1,16 +1,20 @@
 # 架构
 
-> **2026-09-23 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01–OS05 已完成；OS06 加入可恢复保存批次与显式结果，OS07 加入有界预检及导入事务；下一包 OS08。本轮不处理密钥默认导出。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
+> **2026-09-23 当前覆盖：** OS01–OS09 已实施，下一包 OS10，本轮不开始。OS08/09 的备份密钥选择、系统凭据存储和迁移见下方当前章节；旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
-## 当前 Flutter AI 配置（OS03）
+## 当前 Flutter 密钥边界（OS08/OS09）
 
-`lib/ai_presets.dart` 保存服务商 URL、协议与模型缺省；DeepSeek 新安装默认 `deepseek-flash`。`AIConfig.fromJson` 对旧配置只用解析后的准确 host 推断提供商；未知 `providerId` 回退 custom 并保留 URL/模型。只有明确指向 DeepSeek 预设、其 OpenAI 协议和准确 DeepSeek host 的旧 `deepseek-v4-flash` 默认名会迁移；自定义模型不改写。空模型仅在匹配已知预设协议时填厂商缺省，其他配置在发请求前报告缺少模型。三协议仍通过同一配置传递所选模型，密钥仍按现有 `matrixflow-config` 方式本地保存；密钥保护与备份行为分别留给 OS08/09。OS03 使用合成配置与 mock HTTP 验证，未做真实服务或双端设备调用。
+`Store` 的普通配置快照、两个 OS06 保存槽和旧 `matrixflow-config` 镜像省略 `customApiKey`。启动时先读 `CredentialStore`；若只有旧明文，则写入系统存储并读回后清理所有旧副本。失败保持恢复来源、显示重试，并暂停普通保存。`SystemCredentialStore` 使用 `flutter_secure_storage 10.3.4`：Android Keystore 包装加密密钥和 AES-GCM；Windows Credential Manager 保存加密密钥，应用目录保存 AES-GCM 文件。Android 禁用应用自动备份/设备转移以避免恢复密文但缺设备密钥；手动备份可跨设备导入。Windows 系统凭据与加密文件的单独复制不作为恢复契约。`ExportData` 默认省略 key，显式包含从凭据接口读取；旧 v1/v2 含 key 文件可读，覆盖时默认保留本机 key，明确选择才替换。OS05 恢复专用副本若在旧版本生成仍可能含明文；用户须自行妥善处理。
+
+## 当前 Flutter AI 配置（OS03，历史基线）
+
+`lib/ai_presets.dart` 保存服务商 URL、协议与模型缺省；DeepSeek 新安装默认 `deepseek-flash`。`AIConfig.fromJson` 对旧配置只用解析后的准确 host 推断提供商；未知 `providerId` 回退 custom 并保留 URL/模型。只有明确指向 DeepSeek 预设、其 OpenAI 协议和准确 DeepSeek host 的旧 `deepseek-v4-flash` 默认名会迁移；自定义模型不改写。空模型仅在匹配已知预设协议时填厂商缺省，其他配置在发请求前报告缺少模型。三协议仍通过同一配置传递所选模型，密钥在 OS09 后由 `CredentialStore` 单独保存；旧 `matrixflow-config` 仅用于升级迁移。OS03 使用合成配置与 mock HTTP 验证，未做真实服务或双端设备调用。
 
 ## 当前 Flutter 备份（OS04）
 
-Flutter 使用 `ExportData` v2 JSON 默认导出，并通过 `DataMigrator` 读取 v1/v2；备份结构及 OS07 已实施的导入语义见 [BACKUP_FORMAT.md](BACKUP_FORMAT.md)。目前导出仍明文包含 `aiConfig.customApiKey`，密钥策略留 OS08。备份交换格式与 SharedPreferences 的保存协议分开演进。
+Flutter 使用 `ExportData` v2 JSON 默认导出，并通过 `DataMigrator` 读取 v1/v2；备份结构及 OS07 已实施的导入语义见 [BACKUP_FORMAT.md](BACKUP_FORMAT.md)。当前默认导出省略 `aiConfig.customApiKey`；每次显式选择包含时告知 JSON 为明文。备份交换格式与 SharedPreferences 的保存协议分开演进。
 
 ## 当前 Flutter 启动恢复（OS05）
 
@@ -18,9 +22,9 @@ Flutter 使用 `ExportData` v2 JSON 默认导出，并通过 `DataMigrator` 读�
 
 ## 当前 Flutter 保存与导入（OS06/OS07）
 
-`lib/save_protocol.dart` 将任务、板、AI 配置、设置、活跃板与 onboarding 状态合成带 revision/Adler-32 校验的完整快照，在两个 SharedPreferences 槽之间轮换，以指针为提交点。启动优先读取指针所指快照；旧键继续作为兼容镜像。提交前失败重启读取旧批次，提交后镜像失败重启读取新批次；指针或已提交槽损坏交 OS05 恢复页。`Store.flush` 返回 `SaveResult`，失败横幅可重试，成功清除错误。快照与镜像一样仍可能含本机 API 密钥，OS09 再处理本机凭据保护。SharedPreferences 返回成功并不等于抗强杀/掉电持久化，未验证平台文件系统或多实例竞争。
+`lib/save_protocol.dart` 将任务、板、AI 配置、设置、活跃板与 onboarding 状态合成带 revision/Adler-32 校验的完整快照，在两个 SharedPreferences 槽之间轮换，以指针为提交点。启动优先读取指针所指快照；旧键继续作为兼容镜像。提交前失败重启读取旧批次，提交后镜像失败重启读取新批次；指针或已提交槽损坏交 OS05 恢复页。`Store.flush` 返回 `SaveResult`，失败横幅可重试，成功清除错误。当前快照与镜像省略 API 密钥；升级前的旧槽须完成 OS09 迁移清理。SharedPreferences 返回成功并不等于抗强杀/掉电持久化，未验证平台文件系统或多实例竞争。
 
-`lib/import_preflight.dart` 统一设置页的 v1/v2 预检，文件最大 4 MiB、嵌套深度 12、最多 500 板/10000 任务/50000 子项。板/任务在各自域唯一，子项在同父任务唯一；相同记录可跳过，内容冲突拒绝或阻断；孤儿、空备份及缺省修复有预检结果。设置页预览新增/跳过/冲突/修复/警告与覆盖影响，确认后 `Store.applyImport` 先提交完整保存批次，再改内存并重排提醒；失败保留旧库。现存同步 `Store.importData` 只供内部兼容调用，虽共用预检仍是先更新内存后排队保存，产品文件导入不再调用它，待 OS20 移除。当前普通导出仍明文包含密钥，凭据策略归 OS08。
+`lib/import_preflight.dart` 统一设置页的 v1/v2 预检，文件最大 4 MiB、嵌套深度 12、最多 500 板/10000 任务/50000 子项。板/任务在各自域唯一，子项在同父任务唯一；相同记录可跳过，内容冲突拒绝或阻断；孤儿、空备份及缺省修复有预检结果。设置页预览新增/跳过/冲突/修复/警告与覆盖影响，确认后 `Store.applyImport` 先提交完整保存批次，再改内存并重排提醒；失败保留旧库。现存同步 `Store.importData` 只供内部兼容调用，虽共用预检仍是先更新内存后排队保存，产品文件导入不再调用它，待 OS20 移除。普通导出默认省略密钥；显式包含及导入凭据选择见 OS08/OS09 当前章节。
 
 本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 

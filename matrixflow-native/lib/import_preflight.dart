@@ -10,6 +10,7 @@ class ImportPlan {
   final List<Task> tasks;
   final AppSettings? settings;
   final AIConfig? aiConfig;
+  final bool hasCredential;
   final int addedBoards;
   final int addedTasks;
   final int skipped;
@@ -26,6 +27,7 @@ class ImportPlan {
     required this.tasks,
     this.settings,
     this.aiConfig,
+    this.hasCredential = false,
     required this.addedBoards,
     required this.addedTasks,
     required this.skipped,
@@ -413,6 +415,12 @@ class ImportPreflight {
       tasks: resultTasks,
       settings: mode == 'overwrite' ? migration.settings : null,
       aiConfig: mode == 'overwrite' ? migration.aiConfig : null,
+      hasCredential:
+          mode == 'overwrite' &&
+          payload['aiConfig'] is Map<String, dynamic> &&
+          (payload['aiConfig'] as Map<String, dynamic>).containsKey(
+            'customApiKey',
+          ),
       addedBoards: addedBoards,
       addedTasks: addedTasks,
       skipped: skipped,
