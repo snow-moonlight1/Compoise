@@ -238,12 +238,12 @@ class AIService {
         var res = await _send(_get('${_anthropicBase(base)}$path', config));
         if (res.statusCode == 404 || res.statusCode == 405) {
           // Proxy without a models list: prove liveness with a 1-token completion.
+          if (config.model.trim().isEmpty) {
+            return TestResult(false, 'aiMissingModel');
+          }
           res = await _send(
             _postJson('${_anthropicBase(base)}/messages', config, {
-              'model':
-                  config.model.isEmpty
-                      ? 'claude-3-5-haiku-latest'
-                      : config.model,
+              'model': config.model,
               'max_tokens': 1,
               'messages': [
                 {'role': 'user', 'content': 'hi'},
@@ -281,6 +281,11 @@ class AIService {
       throw const AIException('aiMissingConfig');
     }
 
+    final selectedModel = config.model;
+    if (selectedModel.trim().isEmpty) {
+      throw const AIException('aiMissingModel');
+    }
+
     Uri uri;
     Map<String, dynamic> body;
     final enableThinking = config.enableThinking;
@@ -290,7 +295,7 @@ class AIService {
         final isStandardWithoutThinking =
             config.provider == 'volcengine' || config.provider == 'bailian';
         body = {
-          'model': config.model.isEmpty ? 'deepseek-v4-flash' : config.model,
+          'model': selectedModel,
           'messages': [
             {'role': 'system', 'content': systemInstruction},
             {'role': 'user', 'content': userPrompt},
@@ -302,7 +307,7 @@ class AIService {
       case AIProtocol.openaiResponses:
         uri = Uri.parse('$base/responses');
         body = {
-          'model': config.model.isEmpty ? 'deepseek-v4-flash' : config.model,
+          'model': selectedModel,
           'instructions': systemInstruction,
           'input': userPrompt,
           'reasoning': {'effort': enableThinking ? 'high' : 'none'},
@@ -314,8 +319,7 @@ class AIService {
       case AIProtocol.anthropic:
         uri = Uri.parse('${_anthropicBase(base)}/messages');
         body = {
-          'model':
-              config.model.isEmpty ? 'claude-3-5-haiku-latest' : config.model,
+          'model': selectedModel,
           'max_tokens': _anthropicMaxTokens,
           'system': systemInstruction,
           'messages': [

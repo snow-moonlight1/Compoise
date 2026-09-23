@@ -35,7 +35,7 @@ final List<AIProviderPreset> aiProviderPresets = [
     name: (t) => t['providerDeepSeek'] ?? 'DeepSeek',
     defaultBaseUrl: 'https://api.deepseek.com',
     defaultProtocol: AIProtocol.openai,
-    defaultModel: 'deepseek-v4-flash',
+    defaultModel: 'deepseek-flash',
     modelsPath: '/models',
     isCustom: false,
     supportsThinking: true,
@@ -80,14 +80,21 @@ AIProviderPreset getAIProviderPreset(String? id) {
   if (id == null || id.isEmpty) return aiProviderPresets.first;
   return aiProviderPresets.firstWhere(
     (p) => p.id == id,
-    orElse: () => aiProviderPresets.first,
+    orElse: () => aiProviderPresets.last,
   );
+}
+
+AIProviderPreset? findAIProviderPreset(String? id) {
+  for (final preset in aiProviderPresets) {
+    if (preset.id == id) return preset;
+  }
+  return null;
 }
 
 /// Chooses the preferred model from dynamic discovery response.
 ///
 /// 1. If [currentModel] is already present in [availableModels], preserves it.
-/// 2. If provider has a recognized default (e.g. `deepseek-v4-flash` / `deepseek-chat`), prioritizes it.
+/// 2. If provider has a recognized default, prioritizes it.
 /// 3. Otherwise picks the first available model.
 String pickPreferredModel(
   String providerId,
@@ -103,6 +110,11 @@ String pickPreferredModel(
     return currentModel;
   }
   if (providerId == 'deepseek') {
+    if (availableModels.contains(
+      getAIProviderPreset(providerId).defaultModel,
+    )) {
+      return getAIProviderPreset(providerId).defaultModel;
+    }
     if (availableModels.contains('deepseek-v4-flash')) {
       return 'deepseek-v4-flash';
     }

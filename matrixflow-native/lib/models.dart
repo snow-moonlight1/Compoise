@@ -3,6 +3,7 @@ library;
 
 import 'dart:math';
 import 'dart:ui' show Locale;
+import 'ai_presets.dart';
 import 'quadrant.dart';
 
 export 'dart:ui' show Locale;
@@ -269,46 +270,57 @@ class AIConfig {
   AIConfig({
     this.provider = 'deepseek',
     this.protocol = AIProtocol.openai,
-    this.baseUrl = 'https://api.deepseek.com',
+    String? baseUrl,
     this.apiKey = '',
-    this.model = 'deepseek-v4-flash',
+    String? model,
     this.enableThinking = false,
-  });
+  }) : baseUrl = baseUrl ?? getAIProviderPreset(provider).defaultBaseUrl,
+       model = model ?? getAIProviderPreset(provider).defaultModel;
 
   factory AIConfig.fromJson(Map<String, dynamic> j) {
-    var base = (j['customBaseUrl'] as String?) ?? '';
-    var m = (j['customModel'] as String?) ?? '';
-    if (base.isEmpty) {
-      base = 'https://api.deepseek.com';
-    }
-    if (m.isEmpty || m == 'gpt-4o-mini') {
-      m = 'deepseek-v4-flash';
-    }
-
-    String pId;
-    if (j['providerId'] is String && (j['providerId'] as String).isNotEmpty) {
-      pId = j['providerId'] as String;
-    } else {
-      // Legacy configs (prior to WP01-N) migration:
-      if (base.contains('volces.com')) {
-        pId = 'volcengine';
-      } else if (base.contains('dashscope') || base.contains('aliyun')) {
-        pId = 'bailian';
-      } else if (base.contains('deepseek.com') || base.isEmpty) {
-        pId = 'deepseek';
-      } else {
-        pId = 'custom';
-      }
-    }
+    final rawBase = (j['customBaseUrl'] as String?) ?? '';
+    final rawModel = (j['customModel'] as String?) ?? '';
+    final rawId = j['providerId'] as String?;
+    // Old exports have no providerId. Infer only from the parsed host, never
+    // from text in a path, query, or lookalike domain.
+    final host = Uri.tryParse(rawBase.trim())?.host.toLowerCase() ?? '';
+    final inferredId = switch (host) {
+      'api.deepseek.com' => 'deepseek',
+      'ark.cn-beijing.volces.com' => 'volcengine',
+      'dashscope.aliyuncs.com' => 'bailian',
+      '' when rawBase.trim().isEmpty => 'deepseek',
+      _ => 'custom',
+    };
+    final pId =
+        rawId == null || rawId.isEmpty
+            ? inferredId
+            : (findAIProviderPreset(rawId)?.id ?? 'custom');
+    final preset = getAIProviderPreset(pId);
+    final protocol = AIProtocolX.fromString(
+      (j['protocol'] ?? j['provider']) as String?,
+    );
+    final base =
+        rawBase.isEmpty && !preset.isCustom ? preset.defaultBaseUrl : rawBase;
+    final isDeepSeekPreset =
+        pId == 'deepseek' &&
+        Uri.tryParse(base.trim())?.host.toLowerCase() == 'api.deepseek.com';
+    final model =
+        isDeepSeekPreset &&
+                protocol == preset.defaultProtocol &&
+                rawModel == 'deepseek-v4-flash'
+            ? preset.defaultModel
+            : rawModel.isEmpty &&
+                !preset.isCustom &&
+                protocol == preset.defaultProtocol
+            ? preset.defaultModel
+            : rawModel;
 
     return AIConfig(
       provider: pId,
-      protocol: AIProtocolX.fromString(
-        (j['protocol'] ?? j['provider']) as String?,
-      ),
+      protocol: protocol,
       baseUrl: base,
       apiKey: (j['customApiKey'] as String?) ?? '',
-      model: m,
+      model: model,
       enableThinking: (j['enableThinking'] as bool?) ?? false,
     );
   }

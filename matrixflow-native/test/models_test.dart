@@ -143,7 +143,7 @@ void main() {
       });
       expect(cfg.protocol, AIProtocol.openai);
       expect(cfg.baseUrl, 'https://api.deepseek.com');
-      expect(cfg.model, 'deepseek-v4-flash');
+      expect(cfg.model, 'deepseek-flash');
     });
 
     test('gemini maps to openai', () {
@@ -161,7 +161,7 @@ void main() {
       final defaultCfg = AIConfig();
       expect(defaultCfg.enableThinking, isFalse);
       expect(defaultCfg.baseUrl, 'https://api.deepseek.com');
-      expect(defaultCfg.model, 'deepseek-v4-flash');
+      expect(defaultCfg.model, 'deepseek-flash');
       expect(defaultCfg.toJson()['enableThinking'], isFalse);
 
       final enabledCfg = AIConfig.fromJson({'enableThinking': true});

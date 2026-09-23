@@ -1,8 +1,23 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-22（OS02 完成）。
+最后更新：2026-09-23（OS03 完成）。
 
-## 当前任务：OS01–OS02 已完成，下一包 OS03（2026-09-22）
+## 当前任务：OS01–OS03 已完成，下一包 OS04（2026-09-23）
+
+- 本轮基线 `main / f9aaede`，接手工作区干净；只实施 OS03，提交前仅暂存本轮文件。DeepSeek 新安装默认从预设读取 `deepseek-flash`。旧 DeepSeek 预设默认名仅在匹配厂商、协议与准确 host 时迁移；自定义 `gpt-4o-mini` 和与旧名同名的模型保留。未知 provider 回退 custom 并保留 URL/model；空自定义模型请求前给明确错误。设置 hint 和 en/zh/ja 推荐文案同步，无最高精度承诺。未改冻结 Web/Tauri/Capacitor。
+- OS-R03/05 原审查探针修前各失败 1/1，修后各通过 1/1；`test/os03_ai_config_test.dart` 默认回归 9/9，含新安装、旧备份、自定义与未知 provider、准确 host、三协议 round-trip、mock 请求模型和设置字段一致。默认 `flutter test --no-pub --reporter expanded` **371/371**，`flutter analyze --no-pub` **0 issues**。本轮未提供真实 AI 服务凭据，未做 Android/Windows 设备调用或新构建，不把 mock 当真实服务验收。其余五个审查反例留对应包。
+- 改动范围：`lib/ai_presets.dart`、`models.dart`、`ai_service.dart`、`screens/settings_screen.dart`、`l10n.dart`；`test/os03_ai_config_test.dart`、`test/models_test.dart`；本文件、`AGENTS.md`、`docs/ARCHITECTURE.md`、`CHANGELOG.md` 与 OS 实施计划。**OS04–OS27 剩余 24 包**。下一位只做 OS04 的 JSON 备份 ADR/契约评估，不顺带实施 OS05–09。WP10/WP29/UI 实验继续暂停。
+
+### 下一位 Agent 启动提示词（OS04）
+
+```text
+在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
+先阅读 AGENTS.md、docs/HANDOFF.md 顶部、docs/FLUTTER_REVIEW_2026-09-22.md 的备份 ADR，以及 docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md 的 OS04 条款。
+当前基线为 main 上已提交的 OS03；先检查 git status、git log，保护已有改动，不 reset、不修改冻结的 React/Tauri/Capacitor。本轮只做 OS04：将 JSON v1/v2 备份格式决策与当前真实序列化/迁移行为对照并固化为 BACKUP_FORMAT.md（或同职责文档）。覆盖 schema、合成示例、字段缺省、时间单位、ID、版本兼容、merge/overwrite、密钥及错误策略；差异明确登记给 OS07/08，不顺手改存储、不开始其他包。
+只做与 OS04 有关的事实及链接检查；不得使用真实任务备份或密钥，不把未实现行为写成已实现。同步实施计划、HANDOFF 与相关架构说明。提交前审查 diff 和 status，只暂存本轮文件，按仓库风格提交，不 amend、不推送；提交后确认干净并记录哈希。继续暂停 WP10/WP29/UI 实验。
+```
+
+## 历史任务：OS01–OS02 已完成，当时下一包 OS03（2026-09-22）
 
 - 用户已认可主要实机体验，四项尾项（去斜体、父子文字/复选框层级、deepseek-flash 默认、JSON 备份评估）及全库 review 问题按 OS 包串行实施，不重启全局 UI 返工。
 - **OS02 已完成**：新增 `TaskHierarchyCheckbox` / `TaskHierarchyStyle`，把父/子标题固定为 16/14dp、复选框实际绘制固定为 22/18dp，同时保留 48×48dp 命中区；主卡片、搜索、详情子项、已完成页共用该策略。矩阵父子复选框 x 中心和标题起点继续同列，聚焦/列表仍按既有 16dp 缩进。新增 3 项 OS02 默认回归，专项连同 UX03/UX05 **16/16**，默认 `flutter test --no-pub` **362/362**，`flutter analyze --no-pub` **0 issues**。本包未重新打 Android/Windows 包，也未新增双端实机截图验收。**下一包 OS03；OS03–OS27 尚未实施。**

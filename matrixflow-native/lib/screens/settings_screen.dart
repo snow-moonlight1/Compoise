@@ -536,7 +536,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   hintText:
                       preset.defaultModel.isNotEmpty
                           ? preset.defaultModel
-                          : 'deepseek-v4-flash',
+                          : t['enterModelHint'],
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                   suffixIcon:
                       _discoveredModels.isNotEmpty

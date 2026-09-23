@@ -1,8 +1,8 @@
 # MatrixFlow Flutter：实机尾项与开源准备实施计划
 
-日期：2026-09-22。状态：**OS01–OS02 已完成，OS03–OS27 未实施**。下一包 **OS03**。本计划接替旧 UX08 的当前派单地位；UX01–07 和 R1–R5/S1 的既有成果保留，旧 UX08 的文档收口并入 OS27。
+日期：2026-09-22。状态更新：**OS01–OS03 已完成，OS04–OS27 未实施**。下一包 **OS04**。本计划接替旧 UX08 的当前派单地位；UX01–07 和 R1–R5/S1 的既有成果保留，旧 UX08 的文档收口并入 OS27。
 
-依据：[Flutter 全库审查报告](FLUTTER_REVIEW_2026-09-22.md)、用户最新实机认可及四项要求。初始审查轮只产出计划、报告和七个反例；自 2026-09-22 起按本计划串行实施，当前 OS01–OS02 已完成。每位 Agent 一次只领取一个 OS 包，串行交接；编号是可领取单元，不代表 27 个包必须全部做完才能公开源码。
+依据：[Flutter 全库审查报告](FLUTTER_REVIEW_2026-09-22.md)、用户最新实机认可及四项要求。初始审查轮只产出计划、报告和七个反例；自 2026-09-22 起按本计划串行实施，当前 OS01–OS03 已完成。每位 Agent 一次只领取一个 OS 包，串行交接；编号是可领取单元，不代表 27 个包必须全部做完才能公开源码。
 
 ## 1. 范围与接手规则
 
@@ -24,7 +24,7 @@ P1：可能损坏数据、意外携带凭据或破坏关键流程；P2：明确�
 |---|---|---|---|---|
 | OS01 | 清除 Flutter 斜体 | 用户尾项 | 无 | 已完成（2026-09-22） |
 | OS02 | 父子文字/复选框真实视觉层级 | 用户尾项 | OS01 | 已完成（2026-09-22） |
-| OS03 | DeepSeek 新默认与无损配置归一化 | P1 / 用户尾项 | 无 | 未开始 |
+| OS03 | DeepSeek 新默认与无损配置归一化 | P1 / 用户尾项 | 无 | 已完成（2026-09-23） |
 | OS04 | 明确 JSON 备份契约与格式决策 | 用户评估 | 无 | 未开始 |
 | OS05 | 启动损坏数据保留与恢复 | P1 | 无 | 未开始 |
 | OS06 | 可恢复保存批次与明确写入结果 | P1 | OS05 | 未开始 |
@@ -69,6 +69,7 @@ P1：可能损坏数据、意外携带凭据或破坏关键流程；P2：明确�
 
 ### OS03 — 模型新默认与配置归一化
 
+- 状态：**已完成（2026-09-23）**。接手基线 `main / f9aaede`、工作区干净。OS-R03/05 修前分别复现模型改写与设置 Dropdown 断言，修后原探针各 1/1 转绿，并纳入 `test/os03_ai_config_test.dart` 默认回归（9/9）。新安装读取 DeepSeek 预设 `deepseek-flash`；仅 DeepSeek 预设且使用其 OpenAI 协议、准确 DeepSeek host 时将旧 `deepseek-v4-flash` 默认名迁移，旧名称继续作为合成 fixture。自定义名称与未知 provider 的 URL/model 保留；空自定义模型请求明确报错。三协议 round-trip 与 mock 请求模型已验证。默认 `flutter test --no-pub` **371/371**、`flutter analyze --no-pub` **0 issues**。未使用真实服务凭据，未做 Android/Windows 设备调用或新构建；其余审查反例按后续包处理。**剩余 24 包（OS04–OS27）。**
 - 对应 F06、OS-R03/05。入口：`ai_presets.dart`、`models.dart`、`ai_service.dart`、设置 hint、`l10n.dart`。
 - 修改：默认使用 `deepseek-flash`，默认值来源集中；仅对明确 DeepSeek 预设的旧默认做兼容迁移，不改用户自定义模型。空模型按厂商缺省或明确验证处理，不能通用协议一律塞 DeepSeek。未知 providerId 回退 custom 并保留用户 URL/model；provider 推断用解析后的准确 host。
 - 验收：新安装、旧 DeepSeek 备份、自定义 `gpt-4o-mini`、自定义恰与旧名相同的模型、未知 provider、三协议配置 round-trip；OS-R03/05 转绿，实际 mock 请求模型与 UI 一致；旧 fixture 仍能测试迁移；三语推荐文案不宣称无依据的最高精度。
@@ -245,8 +246,8 @@ OS09 本机凭据保护建议在公开稳定版前完成；如延期，必须明
 在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
 阅读 AGENTS.md、docs/HANDOFF.md 顶部、docs/FLUTTER_REVIEW_2026-09-22.md 和
 docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md。
-本次只领取 OS03：更新 DeepSeek 新默认并完成无损配置归一化，不顺带改其他包。
-先 git status，保护已有 R1–R5/S1 与审查文档，不 reset、不修改冻结 Web。
-按 OS03 范围和通用交付要求实施、验证、同步状态；先复现 OS-R03/05，确保旧 DeepSeek 默认迁移不改写用户自定义模型，未知 provider 回退 custom 时保留 URL/model，不要把其他审查缺陷写成已修。
+本次只领取 OS04：将 JSON 备份 ADR 与 v1/v2 当前序列化、迁移、导入行为逐项对照，形成可执行的备份格式契约，不顺带实施 OS05–09。
+先 git status、git log，保护已有改动，不 reset、不修改冻结 Web。
+按 OS04 范围和通用交付要求记录 schema、合成示例、字段缺省、时间单位、ID、版本兼容、merge/overwrite、密钥和错误策略；差异登记给 OS07/08，不把未实现行为写成已实现。同步计划与 HANDOFF，按仓库风格提交本轮文件并确认工作区干净。
 用户已认可主要实机体验，不重新开启全局 UI 返工。
 ```

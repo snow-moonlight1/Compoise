@@ -1,8 +1,12 @@
 # 架构
 
-> **2026-09-22 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01 已完成两处空状态斜体清理；OS02 已统一父/子标题与复选框视觉层级，并保持 48dp 命中区；下一包 OS03。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
+> **2026-09-23 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01 清理空状态斜体，OS02 统一父/子视觉层级，OS03 更新 DeepSeek 默认并修正配置归一化；下一包 OS04。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
+
+## 当前 Flutter AI 配置（OS03）
+
+`lib/ai_presets.dart` 保存服务商 URL、协议与模型缺省；DeepSeek 新安装默认 `deepseek-flash`。`AIConfig.fromJson` 对旧配置只用解析后的准确 host 推断提供商；未知 `providerId` 回退 custom 并保留 URL/模型。只有明确指向 DeepSeek 预设、其 OpenAI 协议和准确 DeepSeek host 的旧 `deepseek-v4-flash` 默认名会迁移；自定义模型不改写。空模型仅在匹配已知预设协议时填厂商缺省，其他配置在发请求前报告缺少模型。三协议仍通过同一配置传递所选模型，密钥仍按现有 `matrixflow-config` 方式本地保存；密钥保护与备份行为分别留给 OS08/09。OS03 使用合成配置与 mock HTTP 验证，未做真实服务或双端设备调用。
 
 本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 
