@@ -16,6 +16,10 @@
 
 连接测试分成三行：端点与鉴权、模型发现、所选模型生成。发现成功不会写成生成可用。生成测试会先说明可能计费，只有用户确认后才发送一次短请求；应用启动和输入失焦不会生成。分类、分组、拆解、无说教和取消契约保持不变。本轮只用合成配置和 HTTP mock，没有真实 API key，也没有 Android/Windows 实机或真实厂商验收。
 
+## Flutter 焦点与退场（OS13）
+
+`ExitingRow` 仍保留任务卡元素供划线和收起动画使用，但退场时同时排除命中、语义和焦点。`QuadrantTransitionLayout` 的四个 `QuadrantPane` 仍以稳定键常驻；动画期间或透明度低于半数时，任务象限排除焦点，下方卡片在可见后重新可聚焦。焦点从被排除子树移到 Flutter 外层作用域；任务行恢复或象限再次可见时只恢复键盘遍历资格，不自动夺回旧焦点。此规则不重建象限，也不重置滚动位置或编辑草稿。列表聚焦淡出仍允许现有 R1/R2 交互，完成退场的任务快照本身始终不可操作。
+
 ## 当前 Flutter AI 配置（OS03，历史基线）
 
 `lib/ai_presets.dart` 保存服务商 URL、协议与模型缺省；DeepSeek 新安装默认 `deepseek-flash`。`AIConfig.fromJson` 对旧配置只用解析后的准确 host 推断提供商；未知 `providerId` 回退 custom 并保留 URL/模型。只有明确指向 DeepSeek 预设、其 OpenAI 协议和准确 DeepSeek host 的旧 `deepseek-v4-flash` 默认名会迁移；自定义模型不改写。空模型仅在匹配已知预设协议时填厂商缺省，其他配置在发请求前报告缺少模型。三协议仍通过同一配置传递所选模型，密钥在 OS09 后由 `CredentialStore` 单独保存；旧 `matrixflow-config` 仅用于升级迁移。OS03 使用合成配置与 mock HTTP 验证，未做真实服务或双端设备调用。

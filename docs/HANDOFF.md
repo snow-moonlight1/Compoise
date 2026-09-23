@@ -1,5 +1,14 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前任务：OS13 已实施，OS12 待做（2026-09-23）
+
+- 本轮从 `main / 77072bfd10a811b4d926eb043cbe077decfc855d` 开始，工作区原本干净。用户明确单独派 OS13；未领取 OS12，也不开始 OS14/OS15。仅改 Flutter 主线及文档，冻结 Web/Tauri/Capacitor 未动。
+- `ExitingRow` 退场时排除焦点，保留原行元素供划线和收起；透明/动画中的 `QuadrantPane` 与隐藏卡片同样排除焦点。Flutter 把失效焦点移到外层作用域；恢复后允许重新遍历，绝不自动抢回。卡片在可见后恢复聚焦资格，原有动画中指针切换象限和列表淡出交叉路径保持。
+- OS-R07 原探针修前红、修后绿；新增 Space、Enter、Tab、Shift+Tab、Escape、触摸、快速切换、取消退场后草稿/GlobalKey 身份回归。R1–R5/S1、UX07 滚动与交叉测试已通过。`flutter test --no-pub` **428/428**，`flutter analyze --no-pub` **0 issues**；Android/Windows 设备级键盘、鼠标、触摸未测。
+- 下一步仍是 OS12 日期与本地日历包。WP10/WP29/UI 实验继续暂停。本轮旧的“连续 OS12/OS13”启动提示词是历史派单，不能覆盖本轮用户的单独 OS13 指令。
+
+## 历史任务：OS10/OS11（2026-09-23）
+
 最后更新：2026-09-23（OS10/OS11 连续实施）。
 
 ## 当前任务：OS01–OS11 已实施，下一包 OS12（2026-09-23）

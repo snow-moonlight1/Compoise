@@ -573,7 +573,10 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
           children: [
             Offstage(
               offstage: paneOpacity <= 0,
-              child: IgnorePointer(
+              child: ExcludeFocus(
+                // Offstage and IgnorePointer do not clear keyboard focus.
+                excluding: animating || paneOpacity < 0.5,
+                child: IgnorePointer(
                 ignoring: animating || paneOpacity < 0.5,
                 child: ExcludeSemantics(
                   excluding: animating || paneOpacity < 0.5,
@@ -607,12 +610,15 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
                     ),
                   ),
                 ),
+                ),
               ),
             ),
             if (buildCard)
               Offstage(
                 offstage: cardOpacity <= 0,
-                child: IgnorePointer(
+                child: ExcludeFocus(
+                  excluding: cardOpacity < 0.5,
+                  child: IgnorePointer(
                   // Tappable as soon as visible so a mid-animation tap can
                   // retarget to another quadrant; drops stay gated below.
                   ignoring: cardOpacity <= 0,
@@ -632,6 +638,7 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
                         onDropTask: (task) => store.moveTask(task.id, q),
                       ),
                     ),
+                  ),
                   ),
                 ),
               ),

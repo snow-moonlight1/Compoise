@@ -187,7 +187,11 @@ class _ExitingRowState extends State<ExitingRow>
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
+    // The enclosing scope receives focus on exit. Returning rows become
+    // traversable again without stealing the user's current focus.
+    return ExcludeFocus(
+      excluding: widget.exiting,
+      child: IgnorePointer(
       ignoring: widget.exiting,
       child: ExcludeSemantics(
         excluding: widget.exiting,
@@ -203,6 +207,7 @@ class _ExitingRowState extends State<ExitingRow>
           ),
           child: widget.child,
         ),
+      ),
       ),
     );
   }
