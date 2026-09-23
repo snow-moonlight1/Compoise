@@ -21,6 +21,8 @@ export 'deadline_policy.dart';
 export 'services/reminder_service.dart';
 export 'task_commands.dart';
 
+enum StartupDataState { missing, valid, migrated, corrupt }
+
 class Store extends ChangeNotifier with WidgetsBindingObserver {
   static const _kTasks = 'matrixflow-tasks';
   static const _kBoards = 'matrixflow-boards';
@@ -44,6 +46,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   AIConfig aiConfig = AIConfig();
   AppSettings settings = AppSettings();
   String? corruptNotice; // set when a persisted blob failed to parse
+  final Map<String, StartupDataState> startupDataStates = {};
+  final Set<String> _protectedStartupKeys = {};
+  bool get hasStartupRecovery => _protectedStartupKeys.isNotEmpty;
+  List<String> get recoveryKeys => List.unmodifiable(_protectedStartupKeys);
 
   Map<String, String> get t => dictOf(settings.language);
 
@@ -85,6 +91,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> init({List<Locale>? deviceLocales}) async {
     startupError = null;
+    startupDataStates.clear();
+    _protectedStartupKeys.clear();
+    corruptNotice = null;
     final resolvedDeviceLang = resolveDeviceLanguage(
       deviceLocales ?? initialDeviceLocales ?? _resolvePlatformLocales(),
     );
@@ -100,13 +109,38 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (_disposed) return;
     var corrupted = 0;
 
-    T read<T>(String key, T fallback, T Function(dynamic) parse) {
+    void mark(String key, StartupDataState state) {
+      startupDataStates[key] = state;
+      if (state == StartupDataState.corrupt) _protectedStartupKeys.add(key);
+    }
+
+    T read<T>(
+      String key,
+      T fallback,
+      T Function(dynamic) parse,
+      Object? Function(T) serialize,
+    ) {
+      final present = _prefs.containsKey(key);
       final raw = _loadJson(key);
-      if (raw == null) return fallback;
+      if (raw == null && !present) {
+        mark(key, StartupDataState.missing);
+        return fallback;
+      }
       try {
-        return parse(raw);
+        final previousErrors = corrupted;
+        final value = parse(raw);
+        mark(
+          key,
+          corrupted > previousErrors
+              ? StartupDataState.corrupt
+              : jsonEncode(raw) == jsonEncode(serialize(value))
+              ? StartupDataState.valid
+              : StartupDataState.migrated,
+        );
+        return value;
       } catch (_) {
         corrupted++;
+        mark(key, StartupDataState.corrupt);
         return fallback;
       }
     }
@@ -138,34 +172,34 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       _kConfig,
       AIConfig(),
       (raw) => AIConfig.fromJson(raw as Map<String, dynamic>),
+      (value) => value.toJson(),
     );
-    final rawSettings = _loadJson(_kSettings);
-    if (rawSettings == null) {
-      settings = AppSettings(language: resolvedDeviceLang);
-    } else {
-      try {
-        final map = rawSettings as Map<String, dynamic>;
-        settings = AppSettings.fromJson(
-          map,
-          defaultLanguage: resolvedDeviceLang,
-        );
-      } catch (_) {
-        corrupted++;
-        settings = AppSettings(language: resolvedDeviceLang);
-      }
-    }
+    settings = read(
+      _kSettings,
+      AppSettings(language: resolvedDeviceLang),
+      (raw) => AppSettings.fromJson(
+        raw as Map<String, dynamic>,
+        defaultLanguage: resolvedDeviceLang,
+      ),
+      (value) => value.toJson(),
+    );
     boards = read(
       _kBoards,
       <Board>[],
       (raw) => records(raw, Board.fromJson, (b) => b.id),
+      (value) => value.map((b) => b.toJson()).toList(),
     );
     tasks = read(
       _kTasks,
       <Task>[],
       (raw) => records(raw, Task.fromJson, (task) => task.id),
+      (value) => value.map((task) => task.toJson()).toList(),
     );
 
     if (boards.isEmpty) {
+      if (startupDataStates[_kBoards] == StartupDataState.valid) {
+        startupDataStates[_kBoards] = StartupDataState.migrated;
+      }
       boards = [
         Board(id: newId(), name: t['defaultBoardName']!, createdAt: _now()),
       ];
@@ -173,19 +207,47 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final validIds = boards.map((b) => b.id).toSet();
     for (final task in tasks) {
       if (!validIds.contains(task.boardId)) {
-        if (task.boardId.isNotEmpty) corrupted++;
+        if (startupDataStates[_kTasks] == StartupDataState.valid) {
+          startupDataStates[_kTasks] = StartupDataState.migrated;
+        }
         task.boardId = boards.first.id;
       }
     }
     final savedActive = _prefs.get(_kActiveBoard);
+    mark(
+      _kActiveBoard,
+      savedActive == null
+          ? StartupDataState.missing
+          : savedActive is String
+          ? StartupDataState.valid
+          : StartupDataState.corrupt,
+    );
     activeBoardId = savedActive is String ? savedActive : '';
     if (!boards.any((b) => b.id == activeBoardId)) {
+      if (startupDataStates[_kActiveBoard] == StartupDataState.valid) {
+        startupDataStates[_kActiveBoard] = StartupDataState.migrated;
+      }
       activeBoardId = boards.first.id;
     }
-    if (corrupted > 0) corruptNotice = t['corruptData'];
-    hasSeenOnboarding = _prefs.getBool(_kHasSeenOnboarding) ?? false;
+    final onboarding = _prefs.get(_kHasSeenOnboarding);
+    mark(
+      _kHasSeenOnboarding,
+      onboarding == null
+          ? StartupDataState.missing
+          : onboarding is bool
+          ? StartupDataState.valid
+          : StartupDataState.corrupt,
+    );
+    hasSeenOnboarding = onboarding is bool ? onboarding : false;
+    if (hasStartupRecovery) corruptNotice = t['corruptData'];
 
     ready = true;
+    if (hasStartupRecovery) {
+      // Keep every original key untouched until the user explicitly resolves
+      // the recovery state. Even a valid sibling key may depend on bad boards.
+      notifyListeners();
+      return;
+    }
     _persistAll();
     _applyDeadlinePromotion();
     ReminderService.instance.rescheduleAllFuture(tasks);
@@ -196,6 +258,53 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       (_) => _applyDeadlinePromotion(),
     );
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Recovery-only copy of all original values, including possible credentials.
+  /// Never display or log this string. It is not an importable ExportData file.
+  String recoveryCopyJson() {
+    if (!hasStartupRecovery) throw StateError('No startup recovery pending');
+    return jsonEncode({
+      'format': 'matrixflow-startup-recovery-v1',
+      'entries': [
+        for (final key in [
+          _kTasks,
+          _kBoards,
+          _kConfig,
+          _kSettings,
+          _kActiveBoard,
+          _kHasSeenOnboarding,
+        ])
+          if (_prefs.containsKey(key)) {'key': key, 'value': _prefs.get(key)},
+      ],
+    });
+  }
+
+  /// Called only after an explicit recovery decision in the UI.
+  Future<bool> discardDamagedStartupData() async {
+    if (!hasStartupRecovery) return false;
+    for (final key in _protectedStartupKeys) {
+      if (!await _prefs.remove(key)) return false;
+    }
+    for (final key in _protectedStartupKeys) {
+      startupDataStates[key] = StartupDataState.missing;
+    }
+    _protectedStartupKeys.clear();
+    corruptNotice = null;
+    final validIds = boards.map((board) => board.id).toSet();
+    for (final task in tasks) {
+      if (!validIds.contains(task.boardId)) task.boardId = boards.first.id;
+    }
+    _persistAll();
+    _applyDeadlinePromotion();
+    ReminderService.instance.rescheduleAllFuture(tasks);
+    _deadlineTimer = Timer.periodic(
+      const Duration(hours: 1),
+      (_) => _applyDeadlinePromotion(),
+    );
+    WidgetsBinding.instance.addObserver(this);
+    notifyListeners();
+    return true;
   }
 
   @override
@@ -1131,7 +1240,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _write(String key, String value) {
-    if (!ready || _disposed) return;
+    if (!ready || _disposed || hasStartupRecovery) return;
     _pendingWrites = _pendingWrites.then((_) async {
       try {
         if (!await _prefs.setString(key, value)) {

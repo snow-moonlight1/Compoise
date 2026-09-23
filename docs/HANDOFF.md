@@ -1,8 +1,23 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-23（OS04 完成）。
+最后更新：2026-09-23（OS05 完成）。
 
-## 当前任务：OS01–OS04 已完成，下一包 OS05（2026-09-23）
+## 当前任务：OS01–OS05 已完成，下一包 OS06（2026-09-23）
+
+- 本轮接手 `main / 8dde00f`，工作区干净，只实施 OS05。OS-R01 修前复现损坏任务 JSON 被启动写成 `[]`，修后原探针通过。Store 对本机任务、板、配置、设置和 UI 元数据标记缺失/正常/归一化/损坏；任一损坏时不启动自动写回，主界面前显示恢复页。恢复页可保存所有原始本机值的专用 JSON（可能含明文凭据，不能当普通备份导入），或二次确认后丢弃损坏值；取消和多次重启保留原始值，UI 只列类别。未修改冻结 Web/Tauri/Capacitor。
+- 合成数据专项 `test/os05_startup_recovery_test.dart` **7/7**，含截断 JSON、错误顶层/primitive、局部坏记录、再次启动、缺失新装、可归一化记录、保存副本和取消处置。原 OS-R01 探针修后 **1/1**；默认全量 `flutter test --no-pub` **378/378**，`flutter analyze --no-pub` **0 issues**。未使用真实任务备份/密钥，未做 Android/Windows 实机或新构建。恢复文件保存与 SharedPreferences 后续写入的故障结果、跨键事务及掉电恢复仍归 OS06，不宣称本轮已解决。
+- 改动范围：`matrixflow-native/lib/storage.dart`、`main.dart`、`screens/startup_recovery_screen.dart`、`l10n.dart`；`test/os05_startup_recovery_test.dart`；本文件、`AGENTS.md`、OS 实施计划、`docs/ARCHITECTURE.md`、`docs/CHANGELOG.md`。**OS06–OS27 剩余 22 包**。WP10/WP29/UI 实验继续暂停。
+
+### 下一位 Agent 启动提示词（OS06）
+
+```text
+在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
+先阅读 AGENTS.md、docs/HANDOFF.md 顶部、docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md 的 OS06 条款、docs/BACKUP_FORMAT.md，以及 OS05 的 Store 启动恢复实现。
+先检查 git status 与 git log，保护已有改动，不 reset、不修改冻结 React/Tauri/Capacitor。本轮只做 OS06：定义可观察、可重试的保存结果与跨键可恢复批次；注入 setString false、异常与不同写入位置故障，验证重启只见完整旧批次或完整新批次。不要把 SharedPreferences 队列完成当掉电原子性，不开始 OS07–09。
+用无密钥合成数据运行专项、全量 flutter test --no-pub 与 flutter analyze --no-pub；同步计划、HANDOFF、架构和 CHANGELOG。提交前审查 diff/status，只暂存本轮文件，提交后核对工作区和哈希。不推送，继续暂停 WP10/WP29/UI 实验。
+```
+
+## 历史任务：OS01–OS04 已完成，当时下一包 OS05（2026-09-23）
 
 - 本轮接手 `main / 0ed6fc7`（已提交 OS03），工作区干净。只做 OS04 文档：新增 [备份格式契约](BACKUP_FORMAT.md)，将 ADR-OS-01 的 v2 默认导出/v1 读取决策与 `models.dart`、`data_migrations.dart`、`storage.dart`、设置页逐项对照。覆盖 schema、无密钥合成示例、缺省、毫秒时间、ID 范围、版本和 v2→v1 信息损失、merge/overwrite、密钥及错误策略；未修改产品代码/存储或冻结 Web/Tauri/Capacitor。
 - 关键未实现边界：当前默认导出仍明文包含 `customApiKey`；文件内板/任务重复 ID 保留首条而子项 ID 未检查；merge 的跳过/孤儿和迁移 warning 未呈现给用户；overwrite 缺 key 的配置可清空本机 key，成功应用后的多键写入并非事务。目标差异归 OS07/08，内部持久化可靠性仍由 OS05/06 处理。本包只检查相关源码事实、合成 fixture 与文档链接；**未运行 Flutter test/analyze、双端构建或实机**，不把既有 371/371 与 analyze 0 issues 当本轮新验收。

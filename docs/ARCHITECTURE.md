@@ -1,6 +1,6 @@
 # 架构
 
-> **2026-09-23 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01 清理空状态斜体，OS02 统一父/子视觉层级，OS03 更新 DeepSeek 默认并修正配置归一化，OS04 固化 [JSON 备份格式契约](BACKUP_FORMAT.md)；下一包 OS05。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
+> **2026-09-23 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01 清理空状态斜体，OS02 统一父/子视觉层级，OS03 更新 DeepSeek 默认并修正配置归一化，OS04 固化 [JSON 备份格式契约](BACKUP_FORMAT.md)，OS05 保留启动损坏数据并提供恢复入口；下一包 OS06。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
@@ -11,6 +11,10 @@
 ## 当前 Flutter 备份（OS04）
 
 Flutter 使用 `ExportData` v2 JSON 默认导出，并通过 `DataMigrator` 读取 v1/v2；备份结构、当前导入语义和待 OS07/08 落实的安全契约见 [BACKUP_FORMAT.md](BACKUP_FORMAT.md)。目前导出仍明文包含 `aiConfig.customApiKey`，导入的板/任务 ID 冲突、子项 ID、空备份和写入失败边界仍需后续包处理。备份格式与 SharedPreferences 的多键可靠写入是不同议题；OS04 未修改代码或宣称这些问题已修复。
+
+## 当前 Flutter 启动恢复（OS05）
+
+`Store.init` 为本机核心键和 UI 元数据键记录缺失、正常、归一化或损坏状态。若任一源损坏（包括局部记录无法解析和错误的 onboarding primitive），启动不再自动写回任何键；主界面前的恢复页只显示受影响类别，可将所有原始本机值保存为恢复专用 JSON（可能包含 API 密钥），或经二次确认丢弃损坏值后继续。取消和重启保留源值。该恢复文件不是 `ExportData`，不能通过普通导入使用。正常缺省/可迁移数据仍按既有加载逻辑处理。SharedPreferences 后续多键写入的结果与崩溃恢复仍归 OS06；OS05 不保证掉电原子性。
 
 本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 
