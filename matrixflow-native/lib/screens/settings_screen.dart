@@ -6,8 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../ai_capabilities.dart';
 import '../ai_presets.dart';
 import '../ai_service.dart';
+import '../model_discovery.dart';
 import '../models.dart';
 import '../services/desktop_shell_service.dart';
 import '../shortcuts.dart';
@@ -29,14 +31,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
   final _apiKeyFocusNode = FocusNode();
+  final _baseUrlFocusNode = FocusNode();
+  bool _apiKeyHadFocus = false;
+  bool _baseUrlHadFocus = false;
   bool _fileBusy = false;
 
   List<String> _discoveredModels = [];
   bool _fetchingModels = false;
-  int _fetchGeneration = 0;
+  int _discoveryGeneration = 0;
   String? _discoveryError;
   AICancellation? _discoveryCancellation;
-  String? _lastFetchedKey;
+  ModelDiscoveryIdentity? _resultsIdentity;
+  ModelDiscoveryIdentity? _attemptedIdentity;
+  ModelDiscoveryIdentity? _requestedIdentity;
+  String? _flightFingerprint;
   bool _customModelMode = false;
   String? _lastSyncedBaseUrl;
   String? _lastSyncedModel;
@@ -52,29 +60,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _modelController.text = store.aiConfig.model;
 
     _apiKeyFocusNode.addListener(_handleApiKeyFocusChange);
+    _baseUrlFocusNode.addListener(_handleBaseUrlFocusChange);
   }
 
   void _handleApiKeyFocusChange() {
-    if (!_apiKeyFocusNode.hasFocus) {
-      final store = context.read<Store>();
-      _onApiKeySubmittedOrBlurred(store);
+    if (_apiKeyFocusNode.hasFocus) {
+      _apiKeyHadFocus = true;
+      return;
+    }
+    if (!_apiKeyHadFocus) return;
+    _apiKeyHadFocus = false;
+    _commitDiscovery(context.read<Store>());
+  }
+
+  void _handleBaseUrlFocusChange() {
+    if (_baseUrlFocusNode.hasFocus) {
+      _baseUrlHadFocus = true;
+      return;
+    }
+    if (!_baseUrlHadFocus) return;
+    _baseUrlHadFocus = false;
+    _commitDiscovery(context.read<Store>());
+  }
+
+  String _discoveryFingerprint(AIConfig config) =>
+      '${config.provider}\u0000${config.baseUrl.trim()}\u0000${config.protocol.name}\u0000${config.apiKey.trim()}';
+
+  void _invalidateDisplayedDiscovery() {
+    _discoveryCancellation?.cancel();
+    _discoveryCancellation = null;
+    _discoveryGeneration++;
+    _fetchingModels = false;
+    _discoveredModels = [];
+    _discoveryError = null;
+    _resultsIdentity = null;
+    _attemptedIdentity = null;
+    _requestedIdentity = null;
+    _flightFingerprint = null;
+  }
+
+  void _onCredentialOrEndpointChanged(Store store) {
+    final next = tryModelDiscoveryIdentity(store.aiConfig);
+    final nextPrint = _discoveryFingerprint(store.aiConfig);
+    final resultsStale = _resultsIdentity != null && _resultsIdentity != next;
+    final flightStale =
+        _fetchingModels &&
+        _flightFingerprint != null &&
+        _flightFingerprint != nextPrint;
+    final errorStale =
+        _discoveryError != null &&
+        _flightFingerprint != nextPrint &&
+        _attemptedIdentity != next;
+    if (resultsStale || flightStale || errorStale) {
+      _invalidateDisplayedDiscovery();
+      setState(() {});
     }
   }
 
-  void _invalidateDiscovery() {
-    _discoveryCancellation?.cancel();
-    _discoveryCancellation = null;
-    _fetchGeneration++;
-    _fetchingModels = false;
-    _lastFetchedKey = null;
-    _discoveryError = null;
-  }
-
   void _onProviderChanged(String newProvider, Store store) {
-    _invalidateDiscovery();
+    _invalidateDisplayedDiscovery();
     final preset = getAIProviderPreset(newProvider);
     _apiKeyController.clear();
-    _lastFetchedKey = null;
     _discoveredModels.clear();
     _discoveryError = null;
     _customModelMode = false;
@@ -99,23 +145,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _onApiKeySubmittedOrBlurred(Store store) {
-    final key = _apiKeyController.text.trim();
-    if (key.isNotEmpty && key != _lastFetchedKey && !_fetchingModels) {
-      _fetchModels(store);
+  void _commitDiscovery(Store store, {bool forceRefresh = false}) {
+    if (store.aiConfig.apiKey.trim().isEmpty) return;
+    final identity = tryModelDiscoveryIdentity(store.aiConfig);
+    if (!forceRefresh &&
+        identity != null &&
+        identity == _requestedIdentity &&
+        _fetchingModels) {
+      return;
     }
+    if (!forceRefresh &&
+        identity != null &&
+        identity == _attemptedIdentity &&
+        (identity == _resultsIdentity || _discoveryError != null)) {
+      return;
+    }
+    _fetchModels(store, forceRefresh: forceRefresh);
+  }
+
+  bool _discoveryStillCurrent(Store store, AIConfig snapshot) {
+    final live = tryModelDiscoveryIdentity(store.aiConfig);
+    final started = tryModelDiscoveryIdentity(snapshot);
+    if (live != null || started != null) return live == started;
+    return store.aiConfig.provider == snapshot.provider &&
+        store.aiConfig.baseUrl.trim() == snapshot.baseUrl.trim() &&
+        store.aiConfig.protocol == snapshot.protocol &&
+        store.aiConfig.apiKey.trim() == snapshot.apiKey.trim();
   }
 
   Future<void> _fetchModels(Store store, {bool forceRefresh = false}) async {
-    final key = _apiKeyController.text.trim();
-    if (key.isEmpty) return;
+    if (store.aiConfig.apiKey.trim().isEmpty) return;
+    final identity = tryModelDiscoveryIdentity(store.aiConfig);
 
     _discoveryCancellation?.cancel();
     final cancel = _discoveryCancellation = AICancellation();
-    final generation = ++_fetchGeneration;
-    _lastFetchedKey = key;
+    final generation = ++_discoveryGeneration;
+    _attemptedIdentity = identity;
+    _requestedIdentity = identity;
     final snapshot = AIConfig.fromJson(store.aiConfig.toJson());
-    final identity = jsonEncode(snapshot.toJson());
+    _flightFingerprint = _discoveryFingerprint(snapshot);
+    final modelAtStart = snapshot.model;
 
     setState(() {
       _fetchingModels = true;
@@ -128,24 +197,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         forceRefresh: forceRefresh,
         cancellation: cancel,
       );
-      if (!mounted || generation != _fetchGeneration) return;
-      if (identity != jsonEncode(store.aiConfig.toJson())) {
-        setState(_invalidateDiscovery);
-        return;
-      }
-      if (cancel.isCancelled) {
+      if (!mounted || generation != _discoveryGeneration) return;
+      if (!_discoveryStillCurrent(store, snapshot)) {
         setState(() => _fetchingModels = false);
         return;
       }
-
       setState(() {
         _fetchingModels = false;
-        _discoveredModels = models;
-        _lastFetchedKey = key;
+        _discoveredModels = List<String>.from(models);
+        _resultsIdentity = identity;
+        _discoveryError = null;
         if (models.isEmpty) {
           _discoveryError = store.t['noModelsFound'];
           _customModelMode = true;
-        } else {
+        } else if (store.aiConfig.model != modelAtStart &&
+            !models.contains(store.aiConfig.model)) {
+          _customModelMode = true;
+        } else if (store.aiConfig.model == modelAtStart) {
           final best = pickPreferredModel(
             store.aiConfig.provider,
             models,
@@ -155,20 +223,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _modelController.text = best;
           store.updateAIConfig(store.aiConfig);
           _customModelMode = false;
+        } else {
+          _customModelMode = false;
         }
       });
     } catch (e) {
-      if (!mounted || generation != _fetchGeneration) return;
-      if (identity != jsonEncode(store.aiConfig.toJson())) {
-        setState(_invalidateDiscovery);
+      if (!mounted || generation != _discoveryGeneration) return;
+      if (!_discoveryStillCurrent(store, snapshot)) {
+        setState(() => _fetchingModels = false);
         return;
       }
-      if (cancel.isCancelled) {
+      if (e is AIException && e.code == 'aiCancelled') {
         setState(() => _fetchingModels = false);
         return;
       }
       setState(() {
         _fetchingModels = false;
+        _resultsIdentity = null;
         _discoveryError = aiErrorMessage(e, store.t);
         _customModelMode = true;
       });
@@ -177,9 +248,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    _discoveryGeneration++;
     _discoveryCancellation?.cancel();
+    _discoveryCancellation = null;
     _apiKeyFocusNode.removeListener(_handleApiKeyFocusChange);
+    _baseUrlFocusNode.removeListener(_handleBaseUrlFocusChange);
     _apiKeyFocusNode.dispose();
+    _baseUrlFocusNode.dispose();
     _baseUrlController.dispose();
     _apiKeyController.dispose();
     _modelController.dispose();
@@ -201,6 +276,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_lastSyncedModel != store.aiConfig.model) {
       _lastSyncedModel = store.aiConfig.model;
       _modelController.text = store.aiConfig.model;
+    }
+    final liveIdentity = tryModelDiscoveryIdentity(store.aiConfig);
+    if (_requestedIdentity != null && _requestedIdentity != liveIdentity) {
+      _discoveryCancellation?.cancel();
+      _discoveryCancellation = null;
+      _discoveryGeneration++;
+      _fetchingModels = false;
+      _discoveredModels = [];
+      _discoveryError = null;
+      _resultsIdentity = null;
+      _attemptedIdentity = null;
+      _requestedIdentity = null;
+      _flightFingerprint = null;
+    } else if (_resultsIdentity != null && _resultsIdentity != liveIdentity) {
+      _discoveredModels = [];
+      _discoveryError = null;
+      _resultsIdentity = null;
+      _attemptedIdentity = null;
     }
 
     return Scaffold(
@@ -416,18 +509,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onPressed:
                               _apiKeyController.text.trim().isEmpty
                                   ? null
-                                  : () =>
-                                      _fetchModels(store, forceRefresh: true),
+                                  : () => _commitDiscovery(
+                                    store,
+                                    forceRefresh: true,
+                                  ),
                         ),
               ),
               obscureText: true,
               focusNode: _apiKeyFocusNode,
               controller: _apiKeyController,
-              onSubmitted: (_) => _onApiKeySubmittedOrBlurred(store),
+              onSubmitted: (_) => _commitDiscovery(store),
               onChanged: (v) {
-                _invalidateDiscovery();
-                store.aiConfig.apiKey = v;
-                store.updateAIConfig(store.aiConfig);
+                store.updateAIConfig(store.aiConfig..apiKey = v);
+                _onCredentialOrEndpointChanged(store);
               },
             ),
             if (_fetchingModels) ...[
@@ -467,7 +561,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => _fetchModels(store, forceRefresh: true),
+                    key: const ValueKey('discovery-retry'),
+                    onPressed:
+                        () => _commitDiscovery(store, forceRefresh: true),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -517,7 +613,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
                 onChanged: (val) {
-                  _invalidateDiscovery();
                   if (val == '__custom__') {
                     setState(() {
                       _customModelMode = true;
@@ -553,7 +648,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 controller: _modelController,
                 onChanged: (v) {
-                  _invalidateDiscovery();
                   store.updateAIConfig(store.aiConfig..model = v);
                 },
               ),
@@ -568,7 +662,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(t['enableThinking']!),
                 subtitle: Text(
-                  t['enableThinkingDesc']!,
+                  t[planThinking(store.aiConfig).hintCode ??
+                      'enableThinkingDesc']!,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -610,9 +705,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
                 value: store.aiConfig.protocol,
                 onChanged: (value) {
-                  if (value != null) {
-                    _invalidateDiscovery();
+                  if (value != null && value != store.aiConfig.protocol) {
                     store.updateAIConfig(store.aiConfig..protocol = value);
+                    _invalidateDisplayedDiscovery();
+                    setState(() {});
                   }
                 },
               ),
@@ -626,10 +722,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   hintText: 'https://api.deepseek.com',
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                 ),
+                focusNode: _baseUrlFocusNode,
                 controller: _baseUrlController,
+                onSubmitted: (_) => _commitDiscovery(store),
                 onChanged: (v) {
-                  _invalidateDiscovery();
                   store.updateAIConfig(store.aiConfig..baseUrl = v);
+                  _onCredentialOrEndpointChanged(store);
                 },
               ),
               const SizedBox(height: 6),
@@ -664,10 +762,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         hintText: preset.defaultBaseUrl,
                         floatingLabelBehavior: FloatingLabelBehavior.always,
                       ),
+                      focusNode: _baseUrlFocusNode,
                       controller: _baseUrlController,
-                      onChanged:
-                          (v) =>
-                              store.updateAIConfig(store.aiConfig..baseUrl = v),
+                      onSubmitted: (_) => _commitDiscovery(store),
+                      onChanged: (v) {
+                        store.updateAIConfig(store.aiConfig..baseUrl = v);
+                        _onCredentialOrEndpointChanged(store);
+                      },
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -1790,46 +1891,186 @@ class _TestConnectionButton extends StatefulWidget {
 }
 
 class _TestConnectionButtonState extends State<_TestConnectionButton> {
-  bool _busy = false;
+  bool _probing = false;
+  bool _generating = false;
+  int _generation = 0;
+  ConnectionProbe? _probe;
+  AiProbeStep? _generationResult;
+  ModelDiscoveryIdentity? _probeIdentity;
+  String? _generationModel;
+
+  bool get _busy => _probing || _generating;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: _busy ? null : _run,
-      icon:
-          _busy
-              ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-              : const Icon(Icons.wifi_tethering, size: 18),
-      label: Text(
-        _busy ? widget.t['processing']! : widget.t['testConnection']!,
+    final t = widget.t;
+    final theme = Theme.of(context);
+    final live = tryModelDiscoveryIdentity(widget.store.aiConfig);
+    if (_probeIdentity != null && _probeIdentity != live) {
+      _probe = null;
+      _generationResult = null;
+      _probeIdentity = null;
+      _generationModel = null;
+      _generation++;
+    } else if (_generationResult != null &&
+        widget.store.aiConfig.model.trim() != _generationModel) {
+      _generationResult = null;
+      _generationModel = null;
+      _generation++;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _statusLine(
+          theme,
+          key: const ValueKey('connection-endpoint-status'),
+          label: t['connectionEndpointLabel']!,
+          step: _probe?.endpointAuth,
+          idle: t['aiCheckSkipped']!,
+        ),
+        _statusLine(
+          theme,
+          key: const ValueKey('connection-discovery-status'),
+          label: t['connectionDiscoveryLabel']!,
+          step: _probe?.modelDiscovery,
+          idle: t['aiCheckSkipped']!,
+        ),
+        _statusLine(
+          theme,
+          key: const ValueKey('connection-generation-status'),
+          label: t['connectionGenerationLabel']!,
+          step: _generationResult,
+          idle: t['aiGenerationNotRun']!,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              key: const ValueKey('test-connection-btn'),
+              onPressed: _busy ? null : _runProbe,
+              icon:
+                  _probing
+                      ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.wifi_tethering, size: 18),
+              label: Text(
+                _probing ? t['processing']! : t['testConnection']!,
+              ),
+            ),
+            OutlinedButton.icon(
+              key: const ValueKey('test-generation-btn'),
+              onPressed: _busy ? null : _confirmGeneration,
+              icon:
+                  _generating
+                      ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.play_circle_outline, size: 18),
+              label: Text(
+                _generating ? t['processing']! : t['testGeneration']!,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          t['testGenerationBilling']!,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statusLine(
+    ThemeData theme, {
+    required Key key,
+    required String label,
+    required AiProbeStep? step,
+    required String idle,
+  }) {
+    final text = step == null ? idle : _stepLabel(step);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        '$label: $text',
+        key: key,
+        style: theme.textTheme.labelSmall,
       ),
     );
   }
 
-  Future<void> _run() async {
-    setState(() => _busy = true);
-    final result = await widget.store.ai.testConnection(
-      AIConfig.fromJson(widget.store.aiConfig.toJson()),
+  String _stepLabel(AiProbeStep step) {
+    final known = widget.t[step.code] ?? widget.t['testFail']!;
+    if (step.status == null) return known;
+    return '$known (${step.status})';
+  }
+
+  Future<void> _runProbe() async {
+    final snapshot = AIConfig.fromJson(widget.store.aiConfig.toJson());
+    final identity = tryModelDiscoveryIdentity(snapshot);
+    final ticket = ++_generation;
+    setState(() => _probing = true);
+    final result = await widget.store.ai.testConnection(snapshot);
+    if (!mounted || ticket != _generation) return;
+    if (tryModelDiscoveryIdentity(widget.store.aiConfig) != identity) {
+      setState(() => _probing = false);
+      return;
+    }
+    setState(() {
+      _probing = false;
+      _probe = result;
+      _probeIdentity = identity;
+    });
+  }
+
+  Future<void> _confirmGeneration() async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            key: const ValueKey('generation-billing-dialog'),
+            content: Text(widget.t['testGenerationConfirm']!),
+            actions: [
+              TextButton(
+                key: const ValueKey('generation-billing-cancel'),
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(widget.t['cancel']!),
+              ),
+              TextButton(
+                key: const ValueKey('generation-billing-confirm'),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(widget.t['testGenerationConfirmAction']!),
+              ),
+            ],
+          ),
     );
-    if (!mounted) return;
-    setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          result.ok
-              ? widget.t['testOk']!
-              : widget.t[result.message] ??
-                  '${widget.t['testFail']} (${result.message})',
-        ),
-        backgroundColor:
-            result.ok
-                ? Colors.green.shade600
-                : Theme.of(context).colorScheme.error,
-      ),
-    );
+    if (accepted != true || !mounted) return;
+    final snapshot = AIConfig.fromJson(widget.store.aiConfig.toJson());
+    final identity = tryModelDiscoveryIdentity(snapshot);
+    final model = snapshot.model.trim();
+    final ticket = ++_generation;
+    setState(() => _generating = true);
+    final result = await widget.store.ai.testModelGeneration(snapshot);
+    if (!mounted || ticket != _generation) return;
+    if (tryModelDiscoveryIdentity(widget.store.aiConfig) != identity ||
+        widget.store.aiConfig.model.trim() != model) {
+      setState(() => _generating = false);
+      return;
+    }
+    setState(() {
+      _generating = false;
+      _generationResult = result;
+      _probeIdentity = identity;
+      _generationModel = model;
+    });
   }
 }

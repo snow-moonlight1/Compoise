@@ -63,8 +63,11 @@ void main() {
         base: 'https://example.test/v1/',
       );
       await analyze(service, cfg: cfg);
-      expect((await service.testConnection(cfg)).ok, isTrue);
-      expect(paths, ['/v1/messages', '/v1/models', '/v1/messages']);
+      final probe = await service.testConnection(cfg);
+      expect(probe.endpointAuth.ok, isTrue);
+      expect(probe.modelDiscovery.ok, isFalse);
+      expect(probe.modelDiscovery.code, 'aiDiscoveryUnavailable');
+      expect(paths, ['/v1/messages', '/v1/models']);
     },
   );
 
@@ -188,10 +191,12 @@ void main() {
       }),
     );
     addTearDown(service.close);
-    expect(
-      (await service.testConnection(config(base: 'ftp://example.test'))).ok,
-      isFalse,
+    final invalid = await service.testConnection(
+      config(base: 'ftp://example.test'),
     );
+    expect(invalid.endpointAuth.ok, isFalse);
+    expect(invalid.endpointAuth.code, 'aiInvalidUrl');
+    expect(invalid.modelDiscovery.attempted, isFalse);
     await expectLater(
       analyze(service, cfg: config(base: 'https://example.test?token=x')),
       throwsA(isA<AIException>()),

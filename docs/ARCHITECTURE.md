@@ -1,12 +1,20 @@
 # 架构
 
-> **2026-09-23 当前覆盖：** OS01–OS09 已实施，下一包 OS10，本轮不开始。OS08/09 的备份密钥选择、系统凭据存储和迁移见下方当前章节；旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
+> **2026-09-23 当前覆盖：** OS01–OS11 已实施，下一包 OS12，本轮不开始。OS10/11 的模型发现身份、协议能力和连接测试见下方当前章节；真实厂商调用与双端实机未测。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
 ## 当前 Flutter 密钥边界（OS08/OS09）
 
 `Store` 的普通配置快照、两个 OS06 保存槽和旧 `matrixflow-config` 镜像省略 `customApiKey`。启动时先读 `CredentialStore`；若只有旧明文，则写入系统存储并读回后清理所有旧副本。失败保持恢复来源、显示重试，并暂停普通保存。`SystemCredentialStore` 使用 `flutter_secure_storage 10.3.4`：Android Keystore 包装加密密钥和 AES-GCM；Windows Credential Manager 保存加密密钥，应用目录保存 AES-GCM 文件。Android 禁用应用自动备份/设备转移以避免恢复密文但缺设备密钥；手动备份可跨设备导入。Windows 系统凭据与加密文件的单独复制不作为恢复契约。`ExportData` 默认省略 key，显式包含从凭据接口读取；旧 v1/v2 含 key 文件可读，覆盖时默认保留本机 key，明确选择才替换。OS05 恢复专用副本若在旧版本生成仍可能含明文；用户须自行妥善处理。
+
+## 当前 Flutter 模型发现与协议能力（OS10/OS11）
+
+模型发现的缓存身份是 provider、规范化 base URL、protocol 和 credential。规范化会小写 scheme/host、去掉默认端口和末尾斜杠，并拒绝带 query、fragment 或 userinfo 的地址。设置页与 `AIService.fetchModels` 使用同一身份：协议、URL 或密钥变化会立刻清掉已显示的模型列表并取消旧请求，迟到结果不写入缓存；相同身份复用缓存，刷新按钮绕过缓存。失败响应不进缓存。诊断文本只包含 `credential:redacted`。
+
+三协议仍是 OpenAI Compatible、OpenAI Responses、Anthropic Messages。普通兼容请求默认只有 `model`、`messages` 和需要 JSON 时的 `response_format`。DeepSeek 的 `thinking.type` 只发给 DeepSeek 接口或 DeepSeek 模型 id；火山引擎和百炼不附带该字段。Responses 的 `reasoning.effort` 只在 o1/o3/o4 与 gpt-5 标识上发送。Anthropic 按模型 id 选择手动 `budget_tokens` 或自适应 `thinking.type=adaptive` 与 `output_config.effort`；始终思考且拒绝 disabled 的模型不会收到关闭字段。设置页在能力不足时显示可操作说明。
+
+连接测试分成三行：端点与鉴权、模型发现、所选模型生成。发现成功不会写成生成可用。生成测试会先说明可能计费，只有用户确认后才发送一次短请求；应用启动和输入失焦不会生成。分类、分组、拆解、无说教和取消契约保持不变。本轮只用合成配置和 HTTP mock，没有真实 API key，也没有 Android/Windows 实机或真实厂商验收。
 
 ## 当前 Flutter AI 配置（OS03，历史基线）
 

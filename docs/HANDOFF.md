@@ -1,8 +1,32 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-23（OS08/OS09 连续实施）。
+最后更新：2026-09-23（OS10/OS11 连续实施）。
 
-## 当前任务：OS01–OS09 已实施，下一包 OS10（2026-09-23）
+## 当前任务：OS01–OS11 已实施，下一包 OS12（2026-09-23）
+
+- 本轮接手 `main / 07d87c81c3689383ece8a8f49581244858de05dd`，工作区干净；用户授权连续完成 OS10、OS11，不开始 OS12 或 OS13。未改冻结 React/Tauri/Capacitor。
+- OS10：模型发现身份统一为 provider、规范化 base URL、protocol 和 credential。缓存与设置页使用同一规则。协议、URL 或密钥变化立即清掉旧列表并取消在途请求；迟到结果不入缓存。相同身份复用，显式刷新绕过，失败不缓存，页面 dispose 后不更新 UI。诊断不含密钥。OS-R04 修前复现为返回 `chat-model`，修后原探针与默认回归通过。
+- OS11：三协议内的轻量能力规则。普通 OpenAI Compatible 默认只发兼容字段；DeepSeek 才发 `thinking.type`；Responses 的 `reasoning.effort` 与 Anthropic 的手动/自适应思考按模型发送。连接测试分开端点/鉴权、模型发现和所选模型生成。生成可能计费，必须确认后才发送，启动和失焦不会生成。GET /models 成功不称为生成可用。能力不足时设置页给出可操作说明。分类、分组、拆解、无说教和取消保持不变。
+- 验证：OS-R04 原探针修前失败、修后通过。OS10 专项、OS11 专项与相邻 AI 回归包含在默认全量中。`flutter test --no-pub` **425/425**，`flutter analyze --no-pub` **0 issues**。未使用真实 API key。`adb devices` 无连接设备，Android 实机未测；Windows 本轮未启动应用，真实厂商调用未测。
+- 下一包 OS12；OS13 本轮不开始。WP10/WP29/UI 实验继续暂停。
+
+### 下一位 Agent 启动提示词（连续 OS12 与 OS13）
+
+```text
+在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。本轮明确授权连续完成 OS12 和 OS13：先完成 OS12 的日期/提醒范围与本地日历语义，再完成 OS13 的退场及隐藏子树焦点隔离。不要开始 OS14 或 OS15。
+
+先检查 git status、git log，阅读 AGENTS.md、docs/HANDOFF.md 顶部，以及 docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md 的 OS12/OS13 条款和 docs/FLUTTER_REVIEW_2026-09-22.md 的 F09/F10。当前 OS10/OS11 已提交在 main。先执行 git rev-parse HEAD，确认它就是该提交，并把这个完整哈希写进下一轮交接。保护已有改动，不 reset，不修改冻结的 React/Tauri/Capacitor；继续暂停 WP10/WP29/UI 实验。
+
+OS12：统一新建、父详情和子项提醒选择器的有效范围与初始值。有效 deadline 可以保留，提醒 UI 按范围选择安全初值，不静默修改任务。日历“明天/本周”按年月日语义计算，时间戳提醒继续表示绝对时刻；不要把现有一次性提醒改成新的重复规则。先运行 test/review/preopensource_review_probe.dart 中的 OS-R06 反例，再修复并验证转绿。覆盖过去、今日、边界、五年外、导入远期数据、跨年/月、DST 合成时间区间、软键盘与取消。测试不要依赖当天具体年份，也不要修改宿主系统时间或时区。
+
+OS13：为 ExitingRow 和隐藏 QuadrantPane 加入焦点排除，必要时把当前焦点转到可见且稳定的目标，并写明恢复规则。先运行 OS-R07 反例，再修复并验证转绿。Space/Enter/Tab/Shift+Tab/Escape 以及鼠标/触摸都不能操作退场内容；快速切换象限、切换列表、取消退出后仍可操作。保留常驻子树，不用整树重建规避。R1–R5/S1、滚动、草稿和 GlobalKey 身份不得回退。
+
+运行专项测试、默认全量 flutter test --no-pub 和 flutter analyze --no-pub。Android/Windows 平台验证有条件就做，没有设备则如实标记未测。同步实施计划、HANDOFF、ARCHITECTURE、CHANGELOG、AGENTS.md 及必要的英中日文案。提交前审查 diff/status，只暂存本轮文件；按仓库风格提交，不 amend、不推送。提交后确认工作区状态并记录完整哈希。
+
+完成 OS12 和 OS13 后，在最终回复中再生成“下一轮连续完成 OS14 和 OS15”的可复制提示词，写清基线哈希、范围、验收、文档、提交边界，并要求那一轮完成后继续生成再下两轮的提示词。只生成提示词，不在本轮开始 OS14/OS15。
+```
+
+## 历史任务：OS01–OS09 已实施，当时下一包 OS10（2026-09-23）
 
 - 本轮接手 `main / 5c0c41d13f0d9c0e338890b4c37cb4f668adf87b`，工作区干净；用户授权连续 OS08、OS09，不开始 OS10。实际路径为 `D:\Dev_project\martix`。未改冻结 React/Tauri/Capacitor。
 - OS08：默认 v2/v1 JSON 省略 `customApiKey` 键；设置页每次选择排除或明文包含，取消/导出失败无成功提示。显式包含从 `CredentialStore` 读出。旧 v1/v2 含 key 备份可读；覆盖导入默认保留本机 key，预览时明确选择才替换；merge 不导入配置。预览、错误、文件名和日志无 key 值。

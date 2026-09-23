@@ -26,8 +26,9 @@
 - **解析字段**：`data[].id`
 - **首选偏好**：若发现列表中包含 `deepseek-v4-flash` 或 `deepseek-chat`，优先选中，否则选择返回的第一个模型。
 - **思考参数兼容性（Thinking）**：
-  - DeepSeek 支持专属的 `thinking: {"type": "enabled" | "disabled"}` 扩展参数。
-  - 仅在服务商为 `deepseek` 时发送该思考控制字段；对其他服务商不无条件发送，避免 400 Bad Request。
+  - DeepSeek Chat Completions 支持 `thinking: {"type": "enabled" | "disabled"}`。官方默认是 enabled，因此用户关闭思考时必须显式发送 disabled。
+  - 仅 DeepSeek 预设，或自定义端点上的 `deepseek-` 模型 id，才发送该字段。火山、百炼和未知兼容模型不发送。
+  - 依据：<https://api-docs.deepseek.com/guides/thinking_mode>（查阅于 2026-09-23）。
 
 ### 1.2 火山引擎（Volcengine / 方舟 / 豆包）
 - **服务商标识（providerId）**：`volcengine`
@@ -81,7 +82,12 @@
   - `openaiResponses`（OpenAI Responses API）
   - `anthropic`（Anthropic Messages API，默认请求 `GET <base>/v1/models`）
 - **鉴权方式**：依协议自动添加 `Authorization: Bearer <key>` 或 `x-api-key: <key>`
-- **兜底方案**：若自定义端点未实现 `/models`，用户直接手填模型名称即可正常调用生成。
+- **兜底方案**：若自定义端点未实现 `/models`，用户直接手填模型名称即可正常调用生成。404/405 只表示没有模型列表，不会自动改成一次生成请求。
+- **协议能力（OS11，查阅于 2026-09-23）**：
+  - OpenAI Compatible：默认只发送 `model`、`messages` 和需要 JSON 时的 `response_format`。
+  - OpenAI Responses：`POST /responses`，字段为 `model`、`instructions`、`input`，需要 JSON 时使用 `text.format`。`reasoning.effort` 只发给 o1/o3/o4 与 gpt-5 标识；未知模型省略。依据：<https://developers.openai.com/api/reference/resources/responses/methods/create>。
+  - Anthropic Messages：`POST /v1/messages`。旧的 Claude 4.5 及更早思考模型使用 `thinking.type=enabled` 和 `budget_tokens`。Claude 4.6 及更新的自适应模型使用 `thinking.type=adaptive` 与 `output_config.effort`。会拒绝 `thinking.type=disabled` 的模型不发送该字段。`output_config.effort` 不是所有模型的思考开关。依据：<https://platform.claude.com/docs/en/build-with-claude/extended-thinking> 与 <https://platform.claude.com/docs/en/build-with-claude/effort>。
+- **连接测试**：分开报告端点/鉴权可达、模型发现成功、所选模型生成成功。生成测试可能计费，只在用户确认后发送一次短请求。模型列表成功不等于所选模型可以生成。真实厂商调用不属于默认自动回归。
 
 ---
 
@@ -97,9 +103,9 @@
    - 必须清空当前界面的 Key 输入，**决不将原服务商的 Key 泄漏或发送给新服务商**；
    - 清除当前展示的动态模型下拉列表。
 3. **缓存与迟到响应隔离**：
-   - 内存缓存以 `${provider}|${baseUrl}|${apiKey}` 为键，仅当配置未变时复用；配置变化缓存自动失效；
-   - 请求绑定独立取消标记（`AICancellation`）；页面退出或切换服务商时 cancel；
-   - 迟到的响应绝对不能覆盖用户已做出的新选择。
+   - 内存缓存身份是 provider、规范化 base URL、protocol 和 credential。规范化地址小写 scheme/host，去掉默认端口和末尾斜杠。诊断只写 `credential:redacted`，不写密钥。
+   - 协议、URL 或密钥变化立即清掉设置页上的旧模型列表。相同身份复用缓存；刷新按钮绕过缓存。失败结果不缓存。
+   - 新的发现会取消其他身份的在途请求。迟到响应不写入缓存，页面 dispose 后不更新界面。
 4. **异常容错与手填兜底**：
    - 若模型发现遇到 401（Key 无效）、403、404、网络超时或空数据，友好展示错误原因；
    - 保留手动输入模型名称输入框，确保在无 `/models` 接口的代理环境下也能正常调用任务分析与拆解。

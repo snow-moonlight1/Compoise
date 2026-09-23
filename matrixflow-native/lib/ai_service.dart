@@ -8,13 +8,48 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'ai_capabilities.dart';
 import 'ai_presets.dart';
+import 'model_discovery.dart';
 import 'models.dart';
 
-class TestResult {
+enum AiProbeKind { endpointAuth, modelDiscovery, modelGeneration }
+
+/// One connection-test stage. [code] is a localization key, never a credential
+/// or response body.
+class AiProbeStep {
+  final AiProbeKind kind;
+  final bool attempted;
   final bool ok;
-  final String message;
-  TestResult(this.ok, this.message);
+  final String code;
+  final int? status;
+
+  const AiProbeStep({
+    required this.kind,
+    required this.attempted,
+    required this.ok,
+    required this.code,
+    this.status,
+  });
+
+  @override
+  String toString() =>
+      'AiProbeStep(${kind.name}, attempted: $attempted, ok: $ok, code: $code, status: $status)';
+}
+
+/// Endpoint/auth and model discovery only. Generation is a separate call.
+class ConnectionProbe {
+  final AiProbeStep endpointAuth;
+  final AiProbeStep modelDiscovery;
+
+  const ConnectionProbe({
+    required this.endpointAuth,
+    required this.modelDiscovery,
+  });
+
+  @override
+  String toString() =>
+      'ConnectionProbe(endpoint: $endpointAuth, discovery: $modelDiscovery)';
 }
 
 class AIException implements Exception {
@@ -143,58 +178,122 @@ class AIService {
     return results;
   }
 
-  final _modelCache = <String, List<String>>{};
+  final _modelCache = <ModelDiscoveryIdentity, List<String>>{};
+  final _inflight = <ModelDiscoveryIdentity, Future<List<String>>>{};
+  final _flightCancel = <ModelDiscoveryIdentity, AICancellation>{};
+  final _flightEpoch = <ModelDiscoveryIdentity, int>{};
 
-  void clearModelCache() => _modelCache.clear();
+  void clearModelCache() {
+    _modelCache.clear();
+    for (final cancel in _flightCancel.values.toList()) {
+      cancel.cancel();
+    }
+    _flightCancel.clear();
+    _flightEpoch.clear();
+    _inflight.clear();
+  }
+
+  /// Redacted cache identities. Safe to log: credentials are not included.
+  String get modelCacheDiagnostic =>
+      _modelCache.keys.map((id) => id.diagnosticLabel).join('\n');
 
   /// Dynamically fetches available models from the provider's discovery API.
+  ///
+  /// The cache identity is provider + normalized base URL + protocol +
+  /// credential. The same identity is reused unless [forceRefresh] is set.
+  /// A newer discovery retires older in-flight calls so late bodies are not
+  /// stored. Failures are not cached.
   Future<List<String>> fetchModels({
     required AIConfig config,
     bool forceRefresh = false,
     AICancellation? cancellation,
-  }) async {
-    final base = _normalizeBase(config.baseUrl);
-    final key = config.apiKey.trim();
-    if (base.isEmpty || key.isEmpty) {
-      throw const AIException('aiMissingConfig');
-    }
-
-    final cacheKey = '${config.provider}|$base|$key';
-    if (!forceRefresh && _modelCache.containsKey(cacheKey)) {
-      return List<String>.from(_modelCache[cacheKey]!);
-    }
-
-    final preset = getAIProviderPreset(config.provider);
-    final path = preset.modelsPath.isNotEmpty ? preset.modelsPath : '/models';
-
-    http.Response res;
-    if (config.protocol == AIProtocol.anthropic) {
-      res = await _send(
-        _get('${_anthropicBase(base)}$path', config),
-        cancellation: cancellation,
-      );
+  }) {
+    final identity = _identity(config);
+    if (!forceRefresh) {
+      final cached = _modelCache[identity];
+      if (cached != null) return Future.value(List<String>.from(cached));
+      final pending = _inflight[identity];
+      if (pending != null) {
+        return pending.then((models) => List<String>.from(models));
+      }
     } else {
-      res = await _send(
-        _get('$base$path', config),
-        cancellation: cancellation,
-      );
+      _retireDiscovery(identity);
     }
+    for (final other in _flightCancel.keys.toList()) {
+      if (other != identity) _retireDiscovery(other);
+    }
+    _flightEpoch.putIfAbsent(identity, () => 0);
+    final epoch = _flightEpoch[identity]!;
+    final cancel = AICancellation();
+    _linkCancel(cancellation, cancel);
+    _flightCancel[identity] = cancel;
+    final future = _fetchAndStore(config, identity, epoch, cancel);
+    _inflight[identity] = future;
+    return future.whenComplete(() {
+      if (identical(_inflight[identity], future)) _inflight.remove(identity);
+      if (identical(_flightCancel[identity], cancel)) {
+        _flightCancel.remove(identity);
+      }
+    });
+  }
 
-    if (res.statusCode == 401 || res.statusCode == 403) {
-      throw AIException('aiUnauthorized', res.statusCode);
-    }
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw AIException('aiHttpError', res.statusCode);
-    }
-
+  Future<List<String>> _fetchAndStore(
+    AIConfig config,
+    ModelDiscoveryIdentity identity,
+    int epoch,
+    AICancellation cancel,
+  ) async {
     try {
-      final json = jsonDecode(utf8.decode(res.bodyBytes));
+      final res = await _send(
+        _modelsRequest(config, identity.normalizedBaseUrl),
+        cancellation: cancel,
+      );
+      _ensureDiscoveryCurrent(config, identity, epoch, cancel);
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        throw AIException('aiUnauthorized', res.statusCode);
+      }
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw AIException('aiHttpError', res.statusCode);
+      }
+      final dynamic json;
+      try {
+        json = jsonDecode(utf8.decode(res.bodyBytes));
+      } catch (_) {
+        throw const AIException('aiInvalidResponse');
+      }
       final models = _parseModelList(json);
-      _modelCache[cacheKey] = models;
-      return models;
-    } catch (e) {
-      if (e is AIException) rethrow;
-      throw const AIException('aiInvalidResponse');
+      _ensureDiscoveryCurrent(config, identity, epoch, cancel);
+      _modelCache[identity] = List<String>.from(models);
+      return List<String>.from(models);
+    } on AIException {
+      rethrow;
+    } on TimeoutException {
+      rethrow;
+    } catch (error) {
+      if (cancel.isCancelled || error is http.RequestAbortedException) {
+        throw const AIException('aiCancelled');
+      }
+      throw const AIException('aiNetworkError');
+    }
+  }
+
+  void _retireDiscovery(ModelDiscoveryIdentity identity) {
+    _flightEpoch[identity] = (_flightEpoch[identity] ?? 0) + 1;
+    _flightCancel.remove(identity)?.cancel();
+    _inflight.remove(identity);
+  }
+
+  void _ensureDiscoveryCurrent(
+    AIConfig config,
+    ModelDiscoveryIdentity identity,
+    int epoch,
+    AICancellation cancel,
+  ) {
+    if (cancel.isCancelled || _flightEpoch[identity] != epoch) {
+      throw const AIException('aiCancelled');
+    }
+    if (tryModelDiscoveryIdentity(config) != identity) {
+      throw const AIException('aiCancelled');
     }
   }
 
@@ -226,46 +325,279 @@ class AIService {
     return result;
   }
 
-  Future<TestResult> testConnection(AIConfig config) async {
+  /// Checks endpoint/auth and model discovery. Does not generate text.
+  Future<ConnectionProbe> testConnection(
+    AIConfig config, {
+    AICancellation? cancellation,
+  }) async {
+    const skipped = AiProbeStep(
+      kind: AiProbeKind.modelDiscovery,
+      attempted: false,
+      ok: false,
+      code: 'aiCheckSkipped',
+    );
+    final ModelDiscoveryIdentity identity;
     try {
-      final base = _normalizeBase(config.baseUrl);
-      if (base.isEmpty || config.apiKey.trim().isEmpty) {
-        return TestResult(false, 'aiMissingConfig');
+      identity = _identity(config);
+    } on AIException catch (error) {
+      return ConnectionProbe(
+        endpointAuth: AiProbeStep(
+          kind: AiProbeKind.endpointAuth,
+          attempted: false,
+          ok: false,
+          code: error.code,
+        ),
+        modelDiscovery: skipped,
+      );
+    }
+    try {
+      final res = await _send(
+        _modelsRequest(config, identity.normalizedBaseUrl),
+        cancellation: cancellation,
+      );
+      if (_probeStale(config, identity, cancellation)) return _cancelledProbe();
+      return _interpretDiscovery(res);
+    } on TimeoutException {
+      return ConnectionProbe(
+        endpointAuth: const AiProbeStep(
+          kind: AiProbeKind.endpointAuth,
+          attempted: true,
+          ok: false,
+          code: 'requestTimeout',
+        ),
+        modelDiscovery: skipped,
+      );
+    } catch (error) {
+      if (_probeStale(config, identity, cancellation) ||
+          error is http.RequestAbortedException ||
+          error is AIException && error.code == 'aiCancelled') {
+        return _cancelledProbe();
       }
-      final preset = getAIProviderPreset(config.provider);
-      final path = preset.modelsPath.isNotEmpty ? preset.modelsPath : '/models';
-      if (config.protocol == AIProtocol.anthropic) {
-        var res = await _send(_get('${_anthropicBase(base)}$path', config));
-        if (res.statusCode == 404 || res.statusCode == 405) {
-          // Proxy without a models list: prove liveness with a 1-token completion.
-          if (config.model.trim().isEmpty) {
-            return TestResult(false, 'aiMissingModel');
-          }
-          res = await _send(
-            _postJson('${_anthropicBase(base)}/messages', config, {
-              'model': config.model,
-              'max_tokens': 1,
-              'messages': [
-                {'role': 'user', 'content': 'hi'},
-              ],
-            }),
-          );
-        }
-        return _fromStatus(res, 'Anthropic');
-      }
-      final res = await _send(_get('$base$path', config));
-      return _fromStatus(res, AIProtocolX.toWire(config.protocol));
-    } catch (e) {
-      return TestResult(
-        false,
-        e is TimeoutException
-            ? 'requestTimeout'
-            : e is AIException
-            ? e.code
-            : 'aiNetworkError',
+      return ConnectionProbe(
+        endpointAuth: const AiProbeStep(
+          kind: AiProbeKind.endpointAuth,
+          attempted: true,
+          ok: false,
+          code: 'aiNetworkError',
+        ),
+        modelDiscovery: skipped,
       );
     }
   }
+
+  /// Sends one short completion to the selected model.
+  ///
+  /// Callers must invoke this only from an explicit user action. The request
+  /// can be billed. It is not part of startup, focus loss, or [testConnection].
+  /// Success requires generated text; a model list is not treated as success.
+  Future<AiProbeStep> testModelGeneration(
+    AIConfig config, {
+    AICancellation? cancellation,
+  }) async {
+    final model = config.model.trim();
+    final ModelDiscoveryIdentity identity;
+    try {
+      identity = _identity(config);
+    } on AIException catch (error) {
+      return AiProbeStep(
+        kind: AiProbeKind.modelGeneration,
+        attempted: false,
+        ok: false,
+        code: error.code,
+      );
+    }
+    if (model.isEmpty) {
+      return const AiProbeStep(
+        kind: AiProbeKind.modelGeneration,
+        attempted: false,
+        ok: false,
+        code: 'aiMissingModel',
+      );
+    }
+    try {
+      final res = await _send(
+        _generationRequest(config, identity.normalizedBaseUrl, model),
+        cancellation: cancellation,
+      );
+      if (_generationStale(config, identity, model, cancellation)) {
+        return _cancelledGeneration();
+      }
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        return AiProbeStep(
+          kind: AiProbeKind.modelGeneration,
+          attempted: true,
+          ok: false,
+          code: 'aiUnauthorized',
+          status: res.statusCode,
+        );
+      }
+      if (res.statusCode == 429 ||
+          res.statusCode < 200 ||
+          res.statusCode >= 300) {
+        return AiProbeStep(
+          kind: AiProbeKind.modelGeneration,
+          attempted: true,
+          ok: false,
+          code: 'aiHttpError',
+          status: res.statusCode,
+        );
+      }
+      final dynamic json;
+      try {
+        json = jsonDecode(utf8.decode(res.bodyBytes));
+      } catch (_) {
+        return const AiProbeStep(
+          kind: AiProbeKind.modelGeneration,
+          attempted: true,
+          ok: false,
+          code: 'aiInvalidResponse',
+        );
+      }
+      if (_generationStale(config, identity, model, cancellation)) {
+        return _cancelledGeneration();
+      }
+      try {
+        final text = extractResponseText(config.protocol, json).trim();
+        if (text.isEmpty) {
+          return const AiProbeStep(
+            kind: AiProbeKind.modelGeneration,
+            attempted: true,
+            ok: false,
+            code: 'aiGenerationEmpty',
+          );
+        }
+        return const AiProbeStep(
+          kind: AiProbeKind.modelGeneration,
+          attempted: true,
+          ok: true,
+          code: 'aiGenerationOk',
+        );
+      } on AIException {
+        return const AiProbeStep(
+          kind: AiProbeKind.modelGeneration,
+          attempted: true,
+          ok: false,
+          code: 'aiInvalidResponse',
+        );
+      }
+    } on TimeoutException {
+      return const AiProbeStep(
+        kind: AiProbeKind.modelGeneration,
+        attempted: true,
+        ok: false,
+        code: 'requestTimeout',
+      );
+    } catch (error) {
+      if (_generationStale(config, identity, model, cancellation) ||
+          error is http.RequestAbortedException) {
+        return _cancelledGeneration();
+      }
+      return const AiProbeStep(
+        kind: AiProbeKind.modelGeneration,
+        attempted: true,
+        ok: false,
+        code: 'aiNetworkError',
+      );
+    }
+  }
+
+  ConnectionProbe _interpretDiscovery(http.Response res) {
+    final status = res.statusCode;
+    AiProbeStep endpoint({required bool ok, required String code}) =>
+        AiProbeStep(
+          kind: AiProbeKind.endpointAuth,
+          attempted: true,
+          ok: ok,
+          code: code,
+          status: status,
+        );
+    AiProbeStep discovery({required bool ok, required String code}) =>
+        AiProbeStep(
+          kind: AiProbeKind.modelDiscovery,
+          attempted: true,
+          ok: ok,
+          code: code,
+          status: status,
+        );
+    if (status == 401 || status == 403) {
+      return ConnectionProbe(
+        endpointAuth: endpoint(ok: false, code: 'aiUnauthorized'),
+        modelDiscovery: discovery(ok: false, code: 'aiUnauthorized'),
+      );
+    }
+    if (status == 404 || status == 405) {
+      return ConnectionProbe(
+        endpointAuth: endpoint(ok: true, code: 'aiEndpointReachable'),
+        modelDiscovery: discovery(ok: false, code: 'aiDiscoveryUnavailable'),
+      );
+    }
+    if (status == 429) {
+      return ConnectionProbe(
+        endpointAuth: endpoint(ok: true, code: 'aiEndpointReachable'),
+        modelDiscovery: discovery(ok: false, code: 'aiHttpError'),
+      );
+    }
+    if (status < 200 || status >= 300) {
+      return ConnectionProbe(
+        endpointAuth: endpoint(ok: false, code: 'aiHttpError'),
+        modelDiscovery: discovery(ok: false, code: 'aiHttpError'),
+      );
+    }
+    try {
+      final models = _parseModelList(jsonDecode(utf8.decode(res.bodyBytes)));
+      return ConnectionProbe(
+        endpointAuth: endpoint(ok: true, code: 'aiEndpointReachable'),
+        modelDiscovery:
+            models.isEmpty
+                ? discovery(ok: false, code: 'aiNoModels')
+                : discovery(ok: true, code: 'aiDiscoveryOk'),
+      );
+    } catch (_) {
+      return ConnectionProbe(
+        endpointAuth: endpoint(ok: true, code: 'aiEndpointReachable'),
+        modelDiscovery: discovery(ok: false, code: 'aiInvalidResponse'),
+      );
+    }
+  }
+
+  bool _probeStale(
+    AIConfig config,
+    ModelDiscoveryIdentity identity,
+    AICancellation? cancellation,
+  ) =>
+      (cancellation?.isCancelled ?? false) ||
+      tryModelDiscoveryIdentity(config) != identity;
+
+  bool _generationStale(
+    AIConfig config,
+    ModelDiscoveryIdentity identity,
+    String model,
+    AICancellation? cancellation,
+  ) =>
+      _probeStale(config, identity, cancellation) ||
+      config.model.trim() != model;
+
+  ConnectionProbe _cancelledProbe() => const ConnectionProbe(
+    endpointAuth: AiProbeStep(
+      kind: AiProbeKind.endpointAuth,
+      attempted: true,
+      ok: false,
+      code: 'aiCancelled',
+    ),
+    modelDiscovery: AiProbeStep(
+      kind: AiProbeKind.modelDiscovery,
+      attempted: false,
+      ok: false,
+      code: 'aiCancelled',
+    ),
+  );
+
+  AiProbeStep _cancelledGeneration() => const AiProbeStep(
+    kind: AiProbeKind.modelGeneration,
+    attempted: true,
+    ok: false,
+    code: 'aiCancelled',
+  );
 
   /// One chat-style request against the configured protocol; returns the
   /// assistant text.
@@ -285,23 +617,20 @@ class AIService {
     if (selectedModel.trim().isEmpty) {
       throw const AIException('aiMissingModel');
     }
+    final thinking = planThinking(config);
 
     Uri uri;
     Map<String, dynamic> body;
-    final enableThinking = config.enableThinking;
     switch (config.protocol) {
       case AIProtocol.openai:
         uri = Uri.parse('$base/chat/completions');
-        final isStandardWithoutThinking =
-            config.provider == 'volcengine' || config.provider == 'bailian';
         body = {
           'model': selectedModel,
           'messages': [
             {'role': 'system', 'content': systemInstruction},
             {'role': 'user', 'content': userPrompt},
           ],
-          if (!isStandardWithoutThinking)
-            'thinking': {'type': enableThinking ? 'enabled' : 'disabled'},
+          ...thinking.fields,
           if (forceJsonObject) 'response_format': {'type': 'json_object'},
         };
       case AIProtocol.openaiResponses:
@@ -310,7 +639,7 @@ class AIService {
           'model': selectedModel,
           'instructions': systemInstruction,
           'input': userPrompt,
-          'reasoning': {'effort': enableThinking ? 'high' : 'none'},
+          ...thinking.fields,
           if (forceJsonObject)
             'text': {
               'format': {'type': 'json_object'},
@@ -325,10 +654,7 @@ class AIService {
           'messages': [
             {'role': 'user', 'content': userPrompt},
           ],
-          if (enableThinking)
-            'output_config': {'effort': 'high'}
-          else
-            'thinking': {'type': 'disabled'},
+          ...thinking.fields,
         };
     }
 
@@ -392,14 +718,60 @@ class AIService {
     }
   }
 
-  TestResult _fromStatus(http.Response res, String label) {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return TestResult(true, 'OK ($label)');
+  ModelDiscoveryIdentity _identity(AIConfig config) {
+    try {
+      return requireModelDiscoveryIdentity(config);
+    } on AiBaseUrlException {
+      throw const AIException('aiInvalidUrl');
+    } on ModelDiscoveryInputException {
+      throw const AIException('aiMissingConfig');
     }
-    return TestResult(
-      false,
-      '${res.statusCode} ${res.reasonPhrase ?? ''}'.trim(),
-    );
+  }
+
+  void _linkCancel(AICancellation? external, AICancellation internal) {
+    if (external == null) return;
+    if (external.isCancelled) {
+      internal.cancel();
+      return;
+    }
+    external.whenCancelled.then((_) => internal.cancel());
+  }
+
+  http.Request _modelsRequest(AIConfig config, String base) {
+    final preset = getAIProviderPreset(config.provider);
+    final path = preset.modelsPath.isNotEmpty ? preset.modelsPath : '/models';
+    final root =
+        config.protocol == AIProtocol.anthropic ? _anthropicBase(base) : base;
+    return _get('$root$path', config);
+  }
+
+  /// Minimal generation probe. Thinking extensions are omitted so the call
+  /// stays small and does not depend on a model-specific thinking budget.
+  http.Request _generationRequest(AIConfig config, String base, String model) {
+    switch (config.protocol) {
+      case AIProtocol.openai:
+        return _postJson('$base/chat/completions', config, {
+          'model': model,
+          'messages': [
+            {'role': 'user', 'content': 'ping'},
+          ],
+          'max_tokens': 16,
+        });
+      case AIProtocol.openaiResponses:
+        return _postJson('$base/responses', config, {
+          'model': model,
+          'input': 'ping',
+          'max_output_tokens': 16,
+        });
+      case AIProtocol.anthropic:
+        return _postJson('${_anthropicBase(base)}/messages', config, {
+          'model': model,
+          'max_tokens': 16,
+          'messages': [
+            {'role': 'user', 'content': 'ping'},
+          ],
+        });
+    }
   }
 
   Map<String, String> _authHeaders(AIConfig config) {
@@ -415,22 +787,11 @@ class AIService {
   }
 
   String _normalizeBase(String baseUrl) {
-    var base = baseUrl.trim();
-    if (base.isEmpty) return '';
-    if (!base.contains('://')) base = 'https://$base';
-    while (base.endsWith('/')) {
-      base = base.substring(0, base.length - 1);
-    }
-    final uri = Uri.tryParse(base);
-    if (uri == null ||
-        !['http', 'https'].contains(uri.scheme) ||
-        uri.host.isEmpty ||
-        uri.hasQuery ||
-        uri.hasFragment ||
-        uri.userInfo.isNotEmpty) {
+    try {
+      return normalizeAiBaseUrl(baseUrl);
+    } on AiBaseUrlException {
       throw const AIException('aiInvalidUrl');
     }
-    return base;
   }
 
   String _anthropicBase(String base) =>

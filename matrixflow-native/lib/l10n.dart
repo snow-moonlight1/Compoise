@@ -87,6 +87,33 @@ const Map<Language, Map<String, String>> _dicts = {
     'testConnection': 'Test Connection',
     'testOk': 'Connection successful',
     'testFail': 'Connection failed',
+    'connectionEndpointLabel': 'Endpoint and credentials',
+    'connectionDiscoveryLabel': 'Model discovery',
+    'connectionGenerationLabel': 'Selected model generation',
+    'aiEndpointReachable': 'Endpoint is reachable and credentials were accepted.',
+    'aiDiscoveryOk':
+        'Model discovery succeeded. This does not mean the selected model can generate.',
+    'aiDiscoveryUnavailable':
+        'This endpoint has no model list. Enter a model id manually. This was not a generation test.',
+    'aiCheckSkipped': 'Not checked.',
+    'aiNoModels': 'The service returned no model ids.',
+    'aiGenerationOk': 'The selected model returned text.',
+    'aiGenerationEmpty': 'The selected model returned an empty response.',
+    'aiGenerationNotRun':
+        'Selected-model generation has not been tested. A successful model list does not mean generation works.',
+    'testGeneration': 'Test selected model',
+    'testGenerationBilling':
+        'A generation test may incur charges. It runs only after you confirm.',
+    'testGenerationConfirm':
+        'Send one short request to the selected model? The provider may charge for this call.',
+    'testGenerationConfirmAction': 'Send test',
+    'aiCancelled': 'The request was cancelled.',
+    'aiThinkingUnsupported':
+        'This model does not accept thinking controls. Requests use compatible fields only. Turn Thinking Mode off, or choose a model that supports it.',
+    'aiThinkingAlwaysOn':
+        'This model always thinks and rejects a disable flag. Leave Thinking Mode on, or choose another model.',
+    'aiThinkingNotForciblyOff':
+        'This model has no safe parameter to disable reasoning. The request omits it, and the provider may still reason. Choose a model that accepts effort "none" to force it off.',
     'boards': 'Boards',
     'createBoard': 'New Board',
     'renameBoard': 'Rename',
@@ -545,6 +572,27 @@ const Map<Language, Map<String, String>> _dicts = {
     'testConnection': '测试连接',
     'testOk': '连接成功',
     'testFail': '连接失败',
+    'connectionEndpointLabel': '端点与鉴权',
+    'connectionDiscoveryLabel': '模型发现',
+    'connectionGenerationLabel': '所选模型生成',
+    'aiEndpointReachable': '端点可达，并且凭据已被接受。',
+    'aiDiscoveryOk': '模型发现成功。这不表示所选模型可以生成。',
+    'aiDiscoveryUnavailable': '该端点没有模型列表。请手动填写模型 ID。这次没有做生成测试。',
+    'aiCheckSkipped': '未检查。',
+    'aiNoModels': '服务端没有返回模型 ID。',
+    'aiGenerationOk': '所选模型已返回文本。',
+    'aiGenerationEmpty': '所选模型返回了空内容。',
+    'aiGenerationNotRun': '尚未测试所选模型生成。模型列表成功不等于可以生成。',
+    'testGeneration': '测试所选模型生成',
+    'testGenerationBilling': '生成测试可能产生费用，只有在你确认后才会发送。',
+    'testGenerationConfirm': '向所选模型发送一次简短请求？服务商可能对此计费。',
+    'testGenerationConfirmAction': '发送测试',
+    'aiCancelled': '请求已取消。',
+    'aiThinkingUnsupported':
+        '当前模型不接受思考控制参数。请求只发送兼容字段。请关闭思考模式，或改用支持思考控制的模型。',
+    'aiThinkingAlwaysOn': '当前模型始终思考，并且会拒绝关闭参数。请保持思考模式开启，或改用其他模型。',
+    'aiThinkingNotForciblyOff':
+        '当前模型没有可安全关闭推理的参数。请求会省略该字段，服务商仍可能进行推理。若要强制关闭，请改用接受 effort 为 none 的模型。',
     'boards': '任务板',
     'createBoard': '新建任务板',
     'renameBoard': '重命名',
@@ -968,6 +1016,30 @@ const Map<Language, Map<String, String>> _dicts = {
     'testConnection': '接続テスト',
     'testOk': '接続成功',
     'testFail': '接続失敗',
+    'connectionEndpointLabel': 'エンドポイントと認証',
+    'connectionDiscoveryLabel': 'モデル検出',
+    'connectionGenerationLabel': '選択モデルの生成',
+    'aiEndpointReachable': 'エンドポイントに到達でき、認証情報は受理されました。',
+    'aiDiscoveryOk': 'モデル検出に成功しました。選択モデルが生成できるという意味ではありません。',
+    'aiDiscoveryUnavailable':
+        'このエンドポイントにモデル一覧はありません。モデル ID を手入力してください。生成テストは行っていません。',
+    'aiCheckSkipped': '未確認。',
+    'aiNoModels': 'サービスはモデル ID を返しませんでした。',
+    'aiGenerationOk': '選択モデルがテキストを返しました。',
+    'aiGenerationEmpty': '選択モデルが空の応答を返しました。',
+    'aiGenerationNotRun':
+        '選択モデルの生成はまだテストしていません。モデル一覧の成功は生成可能を意味しません。',
+    'testGeneration': '選択モデルの生成をテスト',
+    'testGenerationBilling': '生成テストは課金されることがあります。確認した後にだけ送信します。',
+    'testGenerationConfirm': '選択モデルへ短いリクエストを送りますか？プロバイダーが課金する場合があります。',
+    'testGenerationConfirmAction': 'テストを送信',
+    'aiCancelled': 'リクエストは取り消されました。',
+    'aiThinkingUnsupported':
+        'このモデルは思考制御パラメータを受け付けません。リクエストは互換フィールドだけを送ります。思考モードをオフにするか、対応モデルを選んでください。',
+    'aiThinkingAlwaysOn':
+        'このモデルは常に思考し、無効化フラグを拒否します。思考モードをオンのままにするか、別のモデルを選んでください。',
+    'aiThinkingNotForciblyOff':
+        'このモデルには推論を安全に止めるパラメータがありません。リクエストではその項目を省略しますが、プロバイダーが推論する場合があります。強制的に止めるには effort が none のモデルを選んでください。',
     'boards': 'ボード',
     'createBoard': '新規ボード',
     'renameBoard': '名前変更',

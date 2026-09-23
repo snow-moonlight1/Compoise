@@ -6,11 +6,12 @@ import 'package:http/testing.dart';
 import 'package:matrixflow_native/ai_service.dart';
 import 'package:matrixflow_native/models.dart';
 
-AIConfig cfg([String protocol = 'openai']) => AIConfig.fromJson({
+AIConfig cfg([String protocol = 'openai', String model = 'm']) =>
+    AIConfig.fromJson({
       'provider': protocol,
       'customBaseUrl': 'https://api.test.com',
       'customApiKey': 'k',
-      'customModel': 'm',
+      'customModel': model,
       'enableThinking': true,
     });
 
@@ -48,7 +49,7 @@ void main() {
       expect(captured.toString(), 'https://api.test.com/chat/completions');
       expect(headers['authorization'], 'Bearer k');
       expect(body['response_format'], {'type': 'json_object'});
-      expect(body['thinking'], {'type': 'enabled'});
+      expect(body.containsKey('thinking'), isFalse);
       expect(body['messages'][0]['role'], 'system');
       expect(result.single.title, '买牛奶');
       expect(result.single.quadrant, 3);
@@ -76,7 +77,7 @@ void main() {
 
       final result = await service.analyzeTasks(
         inputs: ['A'],
-        config: cfg('openai-responses'),
+        config: cfg('openai-responses', 'o3-mini'),
         language: Language.en,
         autoDecompose: false,
       );
@@ -108,7 +109,7 @@ void main() {
 
       final result = await service.analyzeTasks(
         inputs: ['B'],
-        config: cfg('anthropic'),
+        config: cfg('anthropic', 'claude-sonnet-4-6'),
         language: Language.ja,
         autoDecompose: false,
       );
@@ -118,6 +119,7 @@ void main() {
       expect(headers['anthropic-version'], '2023-06-01');
       expect(body['system'], contains('Eisenhower'));
       expect(body['max_tokens'], 8192);
+      expect(body['thinking'], {'type': 'adaptive'});
       expect(body['output_config'], {'effort': 'high'});
       expect(body.containsKey('response_format'), isFalse);
       // fence stripping + Q-string quadrant + long-term flag all survive
@@ -148,15 +150,15 @@ void main() {
         }),
       );
 
-      final disabledOpenAI = cfg('openai')..enableThinking = false;
+      final disabledOpenAI = cfg('openai', 'deepseek-flash')..enableThinking = false;
       await service.analyzeTasks(inputs: ['X'], config: disabledOpenAI, language: Language.en, autoDecompose: false);
       expect(openAiBody['thinking'], {'type': 'disabled'});
 
-      final disabledResponses = cfg('openai-responses')..enableThinking = false;
+      final disabledResponses = cfg('openai-responses', 'gpt-5.1')..enableThinking = false;
       await service.analyzeTasks(inputs: ['X'], config: disabledResponses, language: Language.en, autoDecompose: false);
       expect(responsesBody['reasoning'], {'effort': 'none'});
 
-      final disabledAnthropic = cfg('anthropic')..enableThinking = false;
+      final disabledAnthropic = cfg('anthropic', 'claude-sonnet-4-5')..enableThinking = false;
       await service.analyzeTasks(inputs: ['X'], config: disabledAnthropic, language: Language.en, autoDecompose: false);
       expect(anthropicBody['thinking'], {'type': 'disabled'});
       expect(anthropicBody.containsKey('output_config'), isFalse);
