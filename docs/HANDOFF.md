@@ -1,8 +1,23 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-23（OS03 完成）。
+最后更新：2026-09-23（OS04 完成）。
 
-## 当前任务：OS01–OS03 已完成，下一包 OS04（2026-09-23）
+## 当前任务：OS01–OS04 已完成，下一包 OS05（2026-09-23）
+
+- 本轮接手 `main / 0ed6fc7`（已提交 OS03），工作区干净。只做 OS04 文档：新增 [备份格式契约](BACKUP_FORMAT.md)，将 ADR-OS-01 的 v2 默认导出/v1 读取决策与 `models.dart`、`data_migrations.dart`、`storage.dart`、设置页逐项对照。覆盖 schema、无密钥合成示例、缺省、毫秒时间、ID 范围、版本和 v2→v1 信息损失、merge/overwrite、密钥及错误策略；未修改产品代码/存储或冻结 Web/Tauri/Capacitor。
+- 关键未实现边界：当前默认导出仍明文包含 `customApiKey`；文件内板/任务重复 ID 保留首条而子项 ID 未检查；merge 的跳过/孤儿和迁移 warning 未呈现给用户；overwrite 缺 key 的配置可清空本机 key，成功应用后的多键写入并非事务。目标差异归 OS07/08，内部持久化可靠性仍由 OS05/06 处理。本包只检查相关源码事实、合成 fixture 与文档链接；**未运行 Flutter test/analyze、双端构建或实机**，不把既有 371/371 与 analyze 0 issues 当本轮新验收。
+- 改动文件：`docs/BACKUP_FORMAT.md`、本文件、OS 实施计划、`docs/ARCHITECTURE.md`、`AGENTS.md`。OS05–OS27 剩余 23 包。WP10/WP29/UI 实验继续暂停。
+
+### 下一位 Agent 启动提示词（OS05）
+
+```text
+在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。
+先阅读 AGENTS.md、docs/HANDOFF.md 顶部、docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md 的 OS05 条款，以及 docs/BACKUP_FORMAT.md 中备份与本机持久化的边界。
+先检查 git status 与 git log，保护已有改动，不 reset、不修改冻结的 React/Tauri/Capacitor。本轮只做 OS05：启动时区分缺失、正常、可迁移与损坏数据；损坏源在用户明确恢复或安全恢复完成前不可被默认值覆盖。用无密钥合成数据复现并修复 OS-R01，验证单键/局部损坏、多次重启和恢复取消。不要开始 OS06–09。
+按计划完成相关测试、全量 flutter test --no-pub 与 flutter analyze --no-pub；同步计划、HANDOFF、架构及必要的 CHANGELOG。提交前审查 diff/status，只暂存本轮文件，提交后确认状态与哈希。不推送。继续暂停 WP10/WP29/UI 实验。
+```
+
+## 历史任务：OS01–OS03 已完成，当时下一包 OS04（2026-09-23）
 
 - 本轮基线 `main / f9aaede`，接手工作区干净；只实施 OS03，提交前仅暂存本轮文件。DeepSeek 新安装默认从预设读取 `deepseek-flash`。旧 DeepSeek 预设默认名仅在匹配厂商、协议与准确 host 时迁移；自定义 `gpt-4o-mini` 和与旧名同名的模型保留。未知 provider 回退 custom 并保留 URL/model；空自定义模型请求前给明确错误。设置 hint 和 en/zh/ja 推荐文案同步，无最高精度承诺。未改冻结 Web/Tauri/Capacitor。
 - OS-R03/05 原审查探针修前各失败 1/1，修后各通过 1/1；`test/os03_ai_config_test.dart` 默认回归 9/9，含新安装、旧备份、自定义与未知 provider、准确 host、三协议 round-trip、mock 请求模型和设置字段一致。默认 `flutter test --no-pub --reporter expanded` **371/371**，`flutter analyze --no-pub` **0 issues**。本轮未提供真实 AI 服务凭据，未做 Android/Windows 设备调用或新构建，不把 mock 当真实服务验收。其余五个审查反例留对应包。
