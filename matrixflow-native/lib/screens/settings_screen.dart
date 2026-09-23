@@ -1489,26 +1489,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_fileBusy) return;
     setState(() => _fileBusy = true);
     final t = store.t;
+    var applying = false;
     try {
       final picked = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
-        withData: true,
+        withData: false,
       );
       if (!context.mounted || picked == null) return;
       final file = picked.files.single;
-      final bytes =
-          file.bytes ??
-          (file.path == null ? null : await File(file.path!).readAsBytes());
-      if (bytes == null) throw const FormatException('No file data');
-      final json = jsonDecode(
-        utf8.decode(bytes).replaceFirst(RegExp(r'^\uFEFF'), ''),
-      );
-      if (json is! Map<String, dynamic> ||
-          json['boards'] is! List ||
-          json['tasks'] is! List) {
-        throw const FormatException('bad shape');
+      Uint8List? bytes = file.bytes;
+      if (file.size > ImportPreflight.maxBytes) {
+        throw const FormatException('Backup exceeds size limit');
       }
+      if (bytes == null && file.path != null) {
+        final source = File(file.path!);
+        if (await source.length() > ImportPreflight.maxBytes) {
+          throw const FormatException('Backup exceeds size limit');
+        }
+        final collected = <int>[];
+        await for (final chunk in source.openRead(
+          0,
+          ImportPreflight.maxBytes + 1,
+        )) {
+          collected.addAll(chunk);
+          if (collected.length > ImportPreflight.maxBytes) {
+            throw const FormatException('Backup exceeds size limit');
+          }
+        }
+        bytes = Uint8List.fromList(collected);
+      }
+      if (bytes == null) throw const FormatException('No file data');
+      final json = ImportPreflight.decode(bytes);
       if (!context.mounted) return;
       final mode = await showDialog<String>(
         context: context,
@@ -1554,48 +1566,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
       );
       if (mode == null || !context.mounted) return;
-      if (mode == 'overwrite') {
-        final sure = await showDialog<bool>(
-          context: context,
-          builder:
-              (dialogContext) => AlertDialog(
-                content: Text(t['confirmImport']!),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: Text(t['cancel']!),
-                  ),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.error,
-                    ),
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    child: Text(t['confirm']!),
-                  ),
-                ],
-              ),
-        );
-        if (sure != true || !context.mounted) return;
+      final plan = store.previewImport(json, mode);
+      final summary =
+          '${t['importAddedBoards']}: ${plan.addedBoards}\n'
+          '${t['importAddedTasks']}: ${plan.addedTasks}\n'
+          '${t['importSkipped']}: ${plan.skipped}\n'
+          '${t['importConflicts']}: ${plan.conflicts}\n'
+          '${t['importRepaired']}: ${plan.repaired}\n'
+          '${t['importWarnings']}: ${plan.warnings.length}\n'
+          '${t['importRemovedBoards']}: ${plan.removedBoards}\n'
+          '${t['importRemovedTasks']}: ${plan.removedTasks}\n'
+          '${t['importSettingsImpact']}: ${plan.settings == null ? t['importAbsent'] : t['importPresent']}\n'
+          '${t['importConfigImpact']}: ${plan.aiConfig == null ? t['importAbsent'] : t['importPresent']}';
+      String warningText(String warning) {
+        if (warning == 'Empty backup') return t['importWarningEmpty']!;
+        if (warning == 'Orphan task skipped') return t['importWarningOrphan']!;
+        if (warning == 'Default board created') return t['importWarningBoard']!;
+        if (warning == 'Empty board reference repaired') {
+          return t['importWarningReference']!;
+        }
+        if (warning.startsWith('Successfully migrated legacy')) {
+          return t['importWarningLegacy']!;
+        }
+        if (warning.endsWith('normalized')) {
+          return '${t['importWarningNormalized']}: $warning';
+        }
+        return '${t['importWarningUnknown']}: $warning';
       }
-      final count = store.importData(json, mode);
+
+      final warningDetails = plan.warnings.take(8).map(warningText).join('\n');
+      final sure = await showDialog<bool>(
+        context: context,
+        builder:
+            (dialogContext) => AlertDialog(
+              title: Text(t['importPreview']!),
+              content: SingleChildScrollView(
+                child: Text(
+                  '${mode == 'overwrite' ? t['confirmImport'] : t['importModeMergeDesc']}\n\n$summary\n\n$warningDetails\n\n${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text(t['cancel']!),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  onPressed:
+                      plan.conflicts > 0
+                          ? null
+                          : () => Navigator.pop(dialogContext, true),
+                  child: Text(t['confirm']!),
+                ),
+              ],
+            ),
+      );
+      if (sure != true || !context.mounted) return;
+      applying = true;
+      final result = await store.applyImport(plan);
+      if (!result.success) {
+        throw StateError('Import save failed');
+      }
       _baseUrlController.text = store.aiConfig.baseUrl;
       _apiKeyController.text = store.aiConfig.apiKey;
       _modelController.text = store.aiConfig.model;
-      await store.flush();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              store.persistenceError ?? '${store.t['importSuccess']} ($count)',
-            ),
+            content: Text('${store.t['importSuccess']} (${plan.addedTasks})'),
           ),
         );
       }
-    } catch (_) {
+    } on FormatException catch (error) {
       if (context.mounted) {
+        final message =
+            error.message.startsWith('Conflicting')
+                ? t['importConflictBlocked']!
+                : t['importError']!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(t['importError']!)));
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t[applying ? 'importSaveError' : 'importError']!),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _fileBusy = false);

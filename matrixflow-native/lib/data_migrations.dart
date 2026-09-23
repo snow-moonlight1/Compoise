@@ -7,10 +7,10 @@ import 'models.dart';
 class UnsupportedDataVersionException extends FormatException {
   final int version;
   UnsupportedDataVersionException(this.version)
-      : super(
-          'Unsupported export payload version: $version. '
-          'Please update MatrixFlow to import this file.',
-        );
+    : super(
+        'Unsupported export payload version: $version. '
+        'Please update MatrixFlow to import this file.',
+      );
 }
 
 /// Thrown when an import payload contains unrecoverable structural corruption.
@@ -67,7 +67,9 @@ class DataMigrator {
 
     // 2. Structural validation
     if (json['boards'] is! List) {
-      throw const FormatException('Missing or invalid "boards" list in payload');
+      throw const FormatException(
+        'Missing or invalid "boards" list in payload',
+      );
     }
     if (json['tasks'] is! List) {
       throw const FormatException('Missing or invalid "tasks" list in payload');
@@ -108,6 +110,12 @@ class DataMigrator {
       }
       try {
         final task = Task.fromJson(Map<String, dynamic>.from(raw));
+        final childIds = <String>{};
+        for (final child in task.subtasks) {
+          if (!childIds.add(child.id)) {
+            throw const FormatException('Conflicting subtask ID in one task');
+          }
+        }
         if (seenTaskIds.add(task.id)) {
           parsedTasks.add(task);
         } else {
@@ -131,7 +139,9 @@ class DataMigrator {
       if (json['settings'] is! Map<String, dynamic>) {
         throw const FormatException('Invalid settings format in payload');
       }
-      parsedSettings = AppSettings.fromJson(json['settings'] as Map<String, dynamic>);
+      parsedSettings = AppSettings.fromJson(
+        json['settings'] as Map<String, dynamic>,
+      );
     }
 
     // 6. Parse aiConfig with fallback
@@ -140,7 +150,9 @@ class DataMigrator {
       if (json['aiConfig'] is! Map<String, dynamic>) {
         throw const FormatException('Invalid aiConfig format in payload');
       }
-      parsedConfig = AIConfig.fromJson(json['aiConfig'] as Map<String, dynamic>);
+      parsedConfig = AIConfig.fromJson(
+        json['aiConfig'] as Map<String, dynamic>,
+      );
     }
 
     // 7. Version upgrade normalization

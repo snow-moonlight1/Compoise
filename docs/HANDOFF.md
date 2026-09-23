@@ -1,8 +1,22 @@
 # 项目交接文档（HANDOFF.md）
 
-最后更新：2026-09-23（OS05 完成）。
+最后更新：2026-09-23（OS06/OS07 连续完成）。
 
-## 当前任务：OS01–OS05 已完成，下一包 OS06（2026-09-23）
+## 当前任务：OS01–OS07 已完成，下一包 OS08（2026-09-23）
+
+- 本轮接手 `main / e58431e9ffd93b08d557f500eeb733ac6a97f23f`，工作区干净；用户明确授权连续完成 OS06、OS07，未开始 OS08。实际仓库路径是 `D:\Dev_project\martix`（用户消息中的 `D:\Dev\_project\martix` 不存在）。未改冻结 React/Tauri/Capacitor。
+- **OS06**：新增 `lib/save_protocol.dart` 双槽完整快照（任务、板、配置、设置、活跃板、onboarding）和校验/提交指针，Store 启动优先读已提交槽，旧键继续镜像；`flush` 暴露 `SaveResult`，失败横幅可重试且成功清错。写入 false、异常、指针前及镜像中断的合成测试分别验证重启为完整旧/新批次。OS05 恢复副本也包含批次原始键。SharedPreferences 方法完成不是掉电原子性；强杀、掉电及多实例竞争本轮无平台证据。
+- **OS07**：先按原探针复现 OS-R02 失败，再修复为冲突子项 ID 在改变状态前拒绝。新增 `lib/import_preflight.dart`，限制 4 MiB、嵌套深度 12、500 板/10000 任务/50000 子项；检查 v1/v2、版本、损坏、时间、板/任务/子项 ID、孤儿和空备份。相同记录跳过，内容冲突阻断；merge 跳过孤儿，overwrite 拒绝非空孤儿、修复空引用。设置页先预览新增/跳过/冲突/修复/警告与覆盖影响，取消不应用，确认后 `applyImport` 先写完整批次再更新内存；失败提示重试并保留旧库。三语文案同步。旧同步 `Store.importData` 仍供内部兼容调用，虽然共用预检，但仍先变更内存再排队保存；产品导入只用事务入口，待 OS20 收口。
+- **密钥事实**：普通 v2 默认导出仍会明文包含 `customApiKey`；overwrite 导入含配置时沿用现有配置读取，缺 key 可清空本机 key。默认排除与凭据选择仍归 OS08；只用无密钥合成数据。WP10/WP29/UI 实验继续暂停。Android/Windows 新包实机与强杀/掉电验收均未测。
+- 代码与文档范围：Flutter `storage.dart`、`save_protocol.dart`、`import_preflight.dart`、`data_migrations.dart`、设置页/矩阵页、恢复页、`l10n.dart`；OS06/07 与相邻回归测试；本文件、`AGENTS.md`、OS 计划、`BACKUP_FORMAT.md`、`ARCHITECTURE.md`、`CHANGELOG.md`。OS06/07 专项 **12/12**，连同 OS05 和迁移定向 **34/34**；OS-R02 原探针 **1/1**；默认全量 `flutter test --no-pub` **390/390**，`flutter analyze --no-pub` **0 issues**。未使用真实备份、密钥或设备。
+
+### 下一位 Agent 启动提示词（OS08）
+
+```text
+在 D:\Dev_project\martix 接手 MatrixFlow Flutter Android + Windows。先检查 git status/log，阅读 AGENTS.md、HANDOFF 顶部、BACKUP_FORMAT.md 和开源准备计划 OS08 条款。OS06/07 已完成；本轮只实施 OS08：默认导出排除 customApiKey，显式包含时警告明文风险；旧含密钥 v1/v2 可读，导入凭据需用户显式选择，文件缺 key 默认保留本机 key。保护已有改动，不 reset，不改冻结 Web/Tauri/Capacitor。只用无密钥合成数据验证专项、默认全量 test/analyze；同步相关文档，审查 diff/status，仅暂存本轮文件，不 amend、不推送。继续暂停 WP10/WP29/UI 实验。
+```
+
+## 历史任务：OS01–OS05 已完成，当时下一包 OS06（2026-09-23）
 
 - 本轮接手 `main / 8dde00f`，工作区干净，只实施 OS05。OS-R01 修前复现损坏任务 JSON 被启动写成 `[]`，修后原探针通过。Store 对本机任务、板、配置、设置和 UI 元数据标记缺失/正常/归一化/损坏；任一损坏时不启动自动写回，主界面前显示恢复页。恢复页可保存所有原始本机值的专用 JSON（可能含明文凭据，不能当普通备份导入），或二次确认后丢弃损坏值；取消和多次重启保留原始值，UI 只列类别。未修改冻结 Web/Tauri/Capacitor。
 - 合成数据专项 `test/os05_startup_recovery_test.dart` **7/7**，含截断 JSON、错误顶层/primitive、局部坏记录、再次启动、缺失新装、可归一化记录、保存副本和取消处置。原 OS-R01 探针修后 **1/1**；默认全量 `flutter test --no-pub` **378/378**，`flutter analyze --no-pub` **0 issues**。未使用真实任务备份/密钥，未做 Android/Windows 实机或新构建。恢复文件保存与 SharedPreferences 后续写入的故障结果、跨键事务及掉电恢复仍归 OS06，不宣称本轮已解决。

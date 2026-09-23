@@ -1,6 +1,6 @@
 # 架构
 
-> **2026-09-23 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01 清理空状态斜体，OS02 统一父/子视觉层级，OS03 更新 DeepSeek 默认并修正配置归一化，OS04 固化 [JSON 备份格式契约](BACKUP_FORMAT.md)，OS05 保留启动损坏数据并提供恢复入口；下一包 OS06。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
+> **2026-09-23 当前覆盖：** 最新 Flutter 全库职责/接口/失败恢复评估见 [审查报告](FLUTTER_REVIEW_2026-09-22.md)，修复派单见 [OS 实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。OS01–OS05 已完成；OS06 加入可恢复保存批次与显式结果，OS07 加入有界预检及导入事务；下一包 OS08。本轮不处理密钥默认导出。下文旧 Web/v1 与旧包状态待 OS27 系统收口，不作为当前派单依据。用户认可主要实机体验；新增审查反例不等于既有 UX 返修全部失效。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
@@ -10,11 +10,17 @@
 
 ## 当前 Flutter 备份（OS04）
 
-Flutter 使用 `ExportData` v2 JSON 默认导出，并通过 `DataMigrator` 读取 v1/v2；备份结构、当前导入语义和待 OS07/08 落实的安全契约见 [BACKUP_FORMAT.md](BACKUP_FORMAT.md)。目前导出仍明文包含 `aiConfig.customApiKey`，导入的板/任务 ID 冲突、子项 ID、空备份和写入失败边界仍需后续包处理。备份格式与 SharedPreferences 的多键可靠写入是不同议题；OS04 未修改代码或宣称这些问题已修复。
+Flutter 使用 `ExportData` v2 JSON 默认导出，并通过 `DataMigrator` 读取 v1/v2；备份结构及 OS07 已实施的导入语义见 [BACKUP_FORMAT.md](BACKUP_FORMAT.md)。目前导出仍明文包含 `aiConfig.customApiKey`，密钥策略留 OS08。备份交换格式与 SharedPreferences 的保存协议分开演进。
 
 ## 当前 Flutter 启动恢复（OS05）
 
-`Store.init` 为本机核心键和 UI 元数据键记录缺失、正常、归一化或损坏状态。若任一源损坏（包括局部记录无法解析和错误的 onboarding primitive），启动不再自动写回任何键；主界面前的恢复页只显示受影响类别，可将所有原始本机值保存为恢复专用 JSON（可能包含 API 密钥），或经二次确认丢弃损坏值后继续。取消和重启保留源值。该恢复文件不是 `ExportData`，不能通过普通导入使用。正常缺省/可迁移数据仍按既有加载逻辑处理。SharedPreferences 后续多键写入的结果与崩溃恢复仍归 OS06；OS05 不保证掉电原子性。
+`Store.init` 为本机核心键和 UI 元数据键记录缺失、正常、归一化或损坏状态。若任一源损坏（包括局部记录无法解析和错误的 onboarding primitive），启动不再自动写回任何键；主界面前的恢复页只显示受影响类别，可将所有原始本机值保存为恢复专用 JSON（可能包含 API 密钥），或经二次确认丢弃损坏值后继续。取消和重启保留源值。该恢复文件不是 `ExportData`，不能通过普通导入使用。正常缺省/可迁移数据仍按既有加载逻辑处理。OS06 随后加入批次提交；OS05 本身不保证掉电原子性。
+
+## 当前 Flutter 保存与导入（OS06/OS07）
+
+`lib/save_protocol.dart` 将任务、板、AI 配置、设置、活跃板与 onboarding 状态合成带 revision/Adler-32 校验的完整快照，在两个 SharedPreferences 槽之间轮换，以指针为提交点。启动优先读取指针所指快照；旧键继续作为兼容镜像。提交前失败重启读取旧批次，提交后镜像失败重启读取新批次；指针或已提交槽损坏交 OS05 恢复页。`Store.flush` 返回 `SaveResult`，失败横幅可重试，成功清除错误。快照与镜像一样仍可能含本机 API 密钥，OS09 再处理本机凭据保护。SharedPreferences 返回成功并不等于抗强杀/掉电持久化，未验证平台文件系统或多实例竞争。
+
+`lib/import_preflight.dart` 统一设置页的 v1/v2 预检，文件最大 4 MiB、嵌套深度 12、最多 500 板/10000 任务/50000 子项。板/任务在各自域唯一，子项在同父任务唯一；相同记录可跳过，内容冲突拒绝或阻断；孤儿、空备份及缺省修复有预检结果。设置页预览新增/跳过/冲突/修复/警告与覆盖影响，确认后 `Store.applyImport` 先提交完整保存批次，再改内存并重排提醒；失败保留旧库。现存同步 `Store.importData` 只供内部兼容调用，虽共用预检仍是先更新内存后排队保存，产品文件导入不再调用它，待 OS20 移除。当前普通导出仍明文包含密钥，凭据策略归 OS08。
 
 本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 

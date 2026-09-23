@@ -321,7 +321,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Overwrite All'));
       await tester.pumpAndSettle();
+      expect(find.text('Review import'), findsOneWidget);
       await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async { await Future<void>.delayed(const Duration(milliseconds: 20)); });
       await tester.pumpAndSettle();
       expect(store.aiConfig.baseUrl, 'https://new.example.test');
       await tester.scrollUntilVisible(

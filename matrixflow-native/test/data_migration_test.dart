@@ -218,13 +218,13 @@ void main() {
       expect(store.tasks.single.id, 'safe-t');
     });
 
-    test('store.importData in merge mode drops orphan tasks and skips existing IDs', () async {
+    test('merge rejects conflicting IDs before applying any new records', () async {
       final (store, _) = await makeStore(
         boards: [Board(id: 'b1', name: 'Board 1', createdAt: 1)],
         tasks: [Task(id: 't1', boardId: 'b1', title: 'Task 1', quadrant: qPlan, createdAt: 1)],
       );
 
-      final imported = store.importData({
+      final incoming = {
         'version': 2,
         'boards': [
           {'id': 'b1', 'name': 'Board 1 Dup', 'createdAt': 1},
@@ -235,11 +235,13 @@ void main() {
           {'id': 't2', 'boardId': 'b2', 'title': 'Task 2 New', 'quadrant': 2, 'createdAt': 2},
           {'id': 't3', 'boardId': 'orphan-board', 'title': 'Orphan', 'quadrant': 3, 'createdAt': 3},
         ],
-      }, 'merge');
-
-      expect(imported, 1);
-      expect(store.boards.length, 2);
-      expect(store.tasks.map((t) => t.id), ['t1', 't2']);
+      };
+      final preview = store.previewImport(incoming, 'merge');
+      expect(preview.conflicts, 2);
+      expect(preview.skipped, 1); // orphan
+      expect(() => store.importData(incoming, 'merge'), throwsFormatException);
+      expect(store.boards.length, 1);
+      expect(store.tasks.map((t) => t.id), ['t1']);
     });
 
     test('Flutter Android <-> Windows roundtrip interchangeability is 100% lossless', () async {

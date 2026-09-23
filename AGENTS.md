@@ -2,7 +2,7 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)。
 
-> **2026-09-23 当前派单覆盖：** 用户认可主要实机体验，按 [开源准备实施计划](docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md) 串行领取，下一包 **OS06**，每位 Agent 一包。见 [全库审查报告](docs/FLUTTER_REVIEW_2026-09-22.md)。OS01–OS03 代码修复与 OS04 [JSON 备份格式契约](docs/BACKUP_FORMAT.md) 已完成；OS05 启动损坏源保留与恢复页已实现，OS-R01 转绿；默认全量 378/378、analyze 0 issues。保存批次/写入结果仍归 OS06，导入/密钥差异仍归 OS07/08。OS06–OS27 尚未实施，共 22 包；审查轮其余反例留对应包。UX01–07、R1–R5/S1 保留，旧 UX08 文档收口并入 OS27；用户总体认可不冒充逐场景双端证据。动效策略统一读 `lib/ui/motion_policy.dart`，聚焦几何在 `lib/widgets/quadrant_transition_layout.dart`。继续暂停 WP10/WP29/UI 实验。下文旧包进度为历史，以本段和 HANDOFF 顶部优先。
+> **2026-09-23 当前派单覆盖：** 用户本轮连续授权 OS06、OS07，均已实施；下一包 **OS08**，本轮不开始。见 [开源准备实施计划](docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md) 与 [全库审查报告](docs/FLUTTER_REVIEW_2026-09-22.md)。OS01–OS05 历史成果保留；OS06 为本机保存增加可恢复批次、明确结果和重试，OS07 为导入增加有界预检、冲突阻断、影响预览及先提交后应用，OS-R02 转绿。默认导出仍可能明文包含密钥，凭据选择留 OS08。UX01–07、R1–R5/S1 保留，旧 UX08 文档收口并入 OS27；用户总体认可不冒充逐场景双端证据。动效策略统一读 `lib/ui/motion_policy.dart`，聚焦几何在 `lib/widgets/quadrant_transition_layout.dart`。继续暂停 WP10/WP29/UI 实验。下文旧包进度为历史，以本段和 HANDOFF 顶部优先。
 
 ## 运行与验证
 

@@ -9,15 +9,18 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai_service.dart';
-import 'data_migrations.dart';
 import 'deadline_policy.dart';
 import 'l10n.dart';
+import 'import_preflight.dart';
 import 'models.dart';
+import 'save_protocol.dart';
 import 'services/reminder_service.dart';
 import 'task_commands.dart';
 
 export 'data_migrations.dart';
 export 'deadline_policy.dart';
+export 'import_preflight.dart';
+export 'save_protocol.dart';
 export 'services/reminder_service.dart';
 export 'task_commands.dart';
 
@@ -33,6 +36,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   final AIService ai;
   late SharedPreferences _prefs;
+  SaveProtocol? _saveProtocol;
+  Map<String, String>? _savedValues;
+  final SaveWrite? saveWriter;
 
   bool ready = false;
   bool _disposed = false;
@@ -40,6 +46,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   String? startupError;
   String? persistenceError;
   Future<void> _pendingWrites = Future.value();
+  bool _saveScheduled = false;
+  int _dirtyRevision = 0;
+  int _savedRevision = 0;
+  SaveResult lastSaveResult = const SaveResult(true, 0);
   List<Board> boards = [];
   List<Task> tasks = [];
   String activeBoardId = '';
@@ -57,7 +67,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   final List<Locale>? initialDeviceLocales;
 
-  Store({AIService? aiService, List<Locale>? deviceLocales})
+  Store({AIService? aiService, List<Locale>? deviceLocales, this.saveWriter})
     : ai = aiService ?? AIService(),
       initialDeviceLocales = deviceLocales;
 
@@ -107,6 +117,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     if (_disposed) return;
+    _saveProtocol = SaveProtocol(_prefs, writer: saveWriter);
+    try {
+      _savedValues = _saveProtocol!.load()?.values;
+    } catch (_) {
+      _protectedStartupKeys.add(SaveProtocol.pointerKey);
+      startupDataStates[SaveProtocol.pointerKey] = StartupDataState.corrupt;
+      _savedValues = null;
+    }
     var corrupted = 0;
 
     void mark(String key, StartupDataState state) {
@@ -120,7 +138,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       T Function(dynamic) parse,
       Object? Function(T) serialize,
     ) {
-      final present = _prefs.containsKey(key);
+      final present = _savedValues?.containsKey(key) ?? _prefs.containsKey(key);
       final raw = _loadJson(key);
       if (raw == null && !present) {
         mark(key, StartupDataState.missing);
@@ -213,7 +231,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         task.boardId = boards.first.id;
       }
     }
-    final savedActive = _prefs.get(_kActiveBoard);
+    final savedActive =
+        _savedValues?[_kActiveBoard] ?? _prefs.get(_kActiveBoard);
     mark(
       _kActiveBoard,
       savedActive == null
@@ -229,7 +248,15 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       }
       activeBoardId = boards.first.id;
     }
-    final onboarding = _prefs.get(_kHasSeenOnboarding);
+    final onboardingRaw = _savedValues?[_kHasSeenOnboarding];
+    final onboarding =
+        onboardingRaw == null
+            ? _prefs.get(_kHasSeenOnboarding)
+            : onboardingRaw == 'true'
+            ? true
+            : onboardingRaw == 'false'
+            ? false
+            : onboardingRaw;
     mark(
       _kHasSeenOnboarding,
       onboarding == null
@@ -274,6 +301,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           _kSettings,
           _kActiveBoard,
           _kHasSeenOnboarding,
+          SaveProtocol.pointerKey,
+          'matrixflow-save-a',
+          'matrixflow-save-b',
         ])
           if (_prefs.containsKey(key)) {'key': key, 'value': _prefs.get(key)},
       ],
@@ -286,6 +316,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     for (final key in _protectedStartupKeys) {
       if (!await _prefs.remove(key)) return false;
     }
+    _saveProtocol = SaveProtocol(_prefs, writer: saveWriter);
     for (final key in _protectedStartupKeys) {
       startupDataStates[key] = StartupDataState.missing;
     }
@@ -402,13 +433,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   void completeOnboarding() {
     hasSeenOnboarding = true;
-    _prefs.setBool(_kHasSeenOnboarding, true);
+    _write(_kHasSeenOnboarding, 'true');
     notifyListeners();
   }
 
   void resetOnboardingForTest() {
     hasSeenOnboarding = false;
-    _prefs.setBool(_kHasSeenOnboarding, false);
+    _write(_kHasSeenOnboarding, 'false');
     notifyListeners();
   }
 
@@ -1121,74 +1152,80 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Returns the number of tasks imported. [mode] is 'merge' or 'overwrite'.
   int importData(Map<String, dynamic> json, String mode) {
-    if (!['merge', 'overwrite'].contains(mode)) {
-      throw const FormatException('bad export shape: invalid mode');
+    final plan = previewImport(json, mode);
+    if (plan.conflicts != 0) throw const FormatException('Conflicting IDs');
+    _applyImportState(plan);
+    _persistAll();
+    return plan.addedTasks;
+  }
+
+  ImportPlan previewImport(Map<String, dynamic> json, String mode) =>
+      ImportPreflight.inspect(
+        json,
+        mode,
+        currentBoards: boards,
+        currentTasks: tasks,
+        revision: _dirtyRevision,
+      );
+
+  /// Persist the proposed complete state before changing live state.
+  Future<SaveResult> applyImport(ImportPlan plan) async {
+    if (plan.conflicts != 0 || hasStartupRecovery) {
+      return const SaveResult(false, 0);
     }
-
-    // Atomically validate and migrate payload before modifying any live state.
-    // Throws FormatException or UnsupportedDataVersionException on failure.
-    final migration = DataMigrator.migratePayload(json);
-
-    final incomingBoards = List<Board>.from(migration.boards);
-    final incomingTasks = List<Task>.from(migration.tasks);
-    final incomingSettings = migration.settings;
-    final incomingConfig = migration.aiConfig;
-
-    if (mode == 'overwrite') {
-      if (incomingBoards.isEmpty) {
-        incomingBoards.add(
-          Board(id: newId(), name: t['defaultBoardName']!, createdAt: _now()),
-        );
-      }
-      final validIds = incomingBoards.map((b) => b.id).toSet();
-      for (final task in incomingTasks) {
-        if (task.boardId.isEmpty) task.boardId = incomingBoards.first.id;
-        if (!validIds.contains(task.boardId)) {
-          throw const FormatException('Task references a missing board');
-        }
-      }
-
-      // Pre-validation passed without error: now apply state mutations
-      bumpAllBoardEpochs();
-      for (final b in incomingBoards) {
-        bumpBoardEpoch(b.id);
-      }
-      ReminderService.instance.cancelAll();
-      boards = incomingBoards;
-      tasks = incomingTasks;
-      settings = incomingSettings ?? settings;
-      aiConfig = incomingConfig ?? aiConfig;
-      activeBoardId = boards.first.id;
-      _applyDeadlinePromotion();
-      ReminderService.instance.rescheduleAllFuture(tasks);
-      _persistAll();
-      notifyListeners();
-      return incomingTasks.length;
+    final preceding = await flush();
+    if (!preceding.success ||
+        plan.baseRevision != _dirtyRevision ||
+        _disposed) {
+      return const SaveResult(false, 0);
     }
-
-    // merge: dedupe boards & tasks by id, drop orphan tasks
-    final existingBoardIds = boards.map((b) => b.id).toSet();
-    final newBoards =
-        incomingBoards.where((b) => !existingBoardIds.contains(b.id)).toList();
-    boards.addAll(newBoards);
-
-    final seenTaskIds = tasks.map((t) => t.id).toSet();
-    final validBoardIds = {...existingBoardIds, ...newBoards.map((b) => b.id)};
-    final incoming =
-        incomingTasks
-            .where(
-              (task) =>
-                  validBoardIds.contains(task.boardId) &&
-                  seenTaskIds.add(task.id),
-            )
-            .toList();
-    tasks.addAll(incoming);
-    _applyDeadlinePromotion();
-    ReminderService.instance.rescheduleAllFuture(incoming);
-    _saveBoardsMeta();
-    _saveTasks();
+    final nextSettings = plan.settings ?? settings;
+    final nextConfig = plan.aiConfig ?? aiConfig;
+    final active =
+        plan.mode == 'overwrite' ? plan.boards.first.id : activeBoardId;
+    final values = _snapshotValues(
+      boardsValue: plan.boards,
+      tasksValue: plan.tasks,
+      settingsValue: nextSettings,
+      configValue: nextConfig,
+      activeValue: active,
+    );
+    final result = await _saveProtocol!.commit(values);
+    lastSaveResult = result;
+    if (!result.success) {
+      persistenceError = t['storageWriteError'];
+      if (!_disposed) notifyListeners();
+      return result;
+    }
+    _savedValues = values;
+    _dirtyRevision++;
+    _savedRevision = _dirtyRevision;
+    persistenceError = null;
+    if (_disposed) return result;
+    _applyImportState(plan);
     notifyListeners();
-    return incoming.length;
+    return result;
+  }
+
+  void _applyImportState(ImportPlan plan) {
+    if (plan.mode == 'overwrite') {
+      bumpAllBoardEpochs();
+      for (final board in plan.boards) {
+        bumpBoardEpoch(board.id);
+      }
+    }
+    boards = plan.boards;
+    tasks = plan.tasks;
+    settings = plan.settings ?? settings;
+    aiConfig = plan.aiConfig ?? aiConfig;
+    if (plan.mode == 'overwrite') activeBoardId = boards.first.id;
+    try {
+      if (plan.mode == 'overwrite') ReminderService.instance.cancelAll();
+      ReminderService.instance.rescheduleAllFuture(tasks);
+    } catch (_) {
+      // Reminder delivery is tracked separately from library persistence.
+    }
+    notifyListeners();
   }
 
   // --- deadline auto-promotion ---
@@ -1224,7 +1261,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   dynamic _loadJson(String key) {
     try {
-      final raw = _prefs.getString(key);
+      final raw = _savedValues?[key] ?? _prefs.getString(key);
       if (raw == null) return null;
       return jsonDecode(raw);
     } catch (_) {
@@ -1241,21 +1278,63 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   void _write(String key, String value) {
     if (!ready || _disposed || hasStartupRecovery) return;
-    _pendingWrites = _pendingWrites.then((_) async {
-      try {
-        if (!await _prefs.setString(key, value)) {
-          throw StateError('Save failed');
+    _dirtyRevision++;
+    if (!_saveScheduled) {
+      _saveScheduled = true;
+      _pendingWrites = _pendingWrites.then((_) async {
+        // Coalesce every mutation in the current synchronous command.
+        await Future<void>.value();
+        while (_savedRevision < _dirtyRevision && !_disposed) {
+          final target = _dirtyRevision;
+          final values = _snapshotValues();
+          final result = await _saveProtocol!.commit(values);
+          lastSaveResult = result;
+          if (!result.success) {
+            persistenceError = t['storageWriteError'];
+            if (!_disposed) notifyListeners();
+            _saveScheduled = false;
+            return;
+          }
+          _savedRevision = target;
+          _savedValues = values;
+          persistenceError = null;
+          if (!_disposed) notifyListeners();
         }
-      } catch (_) {
-        if (!_disposed) {
-          persistenceError = t['storageWriteError'];
-          notifyListeners();
-        }
-      }
-    });
+        _saveScheduled = false;
+      });
+    }
   }
 
-  Future<void> flush() => _pendingWrites;
+  Future<SaveResult> flush() async {
+    await _pendingWrites;
+    return lastSaveResult;
+  }
+
+  Future<SaveResult> retrySave() async {
+    if (!ready || hasStartupRecovery) return const SaveResult(false, 0);
+    _savedRevision = _dirtyRevision;
+    _write(_kTasks, '');
+    return flush();
+  }
+
+  Map<String, String> _snapshotValues({
+    List<Board>? boardsValue,
+    List<Task>? tasksValue,
+    AIConfig? configValue,
+    AppSettings? settingsValue,
+    String? activeValue,
+  }) => {
+    _kTasks: jsonEncode(
+      (tasksValue ?? tasks).map((task) => task.toJson()).toList(),
+    ),
+    _kBoards: jsonEncode(
+      (boardsValue ?? boards).map((board) => board.toJson()).toList(),
+    ),
+    _kConfig: jsonEncode((configValue ?? aiConfig).toJson()),
+    _kSettings: jsonEncode((settingsValue ?? settings).toJson()),
+    _kActiveBoard: activeValue ?? activeBoardId,
+    _kHasSeenOnboarding: hasSeenOnboarding.toString(),
+  };
 
   void _saveTasks() =>
       _write(_kTasks, jsonEncode(tasks.map((t) => t.toJson()).toList()));

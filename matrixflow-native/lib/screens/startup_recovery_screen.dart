@@ -100,6 +100,9 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
       'matrixflow-settings': 'recoverySettings',
       'matrixflow-active-board': 'recoveryActiveBoard',
       'matrixflow-has-seen-onboarding': 'recoveryOnboarding',
+      'matrixflow-save-pointer': 'recoverySaveBatch',
+      'matrixflow-save-a': 'recoverySaveBatch',
+      'matrixflow-save-b': 'recoverySaveBatch',
     };
     return Scaffold(
       appBar: AppBar(title: Text(t['recoveryTitle']!)),

@@ -1,4 +1,4 @@
-﻿import '../widgets/reminder_failure_banner.dart';
+import '../widgets/reminder_failure_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -128,9 +128,9 @@ class _MatrixHomeState extends State<MatrixHome> {
       if (payload.subtaskId != null) {
         _ensureExpanded(store, task.id);
       }
-      final useSide = PlatformUiPolicy.of(context).canShowSideDetail(
-        MediaQuery.sizeOf(context).width,
-      );
+      final useSide = PlatformUiPolicy.of(
+        context,
+      ).canShowSideDetail(MediaQuery.sizeOf(context).width);
       _openTaskDetail(
         context,
         task,
@@ -495,9 +495,21 @@ class _MatrixHomeState extends State<MatrixHome> {
                         if (store.persistenceError != null)
                           Padding(
                             padding: const EdgeInsets.all(8),
-                            child: Text(
-                              store.persistenceError!,
-                              style: TextStyle(color: theme.colorScheme.error),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    store.persistenceError!,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => store.retrySave(),
+                                  child: Text(t['retrySave']!),
+                                ),
+                              ],
                             ),
                           ),
                         Expanded(
