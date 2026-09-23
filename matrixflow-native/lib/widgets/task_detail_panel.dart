@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../calendar_dates.dart';
 import '../models.dart';
 import '../storage.dart';
 import 'input_sheet.dart';
@@ -416,38 +417,31 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
   }
 
   Future<void> _pickDate() async {
-    final first = DateTime(1900);
-    final last = DateTime(2200, 12, 31);
-    final date = _deadline ?? DateTime.now();
-    final initial =
-        date.isBefore(first)
-            ? first
-            : date.isAfter(last)
-            ? last
-            : date;
+    final window = deadlinePickerWindow(
+      now: DateTime.now(),
+      selected: _deadline,
+    );
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial,
-      firstDate: first,
-      lastDate: last,
+      initialDate: window.initial,
+      firstDate: window.first,
+      lastDate: window.last,
     );
     if (mounted && picked != null) setState(() => _deadline = picked);
   }
 
   Future<void> _pickReminderDateTime() async {
-    final now = DateTime.now();
-    final initialDate =
-        _reminderAt != null
-            ? DateTime.fromMillisecondsSinceEpoch(_reminderAt!)
-            : (_deadline ?? now);
-    final firstDate = DateTime(now.year, now.month, now.day);
-    final lastDate = DateTime(now.year + 5);
+    final window = reminderPickerWindow(
+      now: DateTime.now(),
+      reminderAt: _reminderAt,
+      deadline: _deadline,
+    );
 
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
+      initialDate: window.initial,
+      firstDate: window.first,
+      lastDate: window.last,
     );
     if (pickedDate == null || !mounted) return;
 
@@ -522,7 +516,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
           builder: (context, setDialogState) {
             final now = DateTime.now();
             final today = DateTime(now.year, now.month, now.day);
-            final tomorrow = today.add(const Duration(days: 1));
+            final tomorrow = addCivilDays(today, 1);
             final isCustom =
                 subDeadline != null &&
                 !_isSameDay(subDeadline, today) &&
@@ -603,19 +597,15 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           ),
                           selected: isCustom,
                           onSelected: (_) async {
-                            final first = DateTime(1900);
-                            final last = DateTime(2200, 12, 31);
-                            final initial = subDeadline ?? today;
+                            final window = deadlinePickerWindow(
+                              now: DateTime.now(),
+                              selected: subDeadline ?? today,
+                            );
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate:
-                                  initial.isBefore(first)
-                                      ? first
-                                      : initial.isAfter(last)
-                                      ? last
-                                      : initial,
-                              firstDate: first,
-                              lastDate: last,
+                              initialDate: window.initial,
+                              firstDate: window.first,
+                              lastDate: window.last,
                             );
                             if (picked != null) {
                               setDialogState(() {
@@ -696,27 +686,16 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                               style: const TextStyle(fontSize: 12),
                             ),
                             onPressed: () async {
-                              final now = DateTime.now();
-                              final initialDate =
-                                  subReminder != null
-                                      ? DateTime.fromMillisecondsSinceEpoch(
-                                        subReminder!,
-                                      )
-                                      : (subDeadline ?? now);
-                              final firstDate = DateTime(
-                                now.year,
-                                now.month,
-                                now.day,
+                              final window = reminderPickerWindow(
+                                now: DateTime.now(),
+                                reminderAt: subReminder,
+                                deadline: subDeadline,
                               );
-                              final lastDate = DateTime(now.year + 5);
                               final pickedDate = await showDatePicker(
                                 context: context,
-                                initialDate:
-                                    initialDate.isBefore(firstDate)
-                                        ? firstDate
-                                        : initialDate,
-                                firstDate: firstDate,
-                                lastDate: lastDate,
+                                initialDate: window.initial,
+                                firstDate: window.first,
+                                lastDate: window.last,
                               );
                               if (pickedDate == null || !context.mounted) {
                                 return;
@@ -962,6 +941,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             children: [
                               Expanded(
                                 child: OutlinedButton.icon(
+                                  key: const ValueKey('edit-deadline-btn'),
                                   icon: const Icon(
                                     Icons.calendar_month,
                                     size: 18,
@@ -1113,11 +1093,14 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                   style: const TextStyle(fontSize: 11),
                                 ),
                                 onPressed: () {
-                                  final now = DateTime.now();
+                                  final tomorrow = addCivilDays(
+                                    DateTime.now(),
+                                    1,
+                                  );
                                   final tom9 = DateTime(
-                                    now.year,
-                                    now.month,
-                                    now.day + 1,
+                                    tomorrow.year,
+                                    tomorrow.month,
+                                    tomorrow.day,
                                     9,
                                     0,
                                   );

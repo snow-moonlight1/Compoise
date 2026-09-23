@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../ai_service.dart';
+import '../calendar_dates.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
@@ -156,10 +157,7 @@ class _InputSheetState extends State<InputSheet> {
     );
     final content = SafeArea(
       top: false,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: insets),
-        child: body,
-      ),
+      child: Padding(padding: EdgeInsets.only(bottom: insets), child: body),
     );
     if (widget.embedded) return content;
     return PopScope(
@@ -181,7 +179,7 @@ class _InputSheetState extends State<InputSheet> {
   Widget _buildDeadlineRow(BuildContext context, Map<String, String> t) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
+    final tomorrow = addCivilDays(today, 1);
     final isCustom =
         _selectedDeadline != null &&
         !_isSameDay(_selectedDeadline, today) &&
@@ -263,19 +261,15 @@ class _InputSheetState extends State<InputSheet> {
   }
 
   Future<void> _pickCustomDate(DateTime today) async {
-    final first = DateTime(1900);
-    final last = DateTime(2200, 12, 31);
-    final initial = _selectedDeadline ?? today;
+    final window = deadlinePickerWindow(
+      now: DateTime.now(),
+      selected: _selectedDeadline ?? today,
+    );
     final picked = await showDatePicker(
       context: context,
-      initialDate:
-          initial.isBefore(first)
-              ? first
-              : initial.isAfter(last)
-              ? last
-              : initial,
-      firstDate: first,
-      lastDate: last,
+      initialDate: window.initial,
+      firstDate: window.first,
+      lastDate: window.last,
     );
     if (mounted && picked != null) {
       setState(() {
@@ -286,12 +280,15 @@ class _InputSheetState extends State<InputSheet> {
 
   Widget _buildReminderRow(BuildContext context, Map<String, String> t) {
     final hasReminder = _selectedReminderAt != null;
-    final formattedTime = hasReminder
-        ? () {
-            final dt = DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!);
-            return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-          }()
-        : null;
+    final formattedTime =
+        hasReminder
+            ? () {
+              final dt = DateTime.fromMillisecondsSinceEpoch(
+                _selectedReminderAt!,
+              );
+              return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+            }()
+            : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,7 +306,8 @@ class _InputSheetState extends State<InputSheet> {
                     ? Icons.notifications_active
                     : Icons.notifications_none,
                 size: 16,
-                color: hasReminder ? Theme.of(context).colorScheme.primary : null,
+                color:
+                    hasReminder ? Theme.of(context).colorScheme.primary : null,
               ),
               label: Text(
                 hasReminder
@@ -325,7 +323,9 @@ class _InputSheetState extends State<InputSheet> {
                 icon: const Icon(Icons.close, size: 18),
                 visualDensity: VisualDensity.compact,
                 onPressed:
-                    _busy ? null : () => setState(() => _selectedReminderAt = null),
+                    _busy
+                        ? null
+                        : () => setState(() => _selectedReminderAt = null),
               ),
           ],
         ),
@@ -334,26 +334,26 @@ class _InputSheetState extends State<InputSheet> {
   }
 
   Future<void> _pickReminderDateTime() async {
-    final now = DateTime.now();
-    final initialDate = _selectedReminderAt != null
-        ? DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!)
-        : (_selectedDeadline ?? now);
-    final firstDate = DateTime(now.year, now.month, now.day);
-    final lastDate = DateTime(now.year + 5);
+    final window = reminderPickerWindow(
+      now: DateTime.now(),
+      reminderAt: _selectedReminderAt,
+      deadline: _selectedDeadline,
+    );
 
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
+      initialDate: window.initial,
+      firstDate: window.first,
+      lastDate: window.last,
     );
     if (pickedDate == null || !mounted) return;
 
-    final initialTime = _selectedReminderAt != null
-        ? TimeOfDay.fromDateTime(
-            DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!),
-          )
-        : const TimeOfDay(hour: 9, minute: 0);
+    final initialTime =
+        _selectedReminderAt != null
+            ? TimeOfDay.fromDateTime(
+              DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!),
+            )
+            : const TimeOfDay(hour: 9, minute: 0);
 
     final pickedTime = await showTimePicker(
       context: context,

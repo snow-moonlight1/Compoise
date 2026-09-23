@@ -1,3 +1,4 @@
+import 'calendar_dates.dart';
 import 'deadline_policy.dart';
 import 'models.dart';
 
@@ -82,11 +83,7 @@ bool matchesDateFilter(
     case TaskDateFilter.today:
       return calendarDaysLeft(deadline, now: ref) == 0;
     case TaskDateFilter.thisWeek:
-      final localDay = DateTime(ref.year, ref.month, ref.day);
-      final monday = localDay.subtract(Duration(days: ref.weekday - 1));
-      final nextMonday = monday.add(const Duration(days: 7));
-      final d = DateTime.fromMillisecondsSinceEpoch(deadline);
-      return !d.isBefore(monday) && d.isBefore(nextMonday);
+      return deadlineInCivilWeek(deadline, ref);
     case TaskDateFilter.thisMonth:
       final startOfMonth = DateTime(ref.year, ref.month, 1);
       final startOfNextMonth = DateTime(ref.year, ref.month + 1, 1);
