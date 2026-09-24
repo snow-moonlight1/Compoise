@@ -2,11 +2,11 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)。
 
-> **2026-09-23 当前派单覆盖：** 用户单独授权 OS13；退场任务行及隐藏象限焦点已隔离，OS-R07 转绿。OS12 尚未实施；不因 OS13 完成而开始 OS14/OS15。OS01–OS11 历史成果保留。继续暂停 WP10/WP29/UI 实验；下文旧包进度为历史，以本段和 HANDOFF 顶部优先。
+> **2026-09-24 集成状态：** OS01–OS14 与 OS24 已在 main 集成。OS12 日期/提醒、OS13 焦点、OS14 Windows 桌面运行态和 OS24 工具链均已实施；OS15–OS23、OS25–OS27 仍按依赖领取。下一波并行安排见 HANDOFF 顶部。继续暂停 WP10/WP29/UI 实验；下文旧包进度为历史。
 
 ## 运行与验证
 
-- **Flutter 主线**：在 `matrixflow-native/` 运行 `flutter test --no-pub` + `flutter analyze --no-pub`。SDK：`D:\Dev_SDKs\Flutter_SDK`；新增或未解析依赖先 `flutter pub get`。WP21-N 后为 77 项通过、analyze 0 issues，设备集成测试需单独运行，不能当作新包验收。
+- **Flutter 主线**：在 `matrixflow-native/` 运行 `flutter test --no-pub` + `flutter analyze --no-pub`。固定 SDK：`D:\Dev_SDKs\Flutter_3.32.8`（Flutter 3.32.8 / Dart 3.8.1）；原 `D:\Dev_SDKs\Flutter_SDK` 保留作回退。新增或未解析依赖先 `flutter pub get`。设备集成测试需单独运行，不能当作新包验收。
 - Android 与 Windows 共用业务实现，分别验收触摸/软键盘与鼠标/键盘/焦点/窗口缩放；Windows 工程和 VS C++ 工具链已存在，不从零移植。
 - **冻结的 Web**：仅用户另行安排 legacy 修复时，在根目录 `npm install` → `npm run dev`（端口 3000，冲突用 `-- --port 3456`），用 `npm run build` + `npx tsc --noEmit` 验证。Flutter 功能包不运行这组检查、不追求 Web 功能对齐。
 - AI 密钥由用户填写并本地保存；不要把密钥、备份内容或令牌写入代码、文档、日志。项目无 `.env` 依赖。

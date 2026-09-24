@@ -179,7 +179,7 @@ void main() {
     ) async {
       final deadline = DateTime(DateTime.now().year + 10);
       final (store, task) = await _task(deadline: deadline);
-      
+
       await _openReminder(tester, store, task);
 
       final dialog = tester.widget<DatePickerDialog>(
@@ -222,7 +222,7 @@ void main() {
             1,
           );
           final (store, task) = await _task(deadline: stored);
-          
+
           await _openReminder(tester, store, task);
           final dialog = tester.widget<DatePickerDialog>(
             find.byType(DatePickerDialog),
@@ -253,7 +253,7 @@ void main() {
       tester,
     ) async {
       final (store, _) = await makeStore(deviceLocales: const [Locale('en')]);
-      
+
       final board = store.boards.single;
       final deadline = DateTime(2190, 6, 15, 15, 30, 45);
       final reminder = DateTime(2190, 6, 15, 9);
@@ -317,7 +317,7 @@ void main() {
     ) async {
       final stored = DateTime(2210, 1, 2, 8);
       final (store, task) = await _task(deadline: stored);
-      
+
       await _pumpPanel(tester, store, task);
       await tester.ensureVisible(find.byKey(const ValueKey('edit-deadline-btn')));
       await tester.tap(find.byKey(const ValueKey('edit-deadline-btn')));
@@ -339,7 +339,7 @@ void main() {
           deadline: stored,
           reminderAt: DateTime(2190, 6, 15, 9).millisecondsSinceEpoch,
         );
-        
+
         await _openReminder(tester, store, task);
         await _switchToInput(tester);
         await tester.enterText(_dialogField(), _compact(DateTime(2190, 6, 15)));
@@ -368,7 +368,7 @@ void main() {
       (tester) async {
         final stored = DateTime(DateTime.now().year + 10, 4, 5, 11);
         final (store, task) = await _task(deadline: stored);
-        
+
         await _openReminder(tester, store, task);
         final dialog = tester.widget<DatePickerDialog>(
           find.byType(DatePickerDialog),
@@ -406,7 +406,7 @@ void main() {
             reminderAt: reminder.millisecondsSinceEpoch,
           ),
         );
-        
+
         await _pumpPanel(tester, store, task);
         await tester.ensureVisible(
           find.byKey(const ValueKey('subtask-item-child-1')),
@@ -472,7 +472,7 @@ void main() {
       'new task tomorrow follows the civil date and reminder cancel does not invent one',
       (tester) async {
         final (store, _) = await makeStore(deviceLocales: const [Locale('en')]);
-        
+
         await _wide(tester);
         await tester.pumpWidget(
           _host(
@@ -518,7 +518,7 @@ void main() {
       'keyboard entry can keep a far deadline outside the reminder window',
       (tester) async {
         final (store, _) = await makeStore(deviceLocales: const [Locale('en')]);
-        
+
         await _wide(tester);
         await tester.pumpWidget(
           _host(
@@ -572,7 +572,7 @@ void main() {
       (tester) async {
         final stored = DateTime(2190, 6, 15, 15, 30, 45);
         final (store, task) = await _task(deadline: stored);
-        
+
         await _pumpPanel(tester, store, task);
         await tester.ensureVisible(
           find.byKey(const ValueKey('reminder-quick-due-date')),

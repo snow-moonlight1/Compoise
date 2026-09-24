@@ -58,7 +58,6 @@ void main() {
       'timezone': '^0.10.1',
       'window_manager': '^0.5.2',
       'tray_manager': '^0.5.3',
-      'hotkey_manager': '^0.2.3',
       'flutter_lints': '^5.0.0',
     };
     for (final entry in constraints.entries) {
@@ -70,9 +69,10 @@ void main() {
     expect(lock.contains('flutter: "${lockMeta['flutter']}"'), isTrue);
     final locked = map(pin['lockedDirect']);
     for (final entry in locked.entries) {
-      final match = RegExp(
-        '  ${RegExp.escape(entry.key)}:\\n(?:.*\\n){1,12}    version: "([^"]+)"',
-      ).firstMatch(lock);
+      final section = lock.split('  ${entry.key}:\n');
+      expect(section.length, 2, reason: entry.key);
+      final block = section.last.split(RegExp(r'\n  \S')).first;
+      final match = RegExp(r'    version: "([^"]+)"').firstMatch(block);
       expect(match, isNotNull, reason: entry.key);
       expect(match!.group(1), entry.value);
     }

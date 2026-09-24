@@ -1,6 +1,13 @@
 # 项目交接文档（HANDOFF.md）
 
-## 当前任务：OS13 已实施，OS12 待做（2026-09-23）
+## 当前状态：四包合入 main（2026-09-24）
+
+- 从 `main / 0e9a3b36213c297f7350955c82a8634ebf9d97ca` 接手；OS13 已在该基线，分别审阅并集成 OS12 `c3e802276b8f0e2b2cfff3183b553397a12f5f4c`、OS14 `7ce0e791c3968cce6179d51bd9d10eabee27da40` 和 OS24 `5a14c17e10c2946fe24031ff2821eca81d1b4505`。三者仅文档合并冲突；产品代码无重叠冲突。主线集成提交依次为 `d146c75`、`1e9c019`、`ad9a582`，最终修正提交完整哈希见 Git 和本轮交接回复。
+- OS12：本地日历日期范围、提醒选择初值与“明天/本周”语义已实施；OS-R06 转绿，独立分支专项 16/16、全量 441/441、analyze 0。OS13：退场与隐藏子树焦点隔离，OS-R07 转绿；基线全量 428/428、analyze 0。OS14：Windows 托盘/热键结果、设置应用与失败重试，独立分支专项 8/8、全量 433/433、analyze 0，Windows Release 构建和隔离 Debug smoke 通过。OS24：固定 Flutter 3.32.8 / Dart 3.8.1，保留旧 SDK 回退；独立分支专项 4/4、全量 429/429、analyze 0，Android debug 和 Windows build 通过。
+- 集成时 OS14 移除了 `hotkey_manager`，因此同步移除 OS24 工具链清单与测试中的旧直接依赖断言；同时修正锁文件校验正则跨包误读的问题，清理 OS12 测试中的行尾空格，并统一 AGENTS、计划、架构与本文件的状态。固定 SDK `D:\Dev_SDKs\Flutter_3.32.8` 下，合并态 OS24 专项 4/4、默认 `flutter test --no-pub` **456/456**、`flutter analyze --no-pub` **0 issues**；Windows Release 与 Android debug APK 均构建成功。Android 构建中 Kotlin daemon 对跨盘增量缓存报错后回退并成功完成，仍需留意后续干净 CI 构建。合并态未重新执行 Windows Debug shell smoke，也未做 Android/Windows 设备人工操作；独立 OS14 分支的隔离 smoke 结果见上条。
+- 下一波可在**同一最终基线**分别建独立 worktree 并发：A=OS15（桌面退出，独占 `desktop_shell*`、Windows runner、退出协调 UI）；B=OS17（提醒服务、Store 提醒调用、失败横幅及提醒文案）；C=OS19（复选框/展开/颜色选择热区和语义，独占相应 widget 与设置页的颜色控件）；D=OS25（CI workflow、集成测试和测试工具）。A 不修改 `storage.dart`，调用现有 `flush()`；B 不修改桌面退出和设置页；C 优先复用现有三语键，不编辑提醒或桌面代码；D 不修改产品 UI/Store。公共 `AGENTS.md`、HANDOFF、ARCHITECTURE、CHANGELOG、计划由集成人统一更新，各 Agent 将验收和残余限制写入各自独立 `docs/OS15_NOTES.md` 等，避免并行编辑同一文档。遇到确需跨界文件时先报告，不互相覆盖。OS16 依赖 OS15，OS20 依赖 OS17，不能在本波抢跑。继续暂停 WP10/WP29/UI 实验及冻结 Web/Tauri/Capacitor。
+
+## 历史任务：OS13 已实施，当时 OS12 待做（2026-09-23）
 
 - 本轮从 `main / 77072bfd10a811b4d926eb043cbe077decfc855d` 开始，工作区原本干净。用户明确单独派 OS13；未领取 OS12，也不开始 OS14/OS15。仅改 Flutter 主线及文档，冻结 Web/Tauri/Capacitor 未动。
 - `ExitingRow` 退场时排除焦点，保留原行元素供划线和收起；透明/动画中的 `QuadrantPane` 与隐藏卡片同样排除焦点。Flutter 把失效焦点移到外层作用域；恢复后允许重新遍历，绝不自动抢回。卡片在可见后恢复聚焦资格，原有动画中指针切换象限和列表淡出交叉路径保持。
