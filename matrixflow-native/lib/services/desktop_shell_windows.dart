@@ -45,6 +45,7 @@ class WindowsDesktopShellHost
   @override
   String? get registeredShortcut => _registeredShortcut;
   bool _bound = false;
+  Future<void>? _destroyFuture;
 
   @override
   Future<DesktopShellResult> start(DesktopShellHostCallbacks callbacks) async {
@@ -181,8 +182,11 @@ class WindowsDesktopShellHost
   }
 
   @override
-  Future<void> destroy() async {
+  Future<void> destroy() => _destroyFuture ??= _destroyOnce();
+
+  Future<void> _destroyOnce() async {
     await unregisterHotkey();
+    _callbacks = null;
     if (!shouldUseRealWindowsShell()) return;
     try {
       await trayManager.destroy();
@@ -222,7 +226,6 @@ class WindowsDesktopShellHost
         _callbacks?.onSearchRequested?.call();
       case 'exit':
         _callbacks?.onExitRequested?.call();
-        destroy();
     }
   }
 }

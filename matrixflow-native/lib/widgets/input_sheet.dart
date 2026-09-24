@@ -12,10 +12,12 @@ import 'task_detail_panel.dart';
 class InputSheet extends StatefulWidget {
   final InputModePref initialMode;
   final bool embedded;
+  final ValueChanged<bool>? onDirtyChanged;
   const InputSheet({
     super.key,
     required this.initialMode,
     this.embedded = false,
+    this.onDirtyChanged,
   });
   @override
   State<InputSheet> createState() => _InputSheetState();
@@ -27,13 +29,34 @@ class _InputSheetState extends State<InputSheet> {
   AICancellation? _request;
   bool _busy = false;
   bool _closed = false;
+  bool _reportedDirty = false;
   String? _error;
   DateTime? _selectedDeadline;
   int? _selectedReminderAt;
 
+  bool get _isDirty =>
+      _controller.text.isNotEmpty ||
+      _mode != widget.initialMode ||
+      _selectedDeadline != null ||
+      _selectedReminderAt != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_reportDirty);
+  }
+
+  void _reportDirty() {
+    final dirty = _isDirty;
+    if (_reportedDirty == dirty) return;
+    _reportedDirty = dirty;
+    widget.onDirtyChanged?.call(dirty);
+  }
+
   @override
   void dispose() {
     _request?.cancel();
+    _controller.removeListener(_reportDirty);
     _controller.dispose();
     super.dispose();
   }
@@ -42,6 +65,9 @@ class _InputSheetState extends State<InputSheet> {
   Widget build(BuildContext context) {
     final t = context.watch<Store>().t;
     final policy = PlatformUiPolicy.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reportDirty();
+    });
     final insets =
         widget.embedded ? 0.0 : MediaQuery.viewInsetsOf(context).bottom;
     final fields = Column(

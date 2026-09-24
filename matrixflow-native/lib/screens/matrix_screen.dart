@@ -7,6 +7,9 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../shortcuts.dart';
+import '../services/desktop_exit_coordinator.dart';
+import '../services/desktop_shell_service.dart';
+import '../ui/desktop_exit_strings.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/board_picker.dart';
 import '../widgets/home_actions.dart';
@@ -19,16 +22,25 @@ import 'completed_screen.dart';
 import 'onboarding_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
-import '../services/desktop_shell_service.dart';
 
 class MatrixHome extends StatefulWidget {
-  const MatrixHome({super.key});
+  final DesktopShellService? desktopShell;
+  final Duration exitSaveTimeout;
+
+  const MatrixHome({
+    super.key,
+    this.desktopShell,
+    this.exitSaveTimeout = const Duration(seconds: 8),
+  });
 
   @override
   State<MatrixHome> createState() => _MatrixHomeState();
 }
 
 class _MatrixHomeState extends State<MatrixHome> {
+  DesktopShellService get _desktopShell =>
+      widget.desktopShell ?? DesktopShellService.instance;
+
   bool _selecting = false;
   final Set<String> _selectedIds = {};
   final Set<String> _expandedKeys = {};
@@ -67,7 +79,9 @@ class _MatrixHomeState extends State<MatrixHome> {
   String? _activeDetailTaskId;
   String? _highlightSubtaskId;
   bool _detailDirty = false;
+  bool _modalDetailOpen = false;
   bool _composerOpen = false;
+  bool _composerDirty = false;
   final _detailKey = GlobalKey();
   final _quadrantTransitionKey = GlobalKey();
 
@@ -76,6 +90,40 @@ class _MatrixHomeState extends State<MatrixHome> {
     final discard = await confirmDiscardDraft(context);
     if (discard) _detailDirty = false;
     return discard;
+  }
+
+  Future<bool> _prepareDraftForExit() async {
+    if (!_detailDirty && !_composerDirty) return true;
+    if (!await confirmDiscardDraft(context) || !mounted) return false;
+
+    if (_activeDetailTaskId != null) {
+      setState(() {
+        _activeDetailTaskId = null;
+        _detailDirty = false;
+      });
+    } else if (_modalDetailOpen || _composerOpen) {
+      Navigator.of(context, rootNavigator: true).pop();
+      await Future<void>.delayed(Duration.zero);
+    }
+    _detailDirty = false;
+    _composerDirty = false;
+    return mounted;
+  }
+
+  Future<bool> _coordinateExit() async {
+    if (!mounted || !await _prepareDraftForExit() || !mounted) return false;
+    final store = context.read<Store>();
+    return DesktopExitSaveCoordinator(
+      flush: store.flush,
+      retrySave: store.retrySave,
+      timeout: widget.exitSaveTimeout,
+      chooseAfterProblem:
+          (problem) => showDesktopExitSaveProblem(
+            context,
+            problem,
+            store.settings.language,
+          ),
+    ).prepareToExit();
   }
 
   Future<void> _closeDetail() async {
@@ -105,7 +153,19 @@ class _MatrixHomeState extends State<MatrixHome> {
         _highlightSubtaskId = subtaskId;
       });
     } else {
-      await showTaskDetailSheet(context, task, highlightSubtaskId: subtaskId);
+      _modalDetailOpen = true;
+      _detailDirty = false;
+      try {
+        await showTaskDetailSheet(
+          context,
+          task,
+          highlightSubtaskId: subtaskId,
+          onDirtyChanged: (dirty) => _detailDirty = dirty,
+        );
+      } finally {
+        _modalDetailOpen = false;
+        _detailDirty = false;
+      }
     }
   }
 
@@ -164,7 +224,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final store = context.read<Store>();
-      final shell = DesktopShellService.instance;
+      final shell = _desktopShell;
       shell.configureCallbacks(
         onShowWindow: () {
           if (mounted) setState(() {});
@@ -179,6 +239,7 @@ class _MatrixHomeState extends State<MatrixHome> {
             ),
           );
         },
+        onExit: _coordinateExit,
       );
       unawaited(() async {
         final result = await shell.applySettings(
@@ -846,7 +907,10 @@ class _MatrixHomeState extends State<MatrixHome> {
           isScrollControlled: true,
           useSafeArea: true,
           builder:
-              (_) => InputSheet(initialMode: store.settings.defaultInputMode),
+              (_) => InputSheet(
+                initialMode: store.settings.defaultInputMode,
+                onDirtyChanged: (dirty) => _composerDirty = dirty,
+              ),
         );
       } else {
         longTerm = await showDialog<List<Task>>(
@@ -865,6 +929,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                   ),
                   child: InputSheet(
                     initialMode: store.settings.defaultInputMode,
+                    onDirtyChanged: (dirty) => _composerDirty = dirty,
                   ),
                 ),
               ),
@@ -872,6 +937,7 @@ class _MatrixHomeState extends State<MatrixHome> {
       }
     } finally {
       _composerOpen = false;
+      _composerDirty = false;
     }
     if (!mounted || longTerm == null || longTerm.isEmpty) return;
     await showBatchDecomposeSheet(context, longTerm);

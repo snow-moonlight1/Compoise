@@ -91,6 +91,7 @@ class Win32Window {
   static void UpdateTheme(HWND const window);
 
   bool quit_on_close_ = false;
+  bool destroyed_ = true;
 
   // window handle for top level window.
   HWND window_handle_ = nullptr;

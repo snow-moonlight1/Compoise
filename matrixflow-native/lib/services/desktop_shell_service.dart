@@ -30,6 +30,10 @@ class DesktopShellSettingsResult {
   bool get hasFailure => tray.isFailure || hotkey.isFailure;
 }
 
+enum DesktopExitResult { completed, cancelled, failed }
+
+typedef DesktopExitGuard = FutureOr<bool> Function();
+
 /// Coordinates Windows desktop shell state with the settings currently loaded
 /// by the app. Only the latest settings generation is published, so delayed
 /// host results cannot make stale settings look active.
@@ -93,18 +97,22 @@ class DesktopShellService extends ChangeNotifier {
 
   int _latestGeneration = 0;
   Future<void>? _applyTail;
+  Future<DesktopExitResult>? _exitInFlight;
+  bool _hasExited = false;
+
+  bool get isExitInProgress => _exitInFlight != null;
 
   VoidCallback? onShowWindow;
   VoidCallback? onQuickAddTask;
   VoidCallback? onSearch;
-  VoidCallback? onExit;
+  DesktopExitGuard? onExit;
   VoidCallback? _hotkeyTrigger;
 
   void configureCallbacks({
     VoidCallback? onShowWindow,
     VoidCallback? onQuickAddTask,
     VoidCallback? onSearch,
-    VoidCallback? onExit,
+    DesktopExitGuard? onExit,
   }) {
     this.onShowWindow = onShowWindow ?? this.onShowWindow;
     this.onQuickAddTask = onQuickAddTask ?? this.onQuickAddTask;
@@ -118,7 +126,7 @@ class DesktopShellService extends ChangeNotifier {
     VoidCallback? onShowWindow,
     VoidCallback? onQuickAddTask,
     VoidCallback? onSearch,
-    VoidCallback? onExit,
+    DesktopExitGuard? onExit,
     bool closeToTray = false,
     String? globalShortcut,
   }) {
@@ -300,15 +308,20 @@ class DesktopShellService extends ChangeNotifier {
   }
 
   /// The host asks this service for the current close behavior. Hiding is only
-  /// allowed after a successful tray initialization.
+  /// allowed after a successful tray initialization and never interrupts a
+  /// true exit already in progress.
   bool handleWindowCloseRequest({bool? closeToTray}) {
     if (!isDesktopSupported) return true;
+    if (_exitInFlight != null || _hasExited) {
+      unawaited(exitApplication());
+      return true;
+    }
     final wantsTray = closeToTray ?? _desiredCloseToTray;
     if (wantsTray && isTrayInitialized) {
       unawaited(hideWindowToTray());
       return false;
     }
-    exitApplication();
+    unawaited(exitApplication());
     return true;
   }
 
@@ -378,17 +391,57 @@ class DesktopShellService extends ChangeNotifier {
     return _hotkeyResult;
   }
 
-  /// OS15 will make the full exit flow awaitable/idempotent. OS14 keeps the
-  /// existing exit semantics while removing the host/service import cycle.
-  void exitApplication() {
-    unawaited(unregisterGlobalHotkey());
-    _trayResult = const DesktopShellResult.disabled();
-    _effectiveCloseToTray = false;
-    onExit?.call();
-    final host = _host;
-    _host = null;
-    if (host != null) unawaited(host.destroy());
+  /// Runs the true-exit path once. Concurrent window-close and tray-exit
+  /// requests join the same future; a cancelled or failed attempt may retry.
+  Future<DesktopExitResult> exitApplication() {
+    if (_hasExited) {
+      return Future.value(DesktopExitResult.completed);
+    }
+    final pending = _exitInFlight;
+    if (pending != null) return pending;
+
+    final completer = Completer<DesktopExitResult>();
+    _exitInFlight = completer.future;
     notifyListeners();
+    unawaited(() async {
+      final result = await _performExit();
+      _exitInFlight = null;
+      notifyListeners();
+      completer.complete(result);
+    }());
+    return completer.future;
+  }
+
+  Future<DesktopExitResult> _performExit() async {
+    try {
+      final guard = onExit;
+      if (guard != null) {
+        final decision = guard();
+        final approved = decision is Future<bool> ? await decision : decision;
+        if (!approved) return DesktopExitResult.cancelled;
+      }
+
+      _trayResult = const DesktopShellResult.disabled();
+      _hotkeyResult = const DesktopShellResult.disabled();
+      _effectiveCloseToTray = false;
+      _registeredGlobalShortcut = null;
+      _hotkeyTrigger = null;
+      final host = _host;
+      _host = null;
+      notifyListeners();
+      if (host != null) {
+        try {
+          await host.destroy();
+        } catch (_) {
+          _host = host;
+          return DesktopExitResult.failed;
+        }
+      }
+      _hasExited = true;
+      return DesktopExitResult.completed;
+    } catch (_) {
+      return DesktopExitResult.cancelled;
+    }
   }
 
   @visibleForTesting
@@ -403,6 +456,8 @@ class DesktopShellService extends ChangeNotifier {
     _host = null;
     if (host != null) unawaited(host.destroy());
     _applyTail = null;
+    _exitInFlight = null;
+    _hasExited = false;
     _trayResult = const DesktopShellResult.disabled();
     _hotkeyResult = const DesktopShellResult.disabled();
     _isWindowVisible = true;

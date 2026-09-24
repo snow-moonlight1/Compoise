@@ -72,6 +72,7 @@ Future<void> showTaskDetailSheet(
   BuildContext context,
   Task task, {
   String? highlightSubtaskId,
+  ValueChanged<bool>? onDirtyChanged,
 }) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
@@ -92,6 +93,7 @@ Future<void> showTaskDetailSheet(
               task: task,
               scrollController: scrollController,
               highlightSubtaskId: highlightSubtaskId,
+              onDirtyChanged: onDirtyChanged,
             ),
       ),
 );

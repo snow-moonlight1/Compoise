@@ -116,14 +116,18 @@ Win32Window::Win32Window() {
 }
 
 Win32Window::~Win32Window() {
-  --g_active_window_count;
   Destroy();
+  --g_active_window_count;
+  if (g_active_window_count == 0) {
+    WindowClassRegistrar::GetInstance()->UnregisterWindowClass();
+  }
 }
 
 bool Win32Window::Create(const std::wstring& title,
                          const Point& origin,
                          const Size& size) {
   Destroy();
+  destroyed_ = false;
 
   const wchar_t* window_class =
       WindowClassRegistrar::GetInstance()->GetWindowClass();
@@ -141,6 +145,7 @@ bool Win32Window::Create(const std::wstring& title,
       nullptr, nullptr, GetModuleHandle(nullptr), this);
 
   if (!window) {
+    destroyed_ = true;
     return false;
   }
 
@@ -222,14 +227,17 @@ Win32Window::MessageHandler(HWND hwnd,
 }
 
 void Win32Window::Destroy() {
+  if (destroyed_) {
+    return;
+  }
+  destroyed_ = true;
   OnDestroy();
 
-  if (window_handle_) {
-    DestroyWindow(window_handle_);
-    window_handle_ = nullptr;
-  }
-  if (g_active_window_count == 0) {
-    WindowClassRegistrar::GetInstance()->UnregisterWindowClass();
+  HWND window = window_handle_;
+  window_handle_ = nullptr;
+  child_content_ = nullptr;
+  if (window) {
+    DestroyWindow(window);
   }
 }
 
