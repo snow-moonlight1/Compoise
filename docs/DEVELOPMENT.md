@@ -20,16 +20,22 @@
 
 ### 原生跨平台端（`matrixflow-native/`）
 
-前置：Flutter SDK（本机路径 `D:\Dev_SDKs\Flutter_SDK`）。
+OS24 固定工具链是 Flutter **3.32.8** stable / Dart **3.8.1**（framework `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`）。本机安装在 `D:\Dev_SDKs\Flutter_3.32.8`。不要把该目录写入系统 PATH，也不要覆盖回退安装 `D:\Dev_SDKs\Flutter_SDK`（Flutter 3.31.0-1.0.pre.88 / Dart 3.8.0-197.0.dev / revision `082a761570e89f67a56f50de1c4cb843a2e452af`）。`pubspec.yaml` 的 Dart 下限留在这个 dev 版本，只为让回退 SDK 仍能解析依赖；这不是 Flutter 3.16+ 或中间未测版本都可用的声明。机器可读声明见 `matrixflow-native/toolchain.json`。
+
+```powershell
+& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" test --no-pub
+& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" analyze --no-pub
+```
 
 | 命令 | 说明 |
 |---|---|
-| `flutter pub get` | 安装 Dart/Flutter 依赖 |
-| `flutter test` | 运行 64 项单元/Widget 测试；设备集成测试需另行 `flutter test integration_test/app_test.dart -d <device>` |
-| `flutter analyze` | 静态代码分析（当前 0 告警） |
-| `flutter run` | 本地启动（支持连接 Android 调试或 Windows 原生窗口） |
+| `flutter pub get` | 按现有 lockfile 获取依赖。OS24 不升级依赖。 |
+| `flutter test --no-pub` | 默认单元/Widget 测试。数量以当次输出和 HANDOFF 为准。设备集成测试另行 `flutter test integration_test/app_test.dart -d <device>`。 |
+| `flutter analyze --no-pub` | 静态分析。 |
+| `flutter build apk --debug` | Android 调试包。正式签名 release 使用打包脚本。 |
+| `flutter build windows` | Windows 桌面构建。 |
 
-原生端改动后的最低验证组合：`flutter test` + `flutter analyze`。
+原生端改动后的最低验证组合：`flutter test --no-pub` + `flutter analyze --no-pub`。下文命令里的 `flutter` 指 3.32.8 这套 SDK。
 
 2026-09-07 原生审查与构建修复：Android debug、Android release（22.8MB APK）及 Windows release 构建全部通过（B01 已解决关闭，见 [报告 B01](NATIVE_BUG_REVIEW_2026-09-07.md)）。Flutter 构建和测试会重生成平台插件文件，建议同一工作区内顺序运行。
 
@@ -77,10 +83,10 @@
 | 安卓原生应用（自绘） | Flutter（`matrixflow-native/`） | `cd matrixflow-native && flutter build apk --debug` |
 | Windows 原生桌面（自绘） | Flutter（`matrixflow-native/`） | `cd matrixflow-native && flutter build windows` |
 
-本机环境要点（2026-09-07 实测）：
+本机环境要点（2026-09-24 OS24 用 Flutter 3.32.8 复核；2026-09-07 的路径记录保留在后）：
 
-- **Flutter SDK**：位于 `D:\Dev_SDKs\Flutter_SDK`，PowerShell 终端若未配置环境变量，可调用 `& "D:\Dev_SDKs\Flutter_SDK\bin\flutter.bat"`。
-- **Android SDK 与 JDK 21**：Android SDK 在 `D:\Dev_SDKs\Android_studio_SDK`，JDK 21 在 `D:\Dev_SDKs\jdk-21.0.12.1+1`。gradle 命令前需 `export JAVA_HOME`（指 JDK 21）与 `ANDROID_HOME`；`android/local.properties` 的 `sdk.dir` 必须用**正斜杠**。
+- **Flutter SDK**：固定 3.32.8 stable / Dart 3.8.1，位于 `D:\Dev_SDKs\Flutter_3.32.8`。回退目录 `D:\Dev_SDKs\Flutter_SDK` 不要升级。PowerShell 调用 `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat"`。
+- **Android SDK 与 JDK**：Android SDK 在 `D:\Dev_SDKs\Android_studio_SDK`（platform android-36，build-tools 36.0.0，NDK 28.0.12433566）。本地验证的 `JAVA_HOME` 是 JDK 21 `D:\Dev_SDKs\jdk-21.0.12.1+1`。CI release workflow 使用 Temurin 17。工程为 AGP 8.7.3、Gradle 8.12、Kotlin 2.1.0，compileSdk 36，minSdk 23。`android/local.properties` 的 `sdk.dir` 必须用**正斜杠**。Visual Studio Community 2022 17.14.36（17.14.37502.11），Windows 10 SDK 10.0.26100.0。Android Studio 未安装；SDK 与 JDK 足够完成本地 doctor 和构建。
 - **项目路径若含非 ASCII 字符或空格**：AGP 依赖解析可能异常，可靠做法是映射 ASCII 盘符后构建：`subst M: "D:\Dev_project\martix"`，然后在 `M:/android` 下执行 gradle。
 - **端口 3000 / 3100 落在 Windows 动态排除段**（2945-3044、3079-3178，`netsh interface ipv4 show excludedportrange` 可查），dev server 用 `npm run dev -- --port 3456` 或其他未排除端口。
 - **Maven 依赖走阿里云镜像**：`android/build.gradle` 的 buildscript 与 allprojects 仓库列表已把 `maven.aliyun.com`（google/central/public）放在 `google()`、`mavenCentral()` 之前——直连 `dl.google.com` 会 TLS 握手失败。

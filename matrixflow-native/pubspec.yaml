@@ -4,7 +4,10 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.0-197.0.dev
+  # OS24 pin: Flutter 3.32.8 stable / Dart 3.8.1.
+  # Lower bound stays on the untouched fallback SDK (Dart 3.8.0-197.0.dev).
+  # This does not claim Flutter 3.16+ or untested intermediate SDKs.
+  sdk: '>=3.8.0-197.0.dev <4.0.0'
 
 dependencies:
   flutter:

@@ -45,7 +45,7 @@ P1：可能损坏数据、意外携带凭据或破坏关键流程；P2：明确�
 | OS21 | 编辑/设置协调逻辑分离 | P2 | OS10、OS12、OS14、OS20 | 未开始 |
 | OS22 | 测量并按需优化列表与订阅 | P3 可延期 | OS13、OS20 | 未开始 |
 | OS23 | 动效策略统一收尾 | P3 可延期 | OS13 | 未开始 |
-| OS24 | 固定并验证可复现工具链 | P2 | 无 | 未开始 |
+| OS24 | 固定并验证可复现工具链 | P2 | 无 | 已完成 |
 | OS25 | 无密钥 PR CI 与当前集成测试 | P2 | OS24 | 未开始 |
 | OS26 | 发行身份、构建清单与公开前审计 | P2 / 发布门槛 | OS24、OS25 | 未开始 |
 | OS27 | 文档、社区入口与 UX 收口 | P2 / 公开门槛 | 所有已实施包的记录；延期项有结论 | 未开始 |
@@ -210,6 +210,7 @@ P1：可能损坏数据、意外携带凭据或破坏关键流程；P2：明确�
 
 - 对应 F21。选择现有依赖/API 可运行的固定 stable Flutter，记录具体版本/revision 和 Dart 对应关系，统一 CI、pubspec 和说明；不要编造兼容下限。
 - 验收：干净依赖获取、analyze、默认 tests、Android/Windows 构建；记录 JDK/Android SDK/VS 要求。无关依赖升级另列，不把 beta→stable 调整和功能重构混做。当前 SDK 保留可回退，不直接破坏全局安装。
+- 2026-09-24 结果：固定 Flutter 3.32.8 stable / Dart 3.8.1，framework `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`。这是 Dart 3.8 系列的最后一个 stable 补丁。索引上当天的当前 stable 是 3.47.5 / Dart 3.13.4，未选用，也没有升级依赖。本机目录 `D:\Dev_SDKs\Flutter_3.32.8`。回退仍是未改动的 `D:\Dev_SDKs\Flutter_SDK`（3.31.0-1.0.pre.88 / Dart 3.8.0-197.0.dev / `082a761570e89f67a56f50de1c4cb843a2e452af`）。`pubspec.yaml` 下限留在该 dev 版本，只为回退 SDK 能解析；lockfile 未改。声明见 `matrixflow-native/toolchain.json`。验证数字见 HANDOFF。
 
 ### OS25 — PR 自动检查与集成测试修复
 
@@ -244,11 +245,11 @@ OS09 本机凭据保护建议在公开稳定版前完成；如延期，必须明
 
 ## 5. 通用验证与交付格式
 
-在 `matrixflow-native/`，使用当前已验证 SDK；OS24 完成后以固定的新工具链为准：
+在 `matrixflow-native/`，使用 OS24 固定的 Flutter 3.32.8 / Dart 3.8.1。本机路径 `D:/Dev_SDKs/Flutter_3.32.8`。只有该目录不存在时才回退到未改动的 `D:/Dev_SDKs/Flutter_SDK`：
 
 ```powershell
-& D:/Dev_SDKs/Flutter_SDK/bin/flutter.bat test --no-pub
-& D:/Dev_SDKs/Flutter_SDK/bin/flutter.bat analyze --no-pub
+& D:/Dev_SDKs/Flutter_3.32.8/bin/flutter.bat test --no-pub
+& D:/Dev_SDKs/Flutter_3.32.8/bin/flutter.bat analyze --no-pub
 ```
 
 新增/改变依赖先 pub get。每个代码包先跑与修改有关的有意义回归，再运行仓库要求的默认全量和 analyze；纯文档包检查事实与链接。Android/Windows 平台包需要相应构建/设备证据，不让单元测试替代。历史基线 359 项不是固定配额，新增回归后数字应自然增长。

@@ -1,5 +1,11 @@
 # 更新日志
 
+## 2026-09-24 · OS24 固定 Flutter 3.32.8 工具链
+
+- 已验证工具链固定为 Flutter 3.32.8 stable / Dart 3.8.1（framework `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`）。CI release workflow、README、开发指南和打包脚本使用该版本。没有顺带升级依赖。
+- `D:\Dev_SDKs\Flutter_SDK`（Flutter 3.31.0-1.0.pre.88 / Dart 3.8.0-197.0.dev）保持原样，作为回退。`pubspec.yaml` 的 Dart 下限仍包含该 dev 版本。
+- 验收命令和平台结果见 `docs/HANDOFF.md`。Android 无连接设备，未做实机。
+
 ## 2026-09-24 · OS14 Windows 托盘与热键真实状态
 
 - 托盘初始化、全局热键注册/注销和窗口隐藏使用可等待结果；托盘不可用时不关闭到无法召回的后台窗口，热键冲突和失败可见并可重试。启动、设置修改和设置导入共用运行态设置应用路径，迟到的旧结果不覆盖当前设置。

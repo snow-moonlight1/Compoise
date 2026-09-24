@@ -9,7 +9,8 @@
 .PARAMETER OutputDir
     Output directory for release artifacts (default: <root>/release_dist)
 .PARAMETER FlutterSdk
-    Flutter SDK directory (default: 'D:\Dev_SDKs\Flutter_SDK')
+    Flutter SDK directory. Default is D:\Dev_SDKs\Flutter_3.32.8 when that
+    install exists; otherwise the untouched fallback D:\Dev_SDKs\Flutter_SDK.
 #>
 
 [CmdletBinding()]
@@ -19,7 +20,7 @@ param (
 
     [string]$OutputDir = '',
 
-    [string]$FlutterSdk = 'D:\Dev_SDKs\Flutter_SDK'
+    [string]$FlutterSdk = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,7 +42,19 @@ if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
 
-# 2. Locate Flutter executable
+# 2. Locate Flutter executable. OS24 prefers the verified stable SDK and
+# leaves D:\Dev_SDKs\Flutter_SDK in place as the rollback install.
+if ([string]::IsNullOrWhiteSpace($FlutterSdk)) {
+    $PinnedSdk = 'D:\Dev_SDKs\Flutter_3.32.8'
+    $FallbackSdk = 'D:\Dev_SDKs\Flutter_SDK'
+    if (Test-Path (Join-Path $PinnedSdk 'bin\flutter.bat')) {
+        $FlutterSdk = $PinnedSdk
+    } else {
+        Write-Host "Pinned Flutter 3.32.8 was not found at $PinnedSdk. Using fallback $FallbackSdk."
+        $FlutterSdk = $FallbackSdk
+    }
+}
+
 $FlutterBin = Join-Path $FlutterSdk 'bin\flutter.bat'
 if (-not (Test-Path $FlutterBin)) {
     $FlutterCmd = Get-Command 'flutter' -ErrorAction SilentlyContinue

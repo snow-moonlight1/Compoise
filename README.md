@@ -66,9 +66,9 @@ martix/
 ## 🚀 快速开始与编译指南 / Quick Start & Build
 
 ### 环境要求 / Prerequisites
-- [Flutter SDK](https://flutter.dev/) (3.16+ / 3.8.0-dev，推荐配置到系统环境变量)
-- **Android 构建**：Android Studio & Android SDK (API 34+, Java 17)
-- **Windows 构建**：Visual Studio 2022（包含「使用 C++ 的桌面开发」工作负载）
+- [Flutter SDK](https://flutter.dev/) **3.32.8** stable / Dart **3.8.1**（framework `edada7c56edf4a183c1735310e123c7f923584f1`）。本机目录 `D:\Dev_SDKs\Flutter_3.32.8`，不要覆盖回退安装 `D:\Dev_SDKs\Flutter_SDK`。声明见 `matrixflow-native/toolchain.json` 与 [开发指南](docs/DEVELOPMENT.md)。
+- **Android 构建**：Android SDK `D:\Dev_SDKs\Android_studio_SDK`（platform android-36，build-tools 36.0.0，NDK 28.0.12433566）。本地 JDK 21（`D:\Dev_SDKs\jdk-21.0.12.1+1`）；发布 workflow 使用 Temurin 17。
+- **Windows 构建**：Visual Studio Community 2022 17.14.36（含「使用 C++ 的桌面开发」，Windows 10 SDK 10.0.26100.0）
 
 ### 1. 运行本地开发与测试 / Run & Test
 ```bash

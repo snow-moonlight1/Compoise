@@ -71,7 +71,7 @@ lib/
 
 ## 🛠️ 本地命令与验证
 
-所有构建与验证命令均在 `matrixflow-native/` 目录下执行：
+所有构建与验证命令均在 `matrixflow-native/` 目录下执行。OS24 固定工具链为 Flutter 3.32.8 stable / Dart 3.8.1，本机 `D:\Dev_SDKs\Flutter_3.32.8`；`D:\Dev_SDKs\Flutter_SDK` 只作回退，不要升级该目录。
 
 ```bash
 # 静态分析（确保 0 issues）

@@ -172,7 +172,7 @@ anim、布局 fallback、引导页、scrollToTop 等仍含各自时长，部分�
 
 ### F21 — 工具链不可稳定复现（P2，源码与运行信息确定，OS24）
 
-本地为旧 master 预发布 SDK，pubspec Dart 下限为 dev，CI 追 moving stable，README 则写 Flutter 3.16+。选择并实际验证一个固定 stable SDK 后统一声明、CI 与构建说明，不能随意填最新版本号。保留 lockfile，不在工具链包顺手升级全部依赖。
+本地为旧 master 预发布 SDK，pubspec Dart 下限为 dev，CI 追 moving stable，README 则写 Flutter 3.16+。选择并实际验证一个固定 stable SDK 后统一声明、CI 与构建说明，不能随意填最新版本号。保留 lockfile，不在工具链包顺手升级全部依赖。OS24 已验证并固定 Flutter 3.32.8 stable / Dart 3.8.1（framework `edada7c56edf4a183c1735310e123c7f923584f1`），见 `matrixflow-native/toolchain.json`。上文是 2026-09-22 的审查证据，不是当前工具链声明。
 
 ### F22 — 缺 PR 验证，设备集成测试已过时（P2，源码确定，OS25）
 
