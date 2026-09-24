@@ -478,10 +478,19 @@ const Map<Language, Map<String, String>> _dicts = {
     'windowsGuideActionCenterSteps':
         'In Windows Settings -> System -> Notifications, ensure notifications for MatrixFlow AI are turned On, with "Show notification banners" and "Play a sound" checked.',
     'testNotification': 'Send Test Notification',
+    'reminderTestBody': 'MatrixFlow test notification',
     'testNotificationSent':
         'Test notification sent! Check your Windows toast banner or Action Center.',
-    'windowsPermissionActive':
-        'Windows Desktop Notifications are active and ready.',
+    'reminderTestInAppOnly':
+        'The system refused the scheduled notification, so it was armed inside this running app only.',
+    'reminderTestFailed':
+        'Test notification failed: the system did not accept it.',
+    'permissionUnknown':
+        'This platform exposes no notification status, so alerts may still be blocked by system settings.',
+    'permissionUnsupported':
+        'Local reminders are not available on this platform.',
+    'reminderCancelFailed':
+        'The reminder is gone here, but an existing system notification could not be cancelled.',
     'taskNotFound': 'Task no longer exists or has been deleted',
     'completedAtTime': 'Completed: {time}',
     'timeUnknown': 'Time unknown',
@@ -937,7 +946,12 @@ const Map<Language, Map<String, String>> _dicts = {
         '在 Windows 设置 -> 系统 -> 通知中，确认 MatrixFlow AI 的通知已开启，并勾选“显示通知横幅”与“播放声音”。',
     'testNotification': '发送测试通知',
     'testNotificationSent': '测试通知已发送！请查看右下角通知横幅或操作中心。',
-    'windowsPermissionActive': 'Windows 桌面 Toast 通知正常可用。',
+    'reminderTestBody': 'MatrixFlow 测试通知',
+    'reminderTestInAppOnly': '系统拒绝了定时通知，本次仅在应用运行期间提醒。',
+    'reminderTestFailed': '测试通知发送失败：系统未接受该通知。',
+    'permissionUnknown': '当前系统不提供通知状态查询，仍可能被系统设置拦截。',
+    'permissionUnsupported': '当前平台不支持本地提醒。',
+    'reminderCancelFailed': '任务中的提醒已删除，但系统里已有的通知取消失败。',
     'taskNotFound': '该任务不存在或已被删除',
     'completedAtTime': '完成时间: {time}',
     'timeUnknown': '时间未知',
@@ -1390,7 +1404,15 @@ const Map<Language, Map<String, String>> _dicts = {
         'Windowsの設定 -> システム -> 通知で、MatrixFlow AIの通知バナーとサウンドが有効になっていることを確認してください。',
     'testNotification': 'テスト通知を送信',
     'testNotificationSent': 'テスト通知を送信しました！通知バナーまたはアクションセンターを確認してください。',
-    'windowsPermissionActive': 'Windows トースト通知は正常に利用可能です。',
+    'reminderTestBody': 'MatrixFlow テスト通知',
+    'reminderTestInAppOnly':
+        'システムが予約通知を拒否したため、アプリ起動中のみ通知します。',
+    'reminderTestFailed': 'テスト通知に失敗しました。システムが受け付けませんでした。',
+    'permissionUnknown':
+        'このプラットフォームは通知状態を参照できないため、システム設定でブロックされている可能性があります。',
+    'permissionUnsupported': 'このプラットフォームではローカルリマインダーを利用できません。',
+    'reminderCancelFailed':
+        'タスク側のリマインダーは削除されましたが、既存のシステム通知をキャンセルできませんでした。',
     'taskNotFound': 'タスクが見つからないか、既に削除されています',
     'completedAtTime': '完了日時: {time}',
     'timeUnknown': '日時不明',

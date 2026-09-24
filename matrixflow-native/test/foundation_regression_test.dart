@@ -52,12 +52,12 @@ class DiscoveryAI extends AIService {
 class DeniedReminder extends InMemoryReminderService {
   int requestCount = 0;
   @override
-  Future<ReminderPermissionStatus> checkPermission() async =>
+  Future<ReminderPermissionStatus> probePermission() async =>
       ReminderPermissionStatus.denied;
   @override
-  Future<bool> requestPermission() async {
+  Future<ReminderPermissionStatus> requestPermission() async {
     requestCount++;
-    return false;
+    return ReminderPermissionStatus.denied;
   }
 }
 

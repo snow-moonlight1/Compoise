@@ -1286,29 +1286,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         size: 16,
                       ),
                       label: Text(t['testNotification'] ?? 'Test Notification'),
-                      onPressed: () async {
-                        final now = DateTime.now().millisecondsSinceEpoch;
-                        await ReminderService.instance.scheduleReminder(
-                          boardId: store.activeBoardId,
-                          taskId: 'test-win-notif',
-                          title: 'MatrixFlow AI',
-                          body:
-                              t['testNotificationSent'] ??
-                              'Test notification sent!',
-                          triggerAtMs: now,
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                t['testNotificationSent'] ??
-                                    'Test notification sent!',
-                              ),
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: () => _sendTestReminder(context, t, store),
                     ),
                   ),
                 ],
@@ -1343,6 +1321,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: const Icon(Icons.security, size: 16),
                       label: Text(t['checkPermissions'] ?? 'Check Permissions'),
                       onPressed: () => _checkAndShowPermissions(context, t),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('test-android-notif-btn'),
+                      icon: const Icon(
+                        Icons.notification_add_outlined,
+                        size: 16,
+                      ),
+                      label: Text(t['testNotification'] ?? 'Test Notification'),
+                      onPressed: () => _sendTestReminder(context, t, store),
                     ),
                   ),
                 ],
@@ -1569,39 +1559,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Localized wording, colour and whether a runtime request is even possible
+  /// for one permission probe result.
+  ({String text, Color color, bool canRequest}) _permissionReport(
+    ReminderPermissionStatus status,
+    Map<String, String> t,
+  ) {
+    switch (status) {
+      case ReminderPermissionStatus.granted:
+        return (
+          text: t['permissionGranted'] ?? 'Granted',
+          color: Colors.green,
+          canRequest: false,
+        );
+      case ReminderPermissionStatus.denied:
+        return (
+          text: t['permissionDenied'] ?? 'Denied',
+          color: Colors.red,
+          canRequest: true,
+        );
+      case ReminderPermissionStatus.inexactOnly:
+        return (
+          text: t['permissionInexact'] ?? 'Inexact only',
+          color: Colors.orange,
+          canRequest: true,
+        );
+      case ReminderPermissionStatus.unsupported:
+        return (
+          text: t['permissionUnsupported'] ?? 'Unsupported on this platform',
+          color: Colors.grey,
+          canRequest: false,
+        );
+      case ReminderPermissionStatus.unknown:
+        return (
+          text: t['permissionUnknown'] ?? 'Notification status is unknown',
+          color: Colors.orange,
+          canRequest: false,
+        );
+    }
+  }
+
+  /// Sends one notification now and reports what the platform actually did,
+  /// including the permission state that decides whether the user can see it.
+  Future<void> _sendTestReminder(
+    BuildContext context,
+    Map<String, String> t,
+    Store store,
+  ) async {
+    final service = ReminderService.instance;
+    await service.init();
+    final permission = await service.checkPermission();
+    if (!context.mounted) return;
+    final result = await service.scheduleReminder(
+      boardId: store.activeBoardId,
+      taskId: 'test-win-notif',
+      title: 'MatrixFlow AI',
+      body: t['reminderTestBody'] ?? 'MatrixFlow test notification',
+      triggerAtMs: DateTime.now().millisecondsSinceEpoch,
+      recordRetry: false,
+    );
+    if (!context.mounted) return;
+    final String message;
+    switch (result.status) {
+      case ReminderScheduleStatus.scheduled:
+      case ReminderScheduleStatus.displayed:
+        message = t['testNotificationSent'] ?? 'Test notification sent.';
+      case ReminderScheduleStatus.scheduledInApp:
+        message = t['reminderTestInAppOnly'] ?? 'Armed inside the app only.';
+      case ReminderScheduleStatus.superseded:
+      case ReminderScheduleStatus.expired:
+      case ReminderScheduleStatus.unavailable:
+      case ReminderScheduleStatus.failed:
+        message = t['reminderTestFailed'] ?? 'Test notification failed.';
+    }
+    final report = _permissionReport(permission, t);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          permission == ReminderPermissionStatus.granted
+              ? message
+              : '$message ${report.text}',
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   Future<void> _checkAndShowPermissions(
     BuildContext context,
     Map<String, String> t,
   ) async {
-    final status = await ReminderService.instance.checkPermission();
+    final service = ReminderService.instance;
+    final status = await service.checkPermission();
     if (!context.mounted) return;
 
-    final String statusText;
-    final Color color;
-    final bool canRequest;
-
-    switch (status) {
-      case ReminderPermissionStatus.granted:
-        statusText =
-            defaultTargetPlatform == TargetPlatform.windows
-                ? (t['windowsPermissionActive'] ??
-                    'Windows Desktop Notifications are active and ready.')
-                : (t['permissionGranted'] ?? 'Granted');
-        color = Colors.green;
-        canRequest = false;
-      case ReminderPermissionStatus.denied:
-        statusText = t['permissionDenied'] ?? 'Denied';
-        color = Colors.red;
-        canRequest = true;
-      case ReminderPermissionStatus.inexactOnly:
-        statusText = t['permissionInexact'] ?? 'Inexact only';
-        color = Colors.orange;
-        canRequest = true;
-      case ReminderPermissionStatus.unsupported:
-        statusText = 'Unsupported on this platform';
-        color = Colors.grey;
-        canRequest = false;
-    }
+    final report = _permissionReport(status, t);
+    final statusText = report.text;
+    final color = report.color;
+    final canRequest = report.canRequest;
 
     showDialog(
       context: context,
@@ -1640,7 +1695,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 TextButton(
                   onPressed: () async {
                     Navigator.pop(dialogCtx);
-                    await ReminderService.instance.requestPermission();
+                    final after = await service.requestPermission();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_permissionReport(after, t).text),
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
                   },
                   child: Text(
                     t['requestPermissionBtn'] ?? 'Request Permission',

@@ -41,8 +41,13 @@ void main() {
         final service = FlutterLocalNotificationsReminderService();
         service.setInitializedForTest(true);
 
-        expect(await service.checkPermission(), equals(ReminderPermissionStatus.granted));
-        expect(await service.requestPermission(), isTrue);
+        // OS17: the plugin cannot query Windows notification settings, so the
+        // service reports unknown rather than claiming the reminders work.
+        expect(await service.checkPermission(), equals(ReminderPermissionStatus.unknown));
+        expect(
+          await service.requestPermission(),
+          equals(ReminderPermissionStatus.unknown),
+        );
 
         final now = DateTime.now().millisecondsSinceEpoch;
         final futureTime = now + 60000; // 1 minute in future
@@ -211,7 +216,11 @@ void main() {
         tester.view.devicePixelRatio = 1.0;
 
         final (store, _) = await makeStore();
-        final inMemoryReminder = InMemoryReminderService();
+        // OS17: Windows cannot report a notification state, so the fake platform
+        // answers unknown and the settings dialog must say so.
+        final inMemoryReminder = InMemoryReminderService(
+          permission: ReminderPermissionStatus.unknown,
+        );
         ReminderService.instance = inMemoryReminder;
 
         await tester.pumpWidget(buildTestApp(store, const SettingsScreen()));
@@ -250,7 +259,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(AlertDialog), findsOneWidget);
-        expect(find.text(store.t['windowsPermissionActive']!), findsOneWidget);
+        expect(find.text(store.t['permissionUnknown']!), findsOneWidget);
 
         await tester.tap(find.text(store.t['confirm']!));
         await tester.pumpAndSettle();
@@ -265,7 +274,11 @@ void main() {
 
         // Test notification scheduled in service
         expect(inMemoryReminder.scheduled.length, equals(1));
-        expect(find.text(store.t['testNotificationSent']!), findsOneWidget);
+        // OS17 appends the real permission state to the honest result text.
+        expect(
+          find.textContaining(store.t['testNotificationSent']!),
+          findsOneWidget,
+        );
 
         await tester.pumpWidget(const SizedBox());
         store.dispose();

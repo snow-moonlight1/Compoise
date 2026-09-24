@@ -46,9 +46,9 @@ class DiscoveryAI extends AIService {
 class DeniedReminder extends InMemoryReminderService {
   int requestCount = 0;
   @override
-  Future<ReminderPermissionStatus> checkPermission() async => ReminderPermissionStatus.denied;
+  Future<ReminderPermissionStatus> probePermission() async => ReminderPermissionStatus.denied;
   @override
-  Future<bool> requestPermission() async { requestCount++; return false; }
+  Future<ReminderPermissionStatus> requestPermission() async { requestCount++; return ReminderPermissionStatus.denied; }
 }
 
 Task sample(String id, {int q = 1, List<SubTask>? subs}) => Task(

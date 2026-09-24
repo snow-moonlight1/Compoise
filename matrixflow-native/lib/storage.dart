@@ -90,10 +90,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
            const SystemCredentialStore(),
        initialDeviceLocales = deviceLocales;
 
-  Future<void> retryReminder(ReminderPayload payload) async {
+  /// Re-arms a reminder whose scheduling failed, or cancels it when the task no
+  /// longer asks for one. The returned result is the platform's real answer.
+  Future<ReminderScheduleResult?> retryReminder(
+    ReminderPayload payload,
+  ) async {
     final service = ReminderService.instance;
     await service.init();
-    if (_disposed) return;
+    if (_disposed) return null;
     final task = tasks.where((t) => t.id == payload.taskId).firstOrNull;
     final sub =
         task?.subtasks.where((s) => s.id == payload.subtaskId).firstOrNull;
@@ -106,9 +110,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         payload.taskId,
         subtaskId: payload.subtaskId,
       );
-      return;
+      return null;
     }
-    await service.scheduleReminder(
+    return service.scheduleReminder(
       boardId: task.boardId,
       taskId: task.id,
       subtaskId: payload.subtaskId,
@@ -116,6 +120,42 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       body: sub?.notesMarkdown ?? task.notesMarkdown,
       triggerAtMs: when,
     );
+  }
+
+  /// Re-issues a cancellation the platform never confirmed.
+  Future<ReminderCancelResult?> retryReminderCancellation(
+    ReminderPayload payload,
+  ) async {
+    final service = ReminderService.instance;
+    await service.init();
+    if (_disposed) return null;
+    return service.cancelReminder(
+      payload.taskId,
+      subtaskId: payload.subtaskId,
+    );
+  }
+
+  /// Rebuilds the OS schedule from task data, then finishes reminder work a
+  /// previous run could not. Ordering matters: reconciliation must not re-arm a
+  /// reminder the fresh pass already accepted.
+  Future<void> reconcileReminders() async {
+    final service = ReminderService.instance;
+    try {
+      await service.rescheduleAllFuture(tasks);
+      await service.reconcilePending(tasks);
+    } catch (_) {
+      // Reminder delivery is tracked separately from library persistence.
+    }
+  }
+
+  /// Clears every notification before a full library replace, then rebuilds.
+  Future<void> resetAllReminders() async {
+    try {
+      await ReminderService.instance.cancelAll();
+    } catch (_) {
+      // The rebuild below records per-notification retries for anything left.
+    }
+    await reconcileReminders();
   }
 
   Future<void> init({List<Locale>? deviceLocales}) async {
@@ -300,7 +340,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
     _persistAll();
     _applyDeadlinePromotion();
-    ReminderService.instance.rescheduleAllFuture(tasks);
+    unawaited(reconcileReminders());
     notifyListeners();
 
     _deadlineTimer = Timer.periodic(
@@ -355,7 +395,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
     _persistAll();
     _applyDeadlinePromotion();
-    ReminderService.instance.rescheduleAllFuture(tasks);
+    unawaited(reconcileReminders());
     _deadlineTimer = Timer.periodic(
       const Duration(hours: 1),
       (_) => _applyDeadlinePromotion(),
@@ -1442,12 +1482,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       aiConfig.apiKey = _confirmedCredential;
     }
     if (plan.mode == 'overwrite') activeBoardId = boards.first.id;
-    try {
-      if (plan.mode == 'overwrite') ReminderService.instance.cancelAll();
-      ReminderService.instance.rescheduleAllFuture(tasks);
-    } catch (_) {
-      // Reminder delivery is tracked separately from library persistence.
-    }
+    unawaited(
+      plan.mode == 'overwrite' ? resetAllReminders() : reconcileReminders(),
+    );
     notifyListeners();
   }
 

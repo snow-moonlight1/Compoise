@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -35,6 +37,251 @@ enum ReminderPermissionStatus {
 
   /// Current platform does not support local reminders.
   unsupported,
+
+  /// The platform exposes no queryable state, so the answer is not known.
+  unknown,
+}
+
+/// Outcome of one scheduling attempt.
+enum ReminderScheduleStatus {
+  /// The operating system accepted a future trigger.
+  scheduled,
+
+  /// Only an in-app timer could be armed, so delivery needs a running app.
+  scheduledInApp,
+
+  /// The trigger had passed, so the notification was shown immediately.
+  displayed,
+
+  /// A newer edit or cancel replaced this request before it reached the OS.
+  superseded,
+
+  /// The trigger is older than the delivery grace window and was dropped.
+  expired,
+
+  /// The service is not ready, so nothing reached the operating system.
+  unavailable,
+
+  /// The platform rejected the request.
+  failed,
+}
+
+/// Result of a scheduling attempt. [errorKind] is an exception category only and
+/// never carries task titles, notes or credentials.
+@immutable
+class ReminderScheduleResult {
+  const ReminderScheduleResult(
+    this.status, {
+    required this.notificationId,
+    this.errorKind,
+  });
+
+  final ReminderScheduleStatus status;
+  final int notificationId;
+  final String? errorKind;
+
+  bool get accepted =>
+      status == ReminderScheduleStatus.scheduled ||
+      status == ReminderScheduleStatus.scheduledInApp ||
+      status == ReminderScheduleStatus.displayed;
+
+  bool get needsRetry =>
+      status == ReminderScheduleStatus.failed ||
+      status == ReminderScheduleStatus.unavailable;
+}
+
+/// Outcome of one cancellation attempt.
+enum ReminderCancelStatus {
+  /// The operating system no longer has this notification pending.
+  cancelled,
+
+  /// The service is not ready yet; the cancellation still owes a retry.
+  unavailable,
+
+  /// The platform rejected the cancellation, so a ghost notification may remain.
+  failed,
+}
+
+@immutable
+class ReminderCancelResult {
+  const ReminderCancelResult(
+    this.status, {
+    required this.notificationId,
+    this.errorKind,
+  });
+
+  final ReminderCancelStatus status;
+  final int notificationId;
+  final String? errorKind;
+
+  bool get succeeded => status == ReminderCancelStatus.cancelled;
+
+  bool get needsRetry =>
+      status == ReminderCancelStatus.failed ||
+      status == ReminderCancelStatus.unavailable;
+}
+
+/// Which kind of work the operating system still owes us.
+enum ReminderPendingKind {
+  /// A reminder the user expects but that was never armed.
+  reschedule,
+
+  /// A notification that must still be cancelled.
+  cancel,
+}
+
+/// Retryable reminder work kept in a local ledger so a restart can finish it.
+class ReminderPendingJob {
+  const ReminderPendingJob({
+    required this.kind,
+    required this.notificationId,
+    required this.boardId,
+    required this.taskId,
+    this.subtaskId,
+    this.triggerAtMs,
+    this.attempts = 0,
+    this.updatedAtMs = 0,
+    this.errorKind,
+  });
+
+  final ReminderPendingKind kind;
+  final int notificationId;
+  final String boardId;
+  final String taskId;
+  final String? subtaskId;
+  final int? triggerAtMs;
+  final int attempts;
+  final int updatedAtMs;
+  final String? errorKind;
+
+  String get key => '${kind.name}:$notificationId';
+
+  ReminderPayload get payload =>
+      ReminderPayload(boardId: boardId, taskId: taskId, subtaskId: subtaskId);
+
+  ReminderPendingJob withAttempt({int? failedAtMs, String? errorKind}) =>
+      ReminderPendingJob(
+        kind: kind,
+        notificationId: notificationId,
+        boardId: boardId,
+        taskId: taskId,
+        subtaskId: subtaskId,
+        triggerAtMs: triggerAtMs,
+        attempts: attempts + 1,
+        updatedAtMs: failedAtMs ?? updatedAtMs,
+        errorKind: errorKind ?? this.errorKind,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'kind': kind.name,
+    'id': notificationId,
+    'boardId': boardId,
+    'taskId': taskId,
+    if (subtaskId != null) 'subtaskId': subtaskId,
+    if (triggerAtMs != null) 'triggerAtMs': triggerAtMs,
+    'attempts': attempts,
+    'updatedAtMs': updatedAtMs,
+    if (errorKind != null) 'errorKind': errorKind,
+  };
+
+  static ReminderPendingJob? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final json = raw.cast<String, dynamic>();
+    final kind = switch (json['kind']) {
+      'reschedule' => ReminderPendingKind.reschedule,
+      'cancel' => ReminderPendingKind.cancel,
+      _ => null,
+    };
+    final id = json['id'];
+    final taskId = json['taskId'];
+    if (kind == null || id is! int || taskId is! String || taskId.isEmpty) {
+      return null;
+    }
+    return ReminderPendingJob(
+      kind: kind,
+      notificationId: id,
+      boardId: (json['boardId'] as String?) ?? '',
+      taskId: taskId,
+      subtaskId: json['subtaskId'] as String?,
+      triggerAtMs: json['triggerAtMs'] is int ? json['triggerAtMs'] as int : null,
+      attempts: json['attempts'] is int ? json['attempts'] as int : 0,
+      updatedAtMs: json['updatedAtMs'] is int ? json['updatedAtMs'] as int : 0,
+      errorKind: json['errorKind'] is String ? json['errorKind'] as String : null,
+    );
+  }
+}
+
+/// Where the retry ledger is kept. Production persists it locally so an app
+/// restart can still finish pending reminder work.
+abstract class ReminderLedgerStore {
+  Future<String?> read();
+
+  /// `null` clears the ledger.
+  Future<void> write(String? value);
+}
+
+class InMemoryReminderLedgerStore implements ReminderLedgerStore {
+  String? value;
+  int writeCount = 0;
+
+  @override
+  Future<String?> read() async => value;
+
+  @override
+  Future<void> write(String? value) async {
+    this.value = value;
+    writeCount++;
+  }
+}
+
+/// Local-only key: never part of ExportData, backups or credential migration.
+class SharedPreferencesReminderLedgerStore implements ReminderLedgerStore {
+  static const String storageKey = 'matrixflow-reminder-pending';
+
+  @override
+  Future<String?> read() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(storageKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> write(String? value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value == null) {
+        await prefs.remove(storageKey);
+      } else {
+        await prefs.setString(storageKey, value);
+      }
+    } catch (_) {
+      // A lost ledger only means the next start cannot compensate automatically.
+    }
+  }
+}
+
+/// Counts from one restart reconciliation pass.
+@immutable
+class ReminderReconcileReport {
+  const ReminderReconcileReport({
+    this.recovered = 0,
+    this.retried = 0,
+    this.dropped = 0,
+    this.stillPending = 0,
+  });
+
+  final int recovered;
+  final int retried;
+  final int dropped;
+  final int stillPending;
+
+  @override
+  String toString() =>
+      'ReminderReconcileReport(recovered: $recovered, retried: $retried, '
+      'dropped: $dropped, stillPending: $stillPending)';
 }
 
 /// Payload included with notification for deep-linking back to the task.
@@ -119,27 +366,153 @@ Future<ReminderPermissionStatus> requestReminderAccess() async {
   final service = ReminderService.instance;
   final current = await service.checkPermission();
   if (current == ReminderPermissionStatus.granted ||
-      current == ReminderPermissionStatus.unsupported) {
+      current == ReminderPermissionStatus.unsupported ||
+      current == ReminderPermissionStatus.unknown) {
     return current;
   }
-  await service.requestPermission();
-  return service.checkPermission();
+  return service.requestPermission();
 }
 
 /// Abstract cross-platform reminder service.
 abstract class ReminderService {
+  ReminderService({ReminderLedgerStore? ledgerStore})
+    : ledgerStore = ledgerStore ?? InMemoryReminderLedgerStore();
+
+  /// A reminder keeps at most this many automatic retries, so a permanently
+  /// broken channel cannot be retried on every start.
+  static const int maxAutomaticRetries = 5;
+  static const int maxPendingJobs = 64;
+  static const int maxTrackedReminders = 512;
+  static const int pendingTtlMs = 7 * 24 * 60 * 60 * 1000;
+  static const int deliveryGraceMs = 5 * 60 * 1000;
+
+  final ReminderLedgerStore ledgerStore;
+
   final ValueNotifier<Map<int, ReminderPayload>> scheduleFailures =
       ValueNotifier({});
 
-  void _setScheduleFailure(int id, ReminderPayload? payload) {
-    final next = Map<int, ReminderPayload>.from(scheduleFailures.value);
-    if (payload == null) {
-      if (next.remove(id) == null) return;
-    } else {
-      next[id] = payload;
+  /// Reminders whose cancellation the platform never confirmed.
+  final ValueNotifier<Map<int, ReminderPayload>> cancelFailures =
+      ValueNotifier({});
+
+  /// Permission state from the most recent real probe, `null` when never probed.
+  final ValueNotifier<ReminderPermissionStatus?> observedPermission =
+      ValueNotifier(null);
+
+  final Map<String, ReminderPendingJob> _pendingJobs = {};
+  bool _pendingLoaded = false;
+  Future<void> _pendingWrites = Future.value();
+
+  /// Failed schedules, projected from the ledger and keyed by notification id.
+  Map<String, ReminderPendingJob> get pendingJobs =>
+      Map.unmodifiable(_pendingJobs);
+
+  /// Reads persisted retry records once per process. Safe to call repeatedly.
+  Future<void> loadPendingJobs() async {
+    if (_pendingLoaded) return;
+    _pendingLoaded = true;
+    final raw = await ledgerStore.read();
+    if (raw == null || raw.trim().isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      final jobs = decoded['jobs'];
+      if (jobs is! List) return;
+      var merged = false;
+      for (final entry in jobs) {
+        final job = ReminderPendingJob.fromJson(entry);
+        if (job == null) continue;
+        // In-memory records are newer than anything still on disk.
+        if (_pendingJobs.containsKey(job.key) ||
+            _pendingJobs.length >= maxPendingJobs) {
+          continue;
+        }
+        _pendingJobs[job.key] = job;
+        merged = true;
+      }
+      if (merged) _publishPendingJobs();
+    } catch (e) {
+      debugPrint('Ignored unreadable reminder ledger: ${e.runtimeType}');
     }
-    scheduleFailures.value = Map.unmodifiable(next);
   }
+
+  void _publishPendingJobs() {
+    final schedules = <int, ReminderPayload>{};
+    final cancels = <int, ReminderPayload>{};
+    for (final job in _pendingJobs.values) {
+      if (job.kind == ReminderPendingKind.reschedule) {
+        schedules[job.notificationId] = job.payload;
+      } else {
+        cancels[job.notificationId] = job.payload;
+      }
+    }
+    if (!mapEquals(scheduleFailures.value, schedules)) {
+      scheduleFailures.value = Map.unmodifiable(schedules);
+    }
+    if (!mapEquals(cancelFailures.value, cancels)) {
+      cancelFailures.value = Map.unmodifiable(cancels);
+    }
+  }
+
+  /// Serializes the ledger to disk after the one-time load, so a record written
+  /// during startup cannot erase the records still on disk. Never awaited by a
+  /// schedule or cancel result: reminder results must not depend on storage.
+  void _persistPendingJobs() {
+    _pendingWrites = _pendingWrites
+        .then((_) async {
+          await loadPendingJobs();
+          final payload = jsonEncode({
+            'v': 1,
+            'jobs': [for (final job in _pendingJobs.values) job.toJson()],
+          });
+          await ledgerStore.write(_pendingJobs.isEmpty ? null : payload);
+        })
+        .catchError((Object error) {
+          debugPrint(
+            'Reminder ledger write failed: ${reminderErrorKind(error)}',
+          );
+        });
+  }
+
+  /// Updates the in-memory ledger and notifies the UI synchronously.
+  Future<void> trackPendingJob(ReminderPendingJob job) async {
+    if (_pendingJobs.length >= maxPendingJobs &&
+        !_pendingJobs.containsKey(job.key)) {
+      return;
+    }
+    _pendingJobs[job.key] = job;
+    _publishPendingJobs();
+    _persistPendingJobs();
+  }
+
+  Future<void> clearPendingJob(String key) async {
+    if (_pendingJobs.remove(key) == null) return;
+    _publishPendingJobs();
+    _persistPendingJobs();
+  }
+
+  Future<void> clearPendingForNotification(int notificationId) async {
+    final suffix = ':$notificationId';
+    final keys = _pendingJobs.keys.where((k) => k.endsWith(suffix)).toList();
+    if (keys.isEmpty) return;
+    for (final key in keys) {
+      _pendingJobs.remove(key);
+    }
+    _publishPendingJobs();
+    _persistPendingJobs();
+  }
+
+  Future<void> clearAllPendingJobs() async {
+    // A full wipe must not pull the old records back in.
+    _pendingLoaded = true;
+    _pendingJobs.clear();
+    _publishPendingJobs();
+    _persistPendingJobs();
+  }
+
+  /// Completes once every queued ledger write has been attempted.
+  @visibleForTesting
+  Future<void> pendingLedgerWrites() => _pendingWrites;
 
   static ReminderService? _instance;
   static ReminderService get instance => _instance ??= _createDefault();
@@ -173,14 +546,21 @@ abstract class ReminderService {
     void Function(ReminderPayload payload)? onNotificationSelected,
   });
 
-  /// Checks notification and alarm permissions status.
-  Future<ReminderPermissionStatus> checkPermission();
+  /// Permission state as reported by the platform, then cached for the UI.
+  Future<ReminderPermissionStatus> checkPermission() async {
+    final status = await probePermission();
+    observedPermission.value = status;
+    return status;
+  }
 
-  /// Requests runtime notification permission.
-  Future<bool> requestPermission();
+  /// Platform-specific permission probe.
+  Future<ReminderPermissionStatus> probePermission();
+
+  /// Requests runtime notification permission and reports the resulting state.
+  Future<ReminderPermissionStatus> requestPermission();
 
   /// Schedules a local notification reminder for a task or subtask.
-  Future<void> scheduleReminder({
+  Future<ReminderScheduleResult> scheduleReminder({
     required String boardId,
     required String taskId,
     String? subtaskId,
@@ -189,10 +569,14 @@ abstract class ReminderService {
     required int triggerAtMs,
     bool sound = true,
     bool vibrate = true,
+    bool recordRetry = true,
   });
 
   /// Cancels an existing scheduled reminder.
-  Future<void> cancelReminder(String taskId, {String? subtaskId});
+  Future<ReminderCancelResult> cancelReminder(
+    String taskId, {
+    String? subtaskId,
+  });
 
   /// Cancels all reminders for all tasks on a specific board.
   Future<void> cancelAllForBoard(String boardId, List<Task> tasksOnBoard);
@@ -202,6 +586,200 @@ abstract class ReminderService {
 
   /// Reschedules all future uncompleted reminders (e.g. after reboot or import).
   Future<void> rescheduleAllFuture(List<Task> allTasks);
+
+  /// Replays ledger work that a previous run could not finish, dropping records
+  /// the current task data no longer backs. Runs after [rescheduleAllFuture].
+  Future<ReminderReconcileReport> reconcilePending(List<Task> allTasks) async {
+    await loadPendingJobs();
+    var recovered = 0, retried = 0, dropped = 0, stillPending = 0;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    for (final key in _pendingJobs.keys.toList()) {
+      final job = _pendingJobs[key];
+      if (job == null) continue;
+      final tooOld =
+          job.updatedAtMs > nowMs ||
+          nowMs - job.updatedAtMs > pendingTtlMs;
+      if (tooOld || job.attempts >= maxAutomaticRetries) {
+        await clearPendingJob(key);
+        dropped++;
+        continue;
+      }
+      final source = _reminderSource(allTasks, job);
+      if (job.kind == ReminderPendingKind.reschedule) {
+        if (source.triggerAtMs != job.triggerAtMs ||
+            source.triggerAtMs == null ||
+            source.triggerAtMs! <= nowMs) {
+          // Removed, completed or re-edited: the live edit path owns the
+          // notification now, so never resurrect an outdated reminder.
+          await clearPendingJob(key);
+          dropped++;
+          continue;
+        }
+        retried++;
+        final result = await scheduleReminder(
+          boardId: job.boardId,
+          taskId: job.taskId,
+          subtaskId: job.subtaskId,
+          title: source.title ?? '',
+          body: source.body,
+          triggerAtMs: job.triggerAtMs!,
+        );
+        if (result.accepted) {
+          recovered++;
+        } else if (_pendingJobs.containsKey(key)) {
+          await trackPendingJob(
+            job.withAttempt(failedAtMs: nowMs, errorKind: result.errorKind),
+          );
+          stillPending++;
+        } else {
+          dropped++;
+        }
+        continue;
+      }
+
+      if (source.triggerAtMs != null && source.triggerAtMs! > nowMs) {
+        // A reminder was re-added for this notification id, which replaces the
+        // ghost instead of leaving it to cancel.
+        await clearPendingJob(key);
+        dropped++;
+        continue;
+      }
+      retried++;
+      final result = await cancelReminder(job.taskId, subtaskId: job.subtaskId);
+      if (result.succeeded) {
+        recovered++;
+      } else if (_pendingJobs.containsKey(key)) {
+        await trackPendingJob(
+          job.withAttempt(failedAtMs: nowMs, errorKind: result.errorKind),
+        );
+        stillPending++;
+      } else {
+        dropped++;
+      }
+    }
+    return ReminderReconcileReport(
+      recovered: recovered,
+      retried: retried,
+      dropped: dropped,
+      stillPending: stillPending,
+    );
+  }
+
+  ({int? triggerAtMs, String? title, String? body}) _reminderSource(
+    List<Task> allTasks,
+    ReminderPendingJob job,
+  ) {
+    final task = allTasks.where((t) => t.id == job.taskId).firstOrNull;
+    // A cancel job recorded without board context still has to be resolved.
+    if (task == null ||
+        (job.boardId.isNotEmpty && task.boardId != job.boardId)) {
+      return (triggerAtMs: null, title: null, body: null);
+    }
+    if (job.subtaskId == null) {
+      if (task.completed) return (triggerAtMs: null, title: null, body: null);
+      return (
+        triggerAtMs: task.reminderAt,
+        title: task.title,
+        body: task.notesMarkdown,
+      );
+    }
+    final sub = task.subtasks.where((s) => s.id == job.subtaskId).firstOrNull;
+    if (sub == null || sub.completed) {
+      return (triggerAtMs: null, title: null, body: null);
+    }
+    return (
+      triggerAtMs: sub.reminderAt,
+      title: sub.title,
+      body: task.notesMarkdown,
+    );
+  }
+
+  /// Notification id shared by a task or subtask reminder.
+  static int notificationIdFor(String taskId, {String? subtaskId}) =>
+      generateNotificationId(taskId, subtaskId: subtaskId);
+
+  /// Live reminders this process believes the platform holds, so a bulk cancel
+  /// failure can be retried one notification at a time.
+  final Map<int, ReminderPayload> trackedReminders = {};
+
+  @protected
+  Future<ReminderScheduleResult> recordScheduleOutcome({
+    required ReminderPayload payload,
+    required int triggerAtMs,
+    required ReminderScheduleResult result,
+    required bool recordRetry,
+  }) async {
+    switch (result.status) {
+      case ReminderScheduleStatus.scheduled:
+      case ReminderScheduleStatus.scheduledInApp:
+      case ReminderScheduleStatus.displayed:
+        if (trackedReminders.containsKey(result.notificationId) ||
+            trackedReminders.length < maxTrackedReminders) {
+          trackedReminders[result.notificationId] = payload;
+        }
+        // The same id replaces any earlier notification, so a pending cancel
+        // for it is resolved too.
+        await clearPendingForNotification(result.notificationId);
+      case ReminderScheduleStatus.superseded:
+      case ReminderScheduleStatus.expired:
+        await clearPendingJob(
+          '${ReminderPendingKind.reschedule.name}:${result.notificationId}',
+        );
+      case ReminderScheduleStatus.unavailable:
+      case ReminderScheduleStatus.failed:
+        if (recordRetry) {
+          await trackPendingJob(
+            ReminderPendingJob(
+              kind: ReminderPendingKind.reschedule,
+              notificationId: result.notificationId,
+              boardId: payload.boardId,
+              taskId: payload.taskId,
+              subtaskId: payload.subtaskId,
+              triggerAtMs: triggerAtMs,
+              updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+              errorKind: result.errorKind,
+            ),
+          );
+        }
+    }
+    return result;
+  }
+
+  @protected
+  Future<ReminderCancelResult> recordCancelOutcome({
+    required ReminderPayload payload,
+    required ReminderCancelResult result,
+  }) async {
+    final key = '${ReminderPendingKind.cancel.name}:${result.notificationId}';
+    if (result.succeeded) {
+      trackedReminders.remove(result.notificationId);
+      await clearPendingJob(key);
+    } else {
+      await trackPendingJob(
+        ReminderPendingJob(
+          kind: ReminderPendingKind.cancel,
+          notificationId: result.notificationId,
+          boardId: payload.boardId,
+          taskId: payload.taskId,
+          subtaskId: payload.subtaskId,
+          updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+          errorKind: result.errorKind,
+        ),
+      );
+    }
+    return result;
+  }
+}
+
+/// Only exception categories are kept: never task content, notes or keys.
+String reminderErrorKind(Object error) {
+  if (error is PlatformException) {
+    final code = error.code;
+    return code.trim().isEmpty
+        ? 'PlatformException'
+        : 'PlatformException/${code.replaceAll(RegExp(r'\s+'), '_')}';
+  }
+  return error.runtimeType.toString();
 }
 
 /// Default no-op reminder service (used for unsupported platforms or headless default).
@@ -224,14 +802,15 @@ class NoopReminderService extends ReminderService {
   }
 
   @override
-  Future<ReminderPermissionStatus> checkPermission() async =>
+  Future<ReminderPermissionStatus> probePermission() async =>
       ReminderPermissionStatus.granted;
 
   @override
-  Future<bool> requestPermission() async => true;
+  Future<ReminderPermissionStatus> requestPermission() async =>
+      ReminderPermissionStatus.granted;
 
   @override
-  Future<void> scheduleReminder({
+  Future<ReminderScheduleResult> scheduleReminder({
     required String boardId,
     required String taskId,
     String? subtaskId,
@@ -240,10 +819,20 @@ class NoopReminderService extends ReminderService {
     required int triggerAtMs,
     bool sound = true,
     bool vibrate = true,
-  }) async {}
+    bool recordRetry = true,
+  }) async => ReminderScheduleResult(
+    ReminderScheduleStatus.scheduled,
+    notificationId: generateNotificationId(taskId, subtaskId: subtaskId),
+  );
 
   @override
-  Future<void> cancelReminder(String taskId, {String? subtaskId}) async {}
+  Future<ReminderCancelResult> cancelReminder(
+    String taskId, {
+    String? subtaskId,
+  }) async => ReminderCancelResult(
+    ReminderCancelStatus.cancelled,
+    notificationId: generateNotificationId(taskId, subtaskId: subtaskId),
+  );
 
   @override
   Future<void> cancelAllForBoard(
@@ -260,9 +849,22 @@ class NoopReminderService extends ReminderService {
 
 /// In-memory implementation of ReminderService for unit and widget testing.
 class InMemoryReminderService extends ReminderService {
+  InMemoryReminderService({
+    ReminderPermissionStatus permission = ReminderPermissionStatus.granted,
+    super.ledgerStore,
+  }) : permissionStatus = permission;
+
   final Map<int, ScheduledReminderRecord> scheduled = {};
   final List<int> cancelledIds = [];
   int cancelAllCount = 0;
+  int requestPermissionCount = 0;
+
+  /// State the fake platform reports when asked.
+  ReminderPermissionStatus permissionStatus;
+
+  /// When non-null, every schedule/cancel reports it as a platform rejection.
+  Object? scheduleFault;
+  Object? cancelFault;
   void Function(ReminderPayload payload)? _onNotificationSelected;
 
   @override
@@ -285,14 +887,17 @@ class InMemoryReminderService extends ReminderService {
   }
 
   @override
-  Future<ReminderPermissionStatus> checkPermission() async =>
-      ReminderPermissionStatus.granted;
+  Future<ReminderPermissionStatus> probePermission() async =>
+      permissionStatus;
 
   @override
-  Future<bool> requestPermission() async => true;
+  Future<ReminderPermissionStatus> requestPermission() async {
+    requestPermissionCount++;
+    return permissionStatus;
+  }
 
   @override
-  Future<void> scheduleReminder({
+  Future<ReminderScheduleResult> scheduleReminder({
     required String boardId,
     required String taskId,
     String? subtaskId,
@@ -301,32 +906,80 @@ class InMemoryReminderService extends ReminderService {
     required int triggerAtMs,
     bool sound = true,
     bool vibrate = true,
+    bool recordRetry = true,
   }) async {
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    // Overdue suppression: discard if older than 5 minutes
-    if (nowMs - triggerAtMs > 5 * 60 * 1000) {
-      return;
-    }
-
     final id = generateNotificationId(taskId, subtaskId: subtaskId);
-    scheduled[id] = ScheduledReminderRecord(
-      id: id,
+    final payload = ReminderPayload(
       boardId: boardId,
       taskId: taskId,
       subtaskId: subtaskId,
-      title: title,
-      body: body,
+    );
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    ReminderScheduleResult result;
+    if (nowMs - triggerAtMs > ReminderService.deliveryGraceMs) {
+      // Overdue suppression: discard if older than the grace window.
+      result = ReminderScheduleResult(
+        ReminderScheduleStatus.expired,
+        notificationId: id,
+      );
+    } else if (scheduleFault != null) {
+      result = ReminderScheduleResult(
+        ReminderScheduleStatus.failed,
+        notificationId: id,
+        errorKind: reminderErrorKind(scheduleFault!),
+      );
+    } else {
+      scheduled[id] = ScheduledReminderRecord(
+        id: id,
+        boardId: boardId,
+        taskId: taskId,
+        subtaskId: subtaskId,
+        title: title,
+        body: body,
+        triggerAtMs: triggerAtMs,
+        sound: sound,
+        vibrate: vibrate,
+      );
+      result = ReminderScheduleResult(
+        triggerAtMs <= nowMs
+            ? ReminderScheduleStatus.displayed
+            : ReminderScheduleStatus.scheduled,
+        notificationId: id,
+      );
+    }
+    return recordScheduleOutcome(
+      payload: payload,
       triggerAtMs: triggerAtMs,
-      sound: sound,
-      vibrate: vibrate,
+      result: result,
+      recordRetry: recordRetry,
     );
   }
 
   @override
-  Future<void> cancelReminder(String taskId, {String? subtaskId}) async {
+  Future<ReminderCancelResult> cancelReminder(
+    String taskId, {
+    String? subtaskId,
+  }) async {
     final id = generateNotificationId(taskId, subtaskId: subtaskId);
-    scheduled.remove(id);
-    cancelledIds.add(id);
+    final payload =
+        trackedReminders[id] ??
+        ReminderPayload(boardId: '', taskId: taskId, subtaskId: subtaskId);
+    ReminderCancelResult result;
+    if (cancelFault != null) {
+      result = ReminderCancelResult(
+        ReminderCancelStatus.failed,
+        notificationId: id,
+        errorKind: reminderErrorKind(cancelFault!),
+      );
+    } else {
+      scheduled.remove(id);
+      cancelledIds.add(id);
+      result = ReminderCancelResult(
+        ReminderCancelStatus.cancelled,
+        notificationId: id,
+      );
+    }
+    return recordCancelOutcome(payload: payload, result: result);
   }
 
   @override
@@ -349,6 +1002,8 @@ class InMemoryReminderService extends ReminderService {
   @override
   Future<void> cancelAll() async {
     scheduled.clear();
+    trackedReminders.clear();
+    await clearAllPendingJobs();
     cancelAllCount++;
   }
 
@@ -387,6 +1042,10 @@ class InMemoryReminderService extends ReminderService {
 class FlutterLocalNotificationsReminderService extends ReminderService {
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
+
+  /// Set only when the platform explicitly declined to initialise. Until then
+  /// the notification state is simply not known.
+  bool _platformDeclined = false;
   Completer<void>? _initCompleter;
   void Function(ReminderPayload payload)? _onNotificationSelected;
   final Map<int, Timer> _activeTimers = {};
@@ -420,6 +1079,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   @visibleForTesting
   void setInitializedForTest(bool val) {
     _initialized = val;
+    _platformDeclined = !val;
     _initCompleter ??= Completer<void>();
     if (val && !_initCompleter!.isCompleted) {
       _initCompleter!.complete();
@@ -428,13 +1088,16 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
 
   FlutterLocalNotificationsReminderService({
     FlutterLocalNotificationsPlugin? plugin,
-  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+    ReminderLedgerStore? ledgerStore,
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       super(ledgerStore: ledgerStore ?? SharedPreferencesReminderLedgerStore());
 
   int _bump(int notifId) => _revision[notifId] = (_revision[notifId] ?? 0) + 1;
 
-  Future<void> _enqueue(Future<void> Function() op) {
-    _chain = _chain.catchError((_) {}).then((_) => op());
-    return _chain;
+  Future<T> _enqueue<T>(Future<T> Function() op) {
+    final next = _chain.then((_) => op());
+    _chain = next.then<void>((_) {}).catchError((Object _) {});
+    return next;
   }
 
   void _deliverPayload(ReminderPayload payload, {bool fromLaunch = false}) {
@@ -484,7 +1147,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         windows: windowsSettings,
       );
 
-      await _plugin.initialize(
+      final ready = await _plugin.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (response) {
           final payload = ReminderPayload.deserialize(response.payload);
@@ -495,7 +1158,17 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           }
         },
       );
-      _initialized = true;
+      // Only an explicit `false` means the platform declined: Android and iOS
+      // answer through a channel that can also return nothing at all.
+      final accepted = ready != false;
+      _platformDeclined = !accepted;
+      _initialized = accepted;
+      if (!accepted) {
+        // Allow a later call to retry initialization instead of latching a
+        // completed gate that reports success.
+        _initCompleter = null;
+        debugPrint('Local notifications unavailable: platform init failed');
+      }
 
       try {
         final dynamic raw =
@@ -513,7 +1186,9 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           }
         }
       } catch (e) {
-        debugPrint('Failed to read notification launch details: $e');
+        debugPrint(
+          'Failed to read notification launch details: ${reminderErrorKind(e)}',
+        );
       }
 
       final queued = _queuedReschedule;
@@ -523,17 +1198,24 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       }
     } catch (e) {
       _initCompleter = null;
-      debugPrint('Failed to initialize local notifications: $e');
+      debugPrint(
+        'Failed to initialize local notifications: ${reminderErrorKind(e)}',
+      );
     } finally {
       if (!gate.isCompleted) gate.complete();
     }
   }
 
   @override
-  Future<ReminderPermissionStatus> checkPermission() async {
+  Future<ReminderPermissionStatus> probePermission() async {
     try {
       if (defaultTargetPlatform == TargetPlatform.windows) {
-        return ReminderPermissionStatus.granted;
+        // Windows can report that the toast channel declined, but the user's
+        // notification setting and Focus Assist state are not queryable
+        // through this plugin, so the honest default answer is "unknown".
+        return _platformDeclined
+            ? ReminderPermissionStatus.unsupported
+            : ReminderPermissionStatus.unknown;
       }
       final androidImpl =
           _plugin
@@ -542,48 +1224,48 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
               >();
       if (androidImpl == null) return ReminderPermissionStatus.unsupported;
 
-      final enabled = await androidImpl.areNotificationsEnabled() ?? false;
-      if (!enabled) return ReminderPermissionStatus.denied;
+      final notificationsEnabled = await androidImpl.areNotificationsEnabled();
+      if (notificationsEnabled == null) return ReminderPermissionStatus.unknown;
+      if (!notificationsEnabled) return ReminderPermissionStatus.denied;
 
-      final canExact =
-          await androidImpl.canScheduleExactNotifications() ?? false;
-      if (!canExact) return ReminderPermissionStatus.inexactOnly;
-
-      return ReminderPermissionStatus.granted;
+      final canExact = await androidImpl.canScheduleExactNotifications();
+      if (canExact == null) return ReminderPermissionStatus.unknown;
+      return canExact
+          ? ReminderPermissionStatus.granted
+          : ReminderPermissionStatus.inexactOnly;
     } catch (e) {
-      debugPrint('Error checking notification permission: $e');
-      return ReminderPermissionStatus.granted;
+      debugPrint('Notification permission probe failed: ${e.runtimeType}');
+      return ReminderPermissionStatus.unknown;
     }
   }
 
   @override
-  Future<bool> requestPermission() async {
+  Future<ReminderPermissionStatus> requestPermission() async {
     try {
       if (defaultTargetPlatform == TargetPlatform.windows) {
-        return true;
+        return await checkPermission();
       }
       final androidImpl =
           _plugin
               .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin
               >();
-      if (androidImpl == null) return false;
+      if (androidImpl == null) return ReminderPermissionStatus.unsupported;
 
-      final granted =
-          await androidImpl.requestNotificationsPermission() ?? false;
+      final granted = await androidImpl.requestNotificationsPermission();
+      if (granted == null) return ReminderPermissionStatus.unknown;
       if (granted) {
-        final canExact =
-            await androidImpl.canScheduleExactNotifications() ?? true;
-        if (!canExact) {
+        final canExact = await androidImpl.canScheduleExactNotifications();
+        if (canExact == false) {
           try {
             await androidImpl.requestExactAlarmsPermission();
           } catch (_) {}
         }
       }
-      return granted;
+      return await checkPermission();
     } catch (e) {
-      debugPrint('Error requesting notification permission: $e');
-      return false;
+      debugPrint('Notification permission request failed: ${e.runtimeType}');
+      return ReminderPermissionStatus.unknown;
     }
   }
 
@@ -610,7 +1292,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   }
 
   @override
-  Future<void> scheduleReminder({
+  Future<ReminderScheduleResult> scheduleReminder({
     required String boardId,
     required String taskId,
     String? subtaskId,
@@ -619,37 +1301,54 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     required int triggerAtMs,
     bool sound = true,
     bool vibrate = true,
+    bool recordRetry = true,
   }) {
     final notifId = generateNotificationId(taskId, subtaskId: subtaskId);
     final gen = _bump(notifId);
     _activeTimers[notifId]?.cancel();
     _activeTimers.remove(notifId);
+    final payload = ReminderPayload(
+      boardId: boardId,
+      taskId: taskId,
+      subtaskId: subtaskId,
+    );
     return _enqueue(() async {
-      if (_revision[notifId] != gen) return;
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      if (nowMs - triggerAtMs > 5 * 60 * 1000) return;
-      if (!_initialized) {
-        _setScheduleFailure(
-          notifId,
-          ReminderPayload(
-            boardId: boardId,
-            taskId: taskId,
-            subtaskId: subtaskId,
-          ),
-        );
-        return;
+      ReminderScheduleResult at(
+        ReminderScheduleStatus status, {
+        String? errorKind,
+      }) => ReminderScheduleResult(
+        status,
+        notificationId: notifId,
+        errorKind: errorKind,
+      );
+
+      Future<ReminderScheduleResult> settle(
+        ReminderScheduleStatus status, {
+        String? errorKind,
+      }) => recordScheduleOutcome(
+        payload: payload,
+        triggerAtMs: triggerAtMs,
+        recordRetry: recordRetry,
+        result: at(status, errorKind: errorKind),
+      );
+
+      if (_revision[notifId] != gen) {
+        return settle(ReminderScheduleStatus.superseded);
       }
-      if (_revision[notifId] != gen) return;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (nowMs - triggerAtMs > ReminderService.deliveryGraceMs) {
+        return settle(ReminderScheduleStatus.expired);
+      }
+      if (!_initialized) {
+        return settle(
+          ReminderScheduleStatus.unavailable,
+          errorKind: 'notInitialized',
+        );
+      }
 
-      final payload =
-          ReminderPayload(
-            boardId: boardId,
-            taskId: taskId,
-            subtaskId: subtaskId,
-          ).serialize();
+      final serializedPayload = payload.serialize();
       final notifDetails = _details(body: body, sound: sound, vibrate: vibrate);
-
-      var scheduled = false;
+      ReminderScheduleResult result;
       try {
         if (triggerAtMs <= nowMs) {
           await _plugin.show(
@@ -657,80 +1356,94 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
             title,
             body,
             notifDetails,
-            payload: payload,
+            payload: serializedPayload,
           );
-          scheduled = true;
-          return;
-        }
-        if (defaultTargetPlatform == TargetPlatform.windows) {
-          scheduled = await _scheduleWindows(
+          result = ReminderScheduleResult(
+            ReminderScheduleStatus.displayed,
+            notificationId: notifId,
+          );
+        } else if (defaultTargetPlatform == TargetPlatform.windows) {
+          result = await _scheduleWindows(
+            payload: payload,
             notifId: notifId,
             gen: gen,
             title: title,
             body: body,
             triggerAtMs: triggerAtMs,
             notifDetails: notifDetails,
-            payload: payload,
+            serializedPayload: serializedPayload,
           );
-          return;
+        } else {
+          await _scheduleAndroid(
+            notifId: notifId,
+            gen: gen,
+            title: title,
+            body: body,
+            triggerAtMs: triggerAtMs,
+            notifDetails: notifDetails,
+            payload: serializedPayload,
+          );
+          result = ReminderScheduleResult(
+            ReminderScheduleStatus.scheduled,
+            notificationId: notifId,
+          );
         }
-        await _scheduleAndroid(
-          notifId: notifId,
-          gen: gen,
-          title: title,
-          body: body,
-          triggerAtMs: triggerAtMs,
-          notifDetails: notifDetails,
-          payload: payload,
-        );
-        scheduled = true;
       } catch (e) {
-        lastScheduleError = e.toString();
-        if (_revision[notifId] == gen) {
-          _setScheduleFailure(
-            notifId,
-            ReminderPayload(
-              boardId: boardId,
-              taskId: taskId,
-              subtaskId: subtaskId,
-            ),
+        lastScheduleError = reminderErrorKind(e);
+        debugPrint('Notification scheduling failed: $lastScheduleError');
+        result = ReminderScheduleResult(
+          ReminderScheduleStatus.failed,
+          notificationId: notifId,
+          errorKind: lastScheduleError,
+        );
+      }
+
+      if (_revision[notifId] != gen) {
+        // A cancel or a newer edit took over while the OS was accepting this
+        // request. Compensate before the next queued operation starts.
+        try {
+          await _plugin.cancel(notifId);
+        } catch (e) {
+          debugPrint(
+            'Superseded notification cleanup failed: ${reminderErrorKind(e)}',
           );
         }
-        debugPrint('Error scheduling notification: $e');
-      } finally {
-        if (scheduled && _revision[notifId] == gen) {
-          _setScheduleFailure(notifId, null);
-          lastScheduleError = null;
-        }
-        // A cancel can finish while the OS is still accepting this request.
-        // Compensate before allowing the next queued schedule to start.
-        if (_revision[notifId] != gen) {
-          try {
-            await _plugin.cancel(notifId);
-          } catch (e) {
-            debugPrint('Error cleaning up superseded notification: $e');
-          }
-        }
+        result = ReminderScheduleResult(
+          ReminderScheduleStatus.superseded,
+          notificationId: notifId,
+        );
       }
+      return recordScheduleOutcome(
+        payload: payload,
+        triggerAtMs: triggerAtMs,
+        recordRetry: recordRetry,
+        result: result,
+      );
     });
   }
 
-  Future<bool> _scheduleWindows({
+  Future<ReminderScheduleResult> _scheduleWindows({
+    required ReminderPayload payload,
     required int notifId,
     required int gen,
     required String title,
     String? body,
     required int triggerAtMs,
     required NotificationDetails notifDetails,
-    required String payload,
+    required String serializedPayload,
   }) async {
-    var nativeOk = false;
+    String? nativeErrorKind;
     try {
       final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
         tz.local,
         triggerAtMs,
       );
-      if (_revision[notifId] != gen) return false;
+      if (_revision[notifId] != gen) {
+        return ReminderScheduleResult(
+          ReminderScheduleStatus.superseded,
+          notificationId: notifId,
+        );
+      }
       await _plugin.zonedSchedule(
         notifId,
         title,
@@ -738,18 +1451,32 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         scheduledDate,
         notifDetails,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: payload,
+        payload: serializedPayload,
       );
-      nativeOk = true;
+      return ReminderScheduleResult(
+        ReminderScheduleStatus.scheduled,
+        notificationId: notifId,
+      );
     } catch (e) {
-      if (_revision[notifId] == gen) {
-        _setScheduleFailure(notifId, ReminderPayload.deserialize(payload));
-      }
-      debugPrint('Native Windows schedule unavailable: $e');
+      nativeErrorKind = reminderErrorKind(e);
+      lastScheduleError = nativeErrorKind;
+      debugPrint('Native Windows schedule failed: $nativeErrorKind');
     }
-    if (nativeOk || _revision[notifId] != gen) return nativeOk;
+    if (_revision[notifId] != gen) {
+      return ReminderScheduleResult(
+        ReminderScheduleStatus.superseded,
+        notificationId: notifId,
+      );
+    }
     final delayMs = triggerAtMs - DateTime.now().millisecondsSinceEpoch;
-    if (delayMs <= 0) return false;
+    if (delayMs <= 0) {
+      return ReminderScheduleResult(
+        ReminderScheduleStatus.failed,
+        notificationId: notifId,
+        errorKind: nativeErrorKind,
+      );
+    }
+    // Keep-alive fallback: this toast is only reachable while the app runs.
     _activeTimers[notifId] = Timer(Duration(milliseconds: delayMs), () async {
       _activeTimers.remove(notifId);
       if (_revision[notifId] != gen) return;
@@ -759,13 +1486,29 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           title,
           body,
           notifDetails,
-          payload: payload,
+          payload: serializedPayload,
         );
       } catch (e) {
-        debugPrint('Error showing scheduled Windows notification: $e');
+        final kind = reminderErrorKind(e);
+        lastScheduleError = kind;
+        await recordScheduleOutcome(
+          payload: payload,
+          triggerAtMs: triggerAtMs,
+          recordRetry: true,
+          result: ReminderScheduleResult(
+            ReminderScheduleStatus.failed,
+            notificationId: notifId,
+            errorKind: kind,
+          ),
+        );
+        debugPrint('In-app Windows notification failed: $kind');
       }
     });
-    return false;
+    return ReminderScheduleResult(
+      ReminderScheduleStatus.scheduledInApp,
+      notificationId: notifId,
+      errorKind: nativeErrorKind,
+    );
   }
 
   Future<void> _scheduleAndroid({
@@ -814,27 +1557,76 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           payload: payload,
         );
-      } catch (second) {
-        rethrow;
+      } catch (_) {
+        if (_revision[notifId] != gen) return;
+        await _plugin.zonedSchedule(
+          notifId,
+          title,
+          body,
+          scheduledDate,
+          notifDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: payload,
+        );
       }
     }
   }
 
   @override
-  Future<void> cancelReminder(String taskId, {String? subtaskId}) {
+  Future<ReminderCancelResult> cancelReminder(
+    String taskId, {
+    String? subtaskId,
+  }) {
     final notifId = generateNotificationId(taskId, subtaskId: subtaskId);
+    final payload =
+        trackedReminders[notifId] ??
+        ReminderPayload(boardId: '', taskId: taskId, subtaskId: subtaskId);
     _bump(notifId);
-    _setScheduleFailure(notifId, null);
+    unawaited(
+      clearPendingJob('${ReminderPendingKind.reschedule.name}:$notifId'),
+    );
     _activeTimers[notifId]?.cancel();
     _activeTimers.remove(notifId);
-    return _enqueue(() async {
-      if (!_initialized) return;
-      try {
-        await _plugin.cancel(notifId);
-      } catch (e) {
-        debugPrint('Error canceling notification: $e');
-      }
-    });
+    return _enqueue(() => _cancelNow(payload, notifId));
+  }
+
+  /// Cancels without queueing, so [cancelAll] can retry per notification after a
+  /// bulk failure without waiting on its own chain slot.
+  Future<ReminderCancelResult> _cancelNow(
+    ReminderPayload payload,
+    int notifId,
+  ) async {
+    if (!_initialized) {
+      return recordCancelOutcome(
+        payload: payload,
+        result: ReminderCancelResult(
+          ReminderCancelStatus.unavailable,
+          notificationId: notifId,
+          errorKind: 'notInitialized',
+        ),
+      );
+    }
+    try {
+      await _plugin.cancel(notifId);
+      return recordCancelOutcome(
+        payload: payload,
+        result: ReminderCancelResult(
+          ReminderCancelStatus.cancelled,
+          notificationId: notifId,
+        ),
+      );
+    } catch (e) {
+      final kind = reminderErrorKind(e);
+      debugPrint('Notification cancel failed: $kind');
+      return recordCancelOutcome(
+        payload: payload,
+        result: ReminderCancelResult(
+          ReminderCancelStatus.failed,
+          notificationId: notifId,
+          errorKind: kind,
+        ),
+      );
+    }
   }
 
   @override
@@ -853,7 +1645,9 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   @override
   Future<void> cancelAll() {
     _restoreGeneration++;
-    scheduleFailures.value = {};
+    final leftovers = Map<int, ReminderPayload>.of(trackedReminders);
+    trackedReminders.clear();
+    unawaited(clearAllPendingJobs());
     for (final id in _revision.keys.toList()) {
       _bump(id);
     }
@@ -867,7 +1661,12 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       try {
         await _plugin.cancelAll();
       } catch (e) {
-        debugPrint('Error canceling all notifications: $e');
+        debugPrint('Cancel-all failed: ${reminderErrorKind(e)}');
+        // Re-issue each cancellation so every failure keeps a retry record
+        // instead of leaving an untracked ghost notification.
+        for (final entry in leftovers.entries) {
+          await _cancelNow(entry.value, entry.key);
+        }
       }
     });
   }
