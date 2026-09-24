@@ -11,6 +11,7 @@ import '../ai_presets.dart';
 import '../ai_service.dart';
 import '../model_discovery.dart';
 import '../models.dart';
+import '../services/desktop_shell_host.dart';
 import '../services/desktop_shell_service.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
@@ -81,6 +82,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_baseUrlHadFocus) return;
     _baseUrlHadFocus = false;
     _commitDiscovery(context.read<Store>());
+  }
+
+  Future<DesktopShellSettingsResult> _applyDesktopSettings(Store store) =>
+      DesktopShellService.instance.applySettings(
+        closeToTray: store.settings.closeToTray,
+        globalShortcut: store.settings.globalShortcut,
+      );
+
+  Future<void> _editDesktopHotkey(
+    BuildContext context,
+    Store store,
+    Map<String, String> t,
+  ) async {
+    var editedShortcut = store.settings.globalShortcut;
+    final shortcut = await showDialog<String>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(t['desktopHotkeyChange'] ?? 'Change global shortcut'),
+            content: TextFormField(
+              key: const ValueKey('desktop-hotkey-input'),
+              initialValue: editedShortcut,
+              autofocus: true,
+              onChanged: (value) => editedShortcut = value,
+              decoration: InputDecoration(
+                hintText:
+                    t['desktopHotkeyHint'] ??
+                    'Ctrl+Alt+M (leave empty to disable)',
+              ),
+              onFieldSubmitted: (value) => Navigator.pop(dialogContext, value),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(t['cancel'] ?? 'Cancel'),
+              ),
+              FilledButton(
+                key: const ValueKey('desktop-hotkey-save'),
+                onPressed: () => Navigator.pop(dialogContext, editedShortcut),
+                child: Text(t['save'] ?? 'Save'),
+              ),
+            ],
+          ),
+    );
+    if (shortcut == null || !context.mounted) return;
+    store.updateSettings((s) => s..globalShortcut = shortcut.trim());
+    await _applyDesktopSettings(store);
+  }
+
+  String _desktopStatusText(Map<String, String> t, DesktopShellService shell) {
+    if (shell.isApplyingSettings) {
+      return t['desktopShellApplying'] ?? 'Applying Windows desktop settings…';
+    }
+    final result = shell.lastSettingsResult;
+    if (result == null) {
+      return t['desktopShellNotApplied'] ??
+          'Desktop settings have not been applied yet.';
+    }
+    if (result.tray.isFailure) {
+      return t['desktopTrayUnavailable'] ??
+          'System tray is unavailable. Closing to tray is disabled.';
+    }
+    return switch (result.hotkey.kind) {
+      DesktopShellResultKind.conflict =>
+        t['desktopHotkeyConflict'] ??
+            'Global shortcut conflicts with another application.',
+      DesktopShellResultKind.invalid =>
+        t['desktopHotkeyInvalid'] ?? 'Global shortcut format is invalid.',
+      DesktopShellResultKind.unavailable =>
+        t['desktopHotkeyUnavailable'] ??
+            'Global shortcut could not be registered.',
+      DesktopShellResultKind.disabled =>
+        t['desktopHotkeyDisabled'] ?? 'Global shortcut is disabled.',
+      _ => t['desktopShellReady'] ?? 'Windows desktop features are active.',
+    };
   }
 
   String _discoveryFingerprint(AIConfig config) =>
@@ -1056,10 +1132,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 t['closeToTraySubtitle'] ??
                     'Keep app running in system tray when window is closed',
                 store.settings.closeToTray,
-                (v) {
+                (v) async {
                   store.updateSettings((s) => s..closeToTray = v);
-                  DesktopShellService.instance.applyCloseToTray(v);
-                  if (v && mounted) {
+                  final result = await _applyDesktopSettings(store);
+                  if (!context.mounted) return;
+                  if (v && result.closeToTrayEffective) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -1069,17 +1146,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         duration: const Duration(seconds: 4),
                       ),
                     );
+                  } else if (v && result.tray.isFailure) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          t['desktopTrayUnavailable'] ??
+                              'System tray is unavailable. Closing to tray is disabled.',
+                        ),
+                      ),
+                    );
                   }
                 },
               ),
               const SizedBox(height: 8),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      t['globalHotkey'] ?? 'Global Shortcut',
-                      style: theme.textTheme.bodyMedium,
-                    ),
+                  Text(
+                    t['globalHotkey'] ?? 'Global Shortcut',
+                    style: theme.textTheme.bodyMedium,
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -1101,7 +1188,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+                  TextButton(
+                    key: const ValueKey('desktop-hotkey-change'),
+                    onPressed: () => _editDesktopHotkey(context, store, t),
+                    child: Text(
+                      t['desktopHotkeyChange'] ?? 'Change global shortcut',
+                    ),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              ListenableBuilder(
+                listenable: DesktopShellService.instance,
+                builder: (context, _) {
+                  final shell = DesktopShellService.instance;
+                  final result = shell.lastSettingsResult;
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        result?.hasFailure == true
+                            ? Icons.warning_amber_rounded
+                            : Icons.check_circle_outline,
+                        size: 18,
+                        color:
+                            result?.hasFailure == true
+                                ? theme.colorScheme.error
+                                : theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _desktopStatusText(t, shell),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                      if (result?.hasFailure == true &&
+                          !shell.isApplyingSettings)
+                        TextButton(
+                          key: const ValueKey('desktop-shell-retry'),
+                          onPressed: () async {
+                            await _applyDesktopSettings(store);
+                          },
+                          child: Text(t['retry'] ?? 'Retry'),
+                        ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 20),
             ],
@@ -1791,13 +1924,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!result.success) {
         throw StateError('Import save failed');
       }
+      final desktopResult = await _applyDesktopSettings(store);
       _baseUrlController.text = store.aiConfig.baseUrl;
       _apiKeyController.text = store.aiConfig.apiKey;
       _modelController.text = store.aiConfig.model;
       if (context.mounted) {
+        final desktopWarning =
+            DesktopShellService.instance.isDesktopSupported &&
+                    desktopResult.hasFailure
+                ? '\n${_desktopStatusText(store.t, DesktopShellService.instance)}'
+                : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${store.t['importSuccess']} (${plan.addedTasks})'),
+            content: Text(
+              '${store.t['importSuccess']} (${plan.addedTasks})$desktopWarning',
+            ),
           ),
         );
       }
@@ -1958,9 +2099,7 @@ class _TestConnectionButtonState extends State<_TestConnectionButton> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                       : const Icon(Icons.wifi_tethering, size: 18),
-              label: Text(
-                _probing ? t['processing']! : t['testConnection']!,
-              ),
+              label: Text(_probing ? t['processing']! : t['testConnection']!),
             ),
             OutlinedButton.icon(
               key: const ValueKey('test-generation-btn'),
@@ -2000,11 +2139,7 @@ class _TestConnectionButtonState extends State<_TestConnectionButton> {
     final text = step == null ? idle : _stepLabel(step);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        '$label: $text',
-        key: key,
-        style: theme.textTheme.labelSmall,
-      ),
+      child: Text('$label: $text', key: key, style: theme.textTheme.labelSmall),
     );
   }
 

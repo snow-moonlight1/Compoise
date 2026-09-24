@@ -122,7 +122,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Simulate application minimized / hidden to tray
-        DesktopShellService.instance.hideWindowToTray();
+        await DesktopShellService.instance.hideWindowToTray();
         expect(DesktopShellService.instance.isWindowVisible, isFalse);
 
         // Simulate user clicking toast notification for subtask on Board 2

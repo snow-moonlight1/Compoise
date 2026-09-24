@@ -2,7 +2,13 @@
 
 #include <optional>
 
+#include <flutter/standard_method_codec.h>
+
 #include "flutter/generated_plugin_registrant.h"
+
+namespace {
+constexpr int kMatrixFlowHotkeyId = 0x4D46;
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -27,6 +33,68 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  hotkey_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "matrixflow/os14_hotkey", &flutter::StandardMethodCodec::GetInstance());
+  hotkey_channel_->SetMethodCallHandler(
+      [this](const auto& call, auto result) {
+        if (call.method_name() == "hide") {
+          ::ShowWindow(GetHandle(), SW_HIDE);
+          result->Success(flutter::EncodableValue(::IsWindowVisible(GetHandle()) == 0));
+          return;
+        }
+        if (call.method_name() == "show") {
+          ::ShowWindow(GetHandle(), SW_SHOW);
+          ::SetForegroundWindow(GetHandle());
+          result->Success(flutter::EncodableValue(::IsWindowVisible(GetHandle()) != 0));
+          return;
+        }
+        if (call.method_name() == "isVisible") {
+          result->Success(flutter::EncodableValue(::IsWindowVisible(GetHandle()) != 0));
+          return;
+        }
+        if (call.method_name() == "unregister") {
+          if (hotkey_registered_) {
+            if (::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId) == 0) {
+              result->Success(flutter::EncodableValue(false));
+              return;
+            }
+            hotkey_registered_ = false;
+          }
+          result->Success(flutter::EncodableValue(true));
+          return;
+        }
+        if (call.method_name() != "register" || !call.arguments() ||
+            !std::holds_alternative<flutter::EncodableMap>(*call.arguments())) {
+          result->NotImplemented();
+          return;
+        }
+        const auto& args = std::get<flutter::EncodableMap>(*call.arguments());
+        const auto key_it = args.find(flutter::EncodableValue("keyCode"));
+        const auto modifiers_it = args.find(flutter::EncodableValue("modifiers"));
+        if (key_it == args.end() || modifiers_it == args.end() ||
+            !std::holds_alternative<int>(key_it->second) ||
+            !std::holds_alternative<int>(modifiers_it->second)) {
+          result->Error("invalid_hotkey", "Invalid key code or modifiers");
+          return;
+        }
+        if (hotkey_registered_) {
+          if (::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId) == 0) {
+            result->Success(flutter::EncodableValue(false));
+            return;
+          }
+          hotkey_registered_ = false;
+        }
+        const auto key_code = std::get<int>(key_it->second);
+        const auto modifiers = std::get<int>(modifiers_it->second);
+        // RegisterHotKey returns zero on a conflict or a system-reserved combo.
+        hotkey_registered_ =
+            ::RegisterHotKey(GetHandle(), kMatrixFlowHotkeyId, modifiers,
+                             key_code) != 0;
+        result->Success(flutter::EncodableValue(hotkey_registered_));
+      });
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -40,6 +108,11 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  if (hotkey_registered_) {
+    ::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId);
+    hotkey_registered_ = false;
+  }
+  hotkey_channel_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -62,6 +135,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case WM_HOTKEY:
+      if (wparam == kMatrixFlowHotkeyId && hotkey_channel_) {
+        hotkey_channel_->InvokeMethod("onHotkey", nullptr);
+        return 0;
+      }
+      break;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

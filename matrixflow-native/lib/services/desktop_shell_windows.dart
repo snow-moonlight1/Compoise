@@ -2,14 +2,23 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'desktop_shell_service.dart';
+import 'desktop_shell_host.dart';
+
+@visibleForTesting
+bool? debugUseRealWindowsShellOverride;
+
+bool _windowsWindowManagerPrepared = false;
+
+bool get isWindowsWindowManagerPrepared => _windowsWindowManagerPrepared;
 
 /// True when the current isolate should talk to real Windows shell APIs.
 bool shouldUseRealWindowsShell() {
+  if (debugUseRealWindowsShellOverride != null) {
+    return debugUseRealWindowsShellOverride!;
+  }
   if (kIsWeb) return false;
   if (defaultTargetPlatform != TargetPlatform.windows) return false;
   try {
@@ -22,30 +31,27 @@ Future<void> ensureWindowsWindowManager() async {
   if (!shouldUseRealWindowsShell()) return;
   await windowManager.ensureInitialized();
   await windowManager.setPreventClose(true);
+  _windowsWindowManagerPrepared = true;
 }
 
-class WindowsDesktopShellHost with WindowListener, TrayListener {
-  VoidCallback? onRestore;
-  VoidCallback? onQuickAdd;
-  VoidCallback? onSearch;
-  VoidCallback? onExitRequested;
-  bool closeToTray = false;
-  HotKey? _hotKey;
+class WindowsDesktopShellHost
+    with WindowListener, TrayListener
+    implements DesktopShellHost {
+  static const _hotkeyChannel = MethodChannel('matrixflow/os14_hotkey');
+
+  DesktopShellHostCallbacks? _callbacks;
+  VoidCallback? _hotkeyTrigger;
+  String? _registeredShortcut;
+  @override
+  String? get registeredShortcut => _registeredShortcut;
   bool _bound = false;
 
-  Future<void> start({
-    required VoidCallback onRestore,
-    VoidCallback? onQuickAdd,
-    VoidCallback? onSearch,
-    VoidCallback? onExitRequested,
-    required bool closeToTray,
-  }) async {
-    this.onRestore = onRestore;
-    this.onQuickAdd = onQuickAdd;
-    this.onSearch = onSearch;
-    this.onExitRequested = onExitRequested;
-    this.closeToTray = closeToTray;
-    if (!shouldUseRealWindowsShell()) return;
+  @override
+  Future<DesktopShellResult> start(DesktopShellHostCallbacks callbacks) async {
+    _callbacks = callbacks;
+    if (!shouldUseRealWindowsShell()) {
+      return const DesktopShellResult.unsupported();
+    }
 
     if (!_bound) {
       windowManager.addListener(this);
@@ -53,8 +59,8 @@ class WindowsDesktopShellHost with WindowListener, TrayListener {
       _bound = true;
     }
 
-    await windowManager.setPreventClose(true);
     try {
+      await windowManager.setPreventClose(true);
       await trayManager.setIcon('assets/tray_icon.ico');
       await trayManager.setToolTip('MatrixFlow AI');
       await trayManager.setContextMenu(
@@ -68,51 +74,113 @@ class WindowsDesktopShellHost with WindowListener, TrayListener {
           ],
         ),
       );
+      return const DesktopShellResult.success();
     } catch (e) {
       debugPrint('Failed to initialize Windows tray: $e');
+      return DesktopShellResult(
+        DesktopShellResultKind.unavailable,
+        detail: e.toString(),
+      );
     }
   }
 
-  Future<void> hide() async {
-    if (!shouldUseRealWindowsShell()) return;
-    await windowManager.hide();
-    await windowManager.setSkipTaskbar(true);
-  }
-
-  Future<void> show() async {
-    if (!shouldUseRealWindowsShell()) return;
-    await windowManager.setSkipTaskbar(false);
-    await windowManager.show();
-    await windowManager.focus();
-  }
-
-  Future<bool> registerHotkey(String shortcut, VoidCallback onTrigger) async {
-    if (!shouldUseRealWindowsShell()) return true;
-    await unregisterHotkey();
-    final hotKey = parseWindowsHotkey(shortcut);
-    if (hotKey == null) return false;
+  @override
+  Future<DesktopShellResult> hide() async {
+    if (!shouldUseRealWindowsShell()) {
+      return const DesktopShellResult.unsupported();
+    }
     try {
-      await hotKeyManager.register(
-        hotKey,
-        keyDownHandler: (_) => onTrigger(),
+      final hidden = await _hotkeyChannel.invokeMethod<bool>('hide');
+      if (hidden == true) return const DesktopShellResult.success();
+      return const DesktopShellResult(DesktopShellResultKind.unavailable);
+    } catch (e) {
+      await show();
+      return DesktopShellResult(
+        DesktopShellResultKind.unavailable,
+        detail: e.toString(),
       );
-      _hotKey = hotKey;
-      return true;
+    }
+  }
+
+  @override
+  Future<DesktopShellResult> show() async {
+    if (!shouldUseRealWindowsShell()) {
+      return const DesktopShellResult.unsupported();
+    }
+    try {
+      final visible = await _hotkeyChannel.invokeMethod<bool>('show');
+      if (visible == true) return const DesktopShellResult.success();
+      return const DesktopShellResult(DesktopShellResultKind.unavailable);
+    } catch (e) {
+      return DesktopShellResult(
+        DesktopShellResultKind.unavailable,
+        detail: e.toString(),
+      );
+    }
+  }
+
+  Future<bool> isWindowActuallyVisible() async =>
+      await _hotkeyChannel.invokeMethod<bool>('isVisible') ?? false;
+
+  @override
+  Future<DesktopShellResult> registerHotkey(
+    String shortcut,
+    VoidCallback onTrigger,
+  ) async {
+    if (!shouldUseRealWindowsShell()) {
+      return const DesktopShellResult.unsupported();
+    }
+    final hotkey = parseWindowsHotkey(shortcut);
+    if (hotkey == null) {
+      return const DesktopShellResult(DesktopShellResultKind.invalid);
+    }
+    final removed = await unregisterHotkey();
+    if (!removed.succeeded) return removed;
+    try {
+      final registered = await _hotkeyChannel.invokeMethod<bool>('register', {
+        'keyCode': hotkey.keyCode,
+        'modifiers': hotkey.modifiers,
+      });
+      if (registered != true) {
+        return const DesktopShellResult(DesktopShellResultKind.conflict);
+      }
+      _hotkeyTrigger = onTrigger;
+      _registeredShortcut = shortcut;
+      _hotkeyChannel.setMethodCallHandler((call) async {
+        if (call.method == 'onHotkey') _hotkeyTrigger?.call();
+      });
+      return const DesktopShellResult.success();
     } catch (e) {
       debugPrint('Failed to register global hotkey: $e');
-      return false;
+      return DesktopShellResult(
+        DesktopShellResultKind.unavailable,
+        detail: e.toString(),
+      );
     }
   }
 
-  Future<void> unregisterHotkey() async {
-    final current = _hotKey;
-    _hotKey = null;
-    if (current == null || !shouldUseRealWindowsShell()) return;
+  @override
+  Future<DesktopShellResult> unregisterHotkey() async {
+    if (!shouldUseRealWindowsShell()) {
+      return const DesktopShellResult.unsupported();
+    }
     try {
-      await hotKeyManager.unregister(current);
-    } catch (_) {}
+      final removed = await _hotkeyChannel.invokeMethod<bool>('unregister');
+      if (removed != true) {
+        return const DesktopShellResult(DesktopShellResultKind.unavailable);
+      }
+      _hotkeyTrigger = null;
+      _registeredShortcut = null;
+      return const DesktopShellResult.success();
+    } catch (error) {
+      return DesktopShellResult(
+        DesktopShellResultKind.unavailable,
+        detail: error.toString(),
+      );
+    }
   }
 
+  @override
   Future<void> destroy() async {
     await unregisterHotkey();
     if (!shouldUseRealWindowsShell()) return;
@@ -130,15 +198,12 @@ class WindowsDesktopShellHost with WindowListener, TrayListener {
 
   @override
   void onWindowClose() {
-    DesktopShellService.instance.handleWindowCloseRequest(
-      closeToTray: closeToTray,
-    );
+    _callbacks?.onWindowCloseRequested();
   }
 
   @override
   void onTrayIconMouseDown() {
-    onRestore?.call();
-    show();
+    _callbacks?.onRestoreRequested();
   }
 
   @override
@@ -150,114 +215,66 @@ class WindowsDesktopShellHost with WindowListener, TrayListener {
   void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
       case 'show':
-        onRestore?.call();
-        show();
+        _callbacks?.onRestoreRequested();
       case 'quick-add':
-        onRestore?.call();
-        show();
-        onQuickAdd?.call();
+        _callbacks?.onQuickAddRequested?.call();
       case 'search':
-        onRestore?.call();
-        show();
-        onSearch?.call();
+        _callbacks?.onSearchRequested?.call();
       case 'exit':
-        onExitRequested?.call();
+        _callbacks?.onExitRequested?.call();
         destroy();
     }
   }
 }
 
-HotKey? parseWindowsHotkey(String shortcut) {
+/// Virtual-key code and MOD_* flags consumed by the Windows runner channel.
+@immutable
+class WindowsHotkeySpec {
+  final int keyCode;
+  final int modifiers;
+
+  const WindowsHotkeySpec(this.keyCode, this.modifiers);
+}
+
+WindowsHotkeySpec? parseWindowsHotkey(String shortcut) {
   final parts =
       shortcut
           .split('+')
-          .map((part) => part.trim())
+          .map((part) => part.trim().toLowerCase())
           .where((part) => part.isNotEmpty)
           .toList();
   if (parts.isEmpty) return null;
-  final keyToken = parts.last.toLowerCase();
-  final modifiers = <HotKeyModifier>[];
-  for (final part in parts.take(parts.length - 1)) {
-    switch (part.toLowerCase()) {
-      case 'ctrl':
-      case 'control':
-        modifiers.add(HotKeyModifier.control);
-      case 'alt':
-        modifiers.add(HotKeyModifier.alt);
-      case 'shift':
-        modifiers.add(HotKeyModifier.shift);
-      case 'win':
-      case 'meta':
-      case 'cmd':
-        modifiers.add(HotKeyModifier.meta);
-      default:
-        return null;
-    }
-  }
-  final key = _physicalKey(keyToken);
-  if (key == null) return null;
-  return HotKey(
-    key: key,
-    modifiers: modifiers,
-    scope: HotKeyScope.system,
-  );
-}
 
-PhysicalKeyboardKey? _physicalKey(String token) {
-  if (token.length == 1) {
-    final code = token.toUpperCase().codeUnitAt(0);
-    if (code >= 65 && code <= 90) {
-      const letters = [
-        PhysicalKeyboardKey.keyA,
-        PhysicalKeyboardKey.keyB,
-        PhysicalKeyboardKey.keyC,
-        PhysicalKeyboardKey.keyD,
-        PhysicalKeyboardKey.keyE,
-        PhysicalKeyboardKey.keyF,
-        PhysicalKeyboardKey.keyG,
-        PhysicalKeyboardKey.keyH,
-        PhysicalKeyboardKey.keyI,
-        PhysicalKeyboardKey.keyJ,
-        PhysicalKeyboardKey.keyK,
-        PhysicalKeyboardKey.keyL,
-        PhysicalKeyboardKey.keyM,
-        PhysicalKeyboardKey.keyN,
-        PhysicalKeyboardKey.keyO,
-        PhysicalKeyboardKey.keyP,
-        PhysicalKeyboardKey.keyQ,
-        PhysicalKeyboardKey.keyR,
-        PhysicalKeyboardKey.keyS,
-        PhysicalKeyboardKey.keyT,
-        PhysicalKeyboardKey.keyU,
-        PhysicalKeyboardKey.keyV,
-        PhysicalKeyboardKey.keyW,
-        PhysicalKeyboardKey.keyX,
-        PhysicalKeyboardKey.keyY,
-        PhysicalKeyboardKey.keyZ,
-      ];
-      return letters[code - 65];
-    }
-    if (code >= 48 && code <= 57) {
-      const digits = [
-        PhysicalKeyboardKey.digit0,
-        PhysicalKeyboardKey.digit1,
-        PhysicalKeyboardKey.digit2,
-        PhysicalKeyboardKey.digit3,
-        PhysicalKeyboardKey.digit4,
-        PhysicalKeyboardKey.digit5,
-        PhysicalKeyboardKey.digit6,
-        PhysicalKeyboardKey.digit7,
-        PhysicalKeyboardKey.digit8,
-        PhysicalKeyboardKey.digit9,
-      ];
-      return digits[code - 48];
+  final key = parts.last;
+  int? keyCode;
+  if (key.length == 1) {
+    final code = key.toUpperCase().codeUnitAt(0);
+    if ((code >= 0x41 && code <= 0x5A) || (code >= 0x30 && code <= 0x39)) {
+      keyCode = code;
     }
   }
-  return switch (token) {
-    'space' => PhysicalKeyboardKey.space,
-    'enter' => PhysicalKeyboardKey.enter,
-    'tab' => PhysicalKeyboardKey.tab,
-    'esc' || 'escape' => PhysicalKeyboardKey.escape,
+  keyCode ??= switch (key) {
+    'space' => 0x20,
+    'enter' => 0x0D,
+    'tab' => 0x09,
+    'esc' || 'escape' => 0x1B,
     _ => null,
   };
+  if (keyCode == null) return null;
+
+  var modifiers = 0;
+  for (final part in parts.take(parts.length - 1)) {
+    final flag = switch (part) {
+      'alt' => 0x0001,
+      'ctrl' || 'control' => 0x0002,
+      'shift' => 0x0004,
+      'win' || 'meta' || 'cmd' => 0x0008,
+      _ => 0,
+    };
+    if (flag == 0 || modifiers & flag != 0) return null;
+    modifiers |= flag;
+  }
+  // Avoid intercepting an ordinary key with no modifiers.
+  if (modifiers == 0) return null;
+  return WindowsHotkeySpec(keyCode, modifiers);
 }

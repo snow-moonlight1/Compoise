@@ -238,10 +238,10 @@ void main() {
       expect(requested, isTrue);
     });
 
-    test('DesktopShellService window restoration coordinates with notification tap', () {
+    test('DesktopShellService window restoration coordinates with notification tap', () async {
       DesktopShellService.debugIsDesktopOverride = true;
       addTearDown(() {
-        DesktopShellService.debugIsDesktopOverride = null;
+        DesktopShellService.instance.resetForTest();
       });
 
       bool showWindowCalled = false;
@@ -249,7 +249,8 @@ void main() {
         showWindowCalled = true;
       };
 
-      DesktopShellService.instance.hideWindowToTray();
+      await DesktopShellService.instance.init(closeToTray: true);
+      await DesktopShellService.instance.hideWindowToTray();
       expect(DesktopShellService.instance.isWindowVisible, isFalse);
 
       DesktopShellService.instance.restoreWindow();

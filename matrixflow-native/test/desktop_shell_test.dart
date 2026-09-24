@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/models.dart';
 import 'package:matrixflow_native/screens/settings_screen.dart';
+import 'package:matrixflow_native/services/desktop_shell_host.dart';
 import 'package:matrixflow_native/services/desktop_shell_service.dart';
 import 'package:provider/provider.dart';
 
@@ -25,8 +26,8 @@ void main() {
       final closeResult = service.handleWindowCloseRequest(closeToTray: true);
       expect(closeResult, isTrue); // Not on desktop; returns true for normal exit
 
-      final hotkeyResult = service.registerGlobalHotkey('Ctrl+Alt+M', () {});
-      expect(hotkeyResult, isFalse);
+      final hotkeyResult = await service.registerGlobalHotkey('Ctrl+Alt+M', () {});
+      expect(hotkeyResult.kind, DesktopShellResultKind.unsupported);
       expect(service.hasHotkeyConflict, isFalse);
     });
 
@@ -49,6 +50,7 @@ void main() {
       // Test closeToTray = true intercepts window close
       final intercepted = service.handleWindowCloseRequest(closeToTray: true);
       expect(intercepted, isFalse);
+      await Future<void>.delayed(Duration.zero);
       expect(service.isWindowVisible, isFalse);
 
       // Test restoreWindow
@@ -57,14 +59,14 @@ void main() {
       expect(windowShown, isTrue);
 
       // Test valid hotkey registration
-      final hotkeyOk = service.registerGlobalHotkey('Ctrl+Alt+M', () {});
-      expect(hotkeyOk, isTrue);
+      final hotkeyOk = await service.registerGlobalHotkey('Ctrl+Alt+M', () {});
+      expect(hotkeyOk.succeeded, isTrue);
       expect(service.registeredGlobalShortcut, 'Ctrl+Alt+M');
       expect(service.hasHotkeyConflict, isFalse);
 
       // Test conflict hotkey handling (safe failure, no throw)
-      final conflictOk = service.registerGlobalHotkey('Ctrl+Alt+Del', () {});
-      expect(conflictOk, isFalse);
+      final conflictOk = await service.registerGlobalHotkey('Ctrl+Alt+Del', () {});
+      expect(conflictOk.kind, DesktopShellResultKind.conflict);
       expect(service.hasHotkeyConflict, isTrue);
 
       // Test closeToTray = false exits application
@@ -97,6 +99,7 @@ void main() {
     });
 
     testWidgets('SettingsScreen displays Desktop & System section and toggles closeToTray', (tester) async {
+      DesktopShellService.debugIsDesktopOverride = true;
       final (store, _) = await makeStore();
 
       await tester.pumpWidget(
@@ -141,7 +144,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(store.settings.closeToTray, isTrue);
-      expect(find.text(store.t['closeToTrayNotice']!), findsOneWidget);
+      expect(DesktopShellService.instance.effectiveCloseToTray, isTrue);
 
       await tester.pumpWidget(const SizedBox());
       store.dispose();

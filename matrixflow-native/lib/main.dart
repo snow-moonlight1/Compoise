@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'screens/matrix_screen.dart';
 import 'screens/startup_recovery_screen.dart';
 import 'models.dart';
-import 'services/desktop_shell_service.dart';
 import 'services/desktop_shell_windows.dart';
 import 'storage.dart';
 import 'theme.dart';
@@ -13,7 +12,6 @@ import 'theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ensureWindowsWindowManager();
-  await DesktopShellService.instance.init();
   await ReminderService.instance.init();
   runApp(const MatrixFlowApp());
 }

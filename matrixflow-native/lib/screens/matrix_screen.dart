@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../widgets/reminder_failure_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -159,15 +161,14 @@ class _MatrixHomeState extends State<MatrixHome> {
             _handleNotificationPayload;
       }
     });
-    DesktopShellService.instance.onShowWindow = () {
-      if (mounted) setState(() {});
-    };
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final store = context.read<Store>();
-      DesktopShellService.instance.init(
-        closeToTray: store.settings.closeToTray,
-        globalShortcut: store.settings.globalShortcut,
+      final shell = DesktopShellService.instance;
+      shell.configureCallbacks(
+        onShowWindow: () {
+          if (mounted) setState(() {});
+        },
         onQuickAddTask: _openInput,
         onSearch: () {
           if (!mounted) return;
@@ -179,6 +180,21 @@ class _MatrixHomeState extends State<MatrixHome> {
           );
         },
       );
+      unawaited(() async {
+        final result = await shell.applySettings(
+          closeToTray: store.settings.closeToTray,
+          globalShortcut: store.settings.globalShortcut,
+        );
+        if (!mounted || !shell.isDesktopSupported || !result.hasFailure) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              store.t['desktopShellApplyFailed'] ??
+                  'Some Windows desktop features are unavailable. Open Settings to retry.',
+            ),
+          ),
+        );
+      }());
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

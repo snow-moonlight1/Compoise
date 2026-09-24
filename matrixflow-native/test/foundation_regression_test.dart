@@ -290,13 +290,15 @@ void main() {
     final service = DesktopShellService.instance;
     await service.init();
     var fired = 0;
-    expect(service.registerGlobalHotkey('Ctrl+Alt+M', () => fired++), isTrue);
+    final result = await service.registerGlobalHotkey('Ctrl+Alt+M', () => fired++);
+    expect(result.succeeded, isTrue);
     service.debugInvokeRegisteredHotkey();
     expect(fired, 1);
     expect(
       service.handleWindowCloseRequest(closeToTray: true),
       isFalse,
     );
+    await Future<void>.delayed(Duration.zero);
     expect(service.isWindowVisible, isFalse);
   });
 
