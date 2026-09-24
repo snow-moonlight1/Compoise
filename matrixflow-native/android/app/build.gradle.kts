@@ -71,15 +71,8 @@ android {
             if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
                 signingConfig = releaseSigning
             } else {
-                val requireReleaseSigning =
-                    System.getenv("CI") == "true" ||
-                        System.getenv("REQUIRE_RELEASE_SIGNING") == "true"
-                if (requireReleaseSigning) {
-                    throw GradleException(
-                        "Release signing credentials are required in CI. " +
-                            "Refusing to publish a debug-signed APK.",
-                    )
-                }
+                // Keyless debug and PR builds keep the debug key. Formal release
+                // sets REQUIRE_RELEASE_SIGNING and fails in verifyFormalReleaseSigning.
                 signingConfig = signingConfigs.getByName("debug")
             }
         }
@@ -121,4 +114,29 @@ tasks.register("cleanDevPluginsFromReleaseRegistrant") {
 
 tasks.matching { it.name == "preReleaseBuild" || it.name == "compileReleaseJavaWithJavac" }.configureEach {
     dependsOn("cleanDevPluginsFromReleaseRegistrant")
+}
+
+// Configuration must stay silent when CI=true. Only a release task that opts in
+// with REQUIRE_RELEASE_SIGNING=true refuses a missing keystore.
+tasks.register("verifyFormalReleaseSigning") {
+    doLast {
+        if (System.getenv("REQUIRE_RELEASE_SIGNING") != "true") {
+            return@doLast
+        }
+        val store = android.signingConfigs.findByName("release")?.storeFile
+        if (store == null || !store.exists()) {
+            throw GradleException(
+                "Formal release signing credentials are required. " +
+                    "Refusing to publish a debug-signed APK.",
+            )
+        }
+    }
+}
+
+tasks.matching {
+    it.name == "preReleaseBuild" ||
+        it.name == "assembleRelease" ||
+        it.name == "bundleRelease"
+}.configureEach {
+    dependsOn("verifyFormalReleaseSigning")
 }

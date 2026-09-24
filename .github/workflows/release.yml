@@ -66,6 +66,8 @@ jobs:
 
       - name: Build Android Release APK
         working-directory: matrixflow-native
+        env:
+          REQUIRE_RELEASE_SIGNING: 'true'
         run: flutter build apk --release
 
       - name: Rename APK

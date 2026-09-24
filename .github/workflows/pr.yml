@@ -1,0 +1,172 @@
+name: PR checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      run_platform_smoke:
+        description: Run the real Windows notification and tray smoke
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    name: Analyze and default tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Require the OS24 Flutter revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+
+      - name: Install dependencies
+        working-directory: matrixflow-native
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: matrixflow-native
+        run: flutter analyze --no-pub
+
+      - name: Default tests
+        working-directory: matrixflow-native
+        run: flutter test --no-pub
+
+      - name: Record device smoke boundary
+        shell: bash
+        run: |
+          echo "Real notification and tray smoke is not part of this PR check."
+          echo "Hosted runners have no Android device and this job does not claim a Windows tray session."
+          echo "The opt-in job stays skipped unless workflow_dispatch sets run_platform_smoke."
+          echo "This record is not a passing smoke result."
+
+  android-debug:
+    name: Android debug APK without release signing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Require the OS24 Flutter revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+
+      - name: Install dependencies
+        working-directory: matrixflow-native
+        run: flutter pub get
+
+      - name: Build Android debug APK
+        working-directory: matrixflow-native
+        env:
+          REQUIRE_RELEASE_SIGNING: 'false'
+        run: flutter build apk --debug
+
+  windows-debug:
+    name: Windows debug build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Require the OS24 Flutter revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+
+      - name: Enable Windows desktop
+        working-directory: matrixflow-native
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        working-directory: matrixflow-native
+        run: flutter pub get
+
+      - name: Mock integration test
+        working-directory: matrixflow-native
+        run: flutter test --no-pub integration_test/app_test.dart
+
+      - name: Build Windows debug
+        working-directory: matrixflow-native
+        run: flutter build windows --debug
+
+  platform-smoke:
+    name: Real Windows notification and tray smoke
+    if: github.event_name == 'workflow_dispatch' && inputs.run_platform_smoke
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Require the OS24 Flutter revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+
+      - name: Install dependencies
+        working-directory: matrixflow-native
+        run: flutter pub get
+
+      - name: Run real notification and tray smoke
+        working-directory: matrixflow-native
+        shell: pwsh
+        env:
+          MATRIXFLOW_OS25_SMOKE_RESULT: ${{ runner.temp }}/os25-platform-smoke.txt
+        run: |
+          flutter run -d windows -t tool/os25_platform_smoke.dart --no-pub
+          Get-Content "$env:MATRIXFLOW_OS25_SMOKE_RESULT"
