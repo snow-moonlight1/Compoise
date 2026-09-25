@@ -29,10 +29,12 @@ class _SearchScreenState extends State<SearchScreen> {
   final ScrollController _listController = ScrollController();
   TaskFilterCriteria _applied = const TaskFilterCriteria();
 
-  String? _activeDetailTaskId;
-  String? _highlightSubtaskId;
-  bool _detailDirty = false;
   final _detailKey = GlobalKey();
+  late final TaskDetailSession _detail = TaskDetailSession(
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+  );
 
   /// Lightweight exit cache so a row that stops matching the query (for
   /// example a task completed under an "incomplete" filter) still leaves with
@@ -89,34 +91,12 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() {});
   }
 
-  Future<bool> _protectDetailDraft() async {
-    if (!_detailDirty) return true;
-    final discard = await confirmDiscardDraft(context);
-    if (discard) _detailDirty = false;
-    return discard;
-  }
-
   Future<void> _openDetail(
     BuildContext context,
     Task task, {
     String? subtaskId,
     required bool isWide,
-  }) async {
-    if (isWide) {
-      if (_activeDetailTaskId != null &&
-          _activeDetailTaskId != task.id &&
-          !await _protectDetailDraft()) {
-        return;
-      }
-      if (!mounted) return;
-      setState(() {
-        _activeDetailTaskId = task.id;
-        _highlightSubtaskId = subtaskId;
-      });
-    } else {
-      await showTaskDetailSheet(context, task, highlightSubtaskId: subtaskId);
-    }
-  }
+  }) => _detail.open(context, task, isWide: isWide, subtaskId: subtaskId);
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +134,7 @@ class _SearchScreenState extends State<SearchScreen> {
         bottom: !policy.isTouchLayout,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 900;
+            final isWide = policy.canShowSideDetail(constraints.maxWidth);
             // Exit cache is resolved before the empty/results branch, otherwise
             // the last leaving row would be replaced by the empty state.
             final entries = _exitRetention.sync(
@@ -173,12 +153,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   (hit) => store.tasks.any((task) => task.id == hit.task.id),
               reduceMotion: MotionPolicy.reduceMotionOf(context),
             );
-            final detailTask =
-                _activeDetailTaskId == null
-                    ? null
-                    : store.tasks
-                        .where((item) => item.id == _activeDetailTaskId)
-                        .firstOrNull;
+            final detailTask = _detail.taskIn(store);
 
             final mainSearchContent = Column(
               children: [
@@ -219,46 +194,34 @@ class _SearchScreenState extends State<SearchScreen> {
               ],
             );
 
-            if (detailTask != null) {
-              final panel = TaskDetailPanel(
-                key: _detailKey,
-                task: detailTask,
-                isSidebar: true,
-                highlightSubtaskId: _highlightSubtaskId,
-                onDirtyChanged: (dirty) {
-                  if (_detailDirty == dirty) return;
-                  _detailDirty = dirty;
-                },
-                onClose: () {
-                  setState(() {
-                    _activeDetailTaskId = null;
-                    _highlightSubtaskId = null;
-                    _detailDirty = false;
-                  });
-                },
-              );
-              if (!isWide) return panel;
-              return Row(
-                children: [
-                  Expanded(child: mainSearchContent),
-                  VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color:
-                        theme.brightness == Brightness.light
-                            ? const Color(0xFFD5DAE1)
-                            : theme.colorScheme.outlineVariant,
-                  ),
-                  SizedBox(width: 350, child: panel),
-                ],
-              );
-            }
-
-            return mainSearchContent;
+            if (detailTask == null) return mainSearchContent;
+            final panel = TaskDetailPanel(
+              key: _detailKey,
+              task: detailTask,
+              isSidebar: true,
+              highlightSubtaskId: _detail.highlightSubtaskId,
+              onDirtyChanged: _detail.reportDraft,
+              onClose: _detail.handleClose,
+            );
+            if (!isWide) return panel;
+            return DetailSideBySide(
+              main: mainSearchContent,
+              detail: panel,
+              separator: VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color:
+                    theme.brightness == Brightness.light
+                        ? const Color(0xFFD5DAE1)
+                        : theme.colorScheme.outlineVariant,
+              ),
+              crossAxisAlignment: CrossAxisAlignment.center,
+            );
           },
         ),
       ),
     );
+
   }
 
   Widget _buildSearchBar(
@@ -598,7 +561,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     icon: const Icon(Icons.more_vert, size: 18),
                     onSelected: (val) async {
                       if (val == 'goToBoard') {
-                        if (!await _protectDetailDraft()) return;
+                        if (!await _detail.confirmLeave(context)) return;
                         if (!context.mounted) return;
                         store.setActiveBoard(hit.board.id);
                         Navigator.pop(context);

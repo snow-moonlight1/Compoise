@@ -76,36 +76,31 @@ class _MatrixHomeState extends State<MatrixHome> {
     setState(() => _expandedKeys.add(_expandKey(task)));
   }
 
-  String? _activeDetailTaskId;
-  String? _highlightSubtaskId;
-  bool _detailDirty = false;
-  bool _modalDetailOpen = false;
   bool _composerOpen = false;
   bool _composerDirty = false;
   final _detailKey = GlobalKey();
   final _quadrantTransitionKey = GlobalKey();
+  late final TaskDetailSession _detail = TaskDetailSession(
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+  );
 
-  Future<bool> _protectDetailDraft() async {
-    if (!_detailDirty) return true;
-    final discard = await confirmDiscardDraft(context);
-    if (discard) _detailDirty = false;
-    return discard;
-  }
+  Future<bool> _protectDetailDraft() => _detail.confirmLeave(context);
 
   Future<bool> _prepareDraftForExit() async {
-    if (!_detailDirty && !_composerDirty) return true;
+    if (!_detail.hasDraft && !_composerDirty) return true;
     if (!await confirmDiscardDraft(context) || !mounted) return false;
 
-    if (_activeDetailTaskId != null) {
-      setState(() {
-        _activeDetailTaskId = null;
-        _detailDirty = false;
-      });
-    } else if (_modalDetailOpen || _composerOpen) {
+    final hadPanel = _detail.taskId != null;
+    final hadModal = _detail.isModalOpen;
+    _detail.drop();
+    if (hadPanel) {
+      setState(() {});
+    } else if (hadModal || _composerOpen) {
       Navigator.of(context, rootNavigator: true).pop();
       await Future<void>.delayed(Duration.zero);
     }
-    _detailDirty = false;
     _composerDirty = false;
     return mounted;
   }
@@ -126,48 +121,14 @@ class _MatrixHomeState extends State<MatrixHome> {
     ).prepareToExit();
   }
 
-  Future<void> _closeDetail() async {
-    if (!await _protectDetailDraft()) return;
-    if (!mounted) return;
-    setState(() {
-      _activeDetailTaskId = null;
-      _detailDirty = false;
-    });
-  }
+  Future<void> _closeDetail() => _detail.requestClose(context);
 
   Future<void> _openTaskDetail(
     BuildContext context,
     Task task, {
     required bool isWide,
     String? subtaskId,
-  }) async {
-    if (isWide) {
-      if (_activeDetailTaskId != null &&
-          _activeDetailTaskId != task.id &&
-          !await _protectDetailDraft()) {
-        return;
-      }
-      if (!mounted) return;
-      setState(() {
-        _activeDetailTaskId = task.id;
-        _highlightSubtaskId = subtaskId;
-      });
-    } else {
-      _modalDetailOpen = true;
-      _detailDirty = false;
-      try {
-        await showTaskDetailSheet(
-          context,
-          task,
-          highlightSubtaskId: subtaskId,
-          onDirtyChanged: (dirty) => _detailDirty = dirty,
-        );
-      } finally {
-        _modalDetailOpen = false;
-        _detailDirty = false;
-      }
-    }
-  }
+  }) => _detail.open(context, task, isWide: isWide, subtaskId: subtaskId);
 
   bool _isTextEditingFocused() {
     final focus = FocusManager.instance.primaryFocus;
@@ -403,7 +364,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                   _requestExitFocus();
                 } else if (_listExitFading) {
                   _finishListExitNow();
-                } else if (_activeDetailTaskId != null) {
+                } else if (_detail.taskId != null) {
                   _closeDetail();
                 }
                 return null;
@@ -421,12 +382,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                       constraints.maxWidth,
                     );
                     final wide = useSideDetail;
-                    final detailTask =
-                        _activeDetailTaskId == null
-                            ? null
-                            : store.tasks
-                                .where((t) => t.id == _activeDetailTaskId)
-                                .firstOrNull;
+                    final detailTask = _detail.taskIn(store);
 
                     final viewMode = store.settings.viewMode;
                     // Switching matrix/list is a hard session end: drop both
@@ -525,32 +481,17 @@ class _MatrixHomeState extends State<MatrixHome> {
                             : TaskDetailPanel(
                               key: _detailKey,
                               task: detailTask,
-                              highlightSubtaskId: _highlightSubtaskId,
+                              highlightSubtaskId: _detail.highlightSubtaskId,
                               isSidebar: true,
-                              onDirtyChanged: (dirty) {
-                                if (_detailDirty == dirty) return;
-                                _detailDirty = dirty;
-                              },
-                              onClose: () {
-                                setState(() {
-                                  _activeDetailTaskId = null;
-                                  _detailDirty = false;
-                                });
-                              },
+                              onDirtyChanged: _detail.reportDraft,
+                              onClose: _detail.handleClose,
                             );
                     if (!useSideDetail && panel != null) {
                       mainContent = panel;
                     } else if (showSidebar) {
-                      mainContent = Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(child: activeCenter),
-                          const SizedBox(width: PlatformUiPolicy.sideDetailGap),
-                          SizedBox(
-                            width: PlatformUiPolicy.sideDetailWidth,
-                            child: panel,
-                          ),
-                        ],
+                      mainContent = DetailSideBySide(
+                        main: activeCenter,
+                        detail: panel!,
                       );
                     } else {
                       mainContent = activeCenter;
@@ -847,8 +788,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     setState(() {
       _selecting = false;
       _selectedIds.clear();
-      _activeDetailTaskId = null;
-      _detailDirty = false;
+      _detail.drop();
       _focusedQuadrant = null;
       _listExitFading = false;
       _listExitFrom = null;
@@ -890,12 +830,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     if (_composerOpen) return;
     if (!await _protectDetailDraft()) return;
     if (!mounted) return;
-    if (_activeDetailTaskId != null) {
-      setState(() {
-        _activeDetailTaskId = null;
-        _detailDirty = false;
-      });
-    }
+    if (_detail.taskId != null) setState(_detail.drop);
     final store = context.read<Store>();
     final policy = PlatformUiPolicy.of(context);
     _composerOpen = true;
@@ -1046,8 +981,7 @@ class _MatrixHomeState extends State<MatrixHome> {
       setState(() {
         _selecting = false;
         _selectedIds.clear();
-        _activeDetailTaskId = null;
-        _detailDirty = false;
+        _detail.drop();
         _focusedQuadrant = null;
         _listExitFading = false;
         _listExitFrom = null;

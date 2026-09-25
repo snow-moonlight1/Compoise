@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../calendar_dates.dart';
 import '../models.dart';
 import '../storage.dart';
+import '../ui/platform_ui_policy.dart';
 import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
 import 'subtask_edit_dialog.dart';
@@ -77,6 +78,139 @@ Future<void> showTaskDetailSheet(
 /// Opens the editor for an existing task from a list row without a host panel.
 Future<void> showTaskEditSheet(BuildContext context, Task task) =>
     showTaskDetailSheet(context, task);
+
+/// Which task a page shows in its detail editor, whether that editor holds an
+/// unsaved draft, and what it takes to switch away or leave. Pages keep their
+/// own layout and Store commands so the rules live in one place instead of
+/// being retyped per surface.
+class TaskDetailSession {
+  /// [onChanged] fires when the opened task changes; the host rebuilds on it.
+  /// A draft coming and going deliberately does not rebuild: it is read when
+  /// the page needs to decide something.
+  TaskDetailSession({required this.onChanged});
+
+  final VoidCallback onChanged;
+
+  String? _taskId;
+  String? _highlightSubtaskId;
+  bool _dirty = false;
+  bool _modalOpen = false;
+
+  String? get taskId => _taskId;
+
+  String? get highlightSubtaskId => _highlightSubtaskId;
+
+  bool get hasDraft => _dirty;
+
+  bool get isModalOpen => _modalOpen;
+
+  /// The hosted editor reports its own draft state; the page never has to poll
+  /// it and nothing rebuilds because of it.
+  void reportDraft(bool dirty) => _dirty = dirty;
+
+  Task? taskIn(Store store) =>
+      _taskId == null
+          ? null
+          : store.tasks.where((task) => task.id == _taskId).firstOrNull;
+
+  /// Opens [task]. On a wide layout the hosted panel switches, asking first
+  /// when another task still holds a draft; on a narrow layout the modal editor
+  /// runs and its draft is forgotten once it closes.
+  Future<void> open(
+    BuildContext context,
+    Task task, {
+    required bool isWide,
+    String? subtaskId,
+  }) async {
+    if (isWide) {
+      if (_taskId != null && _taskId != task.id) {
+        if (!await confirmLeave(context)) return;
+      }
+      _taskId = task.id;
+      _highlightSubtaskId = subtaskId;
+      onChanged();
+      return;
+    }
+    _modalOpen = true;
+    _dirty = false;
+    try {
+      await showTaskDetailSheet(
+        context,
+        task,
+        highlightSubtaskId: subtaskId,
+        onDirtyChanged: (dirty) => _dirty = dirty,
+      );
+    } finally {
+      _modalOpen = false;
+      _dirty = false;
+    }
+  }
+
+  /// The editor asked to close and has already settled its own draft.
+  void handleClose() {
+    _taskId = null;
+    _highlightSubtaskId = null;
+    _dirty = false;
+    onChanged();
+  }
+
+  /// A close invoked from outside the editor, such as Escape: settles the draft
+  /// first and stays put when the user keeps editing.
+  Future<void> requestClose(BuildContext context) async {
+    if (!await confirmLeave(context)) return;
+    handleClose();
+  }
+
+  /// Asks whether an unsaved draft may be thrown away before navigating away,
+  /// switching board, or opening another editor over the current one.
+  Future<bool> confirmLeave(BuildContext context) async {
+    if (!_dirty) return true;
+    final discard = await confirmDiscardDraft(context);
+    if (discard) _dirty = false;
+    return discard;
+  }
+
+  /// Forgets the hosted editor without a prompt, for the moments the page is
+  /// already dropping it: a board change or a clear.
+  void drop() {
+    _taskId = null;
+    _highlightSubtaskId = null;
+    _dirty = false;
+  }
+}
+
+/// The detail editor next to a page's own content. The width and the gap come
+/// from [PlatformUiPolicy] so every page agrees; the separator stays with the
+/// surface that shows it.
+class DetailSideBySide extends StatelessWidget {
+  const DetailSideBySide({
+    super.key,
+    required this.main,
+    required this.detail,
+    this.separator,
+    this.crossAxisAlignment = CrossAxisAlignment.stretch,
+  });
+
+  final Widget main;
+  final Widget detail;
+  final Widget? separator;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: crossAxisAlignment,
+      children: [
+        Expanded(child: main),
+        separator ?? const SizedBox(width: PlatformUiPolicy.sideDetailGap),
+        SizedBox(
+          width: PlatformUiPolicy.sideDetailWidth,
+          child: detail,
+        ),
+      ],
+    );
+  }
+}
 
 /// Central task detail editor for parent and child tasks.
 /// Can be rendered inside a bottom sheet or as a desktop side panel.

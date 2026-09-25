@@ -26,9 +26,12 @@ class CompletedScreen extends StatefulWidget {
 class _CompletedScreenState extends State<CompletedScreen> {
   TaskFilterCriteria _applied = const TaskFilterCriteria();
   final Set<String> _expandedIds = {};
-  String? _activeDetailTaskId;
-  bool _detailDirty = false;
   final _detailKey = GlobalKey();
+  late final TaskDetailSession _detail = TaskDetailSession(
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+  );
 
   /// Restoring a task drops it out of this list immediately in the data layer;
   /// the cache keeps one leaving row on screen so the change is visible.
@@ -82,30 +85,11 @@ class _CompletedScreenState extends State<CompletedScreen> {
     });
   }
 
-  Future<bool> _protectDetailDraft() async {
-    if (!_detailDirty) return true;
-    final discard = await confirmDiscardDraft(context);
-    if (discard) _detailDirty = false;
-    return discard;
-  }
-
   Future<void> _openDetail(
     BuildContext context,
     Task task, {
     required bool isWide,
-  }) async {
-    if (isWide) {
-      if (_activeDetailTaskId != null &&
-          _activeDetailTaskId != task.id &&
-          !await _protectDetailDraft()) {
-        return;
-      }
-      if (!mounted) return;
-      setState(() => _activeDetailTaskId = task.id);
-    } else {
-      await showTaskDetailSheet(context, task);
-    }
-  }
+  }) => _detail.open(context, task, isWide: isWide);
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +124,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
         bottom: !policy.isTouchLayout,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 900;
+            final isWide = policy.canShowSideDetail(constraints.maxWidth);
             // Resolved before the empty/list branch so the last restored row
             // still animates out instead of being swapped for the empty state.
             final entries = _exitRetention.sync(
@@ -155,12 +139,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   ),
               reduceMotion: MotionPolicy.reduceMotionOf(context),
             );
-            final detailTask =
-                _activeDetailTaskId == null
-                    ? null
-                    : store.tasks
-                        .where((item) => item.id == _activeDetailTaskId)
-                        .firstOrNull;
+            final detailTask = _detail.taskIn(store);
 
             final mainContent = Column(
               children: [
@@ -196,44 +175,33 @@ class _CompletedScreenState extends State<CompletedScreen> {
               ],
             );
 
-            if (detailTask != null) {
-              final panel = TaskDetailPanel(
-                key: _detailKey,
-                task: detailTask,
-                isSidebar: true,
-                onDirtyChanged: (dirty) {
-                  if (_detailDirty == dirty) return;
-                  _detailDirty = dirty;
-                },
-                onClose: () {
-                  setState(() {
-                    _activeDetailTaskId = null;
-                    _detailDirty = false;
-                  });
-                },
-              );
-              if (!isWide) return panel;
-              return Row(
-                children: [
-                  Expanded(child: mainContent),
-                  VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color:
-                        theme.brightness == Brightness.light
-                            ? const Color(0xFFD5DAE1)
-                            : theme.colorScheme.outlineVariant,
-                  ),
-                  SizedBox(width: 350, child: panel),
-                ],
-              );
-            }
-
-            return mainContent;
+            if (detailTask == null) return mainContent;
+            final panel = TaskDetailPanel(
+              key: _detailKey,
+              task: detailTask,
+              isSidebar: true,
+              onDirtyChanged: _detail.reportDraft,
+              onClose: _detail.handleClose,
+            );
+            if (!isWide) return panel;
+            return DetailSideBySide(
+              main: mainContent,
+              detail: panel,
+              separator: VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color:
+                    theme.brightness == Brightness.light
+                        ? const Color(0xFFD5DAE1)
+                        : theme.colorScheme.outlineVariant,
+              ),
+              crossAxisAlignment: CrossAxisAlignment.center,
+            );
           },
         ),
       ),
     );
+
   }
 
   Widget _buildHeader(
