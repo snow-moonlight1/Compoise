@@ -1,3 +1,5 @@
+import 'ai_presets.dart';
+import 'model_discovery.dart';
 import 'models.dart';
 
 /// Fields to merge into a protocol body, plus an optional settings hint.
@@ -12,30 +14,65 @@ class ThinkingPlan {
   const ThinkingPlan({this.fields = const {}, this.hintCode});
 }
 
-/// Lightweight provider/model rules for the three wire protocols.
+/// Capability rules for the three wire protocols, keyed by the concrete model
+/// version and the endpoint it is being sent to.
 ///
-/// OpenAI-compatible requests send only `model`, `messages` and, when the
-/// caller asks for JSON, `response_format`. DeepSeek's `thinking` object is
-/// added only for the DeepSeek API (or a custom model id that is a DeepSeek
-/// model). Volcengine and Bailian never receive that extension.
+/// A model *family* is not a capability. Every value below is read off the
+/// vendor's own model page, and a version the vendor does not document falls
+/// back to sending nothing plus a hint — including a fallback that cannot force
+/// thinking off, which the settings switch states out loud.
 ///
-/// Responses reasoning follows the Responses API `reasoning.effort` field.
-/// Values vary by model, so unknown models omit it. The o-series does not
-/// receive `none` (support is model-specific). `gpt-5` ids receive `none`
-/// when thinking is off, which the Responses effort enum documents as a
-/// supported value.
+/// OpenAI Compatible chat requests keep sending only `model`, `messages` and,
+/// when JSON is asked for, `response_format`. DeepSeek's `thinking` object is a
+/// vendor extension, so it goes only to an endpoint declared to be the official
+/// DeepSeek API (the DeepSeek preset, or `api.deepseek.com`); a custom reverse
+/// proxy that merely serves a `deepseek-*` model name never receives it.
+/// Volcengine and Bailian never receive it either.
 ///
-/// Anthropic manual extended thinking (`thinking.type = enabled` plus
-/// `budget_tokens`) and adaptive thinking (`thinking.type = adaptive` plus
-/// `output_config.effort`) are chosen from the model id. `output_config.effort`
-/// alone is not treated as a universal on-switch. Models that reject
-/// `thinking.type = disabled` do not receive that field.
+/// Responses reasoning uses `reasoning.effort`, whose value set differs per
+/// model version, so `none` is sent only where the model page lists it:
+/// - `gpt-5`, original: `minimal, low, medium, high` — no `none`, so off asks
+///   for `minimal` and says the model still reasons.
+/// - `gpt-5.1` / `gpt-5.5` / `gpt-5.6` / `gpt-6-sol` / `gpt-6-luna`: list
+///   `none`, so off sends `none`.
+/// - `gpt-6-astra`: no `none` and no `minimal`; `none` returns HTTP 400.
+/// - `o1` / `o3` / `o4` and every other `gpt-5*` / `gpt-6*` id: no documented
+///   value set, so off omits the field. `high` appears in every documented set
+///   of the family, which is why it is the only value sent on request.
 ///
-/// Sources checked 2026-09-23:
+/// Anthropic thinking is chosen from an explicit list of documented model ids
+/// instead of a version-range guess:
+/// - `claude-fable-5*`, `claude-mythos-5*`, `claude-opus-5-5`: adaptive and
+///   always on. `thinking: {type: "disabled"}` returns HTTP 400, so off sends
+///   no thinking field and reports that the model cannot be switched off.
+/// - `claude-sonnet-5`, `claude-opus-5`, `claude-opus-4-6/4-7/4-8`,
+///   `claude-sonnet-4-6`: `thinking: {type: "adaptive"}` plus
+///   `output_config.effort`; off omits both, because `disabled` is documented
+///   as rejected for this generation.
+/// - `claude-3-7-sonnet*`, `claude-3-5-*`, `claude-*-4`, `claude-*-4-5`: manual
+///   extended thinking, which is opt-in. On sends `enabled` with a
+///   `budget_tokens` inside the documented `>= 1024` and `< max_tokens` window;
+///   off omits the field, which is the documented way not to think.
+/// - Anything else: no thinking field, and a hint when thinking was asked for.
+///
+/// Sources checked 2026-09-26:
+/// - https://developers.openai.com/api/docs/models/gpt-5
+/// - https://developers.openai.com/api/docs/models/gpt-5.1
+/// - https://developers.openai.com/api/docs/models/gpt-5.5
+/// - https://developers.openai.com/api/docs/models/gpt-5.6
+/// - https://developers.openai.com/api/docs/models/gpt-6-astra
+/// - https://developers.openai.com/api/docs/models/gpt-6-sol
+/// - https://developers.openai.com/api/docs/models/gpt-6-luna
+/// - https://developers.openai.com/api/docs/models/o3
+/// - https://developers.openai.com/api/docs/guides/reasoning
+/// - https://developers.openai.com/api/docs/deprecations
 /// - https://api-docs.deepseek.com/guides/thinking_mode
-/// - https://developers.openai.com/api/reference/resources/responses/methods/create
+/// - https://api-docs.deepseek.com/quick_start/pricing
+/// - https://platform.claude.com/docs/en/about-claude/models/overview
 /// - https://platform.claude.com/docs/en/build-with-claude/extended-thinking
 /// - https://platform.claude.com/docs/en/build-with-claude/effort
+/// - https://platform.claude.com/docs/en/models/fable-5-1/migration-guide
+/// - https://platform.claude.com/docs/en/api/messages
 ThinkingPlan planThinking(AIConfig config) {
   final model = config.model.trim();
   switch (config.protocol) {
@@ -48,18 +85,57 @@ ThinkingPlan planThinking(AIConfig config) {
   }
 }
 
+/// True when [id] is [prefix] or a longer id under it, split on a `-`, `.` or
+/// `_` boundary. `gpt-5.1` is not `gpt-5.10`, and `gpt-5-mini` is not `gpt-5`.
+bool _idIs(String id, String prefix) {
+  if (id == prefix) return true;
+  if (!id.startsWith(prefix)) return false;
+  final rest = id.codeUnitAt(prefix.length);
+  const dash = 45;
+  const dot = 46;
+  const underscore = 95;
+  return rest == dash || rest == dot || rest == underscore;
+}
+
+bool _idMatchesAny(String id, List<String> prefixes) =>
+    prefixes.any((prefix) => _idIs(id, prefix));
+
+const _responsesEffortNone = [
+  'gpt-5.1',
+  'gpt-5.5',
+  'gpt-5.6',
+  'gpt-6-sol',
+  'gpt-6-luna',
+];
+
+/// Original GPT-5 only: the bare id and its dated snapshots, not `gpt-5-chat`,
+/// `gpt-5-mini` or any later minor version.
+final _responsesOriginalGpt5 = RegExp(r'^gpt-5(-\d{4}(-\d{2}(-\d{2})?)?)?$');
+
+/// Reasoning families whose `high` value is documented, used when the caller
+/// asks for thinking but the exact version has no documented value set.
+final _responsesReasoningFamily = RegExp(r'^(gpt-[5-9]|o[1-9])([\-\._]|$)');
+
+final _deepSeekModelId = RegExp(r'^deepseek([\-\._]|$)', caseSensitive: false);
+
+const _deepSeekOfficialHost = 'api.deepseek.com';
+
+bool _isDeepSeekOfficialEndpoint(AIConfig config) {
+  if (getAIProviderPreset(config.provider).supportsThinking) return true;
+  final base = tryNormalizeAiBaseUrl(config.baseUrl);
+  if (base == null) return false;
+  final host = Uri.tryParse(base)?.host.toLowerCase();
+  return host == _deepSeekOfficialHost;
+}
+
 ThinkingPlan _openAiCompatible(AIConfig config, String model) {
-  if (config.provider == 'volcengine' || config.provider == 'bailian') {
+  final deepseekModel = _deepSeekModelId.hasMatch(model);
+  if (!deepseekModel) {
     return ThinkingPlan(
       hintCode: config.enableThinking ? 'aiThinkingUnsupported' : null,
     );
   }
-  final deepseekHost = config.provider == 'deepseek';
-  final deepseekModel = RegExp(
-    r'^deepseek([\-.]|$)',
-    caseSensitive: false,
-  ).hasMatch(model);
-  if (deepseekHost || deepseekModel) {
+  if (_isDeepSeekOfficialEndpoint(config)) {
     // Official default is enabled, so off must be sent explicitly.
     return ThinkingPlan(
       fields: {
@@ -67,16 +143,19 @@ ThinkingPlan _openAiCompatible(AIConfig config, String model) {
       },
     );
   }
-  return ThinkingPlan(
-    hintCode: config.enableThinking ? 'aiThinkingUnsupported' : null,
-  );
+  // Same vendor namespace, different endpoint: proxies that re-host a DeepSeek
+  // weight are free to reject the extension, and the vendor default is
+  // thinking-on, so neither switch position can be confirmed here.
+  return const ThinkingPlan(hintCode: 'aiThinkingCapabilityUnverified');
 }
 
 ThinkingPlan _responses(AIConfig config, String model) {
-  final id = model.toLowerCase();
-  final oSeries = RegExp(r'^(o1|o3|o4)([\-.]|$)').hasMatch(id);
-  final gpt5 = RegExp(r'^gpt-5([\-.]|$)').hasMatch(id);
-  if (!oSeries && !gpt5) {
+  final id = model.trim().toLowerCase();
+  final isReasoning =
+      _idMatchesAny(id, _responsesEffortNone) ||
+      _responsesOriginalGpt5.hasMatch(id) ||
+      _responsesReasoningFamily.hasMatch(id);
+  if (!isReasoning) {
     return ThinkingPlan(
       hintCode: config.enableThinking ? 'aiThinkingUnsupported' : null,
     );
@@ -88,27 +167,60 @@ ThinkingPlan _responses(AIConfig config, String model) {
       },
     );
   }
-  if (gpt5) {
+  if (_idMatchesAny(id, _responsesEffortNone)) {
     return const ThinkingPlan(
       fields: {
         'reasoning': {'effort': 'none'},
       },
     );
   }
+  if (_responsesOriginalGpt5.hasMatch(id)) {
+    return const ThinkingPlan(
+      fields: {
+        'reasoning': {'effort': 'minimal'},
+      },
+      hintCode: 'aiThinkingLowestEffort',
+    );
+  }
   return const ThinkingPlan(hintCode: 'aiThinkingNotForciblyOff');
 }
 
+const _anthropicAlwaysOn = ['claude-fable-5', 'claude-mythos-5', 'claude-opus-5-5'];
+
+const _anthropicAdaptive = [
+  'claude-sonnet-5',
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
+  'claude-sonnet-4-6',
+];
+
+const _anthropicManual = [
+  'claude-3-7-sonnet',
+  'claude-3-5-sonnet',
+  'claude-3-5-haiku',
+  'claude-opus-4-5',
+  'claude-sonnet-4-5',
+  'claude-haiku-4-5',
+  'claude-opus-4',
+  'claude-sonnet-4',
+];
+
+/// Inside the documented window: at least 1024 and below the request's
+/// `max_tokens` ([_anthropicMaxTokens] equivalent in `ai_service.dart`).
+const _anthropicThinkingBudget = 4096;
+
 ThinkingPlan _anthropic(AIConfig config, String model) {
-  final id = model.trim().toLowerCase().replaceAllMapped(
-    RegExp(r'(\d)\.(\d)'),
-    (match) => '${match[1]}-${match[2]}',
-  );
+  // Anthropic ids never spell a dot, so `claude-opus-4.6` and
+  // `claude.opus.5.5` both normalize onto the documented spelling.
+  final id = model.trim().toLowerCase().replaceAll('.', '-');
   if (id.isEmpty) {
     return ThinkingPlan(
       hintCode: config.enableThinking ? 'aiThinkingUnsupported' : null,
     );
   }
-  if (RegExp(r'^claude-(fable|mythos)-5([\-.]|$)').hasMatch(id)) {
+  if (_idMatchesAny(id, _anthropicAlwaysOn)) {
     if (config.enableThinking) {
       return const ThinkingPlan(
         fields: {
@@ -118,13 +230,7 @@ ThinkingPlan _anthropic(AIConfig config, String model) {
     }
     return const ThinkingPlan(hintCode: 'aiThinkingAlwaysOn');
   }
-  final adaptive = RegExp(
-    r'^claude-(opus|sonnet)-4-([6-9]|[1-9]\d)([\-.]|$)',
-  ).hasMatch(id) ||
-      RegExp(
-        r'^claude-(opus|sonnet|fable|mythos)-([5-9]|[1-9]\d)([\-.]|$)',
-      ).hasMatch(id);
-  if (adaptive) {
+  if (_idMatchesAny(id, _anthropicAdaptive)) {
     if (config.enableThinking) {
       return const ThinkingPlan(
         fields: {
@@ -133,28 +239,17 @@ ThinkingPlan _anthropic(AIConfig config, String model) {
         },
       );
     }
-    return const ThinkingPlan(
-      fields: {
-        'thinking': {'type': 'disabled'},
-      },
-    );
+    return const ThinkingPlan(hintCode: 'aiThinkingNotForciblyOff');
   }
-  final manual = RegExp(
-    r'^claude-(3-7|opus-4-5|sonnet-4-5|opus-4|sonnet-4)([\-.]|$)',
-  ).hasMatch(id);
-  if (manual) {
-    if (config.enableThinking) {
-      return const ThinkingPlan(
-        fields: {
-          'thinking': {'type': 'enabled', 'budget_tokens': 4096},
-        },
-      );
-    }
-    return const ThinkingPlan(
-      fields: {
-        'thinking': {'type': 'disabled'},
-      },
-    );
+  if (_idMatchesAny(id, _anthropicManual)) {
+    // Extended thinking is opt-in, so leaving it out is the documented off.
+    return config.enableThinking
+        ? const ThinkingPlan(
+          fields: {
+            'thinking': {'type': 'enabled', 'budget_tokens': _anthropicThinkingBudget},
+          },
+        )
+        : const ThinkingPlan();
   }
   return ThinkingPlan(
     hintCode: config.enableThinking ? 'aiThinkingUnsupported' : null,

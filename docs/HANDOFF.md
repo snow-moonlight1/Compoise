@@ -1,5 +1,14 @@
 # 项目交接文档（HANDOFF.md）
 
+## RF06 独立分支交接（2026-09-26，已集成）
+
+- 分支 `codex/rf06-model-capabilities`，worktree `D:\Dev_project\martix-rf06`，起点 `main / ca1f209f06c5459b983ef492bfd69a92667380f5`。只改 `matrixflow-native/lib/ai_capabilities.dart`、`lib/ai_service.dart`、`lib/l10n.dart` 与本包测试/文档；未 push，未动 RF03/RF04/RF08 范围，冻结端未改。
+- 能力表改为按厂商 2026-09-26 官方文档逐条列出的具体模型版本与端点判断，家族正则不再当作能力依据（来源清单在 `ai_capabilities.dart` 头部注释）。原始 GPT-5 关闭思考改发 `minimal` 并新增说明文案，`none` 只发给文档列出它的 `gpt-5.1/5.5/5.6`、`gpt-6-sol/luna`；`gpt-6-astra` 与未列出取值集的版本（`gpt-5.2`、`gpt-5-mini`、`gpt-5-chat`、o 系列）省略参数并明确“不能强制关闭”。
+- DeepSeek 的 `thinking` 扩展只看端点声明：官方预设或 `api.deepseek.com` 才发送；`provider=custom` 下同名 `deepseek-*` 反代改提示能力未确认（思考开关两档都提示，因厂商默认开启）。Anthropic 改为显式文档清单：始终思考的 `claude-fable-5*`/`claude-mythos-5*`/`claude-opus-5-5` 完全不收 `thinking` 字段，adaptive 代关闭时省略，手动代按 opt-in 语义省略；**原实现无条件发送 `thinking:{type:"disabled"}` 是本包修复的参数合约错误**，据此调整了 OS11 与 `ai_service_test` 的相应断言，其余 OS10/OS11/RF05 契约未改。
+- 短探测新增 `classifyGenerationProbe`，把 200 回复分成完整成功、被 16-token 预算截断但确有正文（算可用）、只有 reasoning 或正文前截断（算不足，明确不是认证失败）、真正空回复；401/403、429、超时、取消、非法响应分类与三协议行为保持，生成前确认对话框与费用提示保留。
+- 验证：新增 `test/rf06_model_capability_rules_test.dart` **35/35**；共享探针 `test/review/os_final_review_probe.dart` 原断言未改，结果 **4/7**（RF-R07 转绿，RF-R02/03/04 仍属 RF03/RF04）。默认全量 `flutter test --no-pub` **674/674**，`flutter analyze --no-pub` **0 issues**，OS10+OS11+RF05 定向 **43/43**。固定 SDK `D:\Dev_SDKs\Flutter_3.32.8`。
+- 未测：没有任何真实凭据或授权，未发送真实厂商请求，所以文档结论是参数合约层面的核对，不是厂商实测；Android/Windows 设置页的思考开关、探测部分成功文案与连接面板显示仍待 RF10 人工验收。本包不做正式发布，也不改 AGENTS.md 的集成状态段（留给集成人）。新 worktree 的 `flutter pub get` 只改了 `windows/flutter/` 三个生成文件的行尾，未纳入提交。
+
 ## RF03 独立分支交接（2026-09-26，已集成）
 
 - 从 `main / ca1f209f06c5459b983ef492bfd69a92667380f5` 创建 `D:\Dev_project\martix-rf03` / `codex/rf03-credential-close`，仅处理 RF03；未改 main、其他 worktree 或冻结端，未 push。固定 Flutter 3.32.8。RF-R02/R03 在修复前分别复现 flush 提前完成与清空被旧写入覆盖；修复后原探针均转绿，断言未改。

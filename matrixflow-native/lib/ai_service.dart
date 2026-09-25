@@ -389,7 +389,9 @@ class AIService {
   ///
   /// Callers must invoke this only from an explicit user action. The request
   /// can be billed. It is not part of startup, focus loss, or [testConnection].
-  /// Success requires generated text; a model list is not treated as success.
+  /// Success requires generated text; a model list is not treated as success. A
+  /// reply that only reasoned, or one the budget truncated, is its own partial
+  /// result rather than a failure that reads like a bad credential.
   Future<AiProbeStep> testModelGeneration(
     AIConfig config, {
     AICancellation? cancellation,
@@ -457,20 +459,12 @@ class AIService {
         return _cancelledGeneration();
       }
       try {
-        final text = extractResponseText(config.protocol, json).trim();
-        if (text.isEmpty) {
-          return const AiProbeStep(
-            kind: AiProbeKind.modelGeneration,
-            attempted: true,
-            ok: false,
-            code: 'aiGenerationEmpty',
-          );
-        }
-        return const AiProbeStep(
+        final outcome = classifyGenerationProbe(config.protocol, json);
+        return AiProbeStep(
           kind: AiProbeKind.modelGeneration,
           attempted: true,
-          ok: true,
-          code: 'aiGenerationOk',
+          ok: outcome.ok,
+          code: outcome.code,
         );
       } on AIException {
         return const AiProbeStep(
@@ -746,7 +740,10 @@ class AIService {
   }
 
   /// Minimal generation probe. Thinking extensions are omitted so the call
-  /// stays small and does not depend on a model-specific thinking budget.
+  /// stays small and does not depend on a model-specific thinking budget. The
+  /// budget is deliberately tiny, which means a reasoning model can spend it
+  /// all on thinking; [classifyGenerationProbe] reports that as the partial
+  /// result it is rather than as a connection failure.
   http.Request _generationRequest(AIConfig config, String base, String model) {
     switch (config.protocol) {
       case AIProtocol.openai:
@@ -894,6 +891,90 @@ String extractResponseText(AIProtocol protocol, dynamic data) {
   }
   return '';
 }
+
+/// How far the short generation probe got: whether the selected model answered,
+/// and which localization [code] explains the result.
+class GenerationProbeOutcome {
+  final bool ok;
+  final String code;
+  const GenerationProbeOutcome(this.ok, this.code);
+
+  @override
+  String toString() => 'GenerationProbeOutcome(ok: $ok, code: $code)';
+}
+
+/// Reads a probe reply without confusing "the model thought instead of
+/// answering" with "the credential was rejected".
+///
+/// The probe asks for 16 tokens. On a reasoning model that budget can be spent
+/// entirely on thinking, or cut off mid-answer. Both show the endpoint and the
+/// model work, so each gets its own code instead of an empty or auth-flavoured
+/// failure. Throws [AIException] when the body is not an object at all.
+GenerationProbeOutcome classifyGenerationProbe(
+  AIProtocol protocol,
+  dynamic data,
+) {
+  if (data is! Map) throw const AIException('aiInvalidResponse');
+  final text = extractResponseText(protocol, data).trim();
+  final truncated = _probeTruncated(protocol, data);
+  final hasReasoning = _probeHasReasoning(protocol, data);
+  if (text.isNotEmpty) {
+    return truncated
+        ? const GenerationProbeOutcome(true, 'aiGenerationPartial')
+        : const GenerationProbeOutcome(true, 'aiGenerationOk');
+  }
+  if (truncated || hasReasoning) {
+    return const GenerationProbeOutcome(false, 'aiGenerationThinkingOnly');
+  }
+  return const GenerationProbeOutcome(false, 'aiGenerationEmpty');
+}
+
+/// Whether the provider stopped the reply at the probe's token limit.
+bool _probeTruncated(AIProtocol protocol, Map data) {
+  switch (protocol) {
+    case AIProtocol.openai:
+      final finish = _probeChoice(data)?['finish_reason'];
+      return finish == 'length' || finish == 'max_tokens';
+    case AIProtocol.openaiResponses:
+      if (data['status'] != 'incomplete') return false;
+      final reason = _asMap(data['incomplete_details'])?['reason'];
+      return reason == null || reason == 'max_output_tokens';
+    case AIProtocol.anthropic:
+      return data['stop_reason'] == 'max_tokens';
+  }
+}
+
+/// Whether the reply carries thinking or reasoning content the probe never
+/// renders as an answer.
+bool _probeHasReasoning(AIProtocol protocol, Map data) {
+  switch (protocol) {
+    case AIProtocol.openai:
+      final message = _asMap(_probeChoice(data)?['message']);
+      return _hasText(message?['reasoning_content']) ||
+          _hasText(message?['reasoning']);
+    case AIProtocol.openaiResponses:
+      final output = data['output'];
+      if (output is! List) return false;
+      return output.any((item) => _asMap(item)?['type'] == 'reasoning');
+    case AIProtocol.anthropic:
+      final content = data['content'];
+      if (content is! List) return false;
+      return content.any((block) {
+        final type = _asMap(block)?['type'];
+        return type == 'thinking' || type == 'redacted_thinking';
+      });
+  }
+}
+
+Map? _probeChoice(Map data) {
+  final choices = data['choices'];
+  if (choices is! List || choices.isEmpty) return null;
+  return _asMap(choices.first);
+}
+
+Map? _asMap(dynamic value) => value is Map ? value : null;
+
+bool _hasText(dynamic value) => value is String && value.trim().isNotEmpty;
 
 List<String> _subtaskTitles(dynamic raw) {
   if (raw == null) return [];

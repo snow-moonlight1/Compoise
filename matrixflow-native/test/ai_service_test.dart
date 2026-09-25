@@ -129,7 +129,7 @@ void main() {
       expect(result.single.subtasks, ['s1']);
     });
 
-    test('thinking disabled sends disabled payloads across protocols', () async {
+    test('thinking off sends only the fields each endpoint documents', () async {
       late Map<String, dynamic> openAiBody;
       late Map<String, dynamic> responsesBody;
       late Map<String, dynamic> anthropicBody;
@@ -150,17 +150,23 @@ void main() {
         }),
       );
 
-      final disabledOpenAI = cfg('openai', 'deepseek-flash')..enableThinking = false;
-      await service.analyzeTasks(inputs: ['X'], config: disabledOpenAI, language: Language.en, autoDecompose: false);
-      expect(openAiBody['thinking'], {'type': 'disabled'});
+      // A model id that merely looks like DeepSeek's is no proof the endpoint
+      // understands the vendor extension, so this custom endpoint gets
+      // compatible fields only. The official API still sends `disabled`
+      // (ai_regression_test.dart).
+      final aliasOnProxy = cfg('openai', 'deepseek-flash')..enableThinking = false;
+      await service.analyzeTasks(inputs: ['X'], config: aliasOnProxy, language: Language.en, autoDecompose: false);
+      expect(openAiBody.containsKey('thinking'), isFalse);
 
       final disabledResponses = cfg('openai-responses', 'gpt-5.1')..enableThinking = false;
       await service.analyzeTasks(inputs: ['X'], config: disabledResponses, language: Language.en, autoDecompose: false);
       expect(responsesBody['reasoning'], {'effort': 'none'});
 
+      // Manual extended thinking is opt-in and `type: disabled` is not
+      // documented for it, so off omits the field.
       final disabledAnthropic = cfg('anthropic', 'claude-sonnet-4-5')..enableThinking = false;
       await service.analyzeTasks(inputs: ['X'], config: disabledAnthropic, language: Language.en, autoDecompose: false);
-      expect(anthropicBody['thinking'], {'type': 'disabled'});
+      expect(anthropicBody.containsKey('thinking'), isFalse);
       expect(anthropicBody.containsKey('output_config'), isFalse);
     });
 

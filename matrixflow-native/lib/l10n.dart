@@ -101,6 +101,10 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiNoModels': 'The service returned no model ids.',
     'aiGenerationOk': 'The selected model returned text.',
     'aiGenerationEmpty': 'The selected model returned an empty response.',
+    'aiGenerationPartial':
+        'The selected model returned text, but the 16-token probe budget cut it off. Generation does work.',
+    'aiGenerationThinkingOnly':
+        'The model did answer, but the reply held only reasoning or was cut off before any text. The endpoint and model work; this is not an authentication failure. The probe budget is deliberately 16 tokens - turn Thinking Mode off, or accept that a thinking model needs more.',
     'aiGenerationNotRun':
         'Selected-model generation has not been tested. A successful model list does not mean generation works.',
     'testGeneration': 'Test selected model',
@@ -116,6 +120,10 @@ const Map<Language, Map<String, String>> _dicts = {
         'This model always thinks and rejects a disable flag. Leave Thinking Mode on, or choose another model.',
     'aiThinkingNotForciblyOff':
         'This model has no safe parameter to disable reasoning. The request omits it, and the provider may still reason. Choose a model that accepts effort "none" to force it off.',
+    'aiThinkingLowestEffort':
+        'This model has no "none" effort. The request asks for "minimal", its lowest documented level, so it may still reason.',
+    'aiThinkingCapabilityUnverified':
+        'This endpoint is not the vendor API that documents the thinking extension, so the request omits it and the model may still think by default. Choose the official provider preset, or a model with documented thinking controls.',
     'boards': 'Boards',
     'createBoard': 'New Board',
     'renameBoard': 'Rename',
@@ -635,6 +643,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiNoModels': '服务端没有返回模型 ID。',
     'aiGenerationOk': '所选模型已返回文本。',
     'aiGenerationEmpty': '所选模型返回了空内容。',
+    'aiGenerationPartial': '所选模型返回了文本，但被 16 token 的探测预算截断，说明生成是可用的。',
+    'aiGenerationThinkingOnly': '模型确有响应，但回复里只有思考内容，或在正文出现前就被截断。端点与模型可用，这不是认证失败。探测预算刻意只有 16 token：请关闭思考模式，或接受思考模型需要更多额度。',
     'aiGenerationNotRun': '尚未测试所选模型生成。模型列表成功不等于可以生成。',
     'testGeneration': '测试所选模型生成',
     'testGenerationBilling': '生成测试可能产生费用，只有在你确认后才会发送。',
@@ -645,6 +655,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiThinkingAlwaysOn': '当前模型始终思考，并且会拒绝关闭参数。请保持思考模式开启，或改用其他模型。',
     'aiThinkingNotForciblyOff':
         '当前模型没有可安全关闭推理的参数。请求会省略该字段，服务商仍可能进行推理。若要强制关闭，请改用接受 effort 为 none 的模型。',
+    'aiThinkingLowestEffort': '该模型没有 none 强度。请求改用其文档允许的最低强度 minimal，因此模型仍可能思考。',
+    'aiThinkingCapabilityUnverified': '该端点并非声明了思考扩展的官方服务商 API，请求已省略该参数，模型可能默认仍在思考。请改用官方服务商预设，或有明确思考控制的模型。',
     'boards': '任务板',
     'createBoard': '新建任务板',
     'renameBoard': '重命名',
@@ -1115,6 +1127,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiNoModels': 'サービスはモデル ID を返しませんでした。',
     'aiGenerationOk': '選択モデルがテキストを返しました。',
     'aiGenerationEmpty': '選択モデルが空の応答を返しました。',
+    'aiGenerationPartial': '選択モデルはテキストを返しましたが、16トークンの検証予算で途切れています。生成は動作します。',
+    'aiGenerationThinkingOnly': 'モデルは応答しましたが、内容が思考だけ、または本文の前に途切れました。エンドポイントとモデルは動作しており、認証失敗ではありません。検証予算は意図的に16トークンです。思考モードを切るか、思考モデルにはより多くの予算が必要だと承知してください。',
     'aiGenerationNotRun': '選択モデルの生成はまだテストしていません。モデル一覧の成功は生成可能を意味しません。',
     'testGeneration': '選択モデルの生成をテスト',
     'testGenerationBilling': '生成テストは課金されることがあります。確認した後にだけ送信します。',
@@ -1127,6 +1141,10 @@ const Map<Language, Map<String, String>> _dicts = {
         'このモデルは常に思考し、無効化フラグを拒否します。思考モードをオンのままにするか、別のモデルを選んでください。',
     'aiThinkingNotForciblyOff':
         'このモデルには推論を安全に止めるパラメータがありません。リクエストではその項目を省略しますが、プロバイダーが推論する場合があります。強制的に止めるには effort が none のモデルを選んでください。',
+    'aiThinkingLowestEffort':
+        'このモデルに none はありません。リクエストは文書上の最低値 minimal を要求するため、思考が続く場合があります。',
+    'aiThinkingCapabilityUnverified':
+        'このエンドポイントは思考拡張を公式に定めるプロバイダーAPIではないため、リクエストではそのパラメータを省略し、モデルは既定で思考する可能性があります。公式プロバイダーのプリセット、または思考制御が文書化されたモデルを選んでください。',
     'boards': 'ボード',
     'createBoard': '新規ボード',
     'renameBoard': '名前変更',

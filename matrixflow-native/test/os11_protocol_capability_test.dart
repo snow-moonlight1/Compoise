@@ -68,6 +68,8 @@ void main() {
       'aiNoModels',
       'aiGenerationOk',
       'aiGenerationEmpty',
+      'aiGenerationPartial',
+      'aiGenerationThinkingOnly',
       'aiGenerationNotRun',
       'testGeneration',
       'testGenerationBilling',
@@ -77,6 +79,8 @@ void main() {
       'aiThinkingUnsupported',
       'aiThinkingAlwaysOn',
       'aiThinkingNotForciblyOff',
+      'aiThinkingLowestEffort',
+      'aiThinkingCapabilityUnverified',
       'connectionEndpointLabel',
       'connectionDiscoveryLabel',
       'connectionGenerationLabel',
@@ -179,16 +183,17 @@ void main() {
     );
     expect(adaptive.fields['thinking'], {'type': 'adaptive'});
     expect(adaptive.fields['output_config'], {'effort': 'high'});
-    expect(
-      planThinking(
-        cfg(
-          protocol: AIProtocol.anthropic,
-          model: 'claude-sonnet-4-6',
-          thinking: false,
-        ),
-      ).fields['thinking'],
-      {'type': 'disabled'},
+    // RF06: `thinking: {type: disabled}` is documented as rejected for this
+    // generation, so an off switch omits the field and says reasoning may go on.
+    final sonnetOff = planThinking(
+      cfg(
+        protocol: AIProtocol.anthropic,
+        model: 'claude-sonnet-4-6',
+        thinking: false,
+      ),
     );
+    expect(sonnetOff.fields, isEmpty);
+    expect(sonnetOff.hintCode, 'aiThinkingNotForciblyOff');
 
     final alwaysOn = planThinking(
       cfg(
