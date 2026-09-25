@@ -1,8 +1,8 @@
 # AGENTS.md — MatrixFlow AI（四象限待办）
 
-AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-08.md)。
+AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [最后一轮返修 Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-25_FINAL_REPAIR.md)。
 
-> **2026-09-25 集成状态：** OS01–OS27 的源码与文档包已在 main 集成；这是开源准备计划中最后一个编号包，不代表稳定版已经发行。OS26 正式签名、托管发布、Android 实机与升级验收仍缺持有人材料或设备。现状见 HANDOFF 顶部。继续暂停 WP10/WP29/UI 实验；下文旧包进度为历史。
+> **2026-09-25 复审状态：** OS01–OS27 已集成，但复审发现七个可复现边界缺陷；当前派单按 RF01–RF10 返修计划，一次领取一个包。用户确认 Windows Release 聚焦顺畅、Android Debug 小数据聚焦卡顿，构建模式对照见 HANDOFF 顶部。OS26 正式签名、托管发布与完整升级验收仍未完成。继续暂停 WP10/WP29/UI 实验；下文旧包进度为历史。
 
 ## 运行与验证
 

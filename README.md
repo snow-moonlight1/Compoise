@@ -8,13 +8,15 @@ MatrixFlow AI is a local-first Eisenhower-matrix task app. The maintained client
 
 ## 现在处于哪一步
 
+OS01–OS27 已集成，2026-09-25 复审后的当前工作见[最后一轮返修计划](docs/IMPLEMENTATION_PLAN_2026-09-25_FINAL_REPAIR.md)和[逐包审查报告](docs/OS_IMPLEMENTATION_REVIEW_2026-09-25.md)。已复现的导入、凭据、备份与交互边界问题尚待修复，不能把集成完成视为稳定发行。
+
 这三件事是分开的。本仓库目前只具备第一栏里的本地源码。
 
-| 状态 | 现在的事实 |
-|---|---|
-| 源码 | 源码在本仓库，许可证是 [MIT](LICENSE)。`git remote` 为空，公开托管地址、问题跟踪和分支保护都还没配置。 |
+| 状态     | 现在的事实                                                                 |
+| ------ | --------------------------------------------------------------------- |
+| 源码     | 源码在本仓库，许可证是 [MIT](LICENSE)。`git remote` 为空，公开托管地址、问题跟踪和分支保护都还没配置。     |
 | 测试版二进制 | 没有托管的测试下载页。本机可以打 Android debug APK，以及未签名的 Windows 调试或桌面构建。这些构建没有分发渠道。 |
-| 稳定发行 | 尚未发行。没有正式 Android 签名证书、Windows 代码签名、git tag、Release，也没有覆盖安装保留数据的设备记录。 |
+| 稳定发行   | 尚未发行。没有正式 Android 签名证书、Windows 代码签名、git tag、Release，也没有覆盖安装保留数据的设备记录。 |
 
 维护者邮箱和安全联系地址待配置。在持有人给出真实地址之前，本文不填写组织 URL 或邮箱。报告方式见 [SECURITY.md](SECURITY.md)，参与方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 

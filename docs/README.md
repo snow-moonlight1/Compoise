@@ -4,6 +4,8 @@
 
 ## 先读
 
+当前派单：[2026-09-25 最后一轮返修](IMPLEMENTATION_PLAN_2026-09-25_FINAL_REPAIR.md)。对应[27 包复审报告](OS_IMPLEMENTATION_REVIEW_2026-09-25.md)含逐包核对、七个新反例及 Android 聚焦证据边界。
+
 | 文档 | 用途 |
 |---|---|
 | [根 README](../README.md) | 源码、测试构建、稳定发行三个状态，以及数据与 AI 的短说明 |

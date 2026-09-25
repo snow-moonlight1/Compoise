@@ -1,0 +1,124 @@
+// Generated in an isolated review checkout; @@BASE@@ is git-archived source.
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' show FrameTiming;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:matrixflow_native/storage.dart' as current;
+import 'package:matrixflow_native/models.dart' as cm;
+import 'package:matrixflow_native/widgets/quadrant_transition_layout.dart' as cw;
+import '@@BASE@@/storage.dart' as old;
+import '@@BASE@@/models.dart' as om;
+import '@@BASE@@/widgets/quadrant_transition_layout.dart' as ow;
+import '@@BASE@@/services/reminder_service.dart' as or;
+
+class Keys implements current.CredentialStore {
+  @override Future<String?> read() async => null;
+  @override Future<void> write(String value) async {}
+  @override Future<void> delete() async {}
+}
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  or.ReminderService.instance = or.NoopReminderService();
+  runApp(const MaterialApp(home: Bench()));
+}
+
+class Bench extends StatefulWidget {
+  const Bench({super.key});
+  @override State<Bench> createState() => _BenchState();
+}
+
+class _BenchState extends State<Bench> {
+  Widget body = const SizedBox();
+  final focus = ValueNotifier<int?>(null);
+  final frames = <FrameTiming>[];
+  final rows = <Map<String, Object?>>[];
+  @override void initState() {
+    super.initState();
+    WidgetsBinding.instance.addTimingsCallback(frames.addAll);
+    WidgetsBinding.instance.addPostFrameCallback((_) => run());
+  }
+  Future<void> delay(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
+  Map<String, Object> seed(int count) => {
+    'matrixflow-boards': '[{"id":"review","name":"Review","createdAt":1}]',
+    'matrixflow-active-board': 'review',
+    'matrixflow-has-seen-onboarding': true,
+    'matrixflow-settings': jsonEncode({'language':'zh','viewMode':'grid','reduceMotion':false}),
+    'matrixflow-tasks': jsonEncode([
+      for (int i = 0; i < count; i++) {
+        'id':'t$i','boardId':'review','title':'审查合成任务 $i：完成当天安排',
+        'createdAt':1,'quadrant':i%4+1,'completed':false,
+        'subtasks': i == 0 ? [
+          {'id':'s0','title':'第一个合成子任务','completed':false},
+          {'id':'s1','title':'第二个合成子任务','completed':false},
+        ] : [],
+      },
+    ]),
+  };
+  Future<void> run() async {
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    final meta = {'mode':kDebugMode?'debug':kProfileMode?'profile':'release',
+      'refreshHz':view.display.refreshRate,'size':view.physicalSize.toString(),
+      'dpr':view.devicePixelRatio,'os':Platform.operatingSystem};
+    debugPrint('FOCUS_REVIEW_META ${jsonEncode(meta)}');
+    try {
+      // Alternate order to reduce warmup/thermal ordering bias.
+      for (final count in [3, 100, 3]) {
+        for (final baseline in count == 100 ? [false,true] : [true,false]) {
+          SharedPreferences.setMockInitialValues(seed(count));
+          focus.value = null;
+          late ChangeNotifier store;
+          if (baseline) {
+            final s = old.Store();
+            await s.init(); await s.flush(); store=s;
+            body = ChangeNotifierProvider<old.Store>.value(value:s,
+              child: ValueListenableBuilder<int?>(valueListenable:focus,builder:(context,q,_) =>
+                ow.QuadrantTransitionLayout(focusedQuadrant:q,viewMode:om.ViewMode.grid,
+                  expandedIds:const {'t0'},onFocusQuadrant:(v)=>focus.value=v,onExitFocus:()=>focus.value=null)));
+          } else {
+            final s = current.Store(credentialStore:Keys(),reminders:current.NoopReminderService());
+            await s.init(); await s.flush(); store=s;
+            body = ChangeNotifierProvider<current.Store>.value(value:s,
+              child: ValueListenableBuilder<int?>(valueListenable:focus,builder:(context,q,_) =>
+                cw.QuadrantTransitionLayout(focusedQuadrant:q,viewMode:cm.ViewMode.grid,
+                  expandedIds:const {'t0'},onFocusQuadrant:(v)=>focus.value=v,onExitFocus:()=>focus.value=null)));
+          }
+          setState(() {});
+          await delay(1500);
+          for (int cycle=0;cycle<3;cycle++) {
+            for (final target in <int?>[1,2,null]) {
+              frames.clear();
+              focus.value = target;
+              await delay(950); // Animation + engine timing delivery; no forced frames.
+              final row = <String,Object?>{'baseline':baseline,'tasks':count,'cycle':cycle,
+                'motion':target==1?'enter':target==2?'switch':'exit','frames':frames.length,
+                'buildUs':stats(frames.map((f)=>f.buildDuration.inMicroseconds).toList()),
+                'rasterUs':stats(frames.map((f)=>f.rasterDuration.inMicroseconds).toList()),
+                'totalUs':stats(frames.map((f)=>f.totalSpan.inMicroseconds).toList()),
+                'overBudget':frames.where((f)=>f.buildDuration.inMicroseconds>1000000/view.display.refreshRate || f.rasterDuration.inMicroseconds>1000000/view.display.refreshRate).length};
+              rows.add(row);
+              debugPrint('FOCUS_REVIEW_ROW ${jsonEncode(row)}');
+            }
+          }
+          setState(()=>body=const SizedBox());
+          await delay(700);
+          store.dispose();
+        }
+      }
+      debugPrint('FOCUS_REVIEW_DONE ${jsonEncode(meta)}');
+      setState(()=>body=const Center(child:Text('Review complete; synthetic data only')));
+    } catch(e,st) {
+      debugPrint('FOCUS_REVIEW_ERROR $e\n$st');
+    }
+  }
+  Map<String,num> stats(List<int> values) {
+    if(values.isEmpty) return {'p50':0,'p90':0,'max':0};
+    values.sort();
+    return {'p50':values[(values.length*.5).floor()],'p90':values[(values.length*.9).floor().clamp(0,values.length-1)],'max':values.last};
+  }
+  @override Widget build(BuildContext context)=>Scaffold(body:SafeArea(child:body));
+}

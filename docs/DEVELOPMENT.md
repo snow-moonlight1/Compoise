@@ -38,7 +38,7 @@ OS24 固定 Flutter **3.32.8** stable / Dart **3.8.1**（framework `edada7c56edf
 
 代码改动的最低本地检查是 `analyze --no-pub` 与 `test --no-pub`。只改文档时核对链接和命令，不把未重跑的历史测试数字写成新的验收。
 
-`flutter build apk --release` 在未设置 `REQUIRE_RELEASE_SIGNING=true` 时，Gradle 会在缺少正式证书的情况下使用 debug 签名。那种 APK 不是正式发行物。
+Android Release 需保留完整 Material 图标字库：发行脚本使用 `--no-tree-shake-icons`，避免所需字形被裁剪后在设备上显示为方框。完整字库资源约增加 1.6 MB；本次压缩后 APK 从 55.8 MB 增至 56.4 MB。手动构建体验包也使用同一参数：`flutter build apk --release --no-pub --no-tree-shake-icons`。在未设置 `REQUIRE_RELEASE_SIGNING=true` 时，Gradle 会在缺少正式证书的情况下使用 debug 签名；那种 APK 不是正式发行物。
 
 ## 发行脚本
 

@@ -342,7 +342,10 @@ if ($BuildsAndroid) {
     try {
         Push-Location $NativeDir
         try {
-            & $FlutterBin build apk --release --no-pub
+            # Keep the complete Material glyph font in release builds. The
+            # screenshot-backed Android smoke showed that tree shaking dropped
+            # glyphs referenced through shared/dynamic IconData call sites.
+            & $FlutterBin build apk --release --no-pub --no-tree-shake-icons
             if ($LASTEXITCODE -ne 0) {
                 throw "Android release build failed with exit code: $LASTEXITCODE"
             }

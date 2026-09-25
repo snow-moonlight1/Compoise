@@ -22,6 +22,16 @@
 
 详见 [二次复审报告](../../../docs/FOUNDATION_SECOND_REVIEW_2026-09-16.md)。默认 280 项通过不代表上述场景已修复；修复后将对应断言整理为默认可发现的正式回归。
 
+## 2026-09-25 集成后复审
+
+`os_final_review_probe.dart` 使用合成数据、内存 prefs、假凭据及 HTTP；七项断言均针对期望行为，在 `9e30f01` 上 **0/7 通过**。显式运行：
+
+```powershell
+& D:/Dev_SDKs/Flutter_3.32.8/bin/flutter.bat test --no-pub test/review/os_final_review_probe.dart --reporter expanded
+```
+
+RF-R01 → RF02 导入并发；RF-R02/03 → RF03 凭据/退出；RF-R04 → RF04 备份；RF-R05 → RF07 IME；RF-R06 → RF05 请求状态；RF-R07 → RF06 模型能力。修复后迁入默认回归，不删除失败断言。见[当前返修计划](../../../docs/IMPLEMENTATION_PLAN_2026-09-25_FINAL_REPAIR.md)。默认 578 项及上轮 preopensource 七项通过不覆盖这些边界。
+
 ## 第一轮记录
 
 基线：`3a711c8`，2026-09-16。这里只使用合成数据、mock 持久化及假插件，不访问真实待办或商业 AI。

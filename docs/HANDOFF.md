@@ -1,5 +1,14 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前状态：27 包复审与最后一轮返修计划（2026-09-25）
+
+- 审查基线 `main / 9e30f019b6b20193de6696e8c7780c7f61fe5836`，接手时干净。复审产出七个合成反例、审查文档和可选隔离测量工具；后续收到用户图标反馈后另修 Android Release 构建参数，未改 Dart 业务源码、未提交或发布。当前派单为 [RF01–RF10 返修计划](IMPLEMENTATION_PLAN_2026-09-25_FINAL_REPAIR.md)，逐包结论和证据见 [27 包复审报告](OS_IMPLEMENTATION_REVIEW_2026-09-25.md)。保留 OS 成果，一次领取一个 RF 包，不全盘重做。
+- 固定 Flutter 3.32.8：默认测试 **578/578**，上轮 preopensource 反例 **7/7**，最终 analyze **0 issues**。新增 `test/review/os_final_review_probe.dart` **0/7**，分别复现导入丢并发编辑、退出 flush 漏凭据、旧凭据写入覆盖清空、自己导出超限无法恢复、折叠 IME 范围误判、连接重测永久 busy、原 GPT-5 参数不兼容。修复时迁入默认回归，不能删断言。提醒账本与重复编码等候选需先验证，不能写成已发生的实机故障。
+- 用户 OS 实施前已有总体实机认可；旧 OS27 “没有收到总体认可”不能再当当前事实。本轮用户确认 Windows Release 聚焦顺畅；Android Debug 只有 3 父任务、其中 1 个含 2 子项，清后台仍卡顿。用户回忆以前常用 Release，但旧 APK 模式/提交未核验。
+- 用户随后发现 Release 图标全部显示方框，而隔离 Review/Profile 图标正常。旧构建日志确认 Release 将 MaterialIcons 从 1,645,184 bytes 裁至 4,212 bytes。已修改 `scripts/build_release.ps1` 对 Android Release 加 `--no-tree-shake-icons`，完整字库资源约多 1.6 MB，APK 压缩后由 55.8 MB 增到 56.4 MB；固定 SDK 重建成功，脚本和开发指南已同步。
+- OS26 正式签名、托管发布、完整升级/提醒/输入等门槛仍独立，未因本地 Release 构建自动通过。继续暂停 WP10/WP29/UI 实验，冻结 legacy。
+- **安装结果**：修复前和修复后 Release 都已核对与设备原 APK 的签名 SHA-256 一致；修复后 `adb install -r app-release.apk` 返回 **Success**，随后已启动 `com.matrixflow.app`。未卸载/清除现有应用数据。隔离 Review 程序已 force-stop，不再采样；用户尚未反馈本次修复后的图标/聚焦手感。此包使用本地开发签名但为 Release 编译模式，不是 Debug，也不是正式签名发行。
+
 ## 当前状态：OS27 三路集成，编号包收口（2026-09-25）
 
 - 基线 `1625c1767b1893847ff4650218aba0e41a2886d4` 原本干净。公开文档、三语文案和平台验证三条独立分支各自从该基线开发且提交文件不重叠；main 依次 cherry-pick 为 `989b7a3`、`5cae752`、`2f992c6`。两条 Agent 工作树仍有未提交的 Windows Flutter 生成文件行尾差异，原样留在各自工作树，未并入 main。

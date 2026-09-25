@@ -1,5 +1,9 @@
 # 更新日志
 
+## 2026-09-25 · 修复 Android Release 图标缺字
+
+- Android Release 构建关闭 Material 图标字库裁剪，修复设备上图标显示为空框的问题。字库资源增大约 1.6 MB，APK 压缩后实测增大约 0.6 MB；Debug/Profile 构建不受影响。
+
 ## 2026-09-25 · OS27 公开文档与三语文案
 
 - README、开发指南、架构、文档索引、贡献与安全说明对齐当前 Flutter Android/Windows 主线；明确源码、测试构建与稳定发行状态。
