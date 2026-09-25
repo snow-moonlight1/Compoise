@@ -7,7 +7,8 @@ import 'package:provider/provider.dart';
 import '../calendar_dates.dart';
 import '../models.dart';
 import '../storage.dart';
-import 'input_sheet.dart';
+import 'batch_decompose_sheet.dart';
+import 'reminder_access.dart';
 import 'task_hierarchy_checkbox.dart';
 
 /// Confirms discarding an unsaved detail draft. Returns true when the user
@@ -41,32 +42,6 @@ Future<bool> confirmDiscardDraft(BuildContext context) async {
   return res ?? false;
 }
 
-Future<void> showReminderAccessFeedback(BuildContext context) async {
-  final status = await requestReminderAccess();
-  if (!context.mounted) return;
-  final t = context.read<Store>().t;
-  if (status == ReminderPermissionStatus.denied ||
-      status == ReminderPermissionStatus.unsupported) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          t['notifPermissionDenied'] ??
-              'Notification permission denied; reminder is saved but may not fire',
-        ),
-      ),
-    );
-  } else if (status == ReminderPermissionStatus.inexactOnly) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          t['exactAlarmRestricted'] ??
-              'Exact alarms restricted; reminder may be delayed',
-        ),
-      ),
-    );
-  }
-}
-
 /// Shows the task detail as a modal bottom sheet on narrow screens.
 Future<void> showTaskDetailSheet(
   BuildContext context,
@@ -97,6 +72,10 @@ Future<void> showTaskDetailSheet(
             ),
       ),
 );
+
+/// Opens the editor for an existing task from a list row without a host panel.
+Future<void> showTaskEditSheet(BuildContext context, Task task) =>
+    showTaskDetailSheet(context, task);
 
 /// Central task detail editor for parent and child tasks.
 /// Can be rendered inside a bottom sheet or as a desktop side panel.
