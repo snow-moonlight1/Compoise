@@ -1,97 +1,103 @@
 # 开发指南
 
-命令历史核对：2026-09-07；平台范围更新：2026-09-09。架构与数据模型见 [ARCHITECTURE.md](ARCHITECTURE.md)，历史演进见 [CHANGELOG.md](CHANGELOG.md)。
+当前只开发 `matrixflow-native/` 的 Flutter Android 与 Windows。React、Tauri、Capacitor 冻结保留。本文后部的 Web 命令只在有人另行安排旧版维护时使用，Flutter 功能包不跑这组检查。
 
-**当前只开发 `matrixflow-native/` 的 Flutter Android/Windows。** React/Tauri/Capacitor 冻结保留；本文 Web 命令、类型和扩展示例只用于旧版维护，不要求 Flutter 新功能同步修改或构建 Web。最新步骤以 [Implementation Plan](IMPLEMENTATION_PLAN_2026-09-08.md) 第 5 节为准，下一包 WP03-N，WP21-N 已完成，WP20-W 已取消。新设置只接 Flutter 模型/Store/导入白名单/字典；新任务字段走 WP11，保留旧 v1 迁入。
+架构见 [ARCHITECTURE.md](ARCHITECTURE.md)。文档地图见 [README.md](README.md)。当前交接见 [HANDOFF.md](HANDOFF.md) 顶部。早期工作包步骤表在 [Implementation Plan](IMPLEMENTATION_PLAN_2026-09-08.md)，其中的「下一包」字样是历史派单。WP10、WP29 和界面实验继续暂停。
 
-## 环境与命令
+## 主线事实
 
-### Web / 混合端（冻结版本）
+- 任务、看板、不含密钥的 AI 配置和设置在本机 SharedPreferences。核心键是 `matrixflow-tasks`、`matrixflow-boards`、`matrixflow-config`、`matrixflow-settings`。
+- API 密钥在系统凭据中。默认 JSON 备份省略 `customApiKey`；设置里明确选择包含时，文件中是明文。
+- 分类、分组和拆解把当次任务标题发到用户配置的端点。预设与自定义地址见 [AI 预设](AI_PROVIDER_PRESETS.md)。
+- 默认备份是 ExportData v2，并继续读取 v1。v1 降级有损。契约见 [备份格式](BACKUP_FORMAT.md)。
+- 源码在本仓库。没有 remote，因此没有已配置的托管测试版或稳定发行。
 
-| 命令 | 说明 |
+项目不读取 `.env`。地址、模型名和密钥由用户在设置里填写。
+
+## 固定 SDK
+
+OS24 固定 Flutter **3.32.8** stable / Dart **3.8.1**（framework `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`）。本机安装在 `D:\Dev_SDKs\Flutter_3.32.8`。不要把该目录覆盖到回退安装 `D:\Dev_SDKs\Flutter_SDK`（Flutter 3.31.0-1.0.pre.88 / Dart 3.8.0-197.0.dev / revision `082a761570e89f67a56f50de1c4cb843a2e452af`）。`pubspec.yaml` 的 Dart 下限留在这个 dev 版本，只为让回退 SDK 仍能解析依赖。机器可读声明见 `matrixflow-native/toolchain.json`。
+
+2026-09-25 在基线上执行 `powershell -File scripts\build_release.ps1 -ValidateOnly -ExpectedTag v1.0.0+1`，输出的 Flutter 与 Dart 版本和上述修订号一致，并写明与 `toolchain.json` 匹配。该命令没有构建，也没有写产物。
+
+下文的 `flutter.bat` 指这套固定 SDK。PATH 上的 `flutter` 只有在 `flutter --version` 给出同一修订号时才是同一工具链。
+
+## Flutter 命令
+
+工作目录是 `matrixflow-native/`，除非某条命令写明在仓库根目录执行。
+
+| 命令 | 作用 |
 |---|---|
-| `npm install` | 安装 Node.js 依赖 |
-| `npm run dev` | 开发服务器，http://localhost:3000（端口冲突时加 `-- --port 3456`） |
-| `npm run build` | 生产构建，产物输出到 `dist/`（约 288 KB，gzip 87 KB，已消除分包警告） |
-| `npm run preview` | 本地预览构建产物 |
-| `npx tsc --noEmit` | 类型检查（构建脚本不含 tsc，需手动运行；当前通过） |
+| `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" pub get` | 按现有 lockfile 获取依赖。工具链包不升级依赖。 |
+| `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" analyze --no-pub` | 静态分析。 |
+| `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" test --no-pub` | 默认单元与 Widget 测试。数量看当次输出。 |
+| `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" test --no-pub integration_test/app_test.dart` | mock 集成入口。workflow 在 Windows debug job 里使用同一条命令。它不代替真机操作。 |
+| `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" build apk --debug` | Android 调试包。`.github/workflows/pr.yml` 使用这条命令，并设置 `REQUIRE_RELEASE_SIGNING=false`。 |
+| `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" build windows --debug` | Windows 调试构建。同一 workflow 在此之前会执行 `flutter config --enable-windows-desktop`。 |
+| `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" run -d windows` | 在本机 Windows 桌面启动调试会话。 |
 
-仅另行安排旧 Web 改动时的最低验证组合：`npm run build` + `npx tsc --noEmit`。
+代码改动的最低本地检查是 `analyze --no-pub` 与 `test --no-pub`。只改文档时核对链接和命令，不把未重跑的历史测试数字写成新的验收。
 
-### 原生跨平台端（`matrixflow-native/`）
+`flutter build apk --release` 在未设置 `REQUIRE_RELEASE_SIGNING=true` 时，Gradle 会在缺少正式证书的情况下使用 debug 签名。那种 APK 不是正式发行物。
 
-OS24 固定工具链是 Flutter **3.32.8** stable / Dart **3.8.1**（framework `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`）。本机安装在 `D:\Dev_SDKs\Flutter_3.32.8`。不要把该目录写入系统 PATH，也不要覆盖回退安装 `D:\Dev_SDKs\Flutter_SDK`（Flutter 3.31.0-1.0.pre.88 / Dart 3.8.0-197.0.dev / revision `082a761570e89f67a56f50de1c4cb843a2e452af`）。`pubspec.yaml` 的 Dart 下限留在这个 dev 版本，只为让回退 SDK 仍能解析依赖；这不是 Flutter 3.16+ 或中间未测版本都可用的声明。机器可读声明见 `matrixflow-native/toolchain.json`。
+## 发行脚本
+
+在仓库根目录执行。脚本自身会选择 `D:\Dev_SDKs\Flutter_3.32.8`。
 
 ```powershell
-& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" test --no-pub
-& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" analyze --no-pub
+powershell -File scripts\build_release.ps1 -ValidateOnly -ExpectedTag v1.0.0+1
+powershell -File scripts\build_release.ps1 -Platform Windows -ExpectedTag v1.0.0+1
 ```
 
-| 命令 | 说明 |
+`pubspec.yaml` 的版本必须是 `X.Y.Z+N`。当前是 `1.0.0+1`，所以 `-ExpectedTag` 接受 `v1.0.0` 或 `v1.0.0+1`。
+
+`-ValidateOnly` 只打印计划。2026-09-25 的这次输出是：Android 产物名将是 `matrixflow-v1.0.0+1-android.apk`，签名材料缺失；Windows 产物名将是 `matrixflow-v1.0.0+1-windows-portable.zip`，且没有 Authenticode。因此现在执行 `-Platform Android` 或 `-Platform All` 会在构建前拒绝。Windows 单平台命令可以打出未签名绿色包，该包仍然不是稳定发行。
+
+正式 Android 材料放在 `matrixflow-native/android/key.properties`，模板是 [key.properties.example](../matrixflow-native/android/key.properties.example)。不要把真实口令或 keystore 写入仓库。
+
+产物目录是仓库根下的 `release_dist\matrixflow-v1.0.0+1\`。一次运行只保留这次选择的平台文件和 `SHA256SUMS.txt`。
+
+## 本机 Android 与 Windows 工具
+
+这些路径来自 `toolchain.json` 所记录的 2026-09-24 验证机：
+
+- Android SDK：`D:\Dev_SDKs\Android_studio_SDK`（platform android-36，build-tools 36.0.0，NDK 28.0.12433566）。
+- 本地 JDK：`D:\Dev_SDKs\jdk-21.0.12.1+1`。发布 workflow 使用 Temurin 17。
+- 工程：AGP 8.7.3、Gradle 8.12、Kotlin 2.1.0，compileSdk 36，minSdk 23。`android/local.properties` 的 `sdk.dir` 使用正斜杠。
+- Visual Studio Community 2022 17.14.36，Windows 10 SDK 10.0.26100.0。
+
+Flutter 的 Android 工程使用 `flutter build`，不把 `matrixflow-native/android` 下尚未生成的 `gradlew.bat` 当成日常入口。
+
+## 冻结的 Web / Tauri / Capacitor
+
+根目录 `package.json` 的脚本只有 `dev`、`build`、`preview`。没有 `tauri` 脚本。
+
+| 命令 | 作用 |
 |---|---|
-| `flutter pub get` | 按现有 lockfile 获取依赖。OS24 不升级依赖。 |
-| `flutter test --no-pub` | 默认单元/Widget 测试。数量以当次输出和 HANDOFF 为准。设备集成测试另行 `flutter test integration_test/app_test.dart -d <device>`。 |
-| `flutter analyze --no-pub` | 静态分析。 |
-| `flutter build apk --debug` | Android 调试包。正式签名 release 使用打包脚本。 |
-| `flutter build windows` | Windows 桌面构建。 |
+| `npm install` | 安装 Node 依赖 |
+| `npm run dev` | Vite 开发服务器。`vite.config.ts` 把端口设为 3000 |
+| `npm run dev -- --port 3456` | 3000 不可用时改端口 |
+| `npm run build` | Vite 生产构建，输出到 `dist/` |
+| `npm run preview` | 预览 `dist/` |
+| `npx tsc --noEmit` | 类型检查。构建脚本本身不运行 tsc |
+| `npx tauri build` | 冻结桌面壳。等价意图的旧写法 `npm run tauri build` 在当前 `package.json` 里没有对应脚本 |
+| `npx cap sync` | 冻结 Capacitor 同步。随后在根目录 `android/` 执行 `.\gradlew.bat assembleDebug` |
 
-原生端改动后的最低验证组合：`flutter test --no-pub` + `flutter analyze --no-pub`。下文命令里的 `flutter` 指 3.32.8 这套 SDK。
+Windows PowerShell 5.1 不支持 `&&`。进入旧 Android 壳时分两条执行：`Set-Location android`，然后 `.\gradlew.bat assembleDebug`。
 
-2026-09-07 原生审查与构建修复：Android debug、Android release（22.8MB APK）及 Windows release 构建全部通过（B01 已解决关闭，见 [报告 B01](NATIVE_BUG_REVIEW_2026-09-07.md)）。Flutter 构建和测试会重生成平台插件文件，建议同一工作区内顺序运行。
+本文件这一节的命令与 `package.json`、`vite.config.ts` 和根目录 `android\gradlew.bat` 对照过。OS27 文档子批次没有重新执行 `npm install`、Vite、tsc、Tauri 或 Capacitor。
 
-## 环境变量
+旧 Web 的代码约定仍然有效，仅供有人维护冻结树时使用：业务集中在 `App.tsx`，文案在 `translations.ts`，类型在 `types.ts`，样式使用 Tailwind。新的 Flutter 设置和任务字段不要再同步这三处。
 
-无。2026-09-06 移除 Gemini 协议后，项目不再依赖任何环境变量或 `.env` 文件；AI 的地址 / 模型名 / 密钥全部由用户在设置面板填写并存于 Flutter SharedPreferences（旧 Web 为 localStorage）。
+## 常见 Flutter 扩展
 
-## 旧 Web 代码约定（冻结，仅供历史维护）
+文件都在 `matrixflow-native/lib/`。领取范围以当前交接为准。
 
-- 函数组件 + React.FC，props 用 interface 声明；事件回调以 `on` 前缀命名，由 App.tsx 下传。
-- 业务逻辑集中在 App.tsx：新增功能一般先加 state（或复用既有 state）+ 处理函数，再经 props 接入组件。
-- 所有用户可见文案走 `translations.ts` 的 `t` 对象，三种语言（en / zh / ja）必须同步补充。
-- 类型集中定义在 `types.ts`；组件不自定义任务 / 设置相关类型。
-- 样式用 Tailwind 工具类；主题色经 `--primary` CSS 变量注入，自定义动画曲线与关键帧在 index.html 内联配置中。
+- 文案改 `l10n.dart` 的 en/zh/ja。OS27 的文案子批次独占这个文件时，文档子批次不改它。
+- AI 服务商沿用 `ai_presets.dart` 与 `ai_service.dart` 的三种协议。新增预设前先核对真实端点，不要为每一家兼容服务商增加一种协议枚举。
+- 设置字段同时改模型、Store 默认值与加载、导入白名单、设置页和三语字典。
+- 任务新字段保持 v1 可读、v2 可导出，并在 [BACKUP_FORMAT.md](BACKUP_FORMAT.md) 写明 v1 降级会丢失什么。
 
-## Flutter 主线的常见扩展任务
+## Git
 
-以下文件均在 `matrixflow-native/lib/`，实际实施前按 Implementation Plan 领取一个子批次。
-
-### 语言与文案
-
-`l10n.dart` 补齐 en/zh/ja 字典，界面通过既有本地化入口读取；新增支持语言时同步模型/Store 默认解析与设置选项，以及 AI 提示词语言映射。WP21-N 已将已有三语象限名统一为完整紧急/重要维度，不增加语言种类。
-
-### AI 服务商
-
-按 WP01-N 建立预设与模型发现适配，服务商 ID 与三协议类型分开，不为每家兼容服务商增加一个协议枚举。复用 `ai_service.dart`、`models.dart` 与设置页，不改旧 Web。实时模型列表与 Key-only 可行性须逐家核验。
-
-### 设置与任务字段
-
-设置字段接 `models.dart`、`storage.dart` 默认/加载/导入白名单、设置页和 `l10n.dart`；缺省回退保护已有数据。可忽略的可选显示偏好可保留当前版本。任务信息新增字段必须按 WP11 的 schema/导出版本契约和整份导入校验处理，验证旧 v1 迁入与新 Flutter Android/Windows 往返；不要只加字段就承诺旧 Web 无损理解。
-
-### 平台适配与验证
-
-共享业务命令放 Store/服务；布局按窗口宽度，触摸与鼠标/键盘都需可用。平台插件调用做能力隔离，Windows 插件不得在 Android 启动时调用。通常运行 Flutter test/analyze；涉及平台插件或基础闭环验收时按计划构建 Android/Windows。不要为了 Flutter 包运行 Web build/tsc。
-
-## 打包
-
-正式主线只发行 Flutter Android/Windows；表中 Web、Tauri、Capacitor 命令保留给冻结旧版：
-
-| 形态 | 工具 | 命令 |
-|---|---|---|
-| Web | Vite | `npm run build` → `dist/` |
-| 桌面混合壳（Windows） | Tauri v2（`src-tauri/`，需 Rust） | `npm run tauri build` → `src-tauri/target/release/bundle/{msi,nsis}/` |
-| 安卓混合壳 | Capacitor（`android/`） | `npx cap sync` → `cd android && ./gradlew.bat assembleDebug` |
-| 安卓原生应用（自绘） | Flutter（`matrixflow-native/`） | `cd matrixflow-native && flutter build apk --debug` |
-| Windows 原生桌面（自绘） | Flutter（`matrixflow-native/`） | `cd matrixflow-native && flutter build windows` |
-
-本机环境要点（2026-09-24 OS24 用 Flutter 3.32.8 复核；2026-09-07 的路径记录保留在后）：
-
-- **Flutter SDK**：固定 3.32.8 stable / Dart 3.8.1，位于 `D:\Dev_SDKs\Flutter_3.32.8`。回退目录 `D:\Dev_SDKs\Flutter_SDK` 不要升级。PowerShell 调用 `& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat"`。
-- **Android SDK 与 JDK**：Android SDK 在 `D:\Dev_SDKs\Android_studio_SDK`（platform android-36，build-tools 36.0.0，NDK 28.0.12433566）。本地验证的 `JAVA_HOME` 是 JDK 21 `D:\Dev_SDKs\jdk-21.0.12.1+1`。CI release workflow 使用 Temurin 17。工程为 AGP 8.7.3、Gradle 8.12、Kotlin 2.1.0，compileSdk 36，minSdk 23。`android/local.properties` 的 `sdk.dir` 必须用**正斜杠**。Visual Studio Community 2022 17.14.36（17.14.37502.11），Windows 10 SDK 10.0.26100.0。Android Studio 未安装；SDK 与 JDK 足够完成本地 doctor 和构建。
-- **项目路径若含非 ASCII 字符或空格**：AGP 依赖解析可能异常，可靠做法是映射 ASCII 盘符后构建：`subst M: "D:\Dev_project\martix"`，然后在 `M:/android` 下执行 gradle。
-- **端口 3000 / 3100 落在 Windows 动态排除段**（2945-3044、3079-3178，`netsh interface ipv4 show excludedportrange` 可查），dev server 用 `npm run dev -- --port 3456` 或其他未排除端口。
-- **Maven 依赖走阿里云镜像**：`android/build.gradle` 的 buildscript 与 allprojects 仓库列表已把 `maven.aliyun.com`（google/central/public）放在 `google()`、`mavenCentral()` 之前——直连 `dl.google.com` 会 TLS 握手失败。
-- **共享 Flutter 约定**：Android/Windows 共用 `models.dart`、`l10n.dart`、`storage.dart` 的演进实现。新 Flutter 继续读取旧 v1；不再给 React 派同功能包。任务备份格式按 WP11 演进，自动同步另属 WP18。
-
-## Git 工作流现状
-
-`main` 单分支直线历史，无远端、无标签、无分支保护。建议后续：功能改动开分支或至少保持现有 conventional commits 风格（`feat(模块): 描述`，正文列要点），并在每个可交付节点打 tag；每合并一批功能就更新 docs/CHANGELOG.md 顶部新增条目（不要改写历史条目）。
+本地可以有工作分支和 worktree。`git remote` 为空，也没有 tag。提交说明保持 `feat(模块): 描述` 这一类前缀。变更记录由集成时追加到 `docs/CHANGELOG.md` 顶部，不改写已有条目。作者邮箱不是已经公布的维护者联系方式。

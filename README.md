@@ -1,137 +1,69 @@
-# MatrixFlow AI — 四象限智能待办清单 / Local-First Eisenhower Matrix
+# MatrixFlow AI
 
-[![Flutter Test](https://img.shields.io/badge/Flutter%20Tests-328%2F328%20Passed-brightgreen)](matrixflow-native/)
-[![Analyze](https://img.shields.io/badge/Analyze-0%20Issues-brightgreen)](matrixflow-native/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows-blue)](matrixflow-native/)
+本地优先的艾森豪威尔矩阵待办。持续开发的客户端是 `matrixflow-native/` 里的 **Flutter Android 与 Windows**。任务存在本机。需要 AI 时，由你填写密钥，应用把当次请求发到你配置的端点。
 
-MatrixFlow AI 是一款基于经典**艾森豪威尔四象限法则**（Eisenhower Matrix）打造的原生现代化任务管理工具。采用纯本地优先（**Local-First**）设计，并支持 **BYOK（自带 API 密钥）** 端到端直连大语言模型，帮助您聚焦高价值事项，高效拆解复杂目标。
+MatrixFlow AI is a local-first Eisenhower-matrix task app. The maintained client is the Flutter Android and Windows app in `matrixflow-native/`. Tasks stay on the device. AI requests go to an endpoint you configure, with a key you provide.
 
-MatrixFlow AI is a modern, local-first task management application built on the classic **Eisenhower Matrix principle**. Powered by Flutter with zero WebView bloat, it supports **BYOK (Bring Your Own Key)** to directly connect to leading AI models for smart classification, grouping, and subtask decomposition.
+根目录的 React、Tauri 与 Capacitor 工程冻结保留，只作历史参考。WP10、WP29 和界面实验继续暂停。
 
----
+## 现在处于哪一步
 
-## 🌟 核心特性 / Features
+这三件事是分开的。本仓库目前只具备第一栏里的本地源码。
 
-- **极简四象限十字矩阵 (Eisenhower Matrix)**：
-  - 紧急且重要 (Q1) / 不紧急但重要 (Q2) / 紧急但不重要 (Q3) / 不紧急也不重要 (Q4)；
-  - 极简无框十字布局，首行对齐复选框与多行逐行删除线；
-  - 自由长按拖拽跨象限移动与置顶；
-  - 单象限聚焦沉浸模式（Focus View）与纵向/宫格双视图一键切换。
-- **BYOK 智能 AI 助手 (Bring Your Own Key)**：
-  - 预设支持 **DeepSeek 官方**、**火山引擎**、**阿里云百炼**，以及任意 OpenAI 兼容端点和 Anthropic Messages 协议；
-  - 支持动态模型发现与思考模式控制（Thinking Mode / Reasoner）；
-  - 智能四象限自动归类、3–5 步长期目标拆解与同类任务合并；
-  - 端到端直连官方服务商，绝无任何中间代理中转。
-- **100% 本地优先与绝对隐私 (Local-First & Privacy-Centric)**：
-  - 数据 100% 存储于本机设备沙盒，完全离线运行；
-  - 零中央服务器、零广告 SDK、零数据追踪埋点（无 Google/Firebase/友盟分析）。
-- **跨平台定时提醒与桌面保活 (Cross-Platform Reminders)**：
-  - **Android**：原生定时通知（遵循 `SCHEDULE_EXACT_ALARM` 合规规范，坚决不申请高危 `USE_EXACT_ALARM`），开机重启自动恢复排期；
-  - **Windows 桌面端**：WinRT Toast 丰富通知横幅，系统托盘（System Tray）常驻保活，点击通知一键唤起主窗口与目标任务高亮；
-  - Windows 快捷键（Ctrl+N 新建、Ctrl+F 搜索等）与设置页快捷键帮助；不再提供命令台。
-- **生产力细节与贴心设计**：
-  - 手势滑动快速完成与删除，支持 **5 秒浮动撤销（Undo）**；
-  - 已完成任务归档列表（恢复/删除）；总体完成率默认关闭，仅可在更多面板显示；
-  - 新手 5 步响应式交互教程（随时可在帮助中重新回顾）；
-  - 标准 JSON 数据导入/导出，跨平台 100% 无损往返互通。
+| 状态 | 现在的事实 |
+|---|---|
+| 源码 | 源码在本仓库，许可证是 [MIT](LICENSE)。`git remote` 为空，公开托管地址、问题跟踪和分支保护都还没配置。 |
+| 测试版二进制 | 没有托管的测试下载页。本机可以打 Android debug APK，以及未签名的 Windows 调试或桌面构建。这些构建没有分发渠道。 |
+| 稳定发行 | 尚未发行。没有正式 Android 签名证书、Windows 代码签名、git tag、Release，也没有覆盖安装保留数据的设备记录。 |
 
----
+维护者邮箱和安全联系地址待配置。在持有人给出真实地址之前，本文不填写组织 URL 或邮箱。报告方式见 [SECURITY.md](SECURITY.md)，参与方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## 📱 平台架构与状态 / Platform Architecture
+## 数据留在哪里，AI 会发出什么
 
-本项目代码库主干架构如下：
+待办、看板、非敏感 AI 配置和应用设置写在本机 SharedPreferences。应用没有另做任务库加密，也没有账号或云同步。核心键是 `matrixflow-tasks`、`matrixflow-boards`、`matrixflow-config`、`matrixflow-settings`。
 
-```
-martix/
-├── matrixflow-native/         # 【唯一持续开发主线】Flutter 跨平台客户端 (Android + Windows)
-│   ├── lib/                  # 状态中心 (storage.dart)、数据模型 (models.dart)、三语字典 (l10n.dart)
-│   │   ├── screens/          # 主界面、设置、搜索、完成历史、新手引导
-│   │   ├── services/         # 跨平台提醒服务、桌面托盘壳服务、AI 直连服务
-│   │   └── widgets/          # 任务卡片、十字象限面板、首页动作与看板选择器
-│   ├── android/              # 原生 Android 工程 (build.gradle.kts, 签名隔离, 权限合规)
-│   ├── windows/              # 原生 Windows 桌面工程 (C++ Runner, Win32 窗口, 托盘与图标)
-│   └── test/                 # 全量自动化测试套件 (328 项，UX05 基线)
-├── docs/                     # 架构文档、发行规划、隐私政策、版本交接记录
-├── scripts/                  # 自动化构建打包脚本 (build_release.ps1)
-├── .github/workflows/        # CI/CD 流水线 (Tag 触发自动构建发布 Release)
-├── src/ & src-tauri/         # 【已冻结归档】早期 React 19 / Tauri / Capacitor 原型 (只读参考)
-└── LICENSE                   # MIT 开源许可证
-```
+API 密钥走系统凭据（`flutter_secure_storage`）：Android 使用 Keystore 与 AES-GCM，Windows 使用凭据管理器保存密钥、应用目录保存密文。默认 JSON 备份省略 `customApiKey`。只有在设置里每次明确选择包含密钥时，应用才从系统凭据读出密钥，并在警告后把它写成明文 JSON。旧的带密钥 v1/v2 文件仍可读取。覆盖导入默认保留本机密钥。合并导入不带入配置和密钥。
 
-> ⚠️ **说明**：自 2026-09-09 起，MatrixFlow 客户端全面收敛于 `matrixflow-native/`（Flutter 3 自绘引擎），根目录旧版 React/Tauri 仅保留为历史只读参考，不参与日常开发与发布构建。
+AI 在你执行分类、分组或拆解时才发送网络请求。分类和分组发送的是这次输入的任务标题；拆解发送的是被选中的长期任务标题。请求去往你保存的地址：DeepSeek、火山引擎、阿里云百炼有预设 HTTPS 端点，自定义地址可以指向其他兼容服务、反代或 HTTP。应用自身不运营中转服务。模型发现只带密钥请求模型列表，不含任务正文。生成探测会先说明可能计费，确认后才发送一次很短的 `ping`。
 
----
+备份默认是 ExportData **v2**。没有版本号的文件按 **v1** 读取。当前 Flutter 能读 v1 和 v2，并拒绝未知版本。v1 降级导出是有损的：会失去手动紧急模式、笔记、提醒、完成时间，以及一部分显示与桌面设置。冻结的 React 不保证能无损读回 v2。Android 与 Windows 使用同一份备份格式。这是手动文件交换，不是自动同步。字段与导入规则见 [备份格式](docs/BACKUP_FORMAT.md)。
 
-## 🚀 快速开始与编译指南 / Quick Start & Build
+## 构建与测试
 
-### 环境要求 / Prerequisites
-- [Flutter SDK](https://flutter.dev/) **3.32.8** stable / Dart **3.8.1**（framework `edada7c56edf4a183c1735310e123c7f923584f1`）。本机目录 `D:\Dev_SDKs\Flutter_3.32.8`，不要覆盖回退安装 `D:\Dev_SDKs\Flutter_SDK`。声明见 `matrixflow-native/toolchain.json` 与 [开发指南](docs/DEVELOPMENT.md)。
-- **Android 构建**：Android SDK `D:\Dev_SDKs\Android_studio_SDK`（platform android-36，build-tools 36.0.0，NDK 28.0.12433566）。本地 JDK 21（`D:\Dev_SDKs\jdk-21.0.12.1+1`）；发布 workflow 使用 Temurin 17。
-- **Windows 构建**：Visual Studio Community 2022 17.14.36（含「使用 C++ 的桌面开发」，Windows 10 SDK 10.0.26100.0）
+固定 SDK 是 Flutter **3.32.8** stable / Dart **3.8.1**（framework `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`）。本机目录是 `D:\Dev_SDKs\Flutter_3.32.8`。回退目录 `D:\Dev_SDKs\Flutter_SDK` 保持不动。机器可读声明在 [toolchain.json](matrixflow-native/toolchain.json)。
 
-### 1. 运行本地开发与测试 / Run & Test
-```bash
-cd matrixflow-native
-
-# 1. 获取依赖
-flutter pub get
-
-# 2. 静态代码质量检查 (0 issues)
-flutter analyze --no-pub
-
-# 3. 运行全量自动化测试 (328/328 passed)
-flutter test --no-pub
-
-# 4. 本地启动运行 (自动检测当前连接的设备或 Windows 桌面)
-flutter run
-```
-
-### 2. 一键自动化构建 Release 发行包 / Automated Release Build
-项目提供了跨平台自动化构建脚本，可一键生成已配置版本号、SHA256 校验和的产物：
+下面的 `flutter.bat` 就是这套固定 SDK。系统 PATH 里的其他 `flutter` 不作为本仓库的工具链。先进入 `matrixflow-native/`，再执行：
 
 ```powershell
-# 在项目根目录下执行 PowerShell 脚本
-powershell -ExecutionPolicy Bypass -File scripts\build_release.ps1 -Platform All
+Set-Location matrixflow-native
+& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" pub get
+& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" analyze --no-pub
+& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" test --no-pub
+& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" build apk --debug
+& "D:\Dev_SDKs\Flutter_3.32.8\bin\flutter.bat" build windows --debug
 ```
 
-构建完成后产物将输出在 `release_dist/` 目录下：
-- **Android**：`matrixflow-v1.0.0-android.apk`（约 24.6 MB）
-- **Windows**：`matrixflow-v1.0.0-windows-portable.zip`（绿色便携解压即用，约 12.0 MB）
-- **校验清单**：`SHA256SUMS.txt`
+新增依赖或锁文件无法解析时才需要 `pub get`。`build apk --debug` 是调试包。没有正式证书时，`build apk --release` 仍可能打出 debug 签名的 APK，不能当作稳定发行物。
 
----
+正式归档回到仓库根目录执行。若上一段命令已经进入 `matrixflow-native/`，先执行 `Set-Location ..`。
 
-## 🔑 BYOK 服务商配置指南 / BYOK Configuration Guide
+```powershell
+powershell -File scripts\build_release.ps1 -ValidateOnly -ExpectedTag v1.0.0+1
+powershell -File scripts\build_release.ps1 -Platform Windows -ExpectedTag v1.0.0+1
+```
 
-MatrixFlow 遵循绝对的安全合规原则，API Key 仅保存在本地设备沙盒中。
+当前 `pubspec.yaml` 版本是 `1.0.0+1`。`-ValidateOnly` 只核对版本和签名前提，不写产物。2026-09-25 在本基线上执行该命令的结果是：工具链与 `toolchain.json` 一致，Android 签名材料缺失，因此真正的 `-Platform Android` 或 `-Platform All` 会拒绝构建。Windows 归档名将是 `matrixflow-v1.0.0+1-windows-portable.zip`，且没有 Authenticode 签名。证书模板见 [key.properties.example](matrixflow-native/android/key.properties.example)。
 
-1. 打开应用右上方进入「**设置**」面板；
-2. 选择您的 AI 服务商预设：
-   - **DeepSeek 官方**：直连 `https://api.deepseek.com`，填入 Key 后自动拉取 `deepseek-chat` / `deepseek-reasoner` 模型，支持深度思考控制；
-   - **火山引擎 (Volcengine)**：填入 Key 后自动适配模型接入点；
-   - **阿里云百炼 (Bailian)**：填入 Key 后自动解析兼容通义千问系列端点；
-   - **自定义 (Custom)**：支持任意兼容 OpenAI / Anthropic Messages 协议的自定义端点与模型。
-3. 点击「**测试连接**」，验证通过后即可在任务主界面畅享 AI 极速分类与拆解。
+基线 `1625c1767b1893847ff4650218aba0e41a2886d4` 的集成交接记录了默认测试 560/560、分析 0 issues。那是当时的本地记录。本文件不把它写成实时配额，仓库也没有挂接这些数字的远程检查。
 
----
+Android 构建还需要本机 Android SDK 与 JDK，Windows 桌面构建需要 Visual Studio 的 C++ 桌面工作负载。路径和冻结旧版命令见 [开发指南](docs/DEVELOPMENT.md)。
 
-## 📖 相关文档 / Documentation
+## 文档
 
-- [当前实施计划：实机尾项与开源准备 OS01–OS27（OS01–OS02 已完成，下一包 OS03）](docs/IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)
-- [Flutter 全库审查：缺陷证据、架构评估与 JSON 决策](docs/FLUTTER_REVIEW_2026-09-22.md)
-- [历史实机反馈交互返修计划：UX01–UX08](docs/IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md)
-- [当前任务与交接状态 (HANDOFF.md)](docs/HANDOFF.md)
-- [开源合规与发行规划 (RELEASE_PLAN.md)](docs/RELEASE_PLAN.md)
-- [隐私政策 (PRIVACY_POLICY.md)](docs/PRIVACY_POLICY.md)
-- [应用商店上架送审物料 (STORE_LISTING.md)](docs/STORE_LISTING.md)
-- [v1.0.0 发行说明 (v1.0.0.md)](docs/release_notes/v1.0.0.md)
-- [技术架构与数据模型 (ARCHITECTURE.md)](docs/ARCHITECTURE.md)
-- [数据演进与版本迁移契约 (DATA_COMPATIBILITY.md)](docs/DATA_COMPATIBILITY.md)
-- [本地定时提醒设计方案 (REMINDERS_DESIGN.md)](docs/REMINDERS_DESIGN.md)
+贡献者从 [文档索引](docs/README.md) 进入。结构说明见 [架构](docs/ARCHITECTURE.md)，当前交接见 [HANDOFF](docs/HANDOFF.md) 顶部。客户端目录说明见 [matrixflow-native/README.md](matrixflow-native/README.md)。
 
----
+## 许可与图标字体
 
-## 📄 开源许可证 / License
+客户端源码、脚本、测试和文档使用 [MIT License](LICENSE)。
 
-MatrixFlow AI 基于 **[MIT License](LICENSE)** 协议开源。商业与个人均可自由使用、分发与修改源码。
+界面图标来自 Flutter 打包的 Material Icons 字体。固定 SDK 中的许可文件 `D:\Dev_SDKs\Flutter_3.32.8\bin\cache\artifacts\material_fonts\materialicons_license.txt` 是 Creative Commons Attribution 4.0。署名：Material Icons，许可为 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。

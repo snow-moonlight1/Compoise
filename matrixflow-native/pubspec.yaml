@@ -1,5 +1,5 @@
 name: matrixflow_native
-description: "A new Flutter project."
+description: "Local-first Eisenhower matrix for Android and Windows. Tasks stay on device; AI requests go to a user-configured endpoint."
 publish_to: 'none'
 version: 1.0.0+1
 
