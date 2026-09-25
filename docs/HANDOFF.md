@@ -1,5 +1,13 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前状态：RF02、RF05、RF07 集成（2026-09-26）
+
+- 从干净的 `main / 2b90975` 依次 cherry-pick RF02 `7f8fe56`、RF05 `0a4d40d`、RF07 `524b8d9`；集成后主线对应 `3340bcb`、`20fb0b2`、`2662067`。三个原 worktree 和分支未改动、未 push，冻结端未改。集成审查另补 RF02 预览 payload 的递归不可变快照及回归，避免原输入对象或公开的 `plan.payload` 内层列表/对象在确认后改变提交内容。
+- RF02 让导入与普通保存共用 Store 串行提交链，并在提交时对活库重算预检；失败回滚保留提交窗口内已接受的记录和设置修改。RF-R01 已转绿。RF03 仍需处理凭据最后意图、完成结果与退出 barrier；RF02 的凭据回滚守卫只是过渡。RF04 仍需处理成功导出却无法导入的大备份。
+- RF05 用 `ConnectionRequestSession` 把取消、busy、结果归属和旧响应收口，RF-R06 已转绿；RF06 仍需核对具体模型版本与端点能力。RF07 修正折叠 composing 的判定，未添加的子项输入计入草稿，保存生成真实子项、切换任务清空输入；RF-R05 已转绿。其余共享探针 RF-R02/03/04/07 仍属未完成包。
+- 固定 SDK 3.32.8 集成态 `flutter test --no-pub` **639/639**、`flutter analyze --no-pub` **0 issues**；RF02 定向 **18/18**。共享 `test/review/os_final_review_probe.dart` **3/7**，RF-R01/05/06 绿，RF-R02/03/04/07 仍按原问题红；该探针本来用于保留未修反例，不能算默认测试失败。三包原 Agent 及本次集成只提供单元/widget 层证据；Android 软键盘、Windows IME、真机 AI 设置、导入/退出等受影响路径尚未完成 RF10 双端定向人工验收。用户已确认 Android Release 聚焦正常、Windows Release 聚焦顺畅；这不替代新增路径的验收。
+- 下一批可从本次 main 基线分别领取 RF03、RF04、RF06 的独立 worktree；RF03 和 RF04 都会涉及 Store，开发可并行，**集成顺序 RF03 再 RF04**，后者合入时复核 `applyImport`、凭据/保存队列与备份预检的交叉行为。RF08 等 RF03 集成后再领；RF09 等 RF02–04/RF08 完成并测量后决定。继续暂停 WP10/WP29/UI 实验和正式发布。
+
 ## 当前状态：27 包复审与最后一轮返修计划（2026-09-26）
 
 - 审查基线 `main / 9e30f019b6b20193de6696e8c7780c7f61fe5836`，接手时干净。复审产出七个合成反例、审查文档和可选隔离测量工具；后续收到用户图标反馈后另修 Android Release 构建参数，未改 Dart 业务源码、未提交或发布。当前派单为 [RF01–RF10 返修计划](IMPLEMENTATION_PLAN_2026-09-25_FINAL_REPAIR.md)，逐包结论和证据见 [27 包复审报告](OS_IMPLEMENTATION_REVIEW_2026-09-25.md)。保留 OS 成果，一次领取一个 RF 包，不全盘重做。

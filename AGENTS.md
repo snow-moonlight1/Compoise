@@ -2,7 +2,7 @@
 
 AI 驱动的艾森豪威尔矩阵任务管理应用。**持续开发的客户端仅为 Flutter Android + Windows，位于 `matrixflow-native/`；根目录 React / Tauri / Capacitor 冻结保留。** 文档索引见 [README.md](README.md)，当前任务见 [docs/HANDOFF.md](docs/HANDOFF.md)，可执行范围见 [最后一轮返修 Implementation Plan](docs/IMPLEMENTATION_PLAN_2026-09-25_FINAL_REPAIR.md)。
 
-> **2026-09-25 复审状态：** OS01–OS27 已集成，但复审发现七个可复现边界缺陷；当前派单按 RF01–RF10 返修计划，一次领取一个包。用户确认 Windows Release 聚焦顺畅、Android Debug 小数据聚焦卡顿，构建模式对照见 HANDOFF 顶部。OS26 正式签名、托管发布与完整升级验收仍未完成。继续暂停 WP10/WP29/UI 实验；下文旧包进度为历史。
+> **2026-09-26 返修状态：** OS01–OS27 已集成；RF01 因 Android Debug/Release 构建模式差异关闭，RF02、RF05、RF07 的源码与默认回归已集成。下一批可分别领取 RF03、RF04、RF06；RF03/RF04 开发可并行但按此顺序集成，详见 HANDOFF 顶部和返修计划。Android Release 与 Windows Release 聚焦已获用户确认；新增路径的双端定向验收仍归 RF10。OS26 正式签名、托管发布与完整升级验收仍未完成。继续暂停 WP10/WP29/UI 实验；下文旧包进度为历史。
 
 ## 运行与验证
 

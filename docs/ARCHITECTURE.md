@@ -28,7 +28,7 @@ API 密钥经过 `CredentialStore`（`flutter_secure_storage` 10.3.4）。Androi
 
 ## 当前页面会话与列表构建（OS21/OS22）
 
-`TaskEditDraft` 持有任务详情的输入 controller 和字段级草稿合并，详情面板负责释放；子项弹窗也自行释放 controller。`TaskDetailSession` 统一主界面、搜索和完成页的打开、离开及草稿确认，三页使用同一个 924 逻辑像素的并列详情断点。日期/提醒选择由 `date_edit_fields.dart` 共享。设置页的模型请求与连接测试有代际和取消规则，`SettingsBackupFlow` 协调预检、选择、事务应用及结果；页面关闭后不再启动导出选择或写回输入框。双端真实 IME 和窗口人工操作仍待验。
+`TaskEditDraft` 持有任务详情的输入 controller 和字段级草稿合并，详情面板负责释放；子项弹窗也自行释放 controller。RF07 后，只有非折叠 composing 阻止提交；未添加的子项输入算草稿，保存时转为子项，离开任务时按脏草稿询问并清空。`TaskDetailSession` 统一主界面、搜索和完成页的打开、离开及草稿确认，三页使用同一个 924 逻辑像素的并列详情断点。日期/提醒选择由 `date_edit_fields.dart` 共享。设置页的模型请求与连接测试有代际和取消规则；RF05 后连接/生成测试由单独会话持有取消、busy 与结果身份，失效的旧回复不会占住按钮。`SettingsBackupFlow` 协调预检、选择、事务应用及结果；页面关闭后不再启动导出选择或写回输入框。双端真实 IME 和窗口人工操作仍待验。
 
 列表视图用一个 `CustomScrollView`，各象限标题后接惰性 `SliverList.builder`，保留卡片身份、滚动锚点、退场和父子展开。Windows 1 万合成任务的同机 profile 对照显示挂载卡片约 2500→24、首帧构建最大约 1.6 s→4.9 ms；这是该 Windows 环境的测量，不代表 Android。宫格仍使用原有惰性列表；Store 查询未因此改动。原始帧数据与设备条件见 [OS22 记录](OS22_NOTES.md)。
 
@@ -45,6 +45,8 @@ Windows runner 在 Flutter 与 Store 启动前用按用户 SID 命名的互斥�
 应用字号由 `main.dart` 的 `MaterialApp.builder` 组合系统与应用 scaler 一次；设置页预览不再另乘应用字号。逐行划线的测量缓存以 `TextScaler` 对象为身份，临时 `TextPainter` 用后释放，象限标题测量也遵循此规则。平台真实非线性缩放与双端人工观感未测。
 
 `Store` 的任务和看板列表为不可修改的列表视图，`captureSnapshot()` 提供隔离的板、任务、配置和设置副本；设置页用 `copyAIConfig()` 复制单份配置草稿再提交。任务实体仍可变，调用者不可把从列表取得的任务直接改作持久化命令。移动、紧急重置和截止日期自动提升更新任务修订号，旧撤销不会覆盖之后的编辑。提醒与持久化由组合根注入 Store；同步 `importData` 仍保留给内部兼容调用。
+
+RF02 后，普通保存与 `applyImport` 共用 Store 的串行提交链；导入提交时根据冻结的预览 payload 对当前库重算计划，提交失败按快照回滚并保留窗口内后续命令。同步 `importData` 只用于兼容测试，不承担产品文件导入的事务语义。凭据最后意图、退出完成 barrier 属 RF03；自身备份可恢复上限属 RF04，不能把 RF02 的磁盘顺序修复当成这两项已完成。
 
 入场、几何、列表遮罩、引导、拖放回顶与退出的时长统一来自 `lib/ui/motion_policy.dart`。运行中打开减少动画时，正在执行的回顶或翻页跳到目标；手动滚动位置保持。动画中的中途切换已有 widget 回归，双端人工手感未测。
 

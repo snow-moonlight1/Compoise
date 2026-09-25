@@ -11,10 +11,12 @@ class ImportPlan {
   final AppSettings? settings;
   final AIConfig? aiConfig;
   final bool hasCredential;
+
   /// Original payload the plan was inspected from, kept so a commit can
   /// re-derive the plan against the live library. A preview is a snapshot of
   /// an older state; replaying it blindly would drop commands accepted after
-  /// the preview. Shallow and unmodifiable: mutating it cannot change a plan.
+  /// the preview. Every nested map and list is copied and made unmodifiable,
+  /// so later edits to the source cannot change what the user confirmed.
   final Map<String, dynamic>? payload;
   final int addedBoards;
   final int addedTasks;
@@ -52,6 +54,19 @@ class ImportPreflight {
   static const maxTasks = 10000;
   static const maxSubtasks = 50000;
   static const maxDepth = 12;
+
+  static dynamic _freezeJson(dynamic value) {
+    if (value is Map) {
+      return Map<String, dynamic>.unmodifiable({
+        for (final entry in value.entries)
+          entry.key as String: _freezeJson(entry.value),
+      });
+    }
+    if (value is List) {
+      return List<dynamic>.unmodifiable(value.map(_freezeJson));
+    }
+    return value;
+  }
 
   static Map<String, dynamic> decode(Uint8List bytes) {
     if (bytes.length > maxBytes) {
@@ -427,7 +442,7 @@ class ImportPreflight {
           (payload['aiConfig'] as Map<String, dynamic>).containsKey(
             'customApiKey',
           ),
-      payload: Map<String, dynamic>.unmodifiable(payload),
+      payload: _freezeJson(payload) as Map<String, dynamic>,
       addedBoards: addedBoards,
       addedTasks: addedTasks,
       skipped: skipped,

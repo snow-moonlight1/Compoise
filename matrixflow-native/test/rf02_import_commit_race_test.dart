@@ -557,6 +557,23 @@ void main() {
     );
   });
 
+  test('RF02 confirmed import payload is isolated from later edits', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await openStore();
+    final source = payload(currentBoards(store), [
+      taskJson('imported', store.activeBoardId, 'Confirmed'),
+    ]);
+    final plan = store.previewImport(source, 'merge');
+
+    (source['tasks'] as List).first['title'] = 'Changed after preview';
+    expect(
+      () => (plan.payload!['tasks'] as List).first['title'] = 'Changed in plan',
+      throwsUnsupportedError,
+    );
+    expect((await store.applyImport(plan)).success, isTrue);
+    await expectConsistentTitles(store, ['Confirmed']);
+  });
+
   test('RF02 a hand-built plan without payload cannot replay stale state', () async {
     SharedPreferences.setMockInitialValues({});
     final store = await openStore();
