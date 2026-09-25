@@ -1,5 +1,12 @@
 # 项目交接文档（HANDOFF.md）
 
+## RF03 独立分支交接（2026-09-26，待集成）
+
+- 从 `main / ca1f209f06c5459b983ef492bfd69a92667380f5` 创建 `D:\Dev_project\martix-rf03` / `codex/rf03-credential-close`，仅处理 RF03；未改 main、其他 worktree 或冻结端，未 push。固定 Flutter 3.32.8。RF-R02/R03 在修复前分别复现 flush 提前完成与清空被旧写入覆盖；修复后原探针均转绿，断言未改。
+- Store 区分最新凭据意图、已验证的保护存储值与排队写入。重复值只在无相关旧写入/导入时省略；旧操作完成不覆盖新草稿。导入在接受时预留凭据队列，保护其凭据写入与必要回滚；普通槽提交期间仍允许后续用户凭据写入完成，保留 RF02 的 Store 串行提交、活库重算与顺序契约。`flush()` 等待普通保存、凭据和已接受导入，凭据或普通保存失败返回失败；`retrySave()` 也会重试待处理凭据，供原退出失败/超时选择使用。显式含凭据导出等待同一屏障。
+- 默认回归新增 `test/rf03_credential_close_test.dart` 的 13 项合成凭据测试，覆盖 A→B→空、空→A→空、重复值、旧失败/新成功、新失败与读回失败、导入交叉与回滚、双导入、退出等待/超时/取消/重试、dispose 后完成及重启读回。固定 SDK 最终 `flutter test --no-pub` **652/652**、`flutter analyze --no-pub` **0 issues**；RF-R02/R03 原探针 **2/2**，RF02 默认 18 项及 OS06–09、OS15 回归通过。新路径的 Android Release 与 Windows Release 凭据/导入/退出定向人工验收未做，仍归 RF10。OS26 正式签名、托管发布与升级验收未做。
+- RF04 也会修改 `storage.dart` 的 `applyImport`、预检/导出路径；集成须先 RF03 后 RF04，复核本分支的凭据预留、回滚、`flush()` 与 RF04 的大备份策略交叉行为。RF06/RF08 未做。
+
 ## 当前状态：RF02、RF05、RF07 集成（2026-09-26）
 
 - 从干净的 `main / 2b90975` 依次 cherry-pick RF02 `7f8fe56`、RF05 `0a4d40d`、RF07 `524b8d9`；集成后主线对应 `3340bcb`、`20fb0b2`、`2662067`。三个原 worktree 和分支未改动、未 push，冻结端未改。集成审查另补 RF02 预览 payload 的递归不可变快照及回归，避免原输入对象或公开的 `plan.payload` 内层列表/对象在确认后改变提交内容。

@@ -63,6 +63,13 @@ class StoreSnapshot {
   int revisionFor(String taskId) => taskRevisions[taskId] ?? 0;
 }
 
+class _CredentialImportReservation {
+  final Future<void> prior;
+  final Completer<void> gate = Completer<void>();
+
+  _CredentialImportReservation(this.prior);
+}
+
 class Store extends ChangeNotifier with WidgetsBindingObserver {
   static const _kTasks = 'matrixflow-tasks';
   static const _kBoards = 'matrixflow-boards';
@@ -79,6 +86,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   String? _pendingCredentialRollback;
   String? _legacyCredentialForMigration;
   Future<void> _credentialWrites = Future.value();
+  int _credentialIntent = 0;
+  int _queuedCredentialWrites = 0;
+  final List<_CredentialImportReservation> _credentialImports = [];
   String? credentialError;
   bool _credentialMigrationPending = false;
   late SharedPreferences _prefs;
@@ -1312,23 +1322,37 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
     final requested = config.apiKey;
+    final hadCredentialError = credentialError != null;
+    if (_pendingCredentialRollback != null) {
+      credentialError = t['credentialStoreError'];
+      if (!_disposed) notifyListeners();
+      return false;
+    }
     aiConfig = _copyConfig(config);
     // Keep the editable value visible while the secure write is pending. No
     // ordinary snapshot includes it; failure restores the confirmed value.
     aiConfig.apiKey = requested;
     _saveConfig();
-    notifyListeners();
-    if (requested == _confirmedCredential) {
+    if (!_disposed) notifyListeners();
+    if (requested == _confirmedCredential &&
+        _queuedCredentialWrites == 0 &&
+        _credentialImports.isEmpty &&
+        credentialError == null) {
       _pendingCredentialValue = null;
-      credentialError = null;
       return true;
     }
     _pendingCredentialValue = requested;
+    final intent = ++_credentialIntent;
+    final wasQueued = _queuedCredentialWrites > 0;
+    _queuedCredentialWrites++;
+    // Secure writes have their own ordered queue. They may complete while an
+    // import's ordinary slot commit is blocked; the import reserves this queue
+    // only for its secure write and any necessary rollback.
     final previous = _credentialWrites;
-    final result = Completer<bool>();
-    _credentialWrites = () async {
+    final result = () async {
       await previous;
       try {
+        if (intent != _credentialIntent) return false;
         if (requested.isEmpty) {
           await credentialStore.delete();
           if (await credentialStore.read() != null) {
@@ -1341,20 +1365,31 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           }
         }
         _confirmedCredential = requested;
-        aiConfig.apiKey = requested;
-        credentialError = null;
-        if (_pendingCredentialValue == requested) {
+        if (intent == _credentialIntent) {
+          aiConfig.apiKey = requested;
+          credentialError = null;
           _pendingCredentialValue = null;
+          // A failed earlier write blocked the ordinary config save. Persist
+          // the latest non-secret fields now that the credential is verified.
+          if (hadCredentialError) _saveConfig();
         }
-        result.complete(true);
+        return true;
       } catch (_) {
-        credentialError = t['credentialStoreError'];
-        aiConfig.apiKey = _confirmedCredential;
-        result.complete(false);
+        if (intent == _credentialIntent) {
+          credentialError = t['credentialStoreError'];
+          aiConfig.apiKey = _confirmedCredential;
+        }
+        return false;
+      } finally {
+        _queuedCredentialWrites--;
+        if (!_disposed) notifyListeners();
       }
-      notifyListeners();
     }();
-    return result.future;
+    _credentialWrites = result.then((_) {});
+    // Restoring the confirmed value while an older write is blocked is an
+    // accepted correction. Its durable result is reported by flush().
+    if (wasQueued && requested == _confirmedCredential) return true;
+    return result;
   }
 
   Future<bool> retryCredentialMigration() async {
@@ -1393,7 +1428,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> retryCredential() async {
     final rollback = _pendingCredentialRollback;
     if (rollback != null) {
-      return _restoreCredential(rollback);
+      return _runTransaction(() => _restoreCredential(rollback));
     }
     final pending = _pendingCredentialValue;
     if (pending != null) {
@@ -1435,6 +1470,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (await credentialStore.read() != (value.isEmpty ? null : value)) {
         throw StateError('Credential rollback verification failed');
       }
+      _confirmedCredential = value;
       _pendingCredentialRollback = null;
       credentialError = null;
       if (!_disposed) notifyListeners();
@@ -1462,6 +1498,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   Future<String> exportJsonWithCredential({
     int version = ExportData.currentVersion,
   }) async {
+    await _drainCommits();
     await _credentialWrites;
     if (credentialError != null) throw StateError('Credential unavailable');
     final secured = await credentialStore.read();
@@ -1511,9 +1548,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// It runs inside the serial commit owner, so no ordinary command can land
   /// a disk commit in the middle of it. The order inside the transaction is
   /// fixed and is the contract every other commit path relies on:
-  ///   1. drain credential writes that were already accepted (RF03 replaces
-  ///      this drain with a unified completion/result object; the ordering
-  ///      contract below stays the same),
+  ///   1. drain earlier credential writes and reserve the credential queue,
   ///   2. write the credential choice this import carries,
   ///   3. re-derive the plan from its payload against the *live* library, so
   ///      commands accepted while steps 1-2 were running are part of the
@@ -1529,34 +1564,50 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   Future<SaveResult> applyImport(
     ImportPlan plan, {
     bool importCredential = false,
-  }) => _runTransaction(
-    () => _commitImportLocked(plan, importCredential: importCredential),
-  );
+  }) {
+    // Reserve the secure queue when the import is accepted, before any later
+    // user edit can enqueue its credential operation.
+    final intentAtAcceptance = _credentialIntent;
+    final reservation = _CredentialImportReservation(_credentialWrites);
+    _credentialWrites = () async {
+      await reservation.prior;
+      await reservation.gate.future;
+    }();
+    _credentialImports.add(reservation);
+    return _runTransaction(
+      () => _commitImportLocked(
+        plan,
+        importCredential: importCredential,
+        intentAtStart: intentAtAcceptance,
+        reservation: reservation,
+      ),
+    ).whenComplete(() => _credentialImports.remove(reservation));
+  }
 
   Future<SaveResult> _commitImportLocked(
     ImportPlan plan, {
     required bool importCredential,
+    required int intentAtStart,
+    required _CredentialImportReservation reservation,
   }) async {
-    if (_disposed) return const SaveResult(false, 0);
-    if (plan.conflicts != 0 || hasStartupRecovery || credentialError != null) {
-      return const SaveResult(false, 0);
-    }
-    await _credentialWrites;
-    if (_disposed) return const SaveResult(false, 0);
-    final effective = _rebaseImport(plan);
-    // A conflict that only appears once the plan is re-derived means the
-    // library moved under the confirmation. Refuse instead of applying a
-    // state the user never confirmed; nothing is written and memory is kept.
-    if (effective == null || effective.conflicts != 0) {
-      return const SaveResult(false, 0);
-    }
-    final oldCredential = _confirmedCredential;
-    final newCredential =
-        importCredential && effective.hasCredential
-            ? effective.aiConfig!.apiKey
-            : oldCredential;
-    if (newCredential != oldCredential) {
-      try {
+    late ImportPlan effective;
+    var oldCredential = _confirmedCredential;
+    var newCredential = oldCredential;
+    try {
+      await reservation.prior;
+      if (_disposed || plan.conflicts != 0 || hasStartupRecovery ||
+          credentialError != null) {
+        return const SaveResult(false, 0);
+      }
+      final initial = _rebaseImport(plan);
+      if (initial == null || initial.conflicts != 0) {
+        return const SaveResult(false, 0);
+      }
+      oldCredential = _confirmedCredential;
+      newCredential = importCredential && initial.hasCredential
+          ? initial.aiConfig!.apiKey
+          : oldCredential;
+      if (newCredential != oldCredential) {
         if (newCredential.isEmpty) {
           await credentialStore.delete();
         } else {
@@ -1566,28 +1617,73 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
             (newCredential.isEmpty ? null : newCredential)) {
           throw StateError('Credential verification failed');
         }
-      } catch (_) {
-        await _restoreCredential(oldCredential);
-        credentialError = t['credentialStoreError'];
-        if (!_disposed) notifyListeners();
+        _confirmedCredential = newCredential;
+      }
+      // Commands may have changed the live library while secure storage was
+      // pending. The final plan must use that library, as RF02 requires.
+      final rebased = _rebaseImport(plan);
+      if (rebased == null || rebased.conflicts != 0) {
+        if (newCredential != oldCredential &&
+            await _restoreCredential(oldCredential)) {
+          _confirmedCredential = oldCredential;
+        }
         return const SaveResult(false, 0);
       }
+      effective = rebased;
+    } catch (_) {
+      if (newCredential != oldCredential) {
+        await _restoreCredential(oldCredential);
+      }
+      credentialError = t['credentialStoreError'];
+      if (!_disposed) notifyListeners();
+      return const SaveResult(false, 0);
+    } finally {
+      reservation.gate.complete();
     }
     final before = captureSnapshot();
+    final newerConfig = intentAtStart != _credentialIntent
+        ? _copyConfig(aiConfig)
+        : null;
     _applyImportState(effective);
+    if (newerConfig != null) aiConfig = newerConfig;
     final atCommit = _dirtyRevision;
     final values = _snapshotValues();
     final result = await _saveProtocol!.commit(values);
     lastSaveResult = result;
     if (!result.success) {
       _rollbackImport(before, values);
-      // Only this import moved the credential, so only this import may put it
-      // back. A choice accepted while the batch was committing is newer than
-      // [oldCredential] and survives; RF03 replaces this check with the
-      // credential completion/result object.
-      if (newCredential != oldCredential &&
-          _confirmedCredential == oldCredential) {
-        await _restoreCredential(oldCredential);
+      if (newCredential != oldCredential) {
+        final position = _credentialImports.indexOf(reservation);
+        final nextImport = position >= 0 && position + 1 < _credentialImports.length
+            ? _credentialImports[position + 1]
+            : null;
+        // The next import already gates subsequent edits. Wait only for edits
+        // preceding it; waiting for its gate would deadlock the serial owner.
+        final prior = nextImport?.prior ?? _credentialWrites;
+        final rollbackGate = nextImport == null ? Completer<void>() : null;
+        if (rollbackGate != null) {
+          _credentialWrites = () async {
+            await prior;
+            await rollbackGate.future;
+          }();
+        }
+        try {
+          await prior;
+          final newerSucceeded = intentAtStart != _credentialIntent &&
+              _pendingCredentialValue == null &&
+              credentialError == null;
+          final newerFailed = intentAtStart != _credentialIntent &&
+              credentialError != null;
+          if (!newerSucceeded && await _restoreCredential(oldCredential)) {
+            _confirmedCredential = oldCredential;
+            if (intentAtStart == _credentialIntent || newerFailed) {
+              aiConfig.apiKey = oldCredential;
+            }
+            if (newerFailed) credentialError = t['credentialStoreError'];
+          }
+        } finally {
+          rollbackGate?.complete();
+        }
       }
       persistenceError = t['storageWriteError'];
       if (_dirtyRevision > _savedRevision) _scheduleCommit();
@@ -1595,8 +1691,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       return result;
     }
     _savedValues = values;
-    _confirmedCredential = newCredential;
-    credentialError = null;
+    if (intentAtStart == _credentialIntent) {
+      aiConfig.apiKey = newCredential;
+      credentialError = null;
+    }
     // Only the revisions up to the snapshot we just wrote are durable. A
     // command accepted while the batch was committing stays dirty and its
     // own commit is still queued on the owner.
@@ -1820,18 +1918,46 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  /// Waits for every commit already accepted by the store, including an
-  /// in-flight import, and reports the result of the most recent disk commit.
+  /// Waits for every accepted save, credential operation and import on the
+  /// serial owner. A secure-storage failure is a failed save for exit purposes.
   Future<SaveResult> flush() async {
-    await _commitGate;
+    await _drainCommits();
+    if (credentialError != null ||
+        _pendingCredentialRollback != null ||
+        _pendingCredentialValue != null ||
+        _credentialMigrationPending ||
+        _savedRevision < _dirtyRevision) {
+      return SaveResult(false, lastSaveResult.revision);
+    }
     return lastSaveResult;
   }
 
   Future<SaveResult> retrySave() async {
     if (!ready || hasStartupRecovery) return const SaveResult(false, 0);
+    await _drainCommits();
+    if (credentialError != null ||
+        _pendingCredentialValue != null ||
+        _pendingCredentialRollback != null ||
+        _credentialMigrationPending) {
+      if (!await retryCredential()) return flush();
+    }
     _savedRevision = _dirtyRevision;
     _write(_kTasks, '');
     return flush();
+  }
+
+  Future<void> _drainCommits() async {
+    // A completed credential operation may enqueue the config save it could
+    // not schedule while secure storage was in an error state.
+    while (true) {
+      final commitBarrier = _commitGate;
+      final credentialBarrier = _credentialWrites;
+      await Future.wait([commitBarrier, credentialBarrier]);
+      if (identical(commitBarrier, _commitGate) &&
+          identical(credentialBarrier, _credentialWrites)) {
+        return;
+      }
+    }
   }
 
   Map<String, String> _snapshotValues({
