@@ -1,5 +1,4 @@
 import 'reminder_failure_banner.dart';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +8,8 @@ import '../models.dart';
 import '../storage.dart';
 import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
+import 'subtask_edit_dialog.dart';
+import 'task_edit_draft.dart';
 import 'task_hierarchy_checkbox.dart';
 
 /// Confirms discarding an unsaved detail draft. Returns true when the user
@@ -102,92 +103,33 @@ class TaskDetailPanel extends StatefulWidget {
 }
 
 class _TaskDetailPanelState extends State<TaskDetailPanel> {
-  late final TextEditingController _title;
-  late final TextEditingController _notes;
-  late int _quadrant;
-  late DateTime? _deadline;
-  late int? _reminderAt;
-  late bool _isLongTerm;
-  late UrgencyMode _urgencyMode;
-  late List<SubTask> _subtasks;
-  late List<SubTask> _openedSubtasks;
-
-  final TextEditingController _newSubtaskController = TextEditingController();
-
-  late String _initialTitle;
-  late String _initialNotes;
-  late int _initialQuadrant;
-  late int? _initialDeadlineMs;
-  late int? _initialReminderAt;
-  late bool _initialIsLongTerm;
-  late UrgencyMode _initialUrgencyMode;
-  late String _initialSubtasksJson;
-
-  bool _forceClose = false;
+  late final TaskEditDraft _draft;
   bool _notifyingDirty = false;
-  bool _loadingTask = false;
 
   @override
   void initState() {
     super.initState();
-    _title = TextEditingController();
-    _notes = TextEditingController();
-    _loadFromTask(widget.task);
-    _title.addListener(_onDraftChanged);
-    _notes.addListener(_onDraftChanged);
+    _draft = TaskEditDraft(widget.task, onChanged: _onDraftChanged);
+    _emitDirty();
   }
 
   @override
   void didUpdateWidget(TaskDetailPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.task.id != widget.task.id) {
-      _loadFromTask(widget.task);
+      _draft.load(widget.task);
+      _emitDirty();
     }
   }
 
   @override
   void dispose() {
-    _title.removeListener(_onDraftChanged);
-    _notes.removeListener(_onDraftChanged);
-    _title.dispose();
-    _notes.dispose();
-    _newSubtaskController.dispose();
+    _draft.dispose();
     super.dispose();
   }
 
-  void _loadFromTask(Task task) {
-    _loadingTask = true;
-    _title.text = task.title;
-    _notes.text = task.notesMarkdown ?? '';
-    _quadrant = task.quadrant;
-    _deadline =
-        task.deadline == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(task.deadline!);
-    _reminderAt = task.reminderAt;
-    _isLongTerm = task.isLongTerm;
-    _urgencyMode = task.urgencyMode;
-    _subtasks = [for (final s in task.subtasks) SubTask.fromJson(s.toJson())];
-    _openedSubtasks = [
-      for (final s in task.subtasks) SubTask.fromJson(s.toJson()),
-    ];
-    _initialTitle = task.title;
-    _initialNotes = task.notesMarkdown ?? '';
-    _initialQuadrant = task.quadrant;
-    _initialDeadlineMs = task.deadline;
-    _initialReminderAt = task.reminderAt;
-    _initialIsLongTerm = task.isLongTerm;
-    _initialUrgencyMode = task.urgencyMode;
-    _initialSubtasksJson = jsonEncode(
-      task.subtasks.map((s) => s.toJson()).toList(),
-    );
-    _forceClose = false;
-    _loadingTask = false;
-    _emitDirty();
-  }
-
   void _onDraftChanged() {
-    if (!mounted || _loadingTask) return;
+    if (!mounted) return;
     setState(() {});
     _emitDirty();
   }
@@ -195,37 +137,12 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
   void _emitDirty() {
     if (_notifyingDirty) return;
     _notifyingDirty = true;
-    widget.onDirtyChanged?.call(_isDirty);
+    widget.onDirtyChanged?.call(_draft.isDirty);
     _notifyingDirty = false;
   }
 
-  bool get _isDirty {
-    if (_forceClose) return false;
-    if (_title.text.trim() != _initialTitle.trim()) return true;
-    if (_notes.text.trim() != _initialNotes.trim()) return true;
-    if (_quadrant != _initialQuadrant) return true;
-    final initialMs = _initialDeadlineMs;
-    final initialDate =
-        initialMs == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(initialMs);
-    if (_deadline == null
-        ? initialDate != null
-        : !isSameCivilDay(_deadline, initialDate)) {
-      return true;
-    }
-    if (_reminderAt != _initialReminderAt) return true;
-    if (_isLongTerm != _initialIsLongTerm) return true;
-    if (_urgencyMode != _initialUrgencyMode) return true;
-    final currentSubtasksJson = jsonEncode(
-      _subtasks.map((s) => s.toJson()).toList(),
-    );
-    if (currentSubtasksJson != _initialSubtasksJson) return true;
-    return false;
-  }
-
   void _applyReminderMoment(int moment) =>
-      setState(() => _reminderAt = moment);
+      setState(() => _draft.reminderAt = moment);
 
   void _close() {
     if (widget.onClose != null) {
@@ -239,115 +156,37 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       confirmDiscardDraft(context);
 
   Future<void> _attemptClose() async {
-    if (!_isDirty) {
+    if (!_draft.isDirty) {
       _close();
       return;
     }
     final discard = await _confirmDiscard(context);
     if (discard && mounted) {
-      _forceClose = true;
+      _draft.markDiscarding();
       widget.onDirtyChanged?.call(false);
       _close();
     }
   }
 
-  bool _sameDayMs(int? a, int? b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    return isSameCivilDay(
-      DateTime.fromMillisecondsSinceEpoch(a),
-      DateTime.fromMillisecondsSinceEpoch(b),
-    );
-  }
-
-  String _subJson(SubTask s) => jsonEncode(s.toJson());
-
-  List<SubTask> _mergedSubtasks(List<SubTask> current) {
-    final draftJson = jsonEncode(_subtasks.map((s) => s.toJson()).toList());
-    if (draftJson == _initialSubtasksJson) {
-      return [for (final s in current) SubTask.fromJson(s.toJson())];
-    }
-
-    final openedById = {for (final s in _openedSubtasks) s.id: s};
-    final currentById = {for (final s in current) s.id: s};
-    final result = <SubTask>[];
-    final seen = <String>{};
-
-    for (final draft in _subtasks) {
-      seen.add(draft.id);
-      final initial = openedById[draft.id];
-      final live = currentById[draft.id];
-      if (initial == null) {
-        result.add(SubTask.fromJson(draft.toJson()));
-        continue;
-      }
-      if (live == null) continue;
-      if (_subJson(draft) == _subJson(initial)) {
-        result.add(SubTask.fromJson(live.toJson()));
-        continue;
-      }
-      final merged = SubTask.fromJson(draft.toJson());
-      if (draft.title == initial.title) merged.title = live.title;
-      if ((draft.notesMarkdown ?? '') == (initial.notesMarkdown ?? '')) {
-        merged.notesMarkdown = live.notesMarkdown;
-      }
-      if (draft.deadline == initial.deadline) merged.deadline = live.deadline;
-      if (draft.reminderAt == initial.reminderAt) {
-        merged.reminderAt = live.reminderAt;
-      }
-      if (draft.completed == initial.completed) {
-        merged.completed = live.completed;
-        merged.completedAt = live.completedAt;
-      }
-      result.add(merged);
-    }
-
-    for (final live in current) {
-      if (!seen.contains(live.id) && !openedById.containsKey(live.id)) {
-        result.add(SubTask.fromJson(live.toJson()));
-      }
-    }
-    return result;
-  }
-
   void _save() {
-    final titleText = _title.text.trim();
-    if (titleText.isEmpty) return;
+    if (hasPendingImeComposition(_draft.titleController) ||
+        hasPendingImeComposition(_draft.notesController)) {
+      return;
+    }
+    if (!_draft.hasTitle) return;
 
     final store = context.read<Store>();
     final current =
         store.tasks.where((t) => t.id == widget.task.id).firstOrNull;
     if (current == null) {
-      _forceClose = true;
+      _draft.markDiscarding();
       widget.onDirtyChanged?.call(false);
       _close();
       return;
     }
 
-    final notesText = _notes.text.trim();
-    final draftNotes = notesText.isEmpty ? null : _notes.text;
-    final draftDeadline = endOfCivilDayMs(_deadline);
-    final titleChanged = titleText != _initialTitle.trim();
-    final notesChanged = (draftNotes ?? '').trim() != _initialNotes.trim();
-    final quadrantChanged = _quadrant != _initialQuadrant;
-    final deadlineChanged = !_sameDayMs(draftDeadline, _initialDeadlineMs);
-    final reminderChanged = _reminderAt != _initialReminderAt;
-    final longTermChanged = _isLongTerm != _initialIsLongTerm;
-    final urgencyChanged = _urgencyMode != _initialUrgencyMode;
-
-    final updated =
-        Task.fromJson(current.toJson())
-          ..title = titleChanged ? titleText : current.title
-          ..notesMarkdown = notesChanged ? draftNotes : current.notesMarkdown
-          ..quadrant = quadrantChanged ? _quadrant : current.quadrant
-          ..deadline = deadlineChanged ? draftDeadline : current.deadline
-          ..reminderAt = reminderChanged ? _reminderAt : current.reminderAt
-          ..isLongTerm = longTermChanged ? _isLongTerm : current.isLongTerm
-          ..urgencyMode = urgencyChanged ? _urgencyMode : current.urgencyMode
-          ..subtasks = _mergedSubtasks(current.subtasks);
-
-    store.updateTask(updated);
-    _forceClose = true;
+    store.updateTask(_draft.applyTo(current));
+    _draft.markDiscarding();
     widget.onDirtyChanged?.call(false);
     _close();
   }
@@ -378,199 +217,46 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     );
     if (ok == true && mounted) {
       store.deleteTask(widget.task.id);
-      _forceClose = true;
+      _draft.markDiscarding();
       _close();
     }
   }
 
   Future<void> _pickDate() async {
-    final picked = await pickDeadlineDay(context, selected: _deadline);
-    if (picked != null) setState(() => _deadline = picked);
+    final picked = await pickDeadlineDay(context, selected: _draft.deadline);
+    if (picked != null) setState(() => _draft.deadline = picked);
   }
 
   Future<void> _pickReminderDateTime() async {
     await pickReminderMoment(
       context,
       t: context.read<Store>().t,
-      reminderAt: _reminderAt,
-      deadline: _deadline,
-      onPicked: (moment) => setState(() => _reminderAt = moment),
+      reminderAt: _draft.reminderAt,
+      deadline: _draft.deadline,
+      onPicked: _applyReminderMoment,
     );
   }
 
   void _addSubtask() {
-    final text = _newSubtaskController.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _subtasks.add(SubTask(id: newId(), title: text));
-      _newSubtaskController.clear();
-    });
+    if (hasPendingImeComposition(_draft.newSubtaskController)) return;
+    if (_draft.takeNewSubtask() == null) return;
+    setState(() {});
   }
 
   Future<void> _editSubtask(SubTask sub) async {
-    final store = context.read<Store>();
-    final t = store.t;
-    final theme = Theme.of(context);
-    final titleController = TextEditingController(text: sub.title);
-    final notesController = TextEditingController(
-      text: sub.notesMarkdown ?? '',
+    final result = await showSubtaskEditDialog(
+      context,
+      t: context.read<Store>().t,
+      subtask: sub,
+      parentDeadline: _draft.deadline,
     );
-    DateTime? subDeadline =
-        sub.deadline == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(sub.deadline!);
-    int? subReminder = sub.reminderAt;
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final isAfterParent = isAfterParentDay(subDeadline, _deadline);
-
-            return AlertDialog(
-              title: Text(t['editSubtask'] ?? 'Edit Subtask'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      key: const ValueKey('subtask-edit-title'),
-                      controller: titleController,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        labelText: t['subtasks'] ?? 'Subtask',
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      t['deadline'] ?? 'Deadline',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    DeadlineDayChips(
-                      t: t,
-                      keyPrefix: 'subtask-deadline',
-                      selected: subDeadline,
-                      onChanged:
-                          (day) => setDialogState(() => subDeadline = day),
-                    ),
-                    if (isAfterParent)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          t['subtaskDeadlineAfterParent']!,
-                          key: const ValueKey('subtask-after-parent-warning'),
-                          style: TextStyle(
-                            color: Colors.amber.shade800,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const ValueKey('subtask-edit-notes'),
-                      controller: notesController,
-                      minLines: 2,
-                      maxLines: 4,
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline,
-                      decoration: InputDecoration(
-                        labelText: t['subtaskNotes'] ?? t['notes'] ?? 'Notes',
-                        hintText: t['notesHint'] ?? 'Add notes…',
-                        alignLabelWithHint: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      t['reminder'] ?? 'Reminder',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            key: const ValueKey('subtask-reminder-btn'),
-                            icon: Icon(
-                              subReminder == null
-                                  ? Icons.notifications_none
-                                  : Icons.notifications_active,
-                              size: 16,
-                            ),
-                            label: Text(
-                              subReminder == null
-                                  ? (t['setReminder'] ?? 'Set Reminder')
-                                  : formatCivilDateTimeMs(subReminder!),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            onPressed:
-                                () => pickReminderMoment(
-                                  context,
-                                  t: t,
-                                  reminderAt: subReminder,
-                                  deadline: subDeadline,
-                                  onPicked:
-                                      (moment) => setDialogState(
-                                        () => subReminder = moment,
-                                      ),
-                                ),
-                          ),
-                        ),
-                        if (subReminder != null)
-                          IconButton(
-                            key: const ValueKey('subtask-reminder-clear'),
-                            tooltip: t['clearReminder'] ?? 'Clear Reminder',
-                            icon: const Icon(Icons.close, size: 18),
-                            visualDensity: VisualDensity.compact,
-                            onPressed:
-                                () => setDialogState(() => subReminder = null),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  key: const ValueKey('subtask-cancel-btn'),
-                  onPressed: () => Navigator.pop(dialogCtx, false),
-                  child: Text(t['cancel']!),
-                ),
-                FilledButton(
-                  key: const ValueKey('subtask-save-btn'),
-                  onPressed: () {
-                    if (titleController.text.trim().isEmpty) return;
-                    Navigator.pop(dialogCtx, true);
-                  },
-                  child: Text(t['save'] ?? 'Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (mounted && saved == true) {
-      final newTitle = titleController.text.trim();
-      final notesRaw = notesController.text.trim();
-      final newNotes = notesRaw.isEmpty ? null : notesController.text;
-      final newDeadline = endOfCivilDayMs(subDeadline);
-      setState(() {
-        sub.title = newTitle;
-        sub.notesMarkdown = newNotes;
-        sub.deadline = newDeadline;
-        sub.reminderAt = subReminder;
-      });
-    }
+    if (result == null || !mounted) return;
+    setState(() {
+      sub.title = result.title;
+      sub.notesMarkdown = result.notesMarkdown;
+      sub.deadline = result.deadline;
+      sub.reminderAt = result.reminderAt;
+    });
   }
 
   @override
@@ -578,19 +264,19 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     final store = context.watch<Store>();
     final t = store.t;
     final theme = Theme.of(context);
-    final d = _deadline;
-    final dirty = _isDirty;
+    final d = _draft.deadline;
+    final dirty = _draft.isDirty;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onDirtyChanged?.call(dirty);
     });
 
     return PopScope(
-      canPop: !_isDirty || _forceClose,
+      canPop: !_draft.isDirty,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final discard = await _confirmDiscard(context);
         if (discard && mounted) {
-          _forceClose = true;
+          _draft.markDiscarding();
           _close();
         }
       },
@@ -679,7 +365,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           // Task Title Field (multiline, Enter newline, Ctrl+Enter save)
                           TextField(
                             key: const ValueKey('edit-title'),
-                            controller: _title,
+                            controller: _draft.titleController,
                             autofocus: !widget.isSidebar,
                             minLines: 1,
                             maxLines: 5,
@@ -696,7 +382,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           // Task Notes Field (multiline plain text editor)
                           TextField(
                             key: const ValueKey('edit-notes'),
-                            controller: _notes,
+                            controller: _draft.notesController,
                             minLines: 2,
                             maxLines: 6,
                             keyboardType: TextInputType.multiline,
@@ -732,7 +418,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                 IconButton(
                                   tooltip: t['cancel']!,
                                   onPressed:
-                                      () => setState(() => _deadline = null),
+                                      () => setState(() => _draft.deadline = null),
                                   icon: const Icon(Icons.clear),
                                 ),
                             ],
@@ -746,30 +432,30 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                 child: OutlinedButton.icon(
                                   key: const ValueKey('edit-reminder-btn'),
                                   icon: Icon(
-                                    _reminderAt == null
+                                    _draft.reminderAt == null
                                         ? Icons.notifications_none
                                         : Icons.notifications_active,
                                     size: 18,
                                     color:
-                                        _reminderAt == null
+                                        _draft.reminderAt == null
                                             ? null
                                             : theme.colorScheme.primary,
                                   ),
                                   label: Text(
-                                    _reminderAt == null
+                                    _draft.reminderAt == null
                                         ? (t['setReminder'] ?? 'Set Reminder')
-                                        : formatCivilDateTimeMs(_reminderAt!),
+                                        : formatCivilDateTimeMs(_draft.reminderAt!),
                                   ),
                                   onPressed: _pickReminderDateTime,
                                 ),
                               ),
-                              if (_reminderAt != null)
+                              if (_draft.reminderAt != null)
                                 IconButton(
                                   key: const ValueKey('clear-reminder-btn'),
                                   tooltip:
                                       t['clearReminder'] ?? 'Clear Reminder',
                                   onPressed:
-                                      () => setState(() => _reminderAt = null),
+                                      () => setState(() => _draft.reminderAt = null),
                                   icon: const Icon(Icons.clear),
                                 ),
                             ],
@@ -881,21 +567,21 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                               for (final q in allQuadrants)
                                 ChoiceChip(
                                   label: Text(t['q$q']!),
-                                  selected: _quadrant == q,
+                                  selected: _draft.quadrant == q,
                                   onSelected: (_) {
                                     setState(() {
-                                      final oldQ = _quadrant;
-                                      _quadrant = q;
+                                      final oldQ = _draft.quadrant;
+                                      _draft.quadrant = q;
                                       if (isUrgentQuadrant(oldQ) !=
                                           isUrgentQuadrant(q)) {
-                                        _urgencyMode = UrgencyMode.manual;
+                                        _draft.urgencyMode = UrgencyMode.manual;
                                       }
                                     });
                                   },
                                 ),
                             ],
                           ),
-                          if (_urgencyMode == UrgencyMode.manual) ...[
+                          if (_draft.urgencyMode == UrgencyMode.manual) ...[
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -938,9 +624,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _urgencyMode = UrgencyMode.auto;
+                                        _draft.urgencyMode = UrgencyMode.auto;
                                         final store = context.read<Store>();
-                                        final d = _deadline;
+                                        final d = _draft.deadline;
                                         if (d != null) {
                                           final dMs =
                                               DateTime(
@@ -955,8 +641,8 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                             dMs,
                                             store.settings.urgencyThresholdDays,
                                           )) {
-                                            _quadrant = promoteToUrgent(
-                                              _quadrant,
+                                            _draft.quadrant = promoteToUrgent(
+                                              _draft.quadrant,
                                             );
                                           }
                                         }
@@ -981,9 +667,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                     t['longTermTask'] ?? 'Long-Term Task',
                                     style: theme.textTheme.bodyMedium,
                                   ),
-                                  value: _isLongTerm,
+                                  value: _draft.isLongTerm,
                                   onChanged:
-                                      (v) => setState(() => _isLongTerm = v),
+                                      (v) => setState(() => _draft.isLongTerm = v),
                                   dense: true,
                                   contentPadding: EdgeInsets.zero,
                                 ),
@@ -1005,7 +691,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           Row(
                             children: [
                               Text(
-                                '${t['subtasks'] ?? 'Subtasks'} (${_subtasks.where((s) => s.completed).length}/${_subtasks.length})',
+                                '${t['subtasks'] ?? 'Subtasks'} (${_draft.subtasks.where((s) => s.completed).length}/${_draft.subtasks.length})',
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1015,7 +701,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           const SizedBox(height: 8),
 
                           // Subtasks list
-                          for (final sub in _subtasks)
+                          for (final sub in _draft.subtasks)
                             Container(
                               key: ValueKey('detail-subtask-${sub.id}'),
                               margin: const EdgeInsets.fromLTRB(16, 2, 0, 2),
@@ -1184,7 +870,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                   IconButton(
                                     icon: const Icon(Icons.close, size: 16),
                                     onPressed: () {
-                                      setState(() => _subtasks.remove(sub));
+                                      setState(() => _draft.subtasks.remove(sub));
                                     },
                                     tooltip: t['delete'] ?? 'Delete',
                                   ),
@@ -1198,7 +884,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             children: [
                               Expanded(
                                 child: TextField(
-                                  controller: _newSubtaskController,
+                                  controller: _draft.newSubtaskController,
                                   decoration: InputDecoration(
                                     hintText: t['addSubtask']!,
                                     isDense: true,

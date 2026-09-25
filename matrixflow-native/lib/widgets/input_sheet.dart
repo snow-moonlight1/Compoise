@@ -8,6 +8,7 @@ import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
 import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
+import 'task_edit_draft.dart';
 
 // The list widgets reach these two routes through this library; retarget them
 // to the owning modules and drop both lines.
@@ -293,7 +294,7 @@ class _InputSheetState extends State<InputSheet> {
   }
 
   Future<void> _submit() async {
-    if (_controller.value.composing.isValid) return;
+    if (hasPendingImeComposition(_controller)) return;
     final text = _controller.text.trim();
     if (text.isEmpty || _busy || _closed) return;
     final store = context.read<Store>();
