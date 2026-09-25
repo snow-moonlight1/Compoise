@@ -1,11 +1,21 @@
 # 项目交接文档（HANDOFF.md）
 
-## RF03 独立分支交接（2026-09-26，待集成）
+## RF03 独立分支交接（2026-09-26，已集成）
 
 - 从 `main / ca1f209f06c5459b983ef492bfd69a92667380f5` 创建 `D:\Dev_project\martix-rf03` / `codex/rf03-credential-close`，仅处理 RF03；未改 main、其他 worktree 或冻结端，未 push。固定 Flutter 3.32.8。RF-R02/R03 在修复前分别复现 flush 提前完成与清空被旧写入覆盖；修复后原探针均转绿，断言未改。
 - Store 区分最新凭据意图、已验证的保护存储值与排队写入。重复值只在无相关旧写入/导入时省略；旧操作完成不覆盖新草稿。导入在接受时预留凭据队列，保护其凭据写入与必要回滚；普通槽提交期间仍允许后续用户凭据写入完成，保留 RF02 的 Store 串行提交、活库重算与顺序契约。`flush()` 等待普通保存、凭据和已接受导入，凭据或普通保存失败返回失败；`retrySave()` 也会重试待处理凭据，供原退出失败/超时选择使用。显式含凭据导出等待同一屏障。
 - 默认回归新增 `test/rf03_credential_close_test.dart` 的 13 项合成凭据测试，覆盖 A→B→空、空→A→空、重复值、旧失败/新成功、新失败与读回失败、导入交叉与回滚、双导入、退出等待/超时/取消/重试、dispose 后完成及重启读回。固定 SDK 最终 `flutter test --no-pub` **652/652**、`flutter analyze --no-pub` **0 issues**；RF-R02/R03 原探针 **2/2**，RF02 默认 18 项及 OS06–09、OS15 回归通过。新路径的 Android Release 与 Windows Release 凭据/导入/退出定向人工验收未做，仍归 RF10。OS26 正式签名、托管发布与升级验收未做。
 - RF04 也会修改 `storage.dart` 的 `applyImport`、预检/导出路径；集成须先 RF03 后 RF04，复核本分支的凭据预留、回滚、`flush()` 与 RF04 的大备份策略交叉行为。RF06/RF08 未做。
+## RF04 独立分支交接（2026-09-26，已集成）
+
+- 从共同起点 `main / ca1f209f06c5459b983ef492bfd69a92667380f5` 建独立 worktree `D:\Dev_project\martix-rf04`，分支 `codex/rf04-backup-recovery`；未 push，未改冻结端，未触碰 RF03/RF05/RF07 worktree。范围仅导出、备份预检与设置页文件流程。
+- 复现确认：基线 RF-R04 红（`FormatException: Backup exceeds 4 MiB`）。根因不是数字太小，而是**同一常量既当内容预算又当文件上限**：一条记录占满 `maxBytes` 时 JSON 包装（实测 +996 bytes）必然超过该上限；且按应用自报计数上限填满的现实库实测 6.52 MiB，本就被 4 MiB 门禁拒绝。测量与推导见 [RF04 记录](RF04_NOTES.md)。
+- 契约改为对称：`maxBytes` 固定为单文件内容预算（数值仍 4 MiB），新增 `maxFileBytes` 8 MiB 作为有界读取/文件上限（依据：覆盖计数上限库实测 6.52 MiB，并允许占满内容预算的单条记录往返）；数量上限 500/10000/50000 改为同时按**结果库**校验，关闭多次合法 merge 累积突破；新增 `lib/backup_export.dart`，导出先过与恢复相同的预检门禁，超过单文件上限时按板分卷（超限板跨卷重复板记录，合并计跳过），只有第 1 卷携带设置与 AI 配置因此显式含密钥时密钥只写一次；无法构成可恢复文件集时返回明确失败（区分“单条记录过大”和“整库超过受支持卷数”），不再出现“导出成功但另一台设备无法恢复”。三语新增 7 条大小/数量/嵌套与分卷提示，`BackupRejectedException` 仍实现 `FormatException` 以保留既有断言与 RF02 重推导行为。
+- 验证：固定 SDK 3.32.8 下共享探针 RF-R04 **修后绿**（原断言未改，`test/review/` 未编辑）；新增 `test/rf04_backup_contract_test.dart` **9/9**（界限前/等于/超出、中日文字节、500/10000/50000 与 +1、累积 merge 及提交时按活库重推导拒绝、10.6 MB 旧大库分卷后在独立空 Store 完整恢复、取消/写失败、默认无 key 与显式合成 key）；默认 `flutter test --no-pub` **648/648**、`flutter analyze --no-pub` **0 issues**；相邻 OS06/07 提交与预检、RF02 导入竞态、OS08/09 凭据、WP11 迁移定向 **56/56** 全绿。`os06_os07_transaction_test.dart` 一处越界断言按新常量名改为 `maxFileBytes + 1`，意图不变。新 worktree 的三个 Windows 插件生成文件仅有行尾差异，未纳入提交。
+- 未测：真实 Android SAF 与 Windows 文件对话框的连续多卷保存、几十 MB 写入耗时/内存、用户按提示分卷恢复的实际操作路径（归 RF10）；单元层用可注入的文件写入器验证分卷文件名、中途取消只写到第 1 片与写失败提示，不代替真机。
+- 残余限制：本机已超计数上限（>10000 任务）的历史库可完整导出多卷，但逐卷合并会在越界那一卷被明确拒绝，不是无损一键恢复；本地输入层尚未按 UTF-8 字节限制单条笔记长度（属输入 widget，超出本包文件所有权）。
+- 集成 RF03 后再合本包，需复核：`Store.exportBackup` 经 `exportJsonWithCredential()` 取文本，RF03 若改为新的 completion/最后意图模型，这里应等待该 completion 且不放松“仅已确认凭据可显式含密钥导出”；分卷只让第 1 卷携带 `aiConfig`，故一次恢复的多卷流程只做一次凭据写入；预检的结果库数量校验会在提交时由 RF02 的重推导转成整笔失败，需保持失败即无部分写入。
+- 下一批：RF06 可从当前 main 领取；RF08 仍等 RF03 集成；RF09 待 RF02–04/RF08 完成后按测量决定。继续暂停 WP10/WP29/UI 实验与正式发布，冻结 React/Tauri/Capacitor。
 
 ## 当前状态：RF02、RF05、RF07 集成（2026-09-26）
 

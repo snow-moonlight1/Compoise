@@ -23,14 +23,27 @@ class BackupResult {
   final String? message;
 }
 
+/// Writes a backup file the platform picker handed a path for. Android and
+/// iOS Storage Access Framework already wrote the bytes themselves and return
+/// a content URI rather than a Dart file path, so only the desktop shells
+/// still have to write.
+typedef BackupFileWriter = Future<void> Function(String path, Uint8List bytes);
+
+Future<void> _writeBackupFile(String path, Uint8List bytes) async {
+  if (Platform.isAndroid || Platform.isIOS) return;
+  await File(path).writeAsBytes(bytes, flush: true);
+}
+
 /// Coordinates the settings screen's backup files: an export with its explicit
 /// credential choice, and an import that picks, decodes within the size limit,
 /// asks for a mode, previews the plan and only then applies it. One operation
 /// runs at a time, and a screen that is already gone stops being told about it.
 class SettingsBackupFlow {
-  SettingsBackupFlow({required this.onBusyChanged});
+  SettingsBackupFlow({required this.onBusyChanged, BackupFileWriter? writeFile})
+    : _writeFile = writeFile ?? _writeBackupFile;
 
   final ValueChanged<bool> onBusyChanged;
+  final BackupFileWriter _writeFile;
 
   bool _busy = false;
   bool _closed = false;
@@ -70,28 +83,46 @@ class SettingsBackupFlow {
       if (includeCredential == null || _closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
       }
-      final json =
-          includeCredential
-              ? await store.exportJsonWithCredential()
-              : store.exportJson();
+      final bundle = await store.exportBackup(
+        includeCredential: includeCredential,
+      );
       if (_closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
       }
-      final bytes = Uint8List.fromList(utf8.encode(json));
-      final path = await FilePicker.platform.saveFile(
-        fileName:
-            'matrixflow_backup_${DateTime.now().toIso8601String().split('T').first}.json',
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        bytes: bytes,
-      );
-      if (path == null) return const BackupResult(BackupOutcome.cancelled);
-      // Android's Storage Access Framework writes the bytes itself. Its return
-      // value may be a content URI, not a Dart File path.
-      if (!Platform.isAndroid && !Platform.isIOS) {
-        await File(path).writeAsBytes(bytes, flush: true);
+      // A library no file format can carry must not report a saved backup:
+      // the user learns the limit here, on the device that has the data,
+      // instead of on the device they try to restore on.
+      if (!bundle.recoverable) {
+        return BackupResult(
+          BackupOutcome.failed,
+          t[bundle.status == BackupStatus.libraryTooLarge
+              ? 'exportErrorTooManyRecords'
+              : 'exportErrorTooLarge']!,
+        );
       }
-      return BackupResult(BackupOutcome.succeeded, t['exportSuccess']!);
+      final date = DateTime.now().toIso8601String().split('T').first;
+      for (final part in bundle.parts) {
+        final bytes = utf8.encode(part.json);
+        final path = await FilePicker.platform.saveFile(
+          fileName: backupFileName(date, part),
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          bytes: bytes,
+        );
+        if (path == null) return const BackupResult(BackupOutcome.cancelled);
+        await _writeFile(path, bytes);
+        if (_closed || !context.mounted) {
+          return const BackupResult(BackupOutcome.cancelled);
+        }
+      }
+      if (bundle.parts.length == 1) {
+        return BackupResult(BackupOutcome.succeeded, t['exportSuccess']!);
+      }
+      return BackupResult(
+        BackupOutcome.succeeded,
+        '${t['exportPartsSuccess']!.replaceAll('{n}', '${bundle.parts.length}')}'
+        '\n${t['exportPartsHint']}',
+      );
     } catch (_) {
       return BackupResult(BackupOutcome.failed, t['exportError']!);
     } finally {
@@ -118,22 +149,31 @@ class SettingsBackupFlow {
       }
       final file = picked.files.single;
       Uint8List? bytes = file.bytes;
-      if (file.size > ImportPreflight.maxBytes) {
-        throw const FormatException('Backup exceeds size limit');
+      if (file.size > ImportPreflight.maxFileBytes) {
+        throw const BackupRejectedException(
+          'importErrorTooLarge',
+          'Backup exceeds the supported size limit',
+        );
       }
       if (bytes == null && file.path != null) {
         final source = File(file.path!);
-        if (await source.length() > ImportPreflight.maxBytes) {
-          throw const FormatException('Backup exceeds size limit');
+        if (await source.length() > ImportPreflight.maxFileBytes) {
+          throw const BackupRejectedException(
+            'importErrorTooLarge',
+            'Backup exceeds the supported size limit',
+          );
         }
         final collected = <int>[];
         await for (final chunk in source.openRead(
           0,
-          ImportPreflight.maxBytes + 1,
+          ImportPreflight.maxFileBytes + 1,
         )) {
           collected.addAll(chunk);
-          if (collected.length > ImportPreflight.maxBytes) {
-            throw const FormatException('Backup exceeds size limit');
+          if (collected.length > ImportPreflight.maxFileBytes) {
+            throw const BackupRejectedException(
+              'importErrorTooLarge',
+              'Backup exceeds the supported size limit',
+            );
           }
         }
         bytes = Uint8List.fromList(collected);
@@ -172,6 +212,8 @@ class SettingsBackupFlow {
       return BackupResult(BackupOutcome.succeeded,
         '${t['importSuccess']} (${plan.addedTasks})$desktopWarning',
       );
+    } on BackupRejectedException catch (error) {
+      return BackupResult(BackupOutcome.failed, t[error.copy]!);
     } on FormatException catch (error) {
       return BackupResult(BackupOutcome.failed,
         error.message.startsWith('Conflicting')

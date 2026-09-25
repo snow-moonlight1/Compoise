@@ -264,6 +264,13 @@ const Map<Language, Map<String, String>> _dicts = {
     'exportWithoutCredential': 'Exclude API key',
     'exportWithCredential': 'Include API key',
     'exportSuccess': 'Backup saved.',
+    'exportPartsSuccess': 'Backup saved in {n} files.',
+    'exportPartsHint':
+        'This library does not fit in one file. Restore the files in order: import the first as Overwrite, then each next file as Merge.',
+    'exportErrorTooLarge':
+        'A single task or note is larger than this app can back up. Shorten it, then export again.',
+    'exportErrorTooManyRecords':
+        'This library is larger than the backup this app can restore. Remove or archive tasks, then export again.',
     'importKeepCredential': 'Keep local API key',
     'importReplaceCredential': 'Use backup API key',
     'importCredentialPresent':
@@ -274,6 +281,12 @@ const Map<Language, Map<String, String>> _dicts = {
     'importData': 'Import JSON',
     'importSuccess': 'Data imported!',
     'importError': 'Invalid data format.',
+    'importErrorTooLarge':
+        'This backup is larger than the file size this app can import.',
+    'importErrorTooManyRecords':
+        'This backup has more boards, tasks or subtasks than this app supports.',
+    'importErrorTooDeep':
+        'This backup nests its data deeper than this app can read.',
     'confirmImport':
         'Overwrite ALL current boards and tasks? This cannot be undone.',
     'importOptions': 'Import Options',
@@ -775,6 +788,10 @@ const Map<Language, Map<String, String>> _dicts = {
     'exportWithoutCredential': '不包含 API 密钥',
     'exportWithCredential': '包含 API 密钥',
     'exportSuccess': '备份已保存。',
+    'exportPartsSuccess': '备份已分成 {n} 个文件保存。',
+    'exportPartsHint': '当前数据量无法放入单个文件。请按顺序恢复：第 1 个文件选择覆盖导入，之后每个文件选择合并导入。',
+    'exportErrorTooLarge': '有单条任务或笔记超过本应用可备份的上限，请精简后再导出。',
+    'exportErrorTooManyRecords': '当前数据量超过本应用可恢复的备份上限，请删除或归档部分任务后再导出。',
     'importKeepCredential': '保留本机密钥',
     'importReplaceCredential': '使用备份密钥',
     'importCredentialPresent': '备份中包含 API 密钥。除非明确选择替换，否则保留本机密钥。',
@@ -783,6 +800,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'importData': '导入数据 (JSON)',
     'importSuccess': '数据导入成功！',
     'importError': '数据格式无效。',
+    'importErrorTooLarge': '该备份文件超过本应用可导入的大小上限。',
+    'importErrorTooManyRecords': '该备份的任务板、任务或子项数量超过本应用支持的上限。',
+    'importErrorTooDeep': '该备份的数据嵌套过深，本应用无法读取。',
     'confirmImport': '导入将覆盖当前所有任务板与任务，且无法撤销。确定继续吗？',
     'importOptions': '导入选项',
     'importPrompt': '您希望如何导入任务？',
@@ -1250,6 +1270,10 @@ const Map<Language, Map<String, String>> _dicts = {
     'exportWithoutCredential': 'API キーを除外',
     'exportWithCredential': 'API キーを含める',
     'exportSuccess': 'バックアップを保存しました。',
+    'exportPartsSuccess': 'バックアップを {n} 個のファイルに分割して保存しました。',
+    'exportPartsHint': 'このデータ量は 1 ファイルに収まりません。順序どおりに復元してください：1 番目を上書きで、以降のファイルをそれぞれマージでインポートします。',
+    'exportErrorTooLarge': '単一のタスクまたはメモが本アプリのバックアップ上限を超えています。短くしてから再エクスポートしてください。',
+    'exportErrorTooManyRecords': 'このデータ量は本アプリが復元できるバックアップの上限を超えています。一部のタスクを削除またはアーカイブしてから再エクスポートしてください。',
     'importKeepCredential': 'この端末の API キーを保持',
     'importReplaceCredential': 'バックアップの API キーを使用',
     'importCredentialPresent': 'バックアップに API キーがあります。明示的に選択しない限り、この端末のキーを保持します。',
@@ -1258,6 +1282,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'importData': 'インポート (JSON)',
     'importSuccess': 'インポート成功！',
     'importError': 'データ形式が無効です。',
+    'importErrorTooLarge': 'このバックアップは本アプリがインポートできるサイズ上限を超えています。',
+    'importErrorTooManyRecords': 'このバックアップのボード・タスク・サブタスク数が本アプリの上限を超えています。',
+    'importErrorTooDeep': 'このバックアップのネストが深すぎて本アプリは読み取れません。',
     'confirmImport': '現在のボードとタスクをすべて上書きします。元に戻せません。続行しますか？',
     'importOptions': 'インポートオプション',
     'importPrompt': 'タスクをどのようにインポートしますか？',

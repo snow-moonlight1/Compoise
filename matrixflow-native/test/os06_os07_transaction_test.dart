@@ -231,7 +231,9 @@ void main() {
         throwsFormatException,
       );
       expect(
-        () => ImportPreflight.decode(Uint8List(ImportPreflight.maxBytes + 1)),
+        () => ImportPreflight.decode(
+          Uint8List(ImportPreflight.maxFileBytes + 1),
+        ),
         throwsFormatException,
       );
       final nested =

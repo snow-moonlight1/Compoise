@@ -48,8 +48,53 @@ class ImportPlan {
   });
 }
 
+/// Why a backup was rejected, so the file flow can name the limit instead of
+/// showing a generic parse error. `copy` picks the localized message.
+class BackupRejectedException implements FormatException {
+  const BackupRejectedException(
+    this.copy,
+    this.message, {
+    this.source,
+    this.offset = 0,
+  });
+
+  final String copy;
+
+  @override
+  final String message;
+  @override
+  final dynamic source;
+  @override
+  final int offset;
+
+  @override
+  String toString() => 'FormatException: $message';
+}
+
 class ImportPreflight {
+  /// UTF-8 bytes of task text one backup file is guaranteed to carry. A single
+  /// record may use the whole budget, which is why the file ceiling below is
+  /// larger than this: `maxBytes` alone was rejected as a file ceiling by
+  /// RF-R04, because the JSON around 4 MiB of notes is already over 4 MiB.
   static const maxBytes = 4 * 1024 * 1024;
+
+  /// Ceiling for one backup file, i.e. the bounded read. Derived, not chosen:
+  /// `maxBytes` of text + the structural bytes a library at the record caps
+  /// costs on its own (measured in `test/review/rf04_size_measurement.dart`:
+  /// 10000 tasks x 146 B + 50000 subtasks x 39 B + 500 boards x 34 B
+  /// = 3.27 MiB) + the 751 B envelope an empty export already has, rounded up
+  /// to 8 MiB, which leaves ~0.7 MiB for key escaping. Measured cost at this
+  /// size is ~100 ms to encode and ~150 ms to decode.
+  static const maxFileBytes = 8 * 1024 * 1024;
+
+  /// A library whose text exceeds `maxBytes` still has to be recoverable, so
+  /// export splits it into at most this many files of `maxFileBytes` each —
+  /// together about 64 MiB, roughly ten times the largest library the record
+  /// caps allow (measured 6.52 MiB). Beyond that the library is outside the
+  /// supported contract and export says so instead of claiming a backup it
+  /// cannot restore.
+  static const maxParts = 8;
+
   static const maxBoards = 500;
   static const maxTasks = 10000;
   static const maxSubtasks = 50000;
@@ -69,8 +114,11 @@ class ImportPreflight {
   }
 
   static Map<String, dynamic> decode(Uint8List bytes) {
-    if (bytes.length > maxBytes) {
-      throw const FormatException('Backup exceeds 4 MiB');
+    if (bytes.length > maxFileBytes) {
+      throw const BackupRejectedException(
+        'importErrorTooLarge',
+        'Backup exceeds the supported size limit',
+      );
     }
     final source = utf8.decode(bytes).replaceFirst(RegExp(r'^\uFEFF'), '');
     var depth = 0;
@@ -89,7 +137,10 @@ class ImportPreflight {
         quoted = true;
       } else if (unit == 123 || unit == 91) {
         if (++depth > maxDepth) {
-          throw const FormatException('Backup nesting limit exceeded');
+          throw const BackupRejectedException(
+            'importErrorTooDeep',
+            'Backup nesting limit exceeded',
+          );
         }
       } else if (unit == 125 || unit == 93) {
         depth--;
@@ -114,7 +165,10 @@ class ImportPreflight {
     }
     void checkDepth(Object? value, int depth) {
       if (depth > maxDepth) {
-        throw const FormatException('Backup nesting limit exceeded');
+        throw const BackupRejectedException(
+          'importErrorTooDeep',
+          'Backup nesting limit exceeded',
+        );
       }
       if (value is Map) {
         for (final item in value.values) {
@@ -128,9 +182,14 @@ class ImportPreflight {
     }
 
     checkDepth(payload, 1);
-    // Direct-map callers pass through the same structural and size gate.
-    if (utf8.encode(jsonEncode(payload)).length > maxBytes) {
-      throw const FormatException('Backup exceeds 4 MiB');
+    // Direct-map callers pass through the same structural and size gate. This
+    // is the gate `buildBackupBundle` runs its own output through, so a backup
+    // the app wrote can always be read back here.
+    if (utf8.encode(jsonEncode(payload)).length > maxFileBytes) {
+      throw const BackupRejectedException(
+        'importErrorTooLarge',
+        'Backup exceeds the supported size limit',
+      );
     }
     if (payload['boards'] is! List || payload['tasks'] is! List) {
       throw const FormatException('Missing boards or tasks');
@@ -138,7 +197,10 @@ class ImportPreflight {
     final boardsRaw = payload['boards'] as List;
     final tasksRaw = payload['tasks'] as List;
     if (boardsRaw.length > maxBoards || tasksRaw.length > maxTasks) {
-      throw const FormatException('Backup record limit exceeded');
+      throw const BackupRejectedException(
+        'importErrorTooManyRecords',
+        'Backup record limit exceeded',
+      );
     }
     var children = 0;
     var repairs = 0;
@@ -300,7 +362,10 @@ class ImportPreflight {
       for (final child in (childRaw as List?) ?? const []) {
         childIndex++;
         if (++children > maxSubtasks) {
-          throw const FormatException('Subtask limit exceeded');
+          throw const BackupRejectedException(
+            'importErrorTooManyRecords',
+            'Subtask limit exceeded',
+          );
         }
         if (child is! Map<String, dynamic>) {
           throw const FormatException('Invalid subtask record');
@@ -429,6 +494,21 @@ class ImportPreflight {
       }
       addedBoards = resultBoards.length;
       addedTasks = resultTasks.length;
+    }
+    // The caps define the library this app supports, not just one file. A
+    // merge that is legal by itself would otherwise walk an already large
+    // library past the ceiling, leaving a library no backup can carry.
+    var resultChildren = 0;
+    for (final task in resultTasks) {
+      resultChildren += task.subtasks.length;
+    }
+    if (resultBoards.length > maxBoards ||
+        resultTasks.length > maxTasks ||
+        resultChildren > maxSubtasks) {
+      throw const BackupRejectedException(
+        'importErrorTooManyRecords',
+        'Import would exceed the supported library limits',
+      );
     }
     return ImportPlan(
       mode: mode,

@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai_service.dart';
+import 'backup_export.dart';
 import 'credential_store.dart';
 import 'deadline_policy.dart';
 import 'l10n.dart';
@@ -18,6 +19,7 @@ import 'save_protocol.dart';
 import 'services/reminder_service.dart';
 import 'task_commands.dart';
 
+export 'backup_export.dart';
 export 'data_migrations.dart';
 export 'credential_store.dart';
 export 'deadline_policy.dart';
@@ -1516,6 +1518,20 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         aiConfig: config,
       ).toJson(targetVersion: version, includeCredential: true),
     );
+  }
+
+  /// Builds the backup file or files for the live library.
+  ///
+  /// Every file this returns is checked against the same preflight a restore
+  /// runs, so a success here is a backup that can actually be read back. When
+  /// the library is too large for one file it is split, and when not even a
+  /// split can carry it the bundle reports that instead of writing a file the
+  /// import gate would later refuse.
+  Future<BackupBundle> exportBackup({bool includeCredential = false}) async {
+    final document = includeCredential
+        ? await exportJsonWithCredential()
+        : exportJson();
+    return buildBackupBundle(document);
   }
 
   /// Returns the number of tasks imported. [mode] is 'merge' or 'overwrite'.
