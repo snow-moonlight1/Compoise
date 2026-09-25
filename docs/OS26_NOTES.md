@@ -103,9 +103,11 @@
 |---|---|
 | `flutter test --no-pub test/os26_release_test.dart` | **5/5**（本包新增契约） |
 | `flutter test --no-pub test/os24_toolchain_test.dart test/os25_ci_test.dart` | **7/7**，证明改过的 `release.yml` 与 `build_release.ps1` 没有破坏 OS24 工具链契约和 OS25 无密钥/签名门槛契约 |
+| `flutter test --no-pub test/os26_release_test.dart test/os24_toolchain_test.dart test/os25_ci_test.dart`（提交前对暂存内容的最终复跑） | **12/12** |
 | `flutter test --no-pub` | **500/500**（基线 495 + 本包 5） |
 | `flutter analyze --no-pub` | **No issues found** |
 | 本机 PyYAML 解析 workflow、Git Bash `bash -n` 校验 14 段脚本、9 项 workflow 步骤功能验证 | 见 3.4，全部通过 |
+| `gradlew.bat --no-daemon :app:verifyFormalReleaseSigning`（`REQUIRE_RELEASE_SIGNING=true` / `false`） | **1 / 0**，见 3.6 |
 
 ### 3.6 Android 签名门槛（Gradle 直连，OS26 worktree）
 
@@ -117,7 +119,6 @@
 | 同上，`REQUIRE_RELEASE_SIGNING=false` | **BUILD SUCCESSFUL，退出码 0**（keyless debug/PR 路径未被误阻） |
 
 两次运行都说明改过的 `build.gradle.kts` 能配置、编译并按门槛工作；未改 `CI` 环境变量相关逻辑，`CI=true` 不再在配置阶段抛错的 OS25 行为保持不变（`System.getenv("CI")` 仍不出现在该文件，见 3.5 的契约测试）。
-| `:app:verifyFormalReleaseSigning`（`REQUIRE_RELEASE_SIGNING=true` / `false`） | 见 3.6 |
 
 ## 4. 公开前审计
 
@@ -227,7 +228,7 @@
 - Maven/Gradle 侧依赖的漏洞通告未查；托管侧 secret scanning（GitHub）未执行，只有本地全历史扫描。
 - 没有 distribution 级 `THIRD_PARTY_NOTICES` 汇总文件；Windows 绿色包内的第三方声明未逐条展开核对。
 - Windows 版本字符串沿用 Flutter 模板行为：字符串显示为 `1.0.0+1`，数值 `FILEVERSION` 为 `1,0,0,1`。若希望资源管理器显示 `1.0.0.1`，需要改 `windows/runner/Runner.rc` 的 `VERSION_AS_STRING`；本包未改（避免与 OS16 的 Windows runner 工作交叉）。
-- `-ValidateOnly` 与 `ExpectedTag` 的失败路径、缺签名拒绝对已实测；`release.yml` 的所有 job 逻辑只做了本地契约测试与静态审查。
+- `-ValidateOnly` 与 `ExpectedTag` 的失败路径、缺签名拒绝均已实测；`release.yml` 的所有 job 逻辑只做了本地契约测试与静态审查。
 
 ## 7. 与现有公共文档的冲突（交给集成人 / OS27）
 
