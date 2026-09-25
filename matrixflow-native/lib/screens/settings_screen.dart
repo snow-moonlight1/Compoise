@@ -1,17 +1,9 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../ai_capabilities.dart';
 import '../ai_presets.dart';
-import '../ai_service.dart';
-import '../model_discovery.dart';
 import '../models.dart';
-import '../services/desktop_shell_host.dart';
 import '../services/desktop_shell_service.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
@@ -21,6 +13,9 @@ import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/accessible_tap_target.dart';
 import 'onboarding_screen.dart';
+import 'settings_backup_flow.dart';
+import 'settings_desktop.dart';
+import 'settings_model_request.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -37,20 +32,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _baseUrlFocusNode = FocusNode();
   bool _apiKeyHadFocus = false;
   bool _baseUrlHadFocus = false;
-  bool _fileBusy = false;
-
-  List<String> _discoveredModels = [];
-  bool _fetchingModels = false;
-  int _discoveryGeneration = 0;
-  String? _discoveryError;
-  AICancellation? _discoveryCancellation;
-  ModelDiscoveryIdentity? _resultsIdentity;
-  ModelDiscoveryIdentity? _attemptedIdentity;
-  ModelDiscoveryIdentity? _requestedIdentity;
-  String? _flightFingerprint;
-  bool _customModelMode = false;
   String? _lastSyncedBaseUrl;
   String? _lastSyncedModel;
+
+  // The model-list request and the backup files each own their lifecycle; the
+  // screen renders their state and reports the outcome it gets back.
+  late final ModelRequestSession _models = ModelRequestSession(
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+    onAdoptModel: (store, model) {
+      _modelController.text = model;
+      _editAIConfig(store, (config) => config.model = model);
+    },
+  );
+  late final SettingsBackupFlow _backup = SettingsBackupFlow(
+    onBusyChanged: (_) {
+      if (mounted) setState(() {});
+    },
+  );
 
   @override
   void initState() {
@@ -73,7 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     if (!_apiKeyHadFocus) return;
     _apiKeyHadFocus = false;
-    _commitDiscovery(context.read<Store>());
+    _models.commit(context.read<Store>());
   }
 
   void _handleBaseUrlFocusChange() {
@@ -83,14 +83,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     if (!_baseUrlHadFocus) return;
     _baseUrlHadFocus = false;
-    _commitDiscovery(context.read<Store>());
+    _models.commit(context.read<Store>());
   }
-
-  Future<DesktopShellSettingsResult> _applyDesktopSettings(Store store) =>
-      DesktopShellService.instance.applySettings(
-        closeToTray: store.settings.closeToTray,
-        globalShortcut: store.settings.globalShortcut,
-      );
 
   Future<void> _editDesktopHotkey(
     BuildContext context,
@@ -130,69 +124,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (shortcut == null || !context.mounted) return;
     store.updateSettings((s) => s..globalShortcut = shortcut.trim());
-    await _applyDesktopSettings(store);
-  }
-
-  String _desktopStatusText(Map<String, String> t, DesktopShellService shell) {
-    if (shell.isApplyingSettings) {
-      return t['desktopShellApplying'] ?? 'Applying Windows desktop settings…';
-    }
-    final result = shell.lastSettingsResult;
-    if (result == null) {
-      return t['desktopShellNotApplied'] ??
-          'Desktop settings have not been applied yet.';
-    }
-    if (result.tray.isFailure) {
-      return t['desktopTrayUnavailable'] ??
-          'System tray is unavailable. Closing to tray is disabled.';
-    }
-    return switch (result.hotkey.kind) {
-      DesktopShellResultKind.conflict =>
-        t['desktopHotkeyConflict'] ??
-            'Global shortcut conflicts with another application.',
-      DesktopShellResultKind.invalid =>
-        t['desktopHotkeyInvalid'] ?? 'Global shortcut format is invalid.',
-      DesktopShellResultKind.unavailable =>
-        t['desktopHotkeyUnavailable'] ??
-            'Global shortcut could not be registered.',
-      DesktopShellResultKind.disabled =>
-        t['desktopHotkeyDisabled'] ?? 'Global shortcut is disabled.',
-      _ => t['desktopShellReady'] ?? 'Windows desktop features are active.',
-    };
-  }
-
-  String _discoveryFingerprint(AIConfig config) =>
-      '${config.provider}\u0000${config.baseUrl.trim()}\u0000${config.protocol.name}\u0000${config.apiKey.trim()}';
-
-  void _invalidateDisplayedDiscovery() {
-    _discoveryCancellation?.cancel();
-    _discoveryCancellation = null;
-    _discoveryGeneration++;
-    _fetchingModels = false;
-    _discoveredModels = [];
-    _discoveryError = null;
-    _resultsIdentity = null;
-    _attemptedIdentity = null;
-    _requestedIdentity = null;
-    _flightFingerprint = null;
-  }
-
-  void _onCredentialOrEndpointChanged(Store store) {
-    final next = tryModelDiscoveryIdentity(store.aiConfig);
-    final nextPrint = _discoveryFingerprint(store.aiConfig);
-    final resultsStale = _resultsIdentity != null && _resultsIdentity != next;
-    final flightStale =
-        _fetchingModels &&
-        _flightFingerprint != null &&
-        _flightFingerprint != nextPrint;
-    final errorStale =
-        _discoveryError != null &&
-        _flightFingerprint != nextPrint &&
-        _attemptedIdentity != next;
-    if (resultsStale || flightStale || errorStale) {
-      _invalidateDisplayedDiscovery();
-      setState(() {});
-    }
+    await applyDesktopSettings(store);
   }
 
   void _editAIConfig(Store store, void Function(AIConfig) edit) {
@@ -202,12 +134,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _onProviderChanged(String newProvider, Store store) {
-    _invalidateDisplayedDiscovery();
+    // The old provider's list, error and in-flight reply are all obsolete now;
+    // so is a custom-model choice made against the previous provider.
+    _models.invalidate();
+    _models.customModelMode = false;
     final preset = getAIProviderPreset(newProvider);
     _apiKeyController.clear();
-    _discoveredModels.clear();
-    _discoveryError = null;
-    _customModelMode = false;
 
     final next = store.copyAIConfig();
     next.provider = newProvider;
@@ -230,111 +162,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _commitDiscovery(Store store, {bool forceRefresh = false}) {
-    if (store.aiConfig.apiKey.trim().isEmpty) return;
-    final identity = tryModelDiscoveryIdentity(store.aiConfig);
-    if (!forceRefresh &&
-        identity != null &&
-        identity == _requestedIdentity &&
-        _fetchingModels) {
-      return;
-    }
-    if (!forceRefresh &&
-        identity != null &&
-        identity == _attemptedIdentity &&
-        (identity == _resultsIdentity || _discoveryError != null)) {
-      return;
-    }
-    _fetchModels(store, forceRefresh: forceRefresh);
-  }
-
-  bool _discoveryStillCurrent(Store store, AIConfig snapshot) {
-    final live = tryModelDiscoveryIdentity(store.aiConfig);
-    final started = tryModelDiscoveryIdentity(snapshot);
-    if (live != null || started != null) return live == started;
-    return store.aiConfig.provider == snapshot.provider &&
-        store.aiConfig.baseUrl.trim() == snapshot.baseUrl.trim() &&
-        store.aiConfig.protocol == snapshot.protocol &&
-        store.aiConfig.apiKey.trim() == snapshot.apiKey.trim();
-  }
-
-  Future<void> _fetchModels(Store store, {bool forceRefresh = false}) async {
-    if (store.aiConfig.apiKey.trim().isEmpty) return;
-    final identity = tryModelDiscoveryIdentity(store.aiConfig);
-
-    _discoveryCancellation?.cancel();
-    final cancel = _discoveryCancellation = AICancellation();
-    final generation = ++_discoveryGeneration;
-    _attemptedIdentity = identity;
-    _requestedIdentity = identity;
-    final snapshot = store.copyAIConfig();
-    _flightFingerprint = _discoveryFingerprint(snapshot);
-    final modelAtStart = snapshot.model;
-
-    setState(() {
-      _fetchingModels = true;
-      _discoveryError = null;
-    });
-
-    try {
-      final models = await store.ai.fetchModels(
-        config: snapshot,
-        forceRefresh: forceRefresh,
-        cancellation: cancel,
-      );
-      if (!mounted || generation != _discoveryGeneration) return;
-      if (!_discoveryStillCurrent(store, snapshot)) {
-        setState(() => _fetchingModels = false);
-        return;
-      }
-      setState(() {
-        _fetchingModels = false;
-        _discoveredModels = List<String>.from(models);
-        _resultsIdentity = identity;
-        _discoveryError = null;
-        if (models.isEmpty) {
-          _discoveryError = store.t['noModelsFound'];
-          _customModelMode = true;
-        } else if (store.aiConfig.model != modelAtStart &&
-            !models.contains(store.aiConfig.model)) {
-          _customModelMode = true;
-        } else if (store.aiConfig.model == modelAtStart) {
-          final best = pickPreferredModel(
-            store.aiConfig.provider,
-            models,
-            currentModel: store.aiConfig.model,
-          );
-          _modelController.text = best;
-          _editAIConfig(store, (config) => config.model = best);
-          _customModelMode = false;
-        } else {
-          _customModelMode = false;
-        }
-      });
-    } catch (e) {
-      if (!mounted || generation != _discoveryGeneration) return;
-      if (!_discoveryStillCurrent(store, snapshot)) {
-        setState(() => _fetchingModels = false);
-        return;
-      }
-      if (e is AIException && e.code == 'aiCancelled') {
-        setState(() => _fetchingModels = false);
-        return;
-      }
-      setState(() {
-        _fetchingModels = false;
-        _resultsIdentity = null;
-        _discoveryError = aiErrorMessage(e, store.t);
-        _customModelMode = true;
-      });
-    }
-  }
-
   @override
   void dispose() {
-    _discoveryGeneration++;
-    _discoveryCancellation?.cancel();
-    _discoveryCancellation = null;
+    _models.dispose();
+    _backup.close();
     _apiKeyFocusNode.removeListener(_handleApiKeyFocusChange);
     _baseUrlFocusNode.removeListener(_handleBaseUrlFocusChange);
     _apiKeyFocusNode.dispose();
@@ -361,24 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _lastSyncedModel = store.aiConfig.model;
       _modelController.text = store.aiConfig.model;
     }
-    final liveIdentity = tryModelDiscoveryIdentity(store.aiConfig);
-    if (_requestedIdentity != null && _requestedIdentity != liveIdentity) {
-      _discoveryCancellation?.cancel();
-      _discoveryCancellation = null;
-      _discoveryGeneration++;
-      _fetchingModels = false;
-      _discoveredModels = [];
-      _discoveryError = null;
-      _resultsIdentity = null;
-      _attemptedIdentity = null;
-      _requestedIdentity = null;
-      _flightFingerprint = null;
-    } else if (_resultsIdentity != null && _resultsIdentity != liveIdentity) {
-      _discoveredModels = [];
-      _discoveryError = null;
-      _resultsIdentity = null;
-      _attemptedIdentity = null;
-    }
+    _models.syncWithLiveConfig(store);
 
     return Scaffold(
       appBar: AppBar(title: Text(t['settings']!)),
@@ -581,7 +395,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 hintText: preset.keyHint,
                 floatingLabelBehavior: FloatingLabelBehavior.always,
                 suffixIcon:
-                    _fetchingModels
+                    _models.isFetching
                         ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -597,7 +411,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onPressed:
                               _apiKeyController.text.trim().isEmpty
                                   ? null
-                                  : () => _commitDiscovery(
+                                  : () => _models.commit(
                                     store,
                                     forceRefresh: true,
                                   ),
@@ -606,13 +420,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               obscureText: true,
               focusNode: _apiKeyFocusNode,
               controller: _apiKeyController,
-              onSubmitted: (_) => _commitDiscovery(store),
+              onSubmitted: (_) => _models.commit(store),
               onChanged: (v) {
                 _editAIConfig(store, (config) => config.apiKey = v);
-                _onCredentialOrEndpointChanged(store);
+                _models.credentialOrEndpointChanged(store);
               },
             ),
-            if (_fetchingModels) ...[
+            if (_models.isFetching) ...[
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -630,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-            ] else if (_discoveryError != null) ...[
+            ] else if (_models.error != null) ...[
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -642,7 +456,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _discoveryError!,
+                      _models.error!,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.error,
                       ),
@@ -651,7 +465,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   TextButton(
                     key: const ValueKey('discovery-retry'),
                     onPressed:
-                        () => _commitDiscovery(store, forceRefresh: true),
+                        () => _models.commit(store, forceRefresh: true),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -674,7 +488,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
             const SizedBox(height: 10),
-            if (_discoveredModels.isNotEmpty && !_customModelMode) ...[
+            if (_models.models.isNotEmpty && !_models.customModelMode) ...[
               DropdownButtonFormField<String>(
                 key: const ValueKey('model-selector'),
                 isExpanded: true,
@@ -683,11 +497,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                 ),
                 value:
-                    _discoveredModels.contains(store.aiConfig.model)
+                    _models.models.contains(store.aiConfig.model)
                         ? store.aiConfig.model
                         : '__custom__',
                 items: [
-                  for (final m in _discoveredModels)
+                  for (final m in _models.models)
                     DropdownMenuItem(
                       value: m,
                       child: Text(m, overflow: TextOverflow.ellipsis),
@@ -703,7 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (val) {
                   if (val == '__custom__') {
                     setState(() {
-                      _customModelMode = true;
+                      _models.customModelMode = true;
                     });
                   } else if (val != null) {
                     _modelController.text = val;
@@ -722,13 +536,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           : t['enterModelHint'],
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                   suffixIcon:
-                      _discoveredModels.isNotEmpty
+                      _models.models.isNotEmpty
                           ? IconButton(
                             icon: const Icon(Icons.list, size: 20),
                             tooltip: t['selectModel'],
                             onPressed: () {
                               setState(() {
-                                _customModelMode = false;
+                                _models.customModelMode = false;
                               });
                             },
                           )
@@ -796,7 +610,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (value) {
                   if (value != null && value != store.aiConfig.protocol) {
                     _editAIConfig(store, (config) => config.protocol = value);
-                    _invalidateDisplayedDiscovery();
+                    _models.invalidate();
                     setState(() {});
                   }
                 },
@@ -813,10 +627,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 focusNode: _baseUrlFocusNode,
                 controller: _baseUrlController,
-                onSubmitted: (_) => _commitDiscovery(store),
+                onSubmitted: (_) => _models.commit(store),
                 onChanged: (v) {
                   _editAIConfig(store, (config) => config.baseUrl = v);
-                  _onCredentialOrEndpointChanged(store);
+                  _models.credentialOrEndpointChanged(store);
                 },
               ),
               const SizedBox(height: 6),
@@ -853,10 +667,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       focusNode: _baseUrlFocusNode,
                       controller: _baseUrlController,
-                      onSubmitted: (_) => _commitDiscovery(store),
+                      onSubmitted: (_) => _models.commit(store),
                       onChanged: (v) {
                         _editAIConfig(store, (config) => config.baseUrl = v);
-                        _onCredentialOrEndpointChanged(store);
+                        _models.credentialOrEndpointChanged(store);
                       },
                     ),
                     const SizedBox(height: 6),
@@ -907,7 +721,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            _TestConnectionButton(t: t, store: store),
+            TestConnectionButton(t: t, store: store),
             const SizedBox(height: 20),
 
             _sectionTitle(
@@ -940,7 +754,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.download_outlined, size: 18),
                     label: Text(t['exportData']!),
-                    onPressed: _fileBusy ? null : () => _export(context, store),
+                    onPressed: _backup.busy ? null : () => _runExport(context, store),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -948,7 +762,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.upload_outlined, size: 18),
                     label: Text(t['importData']!),
-                    onPressed: _fileBusy ? null : () => _import(context, store),
+                    onPressed: _backup.busy ? null : () => _runImport(context, store),
                   ),
                 ),
               ],
@@ -1148,7 +962,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 store.settings.closeToTray,
                 (v) async {
                   store.updateSettings((s) => s..closeToTray = v);
-                  final result = await _applyDesktopSettings(store);
+                  final result = await applyDesktopSettings(store);
                   if (!context.mounted) return;
                   if (v && result.closeToTrayEffective) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1233,7 +1047,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _desktopStatusText(t, shell),
+                          desktopStatusText(t, shell),
                           style: theme.textTheme.bodySmall,
                         ),
                       ),
@@ -1242,7 +1056,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         TextButton(
                           key: const ValueKey('desktop-shell-retry'),
                           onPressed: () async {
-                            await _applyDesktopSettings(store);
+                            await applyDesktopSettings(store);
                           },
                           child: Text(t['retry'] ?? 'Retry'),
                         ),
@@ -1780,265 +1594,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _export(BuildContext context, Store store) async {
-    if (_fileBusy) return;
-    setState(() => _fileBusy = true);
-    try {
-      final includeCredential = await showDialog<bool>(
-        context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: Text(store.t['exportCredentialTitle']!),
-              content: Text(store.t['exportCredentialWarning']!),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(store.t['cancel']!),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: Text(store.t['exportWithoutCredential']!),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: Text(store.t['exportWithCredential']!),
-                ),
-              ],
-            ),
-      );
-      if (includeCredential == null || !context.mounted) return;
-      final json =
-          includeCredential
-              ? await store.exportJsonWithCredential()
-              : store.exportJson();
-      final bytes = Uint8List.fromList(utf8.encode(json));
-      final path = await FilePicker.platform.saveFile(
-        fileName:
-            'matrixflow_backup_${DateTime.now().toIso8601String().split('T').first}.json',
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        bytes: bytes,
-      );
-      if (path == null) return;
-      // Android's Storage Access Framework writes the bytes itself. Its return
-      // value may be a content URI, not a Dart File path.
-      if (!Platform.isAndroid && !Platform.isIOS) {
-        await File(path).writeAsBytes(bytes, flush: true);
-      }
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(store.t['exportSuccess']!)));
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(store.t['exportError']!)));
-      }
-    } finally {
-      if (mounted) setState(() => _fileBusy = false);
-    }
+  Future<void> _runExport(BuildContext context, Store store) async {
+    final result = await _backup.export(context, store);
+    if (!context.mounted || result.message == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message!)));
   }
 
-  Future<void> _import(BuildContext context, Store store) async {
-    if (_fileBusy) return;
-    setState(() => _fileBusy = true);
-    final t = store.t;
-    var applying = false;
-    try {
-      final picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        withData: false,
-      );
-      if (!context.mounted || picked == null) return;
-      final file = picked.files.single;
-      Uint8List? bytes = file.bytes;
-      if (file.size > ImportPreflight.maxBytes) {
-        throw const FormatException('Backup exceeds size limit');
-      }
-      if (bytes == null && file.path != null) {
-        final source = File(file.path!);
-        if (await source.length() > ImportPreflight.maxBytes) {
-          throw const FormatException('Backup exceeds size limit');
-        }
-        final collected = <int>[];
-        await for (final chunk in source.openRead(
-          0,
-          ImportPreflight.maxBytes + 1,
-        )) {
-          collected.addAll(chunk);
-          if (collected.length > ImportPreflight.maxBytes) {
-            throw const FormatException('Backup exceeds size limit');
-          }
-        }
-        bytes = Uint8List.fromList(collected);
-      }
-      if (bytes == null) throw const FormatException('No file data');
-      final json = ImportPreflight.decode(bytes);
-      if (!context.mounted) return;
-      final mode = await showDialog<String>(
-        context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: Text(t['importOptions']!),
-              content: Text(t['importPrompt']!),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(t['cancel']!),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, 'merge'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t['importModeMerge']!),
-                      Text(
-                        t['importModeMergeDesc']!,
-                        style: Theme.of(dialogContext).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                  ),
-                  onPressed: () => Navigator.pop(dialogContext, 'overwrite'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t['importModeOverwrite']!),
-                      Text(
-                        t['importModeOverwriteDesc']!,
-                        style: Theme.of(dialogContext).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-      );
-      if (mode == null || !context.mounted) return;
-      final plan = store.previewImport(json, mode);
-      final summary =
-          '${t['importAddedBoards']}: ${plan.addedBoards}\n'
-          '${t['importAddedTasks']}: ${plan.addedTasks}\n'
-          '${t['importSkipped']}: ${plan.skipped}\n'
-          '${t['importConflicts']}: ${plan.conflicts}\n'
-          '${t['importRepaired']}: ${plan.repaired}\n'
-          '${t['importWarnings']}: ${plan.warnings.length}\n'
-          '${t['importRemovedBoards']}: ${plan.removedBoards}\n'
-          '${t['importRemovedTasks']}: ${plan.removedTasks}\n'
-          '${t['importSettingsImpact']}: ${plan.settings == null ? t['importAbsent'] : t['importPresent']}\n'
-          '${t['importConfigImpact']}: ${plan.aiConfig == null ? t['importAbsent'] : t['importPresent']}';
-      String warningText(String warning) {
-        if (warning == 'Empty backup') return t['importWarningEmpty']!;
-        if (warning == 'Orphan task skipped') return t['importWarningOrphan']!;
-        if (warning == 'Default board created') return t['importWarningBoard']!;
-        if (warning == 'Empty board reference repaired') {
-          return t['importWarningReference']!;
-        }
-        if (warning.startsWith('Successfully migrated legacy')) {
-          return t['importWarningLegacy']!;
-        }
-        if (warning.endsWith('normalized')) {
-          return '${t['importWarningNormalized']}: $warning';
-        }
-        return '${t['importWarningUnknown']}: $warning';
-      }
-
-      final warningDetails = plan.warnings.take(8).map(warningText).join('\n');
-      final choice = await showDialog<String>(
-        context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: Text(t['importPreview']!),
-              content: SingleChildScrollView(
-                child: Text(
-                  '${mode == 'overwrite' ? t['confirmImport'] : t['importModeMergeDesc']}\n\n$summary\n\n${plan.hasCredential ? t['importCredentialPresent'] : ''}\n\n$warningDetails\n\n${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(t['cancel']!),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                  ),
-                  onPressed:
-                      plan.conflicts > 0
-                          ? null
-                          : () => Navigator.pop(dialogContext, 'keep'),
-                  child: Text(
-                    plan.hasCredential
-                        ? t['importKeepCredential']!
-                        : t['confirm']!,
-                  ),
-                ),
-                if (plan.hasCredential)
-                  TextButton(
-                    onPressed:
-                        plan.conflicts > 0
-                            ? null
-                            : () => Navigator.pop(dialogContext, 'replace'),
-                    child: Text(t['importReplaceCredential']!),
-                  ),
-              ],
-            ),
-      );
-      if (choice == null || !context.mounted) return;
-      applying = true;
-      final result = await store.applyImport(
-        plan,
-        importCredential: choice == 'replace',
-      );
-      if (!result.success) {
-        throw StateError('Import save failed');
-      }
-      final desktopResult = await _applyDesktopSettings(store);
-      _baseUrlController.text = store.aiConfig.baseUrl;
-      _apiKeyController.text = store.aiConfig.apiKey;
-      _modelController.text = store.aiConfig.model;
-      if (context.mounted) {
-        final desktopWarning =
-            DesktopShellService.instance.isDesktopSupported &&
-                    desktopResult.hasFailure
-                ? '\n${_desktopStatusText(store.t, DesktopShellService.instance)}'
-                : '';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${store.t['importSuccess']} (${plan.addedTasks})$desktopWarning',
-            ),
-          ),
-        );
-      }
-    } on FormatException catch (error) {
-      if (context.mounted) {
-        final message =
-            error.message.startsWith('Conflicting')
-                ? t['importConflictBlocked']!
-                : t['importError']!;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(t[applying ? 'importSaveError' : 'importError']!),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _fileBusy = false);
-    }
+  Future<void> _runImport(BuildContext context, Store store) async {
+    final result = await _backup.importBackup(
+      context,
+      store,
+      syncAiFields: () {
+        _baseUrlController.text = store.aiConfig.baseUrl;
+        _apiKeyController.text = store.aiConfig.apiKey;
+        _modelController.text = store.aiConfig.model;
+      },
+    );
+    if (!context.mounted || result.message == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message!)));
   }
 }
 
@@ -2123,190 +1700,3 @@ class _ColorDot extends StatelessWidget {
   }
 }
 
-class _TestConnectionButton extends StatefulWidget {
-  final Map<String, String> t;
-  final Store store;
-  const _TestConnectionButton({required this.t, required this.store});
-
-  @override
-  State<_TestConnectionButton> createState() => _TestConnectionButtonState();
-}
-
-class _TestConnectionButtonState extends State<_TestConnectionButton> {
-  bool _probing = false;
-  bool _generating = false;
-  int _generation = 0;
-  ConnectionProbe? _probe;
-  AiProbeStep? _generationResult;
-  ModelDiscoveryIdentity? _probeIdentity;
-  String? _generationModel;
-
-  bool get _busy => _probing || _generating;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = widget.t;
-    final theme = Theme.of(context);
-    final live = tryModelDiscoveryIdentity(widget.store.aiConfig);
-    if (_probeIdentity != null && _probeIdentity != live) {
-      _probe = null;
-      _generationResult = null;
-      _probeIdentity = null;
-      _generationModel = null;
-      _generation++;
-    } else if (_generationResult != null &&
-        widget.store.aiConfig.model.trim() != _generationModel) {
-      _generationResult = null;
-      _generationModel = null;
-      _generation++;
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _statusLine(
-          theme,
-          key: const ValueKey('connection-endpoint-status'),
-          label: t['connectionEndpointLabel']!,
-          step: _probe?.endpointAuth,
-          idle: t['aiCheckSkipped']!,
-        ),
-        _statusLine(
-          theme,
-          key: const ValueKey('connection-discovery-status'),
-          label: t['connectionDiscoveryLabel']!,
-          step: _probe?.modelDiscovery,
-          idle: t['aiCheckSkipped']!,
-        ),
-        _statusLine(
-          theme,
-          key: const ValueKey('connection-generation-status'),
-          label: t['connectionGenerationLabel']!,
-          step: _generationResult,
-          idle: t['aiGenerationNotRun']!,
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              key: const ValueKey('test-connection-btn'),
-              onPressed: _busy ? null : _runProbe,
-              icon:
-                  _probing
-                      ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.wifi_tethering, size: 18),
-              label: Text(_probing ? t['processing']! : t['testConnection']!),
-            ),
-            OutlinedButton.icon(
-              key: const ValueKey('test-generation-btn'),
-              onPressed: _busy ? null : _confirmGeneration,
-              icon:
-                  _generating
-                      ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.play_circle_outline, size: 18),
-              label: Text(
-                _generating ? t['processing']! : t['testGeneration']!,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          t['testGenerationBilling']!,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _statusLine(
-    ThemeData theme, {
-    required Key key,
-    required String label,
-    required AiProbeStep? step,
-    required String idle,
-  }) {
-    final text = step == null ? idle : _stepLabel(step);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text('$label: $text', key: key, style: theme.textTheme.labelSmall),
-    );
-  }
-
-  String _stepLabel(AiProbeStep step) {
-    final known = widget.t[step.code] ?? widget.t['testFail']!;
-    if (step.status == null) return known;
-    return '$known (${step.status})';
-  }
-
-  Future<void> _runProbe() async {
-    final snapshot = AIConfig.fromJson(widget.store.aiConfig.toJson());
-    final identity = tryModelDiscoveryIdentity(snapshot);
-    final ticket = ++_generation;
-    setState(() => _probing = true);
-    final result = await widget.store.ai.testConnection(snapshot);
-    if (!mounted || ticket != _generation) return;
-    if (tryModelDiscoveryIdentity(widget.store.aiConfig) != identity) {
-      setState(() => _probing = false);
-      return;
-    }
-    setState(() {
-      _probing = false;
-      _probe = result;
-      _probeIdentity = identity;
-    });
-  }
-
-  Future<void> _confirmGeneration() async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            key: const ValueKey('generation-billing-dialog'),
-            content: Text(widget.t['testGenerationConfirm']!),
-            actions: [
-              TextButton(
-                key: const ValueKey('generation-billing-cancel'),
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(widget.t['cancel']!),
-              ),
-              TextButton(
-                key: const ValueKey('generation-billing-confirm'),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(widget.t['testGenerationConfirmAction']!),
-              ),
-            ],
-          ),
-    );
-    if (accepted != true || !mounted) return;
-    final snapshot = AIConfig.fromJson(widget.store.aiConfig.toJson());
-    final identity = tryModelDiscoveryIdentity(snapshot);
-    final model = snapshot.model.trim();
-    final ticket = ++_generation;
-    setState(() => _generating = true);
-    final result = await widget.store.ai.testModelGeneration(snapshot);
-    if (!mounted || ticket != _generation) return;
-    if (tryModelDiscoveryIdentity(widget.store.aiConfig) != identity ||
-        widget.store.aiConfig.model.trim() != model) {
-      setState(() => _generating = false);
-      return;
-    }
-    setState(() {
-      _generating = false;
-      _generationResult = result;
-      _probeIdentity = identity;
-      _generationModel = model;
-    });
-  }
-}
