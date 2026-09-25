@@ -68,7 +68,9 @@ class ModelRequestSession {
         _flightFingerprint != null &&
         _flightFingerprint != nextPrint;
     final errorStale =
-        error != null && _flightFingerprint != nextPrint && _attemptedIdentity != next;
+        error != null &&
+        _flightFingerprint != nextPrint &&
+        _attemptedIdentity != next;
     if (resultsStale || flightStale || errorStale) {
       invalidate();
       onChanged();
