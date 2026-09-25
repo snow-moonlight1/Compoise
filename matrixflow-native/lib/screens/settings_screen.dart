@@ -18,6 +18,7 @@ import '../storage.dart';
 import '../theme.dart';
 import '../ui/font_policy.dart';
 import '../ui/platform_ui_policy.dart';
+import '../widgets/accessible_tap_target.dart';
 import 'onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -428,16 +429,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            // The dots now carry 48dp touch targets instead of a 34dp row, so
+            // the gaps around them give back the same 14dp: this section keeps
+            // the exact height it had before the targets grew.
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 for (final color in ThemeColor.values)
                   _ColorDot(
+                    themeColor: color,
                     color: themeSeedColors[color]!,
                     selected: store.settings.themeColor == color,
-                    tooltip:
-                        t['color${color.name[0].toUpperCase()}${color.name.substring(1)}']!,
+                    tooltip: _themeColorName(t, color),
+                    semanticsLabel: _themeColorLabel(t, color),
                     onTap:
                         () => store.updateSettings(
                           (settings) => settings..themeColor = color,
@@ -445,7 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
 
             _sectionTitle(
               theme,
@@ -2028,60 +2033,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+String _themeColorName(Map<String, String> t, ThemeColor color) =>
+    t['color${color.name[0].toUpperCase()}${color.name.substring(1)}']!;
+
+/// The dot's own name plus what it changes: `selected` carries which one is on,
+/// so the label stays the same across selection.
+String _themeColorLabel(Map<String, String> t, ThemeColor color) =>
+    (t['a11yThemeColorOption'] ?? 'Theme color: {color}').replaceAll(
+      '{color}',
+      _themeColorName(t, color),
+    );
+
 class _ColorDot extends StatelessWidget {
+  final ThemeColor themeColor;
   final Color color;
   final bool selected;
   final String tooltip;
+  final String semanticsLabel;
   final VoidCallback onTap;
   const _ColorDot({
+    required this.themeColor,
     required this.color,
     required this.selected,
     required this.tooltip,
+    required this.semanticsLabel,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        width: selected ? 34 : 28,
-        height: selected ? 34 : 28,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border:
+    return AccessibleTapTarget(
+      hitTargetKey: ValueKey('theme-color-hit-${themeColor.name}'),
+      minSide: AccessibleTapTarget.minTouchTarget,
+      ring: AccessibleTapTargetRing.circle,
+      ringInset: 4,
+      semanticsLabel: semanticsLabel,
+      selected: selected,
+      inMutuallyExclusiveGroup: true,
+      onTap: onTap,
+      child: Tooltip(
+        message: tooltip,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          width: selected ? 34 : 28,
+          height: selected ? 34 : 28,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border:
+                selected
+                    ? Border.all(
+                      width: 3,
+                      color: Theme.of(context).colorScheme.surface,
+                    )
+                    : null,
+            boxShadow:
+                selected
+                    ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                    : null,
+          ),
+          child:
               selected
-                  ? Border.all(
-                    width: 3,
-                    color: Theme.of(context).colorScheme.surface,
-                  )
-                  : null,
-          boxShadow:
-              selected
-                  ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.5),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ]
+                  ? const Icon(Icons.check, size: 16, color: Colors.white)
                   : null,
         ),
-        child:
-            selected
-                ? const Icon(Icons.check, size: 16, color: Colors.white)
-                : null,
       ),
-    ).gestures(onTap: onTap);
+    );
   }
-}
-
-extension _Gestures on Widget {
-  Widget gestures({VoidCallback? onTap}) =>
-      GestureDetector(onTap: onTap, child: this);
 }
 
 class _TestConnectionButton extends StatefulWidget {

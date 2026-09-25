@@ -1307,7 +1307,12 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                     ),
                                     level: TaskHierarchyLevel.child,
                                     value: sub.completed,
-                                    semanticsLabel: t['markTaskComplete'],
+                                    semanticsLabel: taskCheckboxLabel(
+                                      t: t,
+                                      level: TaskHierarchyLevel.child,
+                                      value: sub.completed,
+                                      title: sub.title,
+                                    ),
                                     onChanged: (v) {
                                       setState(() => sub.completed = v);
                                     },

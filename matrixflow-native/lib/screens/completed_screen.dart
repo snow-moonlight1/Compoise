@@ -385,7 +385,12 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   visualKey: ValueKey('completed-check-${task.id}-visual'),
                   level: TaskHierarchyLevel.parent,
                   value: true,
-                  semanticsLabel: t['restoreTask'] ?? 'Restore',
+                  semanticsLabel: taskCheckboxLabel(
+                    t: t,
+                    level: TaskHierarchyLevel.parent,
+                    value: true,
+                    title: task.title,
+                  ),
                   onChanged: (_) {
                     store.restoreTask(task);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -508,41 +513,11 @@ class _CompletedScreenState extends State<CompletedScreen> {
                       // Subtasks toggle & progress
                       if (task.subtasks.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        InkWell(
-                          key: ValueKey('completed-expand-${task.id}'),
-                          borderRadius: BorderRadius.circular(4),
-                          onTap: () => _toggleExpand(task.id),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isExpanded
-                                      ? Icons.keyboard_arrow_down
-                                      : Icons.keyboard_arrow_right,
-                                  size: 16,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  (t['subtaskProgress'] ??
-                                          'Subtasks {done}/{total}')
-                                      .replaceAll(
-                                        '{done}',
-                                        '${task.subtasks.where((s) => s.completed).length}',
-                                      )
-                                      .replaceAll(
-                                        '{total}',
-                                        '${task.subtasks.length}',
-                                      ),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        _subtaskToggle(
+                          t: t,
+                          theme: theme,
+                          task: task,
+                          isExpanded: isExpanded,
                         ),
                         if (isExpanded)
                           Padding(
@@ -666,6 +641,65 @@ class _CompletedScreenState extends State<CompletedScreen> {
           child: row,
         );
       },
+    );
+  }
+
+  /// Subtask section toggle: paints as before, but the hit box reaches 48dp and
+  /// the node carries the expanded state plus the parent it belongs to.
+  Widget _subtaskToggle({
+    required Map<String, String> t,
+    required ThemeData theme,
+    required Task task,
+    required bool isExpanded,
+  }) {
+    final done = task.subtasks.where((s) => s.completed).length;
+    final total = task.subtasks.length;
+    return Semantics(
+      container: true,
+      button: true,
+      expanded: isExpanded,
+      label: subtaskToggleLabel(
+        t: t,
+        title: task.title,
+        done: done,
+        total: total,
+      ),
+      child: InkWell(
+        key: ValueKey('completed-expand-${task.id}'),
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => _toggleExpand(task.id),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: TaskHierarchyStyle.hitTargetSize,
+          ),
+          child: ExcludeSemantics(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_down
+                        : Icons.keyboard_arrow_right,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    (t['subtaskProgress'] ?? 'Subtasks {done}/{total}')
+                        .replaceAll('{done}', '$done')
+                        .replaceAll('{total}', '$total'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

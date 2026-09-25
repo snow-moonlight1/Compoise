@@ -455,6 +455,9 @@ class _SearchScreenState extends State<SearchScreen> {
         final task = hit.task;
         final subtask = hit.matchedSubtask;
         final isSubtask = hit.isSubtaskMatch;
+        final level = isSubtask
+            ? TaskHierarchyLevel.child
+            : TaskHierarchyLevel.parent;
         final isCompleted = hit.isCompleted;
         final q = task.quadrant;
         final qColor = Color(quadrantColors[q]!);
@@ -475,13 +478,17 @@ class _SearchScreenState extends State<SearchScreen> {
                   key: ValueKey('search-check-${hit.resultKey}'),
                   hitTargetKey: ValueKey('search-check-hit-${hit.resultKey}'),
                   visualKey: ValueKey('search-check-visual-${hit.resultKey}'),
-                  level:
-                      isSubtask
-                          ? TaskHierarchyLevel.child
-                          : TaskHierarchyLevel.parent,
+                  level: level,
                   value: isCompleted,
-                  semanticsLabel:
-                      t['toggleComplete'] ?? t['completed'] ?? 'Completed',
+                  semanticsLabel: taskCheckboxLabel(
+                    t: t,
+                    level: level,
+                    value: isCompleted,
+                    title:
+                        isSubtask
+                            ? (subtask?.title ?? task.title)
+                            : task.title,
+                  ),
                   onChanged: (val) {
                     if (isSubtask && subtask != null) {
                       subtask.completed = val;

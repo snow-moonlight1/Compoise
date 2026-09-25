@@ -199,7 +199,12 @@ class TaskCard extends StatelessWidget {
         _checkColumn(
           key: ValueKey('complete-${task.id}'),
           visualKey: ValueKey('complete-${task.id}-visual'),
-          semanticsLabel: t['markTaskComplete'],
+          semanticsLabel: taskCheckboxLabel(
+            t: t,
+            level: TaskHierarchyLevel.parent,
+            value: task.completed,
+            title: task.title,
+          ),
           level: TaskHierarchyLevel.parent,
           value: task.completed,
           onToggle: () {
@@ -316,33 +321,49 @@ class TaskCard extends StatelessWidget {
         .replaceAll('{done}', '$done')
         .replaceAll('{total}', '${task.subtasks.length}');
     return Semantics(
+      container: true,
       button: true,
-      label: expanded ? t['collapseSubtasks'] : t['expandSubtasks'],
+      expanded: expanded,
+      label: subtaskToggleLabel(
+        t: t,
+        title: task.title,
+        done: done,
+        total: task.subtasks.length,
+      ),
       child: InkWell(
         key: ValueKey('expand-${task.id}'),
         onTap: onToggleExpand,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 2),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: TaskHierarchyStyle.hitTargetSize,
+          ),
+          child: ExcludeSemantics(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Icon(
-                expanded ? Icons.expand_less : Icons.expand_more,
-                size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -369,7 +390,12 @@ class TaskCard extends StatelessWidget {
               _checkColumn(
                 key: ValueKey('task-subtask-check-${sub.id}'),
                 visualKey: ValueKey('task-subtask-check-${sub.id}-visual'),
-                semanticsLabel: t['markTaskComplete'],
+                semanticsLabel: taskCheckboxLabel(
+                  t: t,
+                  level: TaskHierarchyLevel.child,
+                  value: sub.completed,
+                  title: sub.title,
+                ),
                 level: TaskHierarchyLevel.child,
                 value: sub.completed,
                 onToggle: () {
