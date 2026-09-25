@@ -554,6 +554,11 @@ abstract class ReminderService {
   void Function(ReminderPayload payload)? get onNotificationSelected;
   set onNotificationSelected(void Function(ReminderPayload payload)? handler);
 
+  /// Stores a payload forwarded by a later Windows process.
+  ///
+  /// The running instance delivers it when a screen handler is attached.
+  void acceptExternalActivation(ReminderPayload payload) {}
+
   /// Initializes local notification service and binds notification tap handler.
   Future<void> init({
     void Function(ReminderPayload payload)? onNotificationSelected,
@@ -1081,6 +1086,11 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       _pendingLaunchPayload = null;
       handler(pending);
     }
+  }
+
+  @override
+  void acceptExternalActivation(ReminderPayload payload) {
+    _deliverPayload(payload);
   }
 
   @visibleForTesting

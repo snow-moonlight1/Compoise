@@ -5,13 +5,25 @@ import 'package:provider/provider.dart';
 import 'screens/matrix_screen.dart';
 import 'screens/startup_recovery_screen.dart';
 import 'models.dart';
+import 'services/desktop_shell_service.dart';
 import 'services/desktop_shell_windows.dart';
+import 'services/single_instance.dart';
 import 'storage.dart';
 import 'theme.dart';
 
-Future<void> main() async {
+Future<void> main([List<String> args = const <String>[]]) async {
   WidgetsFlutterBinding.ensureInitialized();
   await ensureWindowsWindowManager();
+  await SingleInstanceController.install(
+    initialArguments: args,
+    onActivated: (incoming) {
+      dispatchSingleInstanceActivation(
+        incoming,
+        restoreWindow: DesktopShellService.instance.restoreWindow,
+        deliverPayload: ReminderService.instance.acceptExternalActivation,
+      );
+    },
+  );
   await ReminderService.instance.init();
   runApp(const MatrixFlowApp());
 }

@@ -2,6 +2,10 @@
 
 #include <optional>
 
+#include "single_instance.h"
+
+#include <vector>
+
 #include <flutter/standard_method_codec.h>
 
 #include "flutter/generated_plugin_registrant.h"
@@ -45,8 +49,7 @@ bool FlutterWindow::OnCreate() {
           return;
         }
         if (call.method_name() == "show") {
-          ::ShowWindow(GetHandle(), SW_SHOW);
-          ::SetForegroundWindow(GetHandle());
+          SingleInstanceRestoreWindow(GetHandle());
           result->Success(flutter::EncodableValue(::IsWindowVisible(GetHandle()) != 0));
           return;
         }
@@ -95,6 +98,50 @@ bool FlutterWindow::OnCreate() {
         result->Success(flutter::EncodableValue(hotkey_registered_));
       });
 
+  single_instance_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "matrixflow/single_instance",
+          &flutter::StandardMethodCodec::GetInstance());
+  SingleInstanceSetDispatcher([this](const std::vector<std::vector<std::string>>&
+                                         batch) {
+    if (!single_instance_channel_) return;
+    for (const auto& args : batch) {
+      flutter::EncodableList encoded;
+      for (const auto& arg : args) {
+        encoded.push_back(flutter::EncodableValue(arg));
+      }
+      single_instance_channel_->InvokeMethod(
+          "onSecondInstance",
+          std::make_unique<flutter::EncodableValue>(encoded));
+    }
+  });
+  single_instance_channel_->SetMethodCallHandler([](const auto& call,
+                                                    auto result) {
+    if (call.method_name() == "listen") {
+      const auto pending = SingleInstanceListenAndTakePending();
+      flutter::EncodableList batch;
+      for (const auto& args : pending) {
+        flutter::EncodableList encoded;
+        for (const auto& arg : args) {
+          encoded.push_back(flutter::EncodableValue(arg));
+        }
+        batch.push_back(flutter::EncodableValue(encoded));
+      }
+      result->Success(flutter::EncodableValue(batch));
+      return;
+    }
+    if (call.method_name() == "scope") {
+      flutter::EncodableMap scope;
+      scope[flutter::EncodableValue("scope")] =
+          flutter::EncodableValue(SingleInstanceScope());
+      result->Success(flutter::EncodableValue(scope));
+      return;
+    }
+    result->NotImplemented();
+  });
+  SingleInstanceAttachWindow(GetHandle());
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -108,6 +155,9 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  SingleInstanceBeginShutdown();
+  SingleInstanceSetDispatcher(nullptr);
+  single_instance_channel_.reset();
   if (hotkey_registered_) {
     ::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId);
     hotkey_registered_ = false;
@@ -124,6 +174,11 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == kSingleInstanceActivateMessage) {
+    SingleInstanceDrainOnUiThread();
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

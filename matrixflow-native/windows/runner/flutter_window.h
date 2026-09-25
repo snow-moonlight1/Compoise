@@ -34,6 +34,10 @@ class FlutterWindow : public Win32Window {
   // The app-owned global hotkey channel checks the Win32 registration result.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> hotkey_channel_;
   bool hotkey_registered_ = false;
+
+  // Receives command lines forwarded by later Windows launches.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      single_instance_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_
