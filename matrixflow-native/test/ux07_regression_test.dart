@@ -286,8 +286,7 @@ void main() {
           ],
     );
     expect(find.byType(TaskListView), findsOneWidget);
-    // TaskListView nests one shrink-wrap ListView per quadrant section; the
-    // outer section ListView comes first in tree order.
+    // The list is one scrollable. Quadrant sections are slivers inside it.
     ScrollPosition position() =>
         tester
             .stateList<ScrollableState>(
@@ -316,6 +315,9 @@ void main() {
     expect(focusMarker(), findsNothing);
     expect(position().pixels, closeTo(before, 2));
     expect(tester.takeException(), isNull);
+    // Rows built by the restored scroll offset queue a one-shot entrance
+    // delay. Flush it before the binding checks for pending timers.
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpWidget(const SizedBox());
     store.dispose();
   });

@@ -41,6 +41,7 @@ class TaskListView extends StatefulWidget {
 
 class _TaskListViewState extends State<TaskListView> {
   int? _hoveringQuadrant;
+  int _hoverTicket = 0;
 
   /// One exit cache per quadrant section; rows are snapshots, never written back.
   final Map<int, ExitRetention<Task>> _retention = {};
@@ -72,8 +73,41 @@ class _TaskListViewState extends State<TaskListView> {
     );
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(milliseconds: 1400)),
+      SnackBar(
+        content: Text(msg),
+        duration: const Duration(milliseconds: 1400),
+      ),
     );
+  }
+
+  /// DragTarget reports leave before the next target's move. A later claim
+  /// in the same gesture cancels the clear so the section highlight does not
+  /// flicker while the pointer crosses rows.
+  void _claimHover(int quadrant) {
+    _hoverTicket++;
+    if (_hoveringQuadrant != quadrant) {
+      setState(() => _hoveringQuadrant = quadrant);
+    }
+  }
+
+  void _releaseHover(int quadrant) {
+    final ticket = _hoverTicket;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ticket != _hoverTicket || _hoveringQuadrant != quadrant) {
+        return;
+      }
+      setState(() => _hoveringQuadrant = null);
+    });
+  }
+
+  void _acceptDrop(BuildContext context, Store store, int quadrant, Task task) {
+    _hoverTicket++;
+    setState(() => _hoveringQuadrant = null);
+    if (task.quadrant != quadrant) {
+      HapticFeedback.mediumImpact();
+      store.moveTask(task.id, quadrant);
+      _showMovedNotice(context, task.title, quadrant);
+    }
   }
 
   @override
@@ -82,28 +116,37 @@ class _TaskListViewState extends State<TaskListView> {
     final t = store.t;
     final theme = Theme.of(context);
 
-    return ListView(
+    return CustomScrollView(
       key: PageStorageKey('${store.activeBoardId}-task-list-view'),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 32),
-      children: [
-        for (final q in allQuadrants) ...[
-          _buildQuadrantSection(context, store, t, theme, q),
-          if (q != allQuadrants.last)
-            Divider(
-              height: 16,
-              thickness: 1,
-              color:
-                  theme.brightness == Brightness.light
-                      ? const Color(0xFFE5E9F0)
-                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-        ],
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 32),
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              for (final q in allQuadrants) ...[
+                ..._quadrantSlivers(context, store, t, theme, q),
+                if (q != allQuadrants.last)
+                  SliverToBoxAdapter(
+                    child: Divider(
+                      height: 16,
+                      thickness: 1,
+                      color: theme.brightness == Brightness.light
+                          ? const Color(0xFFE5E9F0)
+                          : theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildQuadrantSection(
+  List<Widget> _quadrantSlivers(
     BuildContext context,
     Store store,
     Map<String, String> t,
@@ -113,15 +156,15 @@ class _TaskListViewState extends State<TaskListView> {
     final live = store.tasksIn(q);
     final entries = _retentionFor(q).sync(
       items: live,
-      epochKey: 'list-${store.activeBoardId}#${store.boardEpoch(store.activeBoardId)}',
+      epochKey:
+          'list-${store.activeBoardId}#${store.boardEpoch(store.activeBoardId)}',
       idOf: (task) => task.id,
-      keepIfMissing:
-          (task) => store.tasks.any(
-            (t) =>
-                t.id == task.id &&
-                t.boardId == store.activeBoardId &&
-                t.quadrant == q,
-          ),
+      keepIfMissing: (task) => store.tasks.any(
+        (t) =>
+            t.id == task.id &&
+            t.boardId == store.activeBoardId &&
+            t.quadrant == q,
+      ),
       reduceMotion: MotionPolicy.reduceMotionOf(context),
     );
     final accent = Color(quadrantColors[q]!);
@@ -131,166 +174,157 @@ class _TaskListViewState extends State<TaskListView> {
       qDelegate => 'q3',
       _ => 'q4',
     };
-    final isHovered = _hoveringQuadrant == q;
+    final header = _dropShell(
+      context: context,
+      store: store,
+      quadrant: q,
+      accent: accent,
+      outlined: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            key: ValueKey('list-quadrant-header-$q'),
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => widget.onQuadrantTap?.call(q),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t[titleKey]!,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${live.length}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (widget.onQuadrantTap != null) ...[
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.open_in_full,
+                      size: 15,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.45,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (entries.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                t['noTasksInQuadrant'] ?? t['empty'] ?? 'No tasks',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
 
+    return [
+      SliverToBoxAdapter(child: header),
+      if (entries.isNotEmpty)
+        SliverList.builder(
+          itemCount: entries.length,
+          itemBuilder: (context, i) {
+            final entry = entries[i];
+            final task = entry.item;
+            final draggable = LongPressDraggable<Task>(
+              key: ValueKey('list-drag-${task.id}'),
+              maxSimultaneousDrags: widget.selecting || entry.exiting ? 0 : 1,
+              data: task,
+              hapticFeedbackOnStart: true,
+              onDragStarted: () => HapticFeedback.lightImpact(),
+              onDraggableCanceled: (_, __) => HapticFeedback.selectionClick(),
+              feedback: _dragFeedback(context, task),
+              dragAnchorStrategy: pointerDragAnchorStrategy,
+              childWhenDragging: Opacity(
+                opacity: 0.35,
+                child: _taskCard(context, store, task, i),
+              ),
+              child: _taskCard(context, store, task, i),
+            );
+            return ExitingRow(
+              key: ValueKey('list-exit-${task.id}'),
+              exiting: entry.exiting,
+              child: _dropShell(
+                context: context,
+                store: store,
+                quadrant: q,
+                accent: accent,
+                outlined: false,
+                child: draggable,
+              ),
+            );
+          },
+        ),
+    ];
+  }
+
+  Widget _dropShell({
+    required BuildContext context,
+    required Store store,
+    required int quadrant,
+    required Color accent,
+    required bool outlined,
+    required Widget child,
+  }) {
     return DragTarget<Task>(
-      onWillAcceptWithDetails:
-          (details) =>
-              !widget.selecting && details.data.boardId == store.activeBoardId,
-      onMove: (_) {
-        if (_hoveringQuadrant != q) {
-          setState(() => _hoveringQuadrant = q);
-        }
-      },
-      onLeave: (_) {
-        if (_hoveringQuadrant == q) {
-          setState(() => _hoveringQuadrant = null);
-        }
-      },
-      onAcceptWithDetails: (details) {
-        setState(() => _hoveringQuadrant = null);
-        final task = details.data;
-        if (task.quadrant != q) {
-          HapticFeedback.mediumImpact();
-          store.moveTask(task.id, q);
-          _showMovedNotice(context, task.title, q);
-        }
-      },
+      onWillAcceptWithDetails: (details) =>
+          !widget.selecting && details.data.boardId == store.activeBoardId,
+      onMove: (_) => _claimHover(quadrant),
+      onLeave: (_) => _releaseHover(quadrant),
+      onAcceptWithDetails: (details) =>
+          _acceptDrop(context, store, quadrant, details.data),
       builder: (context, candidate, _) {
-        final highlighted = isHovered || candidate.isNotEmpty;
-
+        final highlighted =
+            _hoveringQuadrant == quadrant || candidate.isNotEmpty;
         return AnimatedContainer(
           duration: MotionPolicy.hoverHighlight,
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color:
-                highlighted
-                    ? accent.withValues(alpha: 0.10)
-                    : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border:
-                highlighted
-                    ? Border.all(
-                      color: accent.withValues(alpha: 0.55),
-                      width: 1.5,
-                    )
-                    : null,
+            color: highlighted
+                ? accent.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: outlined ? BorderRadius.circular(8) : null,
+            border: outlined && highlighted
+                ? Border.all(color: accent.withValues(alpha: 0.55), width: 1.5)
+                : null,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Quadrant Section Header
-              InkWell(
-                key: ValueKey('list-quadrant-header-$q'),
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => widget.onQuadrantTap?.call(q),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: accent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          t[titleKey]!,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${live.length}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: accent,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (widget.onQuadrantTap != null) ...[
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.open_in_full,
-                          size: 15,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.45,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              // Tasks or Empty State
-              if (entries.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Text(
-                    t['noTasksInQuadrant'] ?? t['empty'] ?? 'No tasks',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.35,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: entries.length,
-                  itemBuilder: (context, i) {
-                    final entry = entries[i];
-                    final task = entry.item;
-                    final draggable = LongPressDraggable<Task>(
-                      key: ValueKey('list-drag-${task.id}'),
-                      maxSimultaneousDrags:
-                          widget.selecting || entry.exiting ? 0 : 1,
-                      data: task,
-                      hapticFeedbackOnStart: true,
-                      onDragStarted: () => HapticFeedback.lightImpact(),
-                      onDraggableCanceled:
-                          (_, __) => HapticFeedback.selectionClick(),
-                      feedback: _dragFeedback(context, task),
-                      dragAnchorStrategy: pointerDragAnchorStrategy,
-                      childWhenDragging: Opacity(
-                        opacity: 0.35,
-                        child: _taskCard(context, store, task, i),
-                      ),
-                      child: _taskCard(context, store, task, i),
-                    );
-                    return ExitingRow(
-                      key: ValueKey('list-exit-${task.id}'),
-                      exiting: entry.exiting,
-                      child: draggable,
-                    );
-                  },
-                ),
-            ],
-          ),
+          child: child,
         );
       },
     );
@@ -316,10 +350,9 @@ class _TaskListViewState extends State<TaskListView> {
           showTaskEditSheet(context, task);
         }
       },
-      onEditSubtask:
-          widget.onEditSubtask == null
-              ? null
-              : (id) => widget.onEditSubtask!(task, id),
+      onEditSubtask: widget.onEditSubtask == null
+          ? null
+          : (id) => widget.onEditSubtask!(task, id),
       onDelete: () => _confirmDelete(context, store, task),
       onDecompose: () => _decomposeSingle(context, task),
       onDecomposeStart: () {},
@@ -355,24 +388,23 @@ class _TaskListViewState extends State<TaskListView> {
     final t = store.t;
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(t['deleteTaskTitle']!),
-            content: Text(t['deleteTaskConfirm']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(t['cancel']!),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(t['confirm']!),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text(t['deleteTaskTitle']!),
+        content: Text(t['deleteTaskConfirm']!),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(t['cancel']!),
           ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(t['confirm']!),
+          ),
+        ],
+      ),
     );
     if (ok == true && context.mounted) {
       store.deleteTask(task.id);

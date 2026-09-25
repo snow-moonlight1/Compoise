@@ -1,0 +1,1137 @@
+{
+  "complete": true,
+  "syntheticOnly": true,
+  "prefs": "in-memory SharedPreferences.setMockInitialValues",
+  "credentials": "memory",
+  "reminders": "NoopReminderService",
+  "mode": {
+    "debug": false,
+    "profile": true,
+    "release": false,
+    "frameDataCredible": true
+  },
+  "device": {
+    "os": "windows",
+    "osVersion": "\"Windows 11 企业版\" 10.0 (Build 26200)",
+    "processors": 16,
+    "refreshHz": 143.98848092152627,
+    "physicalSize": [
+      2534.0,
+      1369.0
+    ],
+    "devicePixelRatio": 2.0
+  },
+  "method": "Mounts production QuadrantTransitionLayout (grid) or TaskListView (list) in the default 1280x720 Windows runner window. Does not mount MatrixScreen chrome. Tasks are even across quadrants, titles only, no notes, deadlines, reminders, or subtasks. A 64-task grid warmup and a 200-task list warmup are discarded. Frame samples come from FrameTiming after that warmup.",
+  "scenarios": [
+    {
+      "name": "warmup-grid-64",
+      "taskCount": 64,
+      "surface": "grid",
+      "recorded": false,
+      "generateMs": 0,
+      "initMs": 0,
+      "flushMs": 1,
+      "taskBytesJson": 11063,
+      "query": {
+        "label": "dart-cpu-not-frame-time",
+        "iterations": 20,
+        "tasksInAllQuadrantsMeanUs": 34.0,
+        "visibleTasksMeanUs": 5.2,
+        "queryMissMeanUs": 12.1
+      },
+      "rssBeforeMount": {
+        "currentRss": 90415104,
+        "maxRss": 90415104
+      },
+      "mount": {
+        "wallMs": 1143,
+        "timeToFirstFrameMs": 114,
+        "frames": {
+          "count": 89,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 59876,
+            "rasterUs": 54477,
+            "totalUs": 757107
+          },
+          "build": {
+            "count": 89,
+            "meanUs": 1561.9887640449438,
+            "p50Us": 836,
+            "p90Us": 1718,
+            "p99Us": 2576,
+            "maxUs": 59876
+          },
+          "raster": {
+            "count": 89,
+            "meanUs": 3528.1685393258426,
+            "p50Us": 2632,
+            "p90Us": 4497,
+            "p99Us": 21531,
+            "maxUs": 54477
+          },
+          "total": {
+            "count": 89,
+            "meanUs": 13736.955056179775,
+            "p50Us": 4496,
+            "p90Us": 6607,
+            "p99Us": 64209,
+            "maxUs": 757107
+          },
+          "overBudget": 8,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 3
+        },
+        "mountedTaskCards": 40,
+        "mountedElements": 4861,
+        "bodySize": [
+          1267.0,
+          684.5
+        ],
+        "rssAfter": {
+          "currentRss": 127762432,
+          "maxRss": 137170944
+        }
+      },
+      "rebuild": {
+        "wallMs": 331,
+        "timeToFirstFrameMs": 115,
+        "frames": {
+          "count": 1,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 10431,
+            "rasterUs": 2833,
+            "totalUs": 13706
+          },
+          "build": {
+            "count": 1,
+            "meanUs": 10431.0,
+            "p50Us": 10431,
+            "p90Us": 10431,
+            "p99Us": 10431,
+            "maxUs": 10431
+          },
+          "raster": {
+            "count": 1,
+            "meanUs": 2833.0,
+            "p50Us": 2833,
+            "p90Us": 2833,
+            "p99Us": 2833,
+            "maxUs": 2833
+          },
+          "total": {
+            "count": 1,
+            "meanUs": 13706.0,
+            "p50Us": 13706,
+            "p90Us": 13706,
+            "p99Us": 13706,
+            "maxUs": 13706
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 40,
+        "mountedElements": 4861,
+        "rssAfter": {
+          "currentRss": 133390336,
+          "maxRss": 137170944
+        }
+      },
+      "scroll": {
+        "scrollables": [
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 664.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 664.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 664.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 664.75,
+            "viewport": 313.25
+          }
+        ],
+        "distance": 664.75,
+        "durationMs": 400,
+        "wallMs": 1570,
+        "endPixels": 664.75,
+        "frames": {
+          "count": 181,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 162,
+            "rasterUs": 1417,
+            "totalUs": 1892
+          },
+          "build": {
+            "count": 181,
+            "meanUs": 353.3425414364641,
+            "p50Us": 333,
+            "p90Us": 463,
+            "p99Us": 963,
+            "maxUs": 1077
+          },
+          "raster": {
+            "count": 181,
+            "meanUs": 1584.1823204419888,
+            "p50Us": 1544,
+            "p90Us": 1934,
+            "p99Us": 2381,
+            "maxUs": 2868
+          },
+          "total": {
+            "count": 181,
+            "meanUs": 2498.3093922651933,
+            "p50Us": 2445,
+            "p90Us": 3136,
+            "p99Us": 3773,
+            "maxUs": 4072
+          },
+          "overBudget": 0,
+          "buildOverBudget": 0,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 40,
+        "mountedElements": 4861
+      },
+      "rssAfterScroll": {
+        "currentRss": 133644288,
+        "maxRss": 143347712
+      }
+    },
+    {
+      "name": "warmup-list-200",
+      "taskCount": 200,
+      "surface": "list",
+      "recorded": false,
+      "generateMs": 0,
+      "initMs": 1,
+      "flushMs": 3,
+      "taskBytesJson": 34691,
+      "query": {
+        "label": "dart-cpu-not-frame-time",
+        "iterations": 20,
+        "tasksInAllQuadrantsMeanUs": 80.1,
+        "visibleTasksMeanUs": 23.15,
+        "queryMissMeanUs": 35.0
+      },
+      "rssBeforeMount": {
+        "currentRss": 140947456,
+        "maxRss": 143347712
+      },
+      "mount": {
+        "wallMs": 1338,
+        "timeToFirstFrameMs": 85,
+        "frames": {
+          "count": 116,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 2478,
+            "rasterUs": 980,
+            "totalUs": 3776
+          },
+          "build": {
+            "count": 116,
+            "meanUs": 1177.2672413793102,
+            "p50Us": 591,
+            "p90Us": 1976,
+            "p99Us": 2537,
+            "maxUs": 26004
+          },
+          "raster": {
+            "count": 116,
+            "meanUs": 1510.405172413793,
+            "p50Us": 1496,
+            "p90Us": 1869,
+            "p99Us": 2468,
+            "maxUs": 2536
+          },
+          "total": {
+            "count": 116,
+            "meanUs": 3181.7241379310344,
+            "p50Us": 2791,
+            "p90Us": 4086,
+            "p99Us": 5313,
+            "maxUs": 28325
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 50,
+        "mountedElements": 5759,
+        "bodySize": [
+          1267.0,
+          684.5
+        ],
+        "rssAfter": {
+          "currentRss": 137138176,
+          "maxRss": 151470080
+        }
+      },
+      "rebuild": {
+        "wallMs": 330,
+        "timeToFirstFrameMs": 114,
+        "frames": {
+          "count": 1,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 8597,
+            "rasterUs": 1612,
+            "totalUs": 10643
+          },
+          "build": {
+            "count": 1,
+            "meanUs": 8597.0,
+            "p50Us": 8597,
+            "p90Us": 8597,
+            "p99Us": 8597,
+            "maxUs": 8597
+          },
+          "raster": {
+            "count": 1,
+            "meanUs": 1612.0,
+            "p50Us": 1612,
+            "p90Us": 1612,
+            "p99Us": 1612,
+            "maxUs": 1612
+          },
+          "total": {
+            "count": 1,
+            "meanUs": 10643.0,
+            "p50Us": 10643,
+            "p90Us": 10643,
+            "p99Us": 10643,
+            "maxUs": 10643
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 50,
+        "mountedElements": 5759,
+        "rssAfter": {
+          "currentRss": 143527936,
+          "maxRss": 151470080
+        }
+      },
+      "scroll": {
+        "scrollables": [
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 20603.5,
+            "viewport": 684.5
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 0.0,
+            "viewport": 3000.0
+          }
+        ],
+        "distance": 2400.0,
+        "durationMs": 1200,
+        "wallMs": 2417,
+        "endPixels": 2400.0,
+        "frames": {
+          "count": 307,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 197,
+            "rasterUs": 1866,
+            "totalUs": 2218
+          },
+          "build": {
+            "count": 307,
+            "meanUs": 620.1693811074919,
+            "p50Us": 355,
+            "p90Us": 1545,
+            "p99Us": 2175,
+            "maxUs": 22782
+          },
+          "raster": {
+            "count": 307,
+            "meanUs": 1406.8501628664494,
+            "p50Us": 1311,
+            "p90Us": 1748,
+            "p99Us": 2949,
+            "maxUs": 7198
+          },
+          "total": {
+            "count": 307,
+            "meanUs": 2587.543973941368,
+            "p50Us": 2331,
+            "p90Us": 3508,
+            "p99Us": 5289,
+            "maxUs": 24512
+          },
+          "overBudget": 2,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 1
+        },
+        "mountedTaskCards": 100,
+        "mountedElements": 11504
+      },
+      "rssAfterScroll": {
+        "currentRss": 157716480,
+        "maxRss": 163028992
+      }
+    },
+    {
+      "name": "grid-1k",
+      "taskCount": 1000,
+      "surface": "grid",
+      "recorded": true,
+      "generateMs": 4,
+      "initMs": 9,
+      "flushMs": 18,
+      "taskBytesJson": 173891,
+      "query": {
+        "label": "dart-cpu-not-frame-time",
+        "iterations": 20,
+        "tasksInAllQuadrantsMeanUs": 427.4,
+        "visibleTasksMeanUs": 80.8,
+        "queryMissMeanUs": 124.5
+      },
+      "rssBeforeMount": {
+        "currentRss": 163069952,
+        "maxRss": 163594240
+      },
+      "mount": {
+        "wallMs": 1291,
+        "timeToFirstFrameMs": 45,
+        "frames": {
+          "count": 118,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 4737,
+            "rasterUs": 1561,
+            "totalUs": 6547
+          },
+          "build": {
+            "count": 118,
+            "meanUs": 826.3474576271186,
+            "p50Us": 640,
+            "p90Us": 887,
+            "p99Us": 4737,
+            "maxUs": 16433
+          },
+          "raster": {
+            "count": 118,
+            "meanUs": 1844.2203389830509,
+            "p50Us": 1813,
+            "p90Us": 2342,
+            "p99Us": 3202,
+            "maxUs": 3341
+          },
+          "total": {
+            "count": 118,
+            "meanUs": 3204.6101694915255,
+            "p50Us": 3015,
+            "p90Us": 3980,
+            "p99Us": 6547,
+            "maxUs": 19448
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 45,
+        "mountedElements": 5426,
+        "bodySize": [
+          1267.0,
+          684.5
+        ],
+        "rssAfter": {
+          "currentRss": 163225600,
+          "maxRss": 172273664
+        }
+      },
+      "rebuild": {
+        "wallMs": 331,
+        "timeToFirstFrameMs": 114,
+        "frames": {
+          "count": 1,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 8598,
+            "rasterUs": 2085,
+            "totalUs": 10846
+          },
+          "build": {
+            "count": 1,
+            "meanUs": 8598.0,
+            "p50Us": 8598,
+            "p90Us": 8598,
+            "p99Us": 8598,
+            "maxUs": 8598
+          },
+          "raster": {
+            "count": 1,
+            "meanUs": 2085.0,
+            "p50Us": 2085,
+            "p90Us": 2085,
+            "p99Us": 2085,
+            "maxUs": 2085
+          },
+          "total": {
+            "count": 1,
+            "meanUs": 10846.0,
+            "p50Us": 10846,
+            "p90Us": 10846,
+            "p99Us": 10846,
+            "maxUs": 10846
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 45,
+        "mountedElements": 5426,
+        "rssAfter": {
+          "currentRss": 155688960,
+          "maxRss": 172273664
+        }
+      },
+      "scroll": {
+        "scrollables": [
+          {
+            "pixels": 664.75,
+            "maxScrollExtent": 14704.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 14704.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 14704.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 14704.75,
+            "viewport": 313.25
+          }
+        ],
+        "distance": 2400.0,
+        "durationMs": 1200,
+        "wallMs": 2405,
+        "endPixels": 2400.0,
+        "frames": {
+          "count": 294,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 2494,
+            "rasterUs": 1757,
+            "totalUs": 5079
+          },
+          "build": {
+            "count": 294,
+            "meanUs": 478.24149659863946,
+            "p50Us": 383,
+            "p90Us": 922,
+            "p99Us": 1305,
+            "maxUs": 2494
+          },
+          "raster": {
+            "count": 294,
+            "meanUs": 1721.8979591836735,
+            "p50Us": 1634,
+            "p90Us": 2257,
+            "p99Us": 2750,
+            "maxUs": 3759
+          },
+          "total": {
+            "count": 294,
+            "meanUs": 2731.802721088435,
+            "p50Us": 2636,
+            "p90Us": 3589,
+            "p99Us": 4449,
+            "maxUs": 5079
+          },
+          "overBudget": 0,
+          "buildOverBudget": 0,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 45,
+        "mountedElements": 5426
+      },
+      "rssAfterScroll": {
+        "currentRss": 139407360,
+        "maxRss": 172273664
+      }
+    },
+    {
+      "name": "list-1k",
+      "taskCount": 1000,
+      "surface": "list",
+      "recorded": true,
+      "generateMs": 2,
+      "initMs": 9,
+      "flushMs": 16,
+      "taskBytesJson": 173891,
+      "query": {
+        "label": "dart-cpu-not-frame-time",
+        "iterations": 20,
+        "tasksInAllQuadrantsMeanUs": 390.3,
+        "visibleTasksMeanUs": 72.25,
+        "queryMissMeanUs": 141.35
+      },
+      "rssBeforeMount": {
+        "currentRss": 158429184,
+        "maxRss": 172273664
+      },
+      "mount": {
+        "wallMs": 1439,
+        "timeToFirstFrameMs": 173,
+        "frames": {
+          "count": 80,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 1917,
+            "rasterUs": 872,
+            "totalUs": 3500
+          },
+          "build": {
+            "count": 80,
+            "meanUs": 4625.0125,
+            "p50Us": 1265,
+            "p90Us": 8859,
+            "p99Us": 12480,
+            "maxUs": 153553
+          },
+          "raster": {
+            "count": 80,
+            "meanUs": 1505.7875,
+            "p50Us": 1046,
+            "p90Us": 3000,
+            "p99Us": 3457,
+            "maxUs": 3484
+          },
+          "total": {
+            "count": 80,
+            "meanUs": 6727.175,
+            "p50Us": 3215,
+            "p90Us": 11335,
+            "p99Us": 16529,
+            "maxUs": 154853
+          },
+          "overBudget": 18,
+          "buildOverBudget": 10,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 250,
+        "mountedElements": 28359,
+        "bodySize": [
+          1267.0,
+          684.5
+        ],
+        "rssAfter": {
+          "currentRss": 189911040,
+          "maxRss": 201613312
+        }
+      },
+      "rebuild": {
+        "wallMs": 383,
+        "timeToFirstFrameMs": 170,
+        "frames": {
+          "count": 1,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 64506,
+            "rasterUs": 2496,
+            "totalUs": 68373
+          },
+          "build": {
+            "count": 1,
+            "meanUs": 64506.0,
+            "p50Us": 64506,
+            "p90Us": 64506,
+            "p99Us": 64506,
+            "maxUs": 64506
+          },
+          "raster": {
+            "count": 1,
+            "meanUs": 2496.0,
+            "p50Us": 2496,
+            "p90Us": 2496,
+            "p99Us": 2496,
+            "maxUs": 2496
+          },
+          "total": {
+            "count": 1,
+            "meanUs": 68373.0,
+            "p50Us": 68373,
+            "p90Us": 68373,
+            "p99Us": 68373,
+            "maxUs": 68373
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 250,
+        "mountedElements": 28359,
+        "rssAfter": {
+          "currentRss": 200114176,
+          "maxRss": 214269952
+        }
+      },
+      "scroll": {
+        "scrollables": [
+          {
+            "pixels": 2400.0,
+            "maxScrollExtent": 104603.5,
+            "viewport": 684.5
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 0.0,
+            "viewport": 15000.0
+          }
+        ],
+        "distance": 2400.0,
+        "durationMs": 1200,
+        "wallMs": 1453,
+        "endPixels": 2400.0,
+        "frames": {
+          "count": 173,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 292,
+            "rasterUs": 1919,
+            "totalUs": 2456
+          },
+          "build": {
+            "count": 173,
+            "meanUs": 443.5433526011561,
+            "p50Us": 431,
+            "p90Us": 542,
+            "p99Us": 657,
+            "maxUs": 839
+          },
+          "raster": {
+            "count": 173,
+            "meanUs": 1695.063583815029,
+            "p50Us": 1644,
+            "p90Us": 2055,
+            "p99Us": 2655,
+            "maxUs": 2782
+          },
+          "total": {
+            "count": 173,
+            "meanUs": 2701.2947976878613,
+            "p50Us": 2646,
+            "p90Us": 3427,
+            "p99Us": 3875,
+            "maxUs": 4036
+          },
+          "overBudget": 0,
+          "buildOverBudget": 0,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 250,
+        "mountedElements": 28359
+      },
+      "rssAfterScroll": {
+        "currentRss": 198594560,
+        "maxRss": 216580096
+      }
+    },
+    {
+      "name": "grid-10k",
+      "taskCount": 10000,
+      "surface": "grid",
+      "recorded": true,
+      "generateMs": 38,
+      "initMs": 105,
+      "flushMs": 173,
+      "taskBytesJson": 1748891,
+      "query": {
+        "label": "dart-cpu-not-frame-time",
+        "iterations": 20,
+        "tasksInAllQuadrantsMeanUs": 4301.55,
+        "visibleTasksMeanUs": 922.15,
+        "queryMissMeanUs": 1676.75
+      },
+      "rssBeforeMount": {
+        "currentRss": 157720576,
+        "maxRss": 216580096
+      },
+      "mount": {
+        "wallMs": 1269,
+        "timeToFirstFrameMs": 0,
+        "frames": {
+          "count": 116,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 10645,
+            "rasterUs": 762,
+            "totalUs": 11635
+          },
+          "build": {
+            "count": 116,
+            "meanUs": 1244.3189655172414,
+            "p50Us": 671,
+            "p90Us": 1011,
+            "p99Us": 10645,
+            "maxUs": 54374
+          },
+          "raster": {
+            "count": 116,
+            "meanUs": 1974.0258620689656,
+            "p50Us": 1955,
+            "p90Us": 2465,
+            "p99Us": 3588,
+            "maxUs": 4092
+          },
+          "total": {
+            "count": 116,
+            "meanUs": 3758.3362068965516,
+            "p50Us": 3188,
+            "p90Us": 4207,
+            "p99Us": 11635,
+            "maxUs": 56308
+          },
+          "overBudget": 2,
+          "buildOverBudget": 2,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 45,
+        "mountedElements": 5426,
+        "bodySize": [
+          1267.0,
+          684.5
+        ],
+        "rssAfter": {
+          "currentRss": 155045888,
+          "maxRss": 216580096
+        }
+      },
+      "rebuild": {
+        "wallMs": 330,
+        "timeToFirstFrameMs": 120,
+        "frames": {
+          "count": 1,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 13148,
+            "rasterUs": 1788,
+            "totalUs": 15218
+          },
+          "build": {
+            "count": 1,
+            "meanUs": 13148.0,
+            "p50Us": 13148,
+            "p90Us": 13148,
+            "p99Us": 13148,
+            "maxUs": 13148
+          },
+          "raster": {
+            "count": 1,
+            "meanUs": 1788.0,
+            "p50Us": 1788,
+            "p90Us": 1788,
+            "p99Us": 1788,
+            "maxUs": 1788
+          },
+          "total": {
+            "count": 1,
+            "meanUs": 15218.0,
+            "p50Us": 15218,
+            "p90Us": 15218,
+            "p99Us": 15218,
+            "maxUs": 15218
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 45,
+        "mountedElements": 5426,
+        "rssAfter": {
+          "currentRss": 154271744,
+          "maxRss": 216580096
+        }
+      },
+      "scroll": {
+        "scrollables": [
+          {
+            "pixels": 2400.0,
+            "maxScrollExtent": 149704.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 149704.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 149704.75,
+            "viewport": 313.25
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 149704.75,
+            "viewport": 313.25
+          }
+        ],
+        "distance": 2400.0,
+        "durationMs": 1200,
+        "wallMs": 2374,
+        "endPixels": 2400.0,
+        "frames": {
+          "count": 299,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 13304,
+            "rasterUs": 1679,
+            "totalUs": 15522
+          },
+          "build": {
+            "count": 299,
+            "meanUs": 501.5117056856187,
+            "p50Us": 378,
+            "p90Us": 827,
+            "p99Us": 1149,
+            "maxUs": 13304
+          },
+          "raster": {
+            "count": 299,
+            "meanUs": 1577.2408026755852,
+            "p50Us": 1516,
+            "p90Us": 2007,
+            "p99Us": 2531,
+            "maxUs": 2877
+          },
+          "total": {
+            "count": 299,
+            "meanUs": 2614.274247491639,
+            "p50Us": 2502,
+            "p90Us": 3271,
+            "p99Us": 3982,
+            "maxUs": 15522
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 45,
+        "mountedElements": 5426
+      },
+      "rssAfterScroll": {
+        "currentRss": 163258368,
+        "maxRss": 216580096
+      }
+    },
+    {
+      "name": "list-10k",
+      "taskCount": 10000,
+      "surface": "list",
+      "recorded": true,
+      "generateMs": 26,
+      "initMs": 113,
+      "flushMs": 180,
+      "taskBytesJson": 1748891,
+      "query": {
+        "label": "dart-cpu-not-frame-time",
+        "iterations": 20,
+        "tasksInAllQuadrantsMeanUs": 4025.1,
+        "visibleTasksMeanUs": 647.55,
+        "queryMissMeanUs": 1478.65
+      },
+      "rssBeforeMount": {
+        "currentRss": 180219904,
+        "maxRss": 216580096
+      },
+      "mount": {
+        "wallMs": 2158,
+        "timeToFirstFrameMs": 0,
+        "frames": {
+          "count": 2,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 2355,
+            "rasterUs": 784,
+            "totalUs": 3237
+          },
+          "build": {
+            "count": 2,
+            "meanUs": 797976.5,
+            "p50Us": 1593598,
+            "p90Us": 1593598,
+            "p99Us": 1593598,
+            "maxUs": 1593598
+          },
+          "raster": {
+            "count": 2,
+            "meanUs": 1592.0,
+            "p50Us": 2400,
+            "p90Us": 2400,
+            "p99Us": 2400,
+            "maxUs": 2400
+          },
+          "total": {
+            "count": 2,
+            "meanUs": 799969.5,
+            "p50Us": 1596702,
+            "p90Us": 1596702,
+            "p99Us": 1596702,
+            "maxUs": 1596702
+          },
+          "overBudget": 1,
+          "buildOverBudget": 1,
+          "rasterOverBudget": 0
+        },
+        "mountedTaskCards": 2500,
+        "mountedElements": 282609,
+        "bodySize": [
+          1267.0,
+          684.5
+        ],
+        "rssAfter": {
+          "currentRss": 717983744,
+          "maxRss": 717983744
+        }
+      },
+      "rebuild": {
+        "wallMs": 1609,
+        "timeToFirstFrameMs": 2,
+        "frames": {
+          "count": 11,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 32628,
+            "rasterUs": 3531,
+            "totalUs": 36576
+          },
+          "build": {
+            "count": 11,
+            "meanUs": 80387.72727272728,
+            "p50Us": 3496,
+            "p90Us": 87597,
+            "p99Us": 711223,
+            "maxUs": 711223
+          },
+          "raster": {
+            "count": 11,
+            "meanUs": 6607.090909090909,
+            "p50Us": 6433,
+            "p90Us": 7338,
+            "p99Us": 9685,
+            "maxUs": 9685
+          },
+          "total": {
+            "count": 11,
+            "meanUs": 91289.63636363637,
+            "p50Us": 10988,
+            "p90Us": 94991,
+            "p99Us": 763129,
+            "maxUs": 763129
+          },
+          "overBudget": 11,
+          "buildOverBudget": 4,
+          "rasterOverBudget": 4
+        },
+        "mountedTaskCards": 2500,
+        "mountedElements": 282609,
+        "rssAfter": {
+          "currentRss": 831500288,
+          "maxRss": 853766144
+        }
+      },
+      "scroll": {
+        "scrollables": [
+          {
+            "pixels": 2400.0,
+            "maxScrollExtent": 1049603.5,
+            "viewport": 684.5
+          },
+          {
+            "pixels": 0.0,
+            "maxScrollExtent": 0.0,
+            "viewport": 150000.0
+          }
+        ],
+        "distance": 2400.0,
+        "durationMs": 1200,
+        "wallMs": 1874,
+        "endPixels": 2400.0,
+        "frames": {
+          "count": 67,
+          "refreshHz": 143.98848092152627,
+          "budgetUs": 6945,
+          "first": {
+            "buildUs": 1375,
+            "rasterUs": 6003,
+            "totalUs": 8291
+          },
+          "build": {
+            "count": 67,
+            "meanUs": 2052.8507462686566,
+            "p50Us": 1930,
+            "p90Us": 2806,
+            "p99Us": 3144,
+            "maxUs": 3748
+          },
+          "raster": {
+            "count": 67,
+            "meanUs": 6368.79104477612,
+            "p50Us": 6424,
+            "p90Us": 7103,
+            "p99Us": 7324,
+            "maxUs": 7385
+          },
+          "total": {
+            "count": 67,
+            "meanUs": 9764.029850746268,
+            "p50Us": 9442,
+            "p90Us": 11564,
+            "p99Us": 12382,
+            "maxUs": 29084
+          },
+          "overBudget": 66,
+          "buildOverBudget": 0,
+          "rasterOverBudget": 16
+        },
+        "mountedTaskCards": 2500,
+        "mountedElements": 282609
+      },
+      "rssAfterScroll": {
+        "currentRss": 811257856,
+        "maxRss": 863809536
+      }
+    }
+  ]
+}
