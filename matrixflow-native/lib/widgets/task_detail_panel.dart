@@ -8,7 +8,7 @@ import '../calendar_dates.dart';
 import '../models.dart';
 import '../storage.dart';
 import 'batch_decompose_sheet.dart';
-import 'reminder_access.dart';
+import 'date_edit_fields.dart';
 import 'task_hierarchy_checkbox.dart';
 
 /// Confirms discarding an unsaved detail draft. Returns true when the user
@@ -199,17 +199,6 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     _notifyingDirty = false;
   }
 
-  bool _isSameDay(DateTime? a, DateTime? b) {
-    if (a == null || b == null) return false;
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  String _formatDate(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  String _formatDateTime(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-
   bool get _isDirty {
     if (_forceClose) return false;
     if (_title.text.trim() != _initialTitle.trim()) return true;
@@ -222,7 +211,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
             : DateTime.fromMillisecondsSinceEpoch(initialMs);
     if (_deadline == null
         ? initialDate != null
-        : !_isSameDay(_deadline, initialDate)) {
+        : !isSameCivilDay(_deadline, initialDate)) {
       return true;
     }
     if (_reminderAt != _initialReminderAt) return true;
@@ -235,7 +224,8 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     return false;
   }
 
-  Future<void> _notifyReminderAccess() => showReminderAccessFeedback(context);
+  void _applyReminderMoment(int moment) =>
+      setState(() => _reminderAt = moment);
 
   void _close() {
     if (widget.onClose != null) {
@@ -261,17 +251,13 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     }
   }
 
-  int? _normalizedDeadline(DateTime? d) =>
-      d == null
-          ? null
-          : DateTime(d.year, d.month, d.day, 23, 59, 59).millisecondsSinceEpoch;
-
   bool _sameDayMs(int? a, int? b) {
     if (a == null && b == null) return true;
     if (a == null || b == null) return false;
-    final da = DateTime.fromMillisecondsSinceEpoch(a);
-    final db = DateTime.fromMillisecondsSinceEpoch(b);
-    return _isSameDay(da, db);
+    return isSameCivilDay(
+      DateTime.fromMillisecondsSinceEpoch(a),
+      DateTime.fromMillisecondsSinceEpoch(b),
+    );
   }
 
   String _subJson(SubTask s) => jsonEncode(s.toJson());
@@ -340,7 +326,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
 
     final notesText = _notes.text.trim();
     final draftNotes = notesText.isEmpty ? null : _notes.text;
-    final draftDeadline = _normalizedDeadline(_deadline);
+    final draftDeadline = endOfCivilDayMs(_deadline);
     final titleChanged = titleText != _initialTitle.trim();
     final notesChanged = (draftNotes ?? '').trim() != _initialNotes.trim();
     final quadrantChanged = _quadrant != _initialQuadrant;
@@ -398,73 +384,18 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
   }
 
   Future<void> _pickDate() async {
-    final window = deadlinePickerWindow(
-      now: DateTime.now(),
-      selected: _deadline,
-    );
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: window.initial,
-      firstDate: window.first,
-      lastDate: window.last,
-    );
-    if (mounted && picked != null) setState(() => _deadline = picked);
+    final picked = await pickDeadlineDay(context, selected: _deadline);
+    if (picked != null) setState(() => _deadline = picked);
   }
 
   Future<void> _pickReminderDateTime() async {
-    final window = reminderPickerWindow(
-      now: DateTime.now(),
+    await pickReminderMoment(
+      context,
+      t: context.read<Store>().t,
       reminderAt: _reminderAt,
       deadline: _deadline,
+      onPicked: (moment) => setState(() => _reminderAt = moment),
     );
-
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: window.initial,
-      firstDate: window.first,
-      lastDate: window.last,
-    );
-    if (pickedDate == null || !mounted) return;
-
-    final initialTime =
-        _reminderAt != null
-            ? TimeOfDay.fromDateTime(
-              DateTime.fromMillisecondsSinceEpoch(_reminderAt!),
-            )
-            : const TimeOfDay(hour: 9, minute: 0);
-
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-    if (pickedTime == null || !mounted) return;
-
-    final combined = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      pickedTime.hour,
-      pickedTime.minute,
-    );
-
-    if (combined.isBefore(DateTime.now())) {
-      final t = context.read<Store>().t;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              t['reminderPastError'] ?? 'Reminder time cannot be in the past',
-            ),
-          ),
-        );
-      }
-      return;
-    }
-
-    setState(() {
-      _reminderAt = combined.millisecondsSinceEpoch;
-    });
-    await _notifyReminderAccess();
   }
 
   void _addSubtask() {
@@ -495,27 +426,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final now = DateTime.now();
-            final today = DateTime(now.year, now.month, now.day);
-            final tomorrow = addCivilDays(today, 1);
-            final isCustom =
-                subDeadline != null &&
-                !_isSameDay(subDeadline, today) &&
-                !_isSameDay(subDeadline, tomorrow);
-
-            final isAfterParent =
-                _deadline != null &&
-                subDeadline != null &&
-                subDeadline!.isAfter(
-                  DateTime(
-                    _deadline!.year,
-                    _deadline!.month,
-                    _deadline!.day,
-                    23,
-                    59,
-                    59,
-                  ),
-                );
+            final isAfterParent = isAfterParentDay(subDeadline, _deadline);
 
             return AlertDialog(
               title: Text(t['editSubtask'] ?? 'Edit Subtask'),
@@ -541,74 +452,12 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        ChoiceChip(
-                          key: const ValueKey('subtask-deadline-today'),
-                          avatar: const Icon(Icons.today, size: 16),
-                          label: Text(t['today']!),
-                          selected: _isSameDay(subDeadline, today),
-                          onSelected: (selected) {
-                            setDialogState(() {
-                              subDeadline = selected ? today : null;
-                            });
-                          },
-                        ),
-                        ChoiceChip(
-                          key: const ValueKey('subtask-deadline-tomorrow'),
-                          avatar: const Icon(Icons.event, size: 16),
-                          label: Text(t['tomorrow']!),
-                          selected: _isSameDay(subDeadline, tomorrow),
-                          onSelected: (selected) {
-                            setDialogState(() {
-                              subDeadline = selected ? tomorrow : null;
-                            });
-                          },
-                        ),
-                        ChoiceChip(
-                          key: const ValueKey('subtask-deadline-custom'),
-                          avatar: const Icon(Icons.calendar_month, size: 16),
-                          label: Text(
-                            isCustom
-                                ? _formatDate(subDeadline!)
-                                : t['pickDate']!,
-                          ),
-                          selected: isCustom,
-                          onSelected: (_) async {
-                            final window = deadlinePickerWindow(
-                              now: DateTime.now(),
-                              selected: subDeadline ?? today,
-                            );
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: window.initial,
-                              firstDate: window.first,
-                              lastDate: window.last,
-                            );
-                            if (picked != null) {
-                              setDialogState(() {
-                                subDeadline = DateTime(
-                                  picked.year,
-                                  picked.month,
-                                  picked.day,
-                                );
-                              });
-                            }
-                          },
-                        ),
-                        if (subDeadline != null)
-                          IconButton(
-                            key: const ValueKey('subtask-deadline-clear'),
-                            tooltip: t['clearDate']!,
-                            icon: const Icon(Icons.close, size: 18),
-                            visualDensity: VisualDensity.compact,
-                            onPressed:
-                                () => setDialogState(() => subDeadline = null),
-                          ),
-                      ],
+                    DeadlineDayChips(
+                      t: t,
+                      keyPrefix: 'subtask-deadline',
+                      selected: subDeadline,
+                      onChanged:
+                          (day) => setDialogState(() => subDeadline = day),
                     ),
                     if (isAfterParent)
                       Padding(
@@ -659,66 +508,20 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             label: Text(
                               subReminder == null
                                   ? (t['setReminder'] ?? 'Set Reminder')
-                                  : _formatDateTime(
-                                    DateTime.fromMillisecondsSinceEpoch(
-                                      subReminder!,
-                                    ),
-                                  ),
+                                  : formatCivilDateTimeMs(subReminder!),
                               style: const TextStyle(fontSize: 12),
                             ),
-                            onPressed: () async {
-                              final window = reminderPickerWindow(
-                                now: DateTime.now(),
-                                reminderAt: subReminder,
-                                deadline: subDeadline,
-                              );
-                              final pickedDate = await showDatePicker(
-                                context: context,
-                                initialDate: window.initial,
-                                firstDate: window.first,
-                                lastDate: window.last,
-                              );
-                              if (pickedDate == null || !context.mounted) {
-                                return;
-                              }
-                              final initialTime =
-                                  subReminder != null
-                                      ? TimeOfDay.fromDateTime(
-                                        DateTime.fromMillisecondsSinceEpoch(
-                                          subReminder!,
-                                        ),
-                                      )
-                                      : const TimeOfDay(hour: 9, minute: 0);
-                              final pickedTime = await showTimePicker(
-                                context: context,
-                                initialTime: initialTime,
-                              );
-                              if (pickedTime == null || !context.mounted) {
-                                return;
-                              }
-                              final combined = DateTime(
-                                pickedDate.year,
-                                pickedDate.month,
-                                pickedDate.day,
-                                pickedTime.hour,
-                                pickedTime.minute,
-                              );
-                              if (combined.isBefore(DateTime.now())) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      t['reminderPastError'] ??
-                                          'Reminder time cannot be in the past',
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
-                              setDialogState(() {
-                                subReminder = combined.millisecondsSinceEpoch;
-                              });
-                              await showReminderAccessFeedback(context);
-                            },
+                            onPressed:
+                                () => pickReminderMoment(
+                                  context,
+                                  t: t,
+                                  reminderAt: subReminder,
+                                  deadline: subDeadline,
+                                  onPicked:
+                                      (moment) => setDialogState(
+                                        () => subReminder = moment,
+                                      ),
+                                ),
                           ),
                         ),
                         if (subReminder != null)
@@ -760,17 +563,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       final newTitle = titleController.text.trim();
       final notesRaw = notesController.text.trim();
       final newNotes = notesRaw.isEmpty ? null : notesController.text;
-      final newDeadline =
-          subDeadline == null
-              ? null
-              : DateTime(
-                subDeadline!.year,
-                subDeadline!.month,
-                subDeadline!.day,
-                23,
-                59,
-                59,
-              ).millisecondsSinceEpoch;
+      final newDeadline = endOfCivilDayMs(subDeadline);
       setState(() {
         sub.title = newTitle;
         sub.notesMarkdown = newNotes;
@@ -965,11 +758,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                   label: Text(
                                     _reminderAt == null
                                         ? (t['setReminder'] ?? 'Set Reminder')
-                                        : _formatDateTime(
-                                          DateTime.fromMillisecondsSinceEpoch(
-                                            _reminderAt!,
-                                          ),
-                                        ),
+                                        : formatCivilDateTimeMs(_reminderAt!),
                                   ),
                                   onPressed: _pickReminderDateTime,
                                 ),
@@ -1001,34 +790,19 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                         'On due date 09:00',
                                     style: const TextStyle(fontSize: 11),
                                   ),
-                                  onPressed: () {
-                                    final due9 = DateTime(
-                                      d.year,
-                                      d.month,
-                                      d.day,
-                                      9,
-                                      0,
-                                    );
-                                    if (due9.isAfter(DateTime.now())) {
-                                      setState(
-                                        () =>
-                                            _reminderAt =
-                                                due9.millisecondsSinceEpoch,
-                                      );
-                                      _notifyReminderAccess();
-                                    } else {
-                                      ScaffoldMessenger.of(
+                                  onPressed:
+                                      () => applyPresetReminderMoment(
                                         context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            t['reminderPastError'] ??
-                                                'Reminder time cannot be in the past',
-                                          ),
+                                        t: t,
+                                        moment: DateTime(
+                                          d.year,
+                                          d.month,
+                                          d.day,
+                                          9,
+                                          0,
                                         ),
-                                      );
-                                    }
-                                  },
+                                        onPicked: _applyReminderMoment,
+                                      ),
                                 ),
                               ],
                               ActionChip(
@@ -1039,30 +813,18 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                 ),
                                 onPressed: () {
                                   final now = DateTime.now();
-                                  final today18 = DateTime(
-                                    now.year,
-                                    now.month,
-                                    now.day,
-                                    18,
-                                    0,
+                                  applyPresetReminderMoment(
+                                    context,
+                                    t: t,
+                                    moment: DateTime(
+                                      now.year,
+                                      now.month,
+                                      now.day,
+                                      18,
+                                      0,
+                                    ),
+                                    onPicked: _applyReminderMoment,
                                   );
-                                  if (today18.isAfter(now)) {
-                                    setState(
-                                      () =>
-                                          _reminderAt =
-                                              today18.millisecondsSinceEpoch,
-                                    );
-                                    _notifyReminderAccess();
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          t['reminderPastError'] ??
-                                              'Reminder time cannot be in the past',
-                                        ),
-                                      ),
-                                    );
-                                  }
                                 },
                               ),
                               ActionChip(
@@ -1078,19 +840,18 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                     DateTime.now(),
                                     1,
                                   );
-                                  final tom9 = DateTime(
-                                    tomorrow.year,
-                                    tomorrow.month,
-                                    tomorrow.day,
-                                    9,
-                                    0,
+                                  applyPresetReminderMoment(
+                                    context,
+                                    t: t,
+                                    moment: DateTime(
+                                      tomorrow.year,
+                                      tomorrow.month,
+                                      tomorrow.day,
+                                      9,
+                                      0,
+                                    ),
+                                    onPicked: _applyReminderMoment,
                                   );
-                                  setState(
-                                    () =>
-                                        _reminderAt =
-                                            tom9.millisecondsSinceEpoch,
-                                  );
-                                  _notifyReminderAccess();
                                 },
                               ),
                               ActionChip(
@@ -1364,10 +1125,8 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                                   ),
                                                   const SizedBox(width: 3),
                                                   Text(
-                                                    _formatDate(
-                                                      DateTime.fromMillisecondsSinceEpoch(
-                                                        sub.deadline!,
-                                                      ),
+                                                    formatCivilDateMs(
+                                                      sub.deadline!,
                                                     ),
                                                     style: theme
                                                         .textTheme
@@ -1400,10 +1159,8 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                                   ),
                                                   const SizedBox(width: 3),
                                                   Text(
-                                                    _formatDateTime(
-                                                      DateTime.fromMillisecondsSinceEpoch(
-                                                        sub.reminderAt!,
-                                                      ),
+                                                    formatCivilDateTimeMs(
+                                                      sub.reminderAt!,
                                                     ),
                                                     style: theme
                                                         .textTheme

@@ -3,12 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../ai_service.dart';
-import '../calendar_dates.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
 import 'batch_decompose_sheet.dart';
-import 'reminder_access.dart';
+import 'date_edit_fields.dart';
 
 // The list widgets reach these two routes through this library; retarget them
 // to the owning modules and drop both lines.
@@ -203,80 +202,20 @@ class _InputSheetState extends State<InputSheet> {
     );
   }
 
-  bool _isSameDay(DateTime? a, DateTime? b) {
-    if (a == null || b == null) return false;
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
   Widget _buildDeadlineRow(BuildContext context, Map<String, String> t) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = addCivilDays(today, 1);
-    final isCustom =
-        _selectedDeadline != null &&
-        !_isSameDay(_selectedDeadline, today) &&
-        !_isSameDay(_selectedDeadline, tomorrow);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            ChoiceChip(
-              key: const ValueKey('deadline-today'),
-              avatar: const Icon(Icons.today, size: 16),
-              label: Text(t['today']!),
-              selected: _isSameDay(_selectedDeadline, today),
-              onSelected:
-                  _busy
-                      ? null
-                      : (selected) {
-                        setState(() {
-                          _selectedDeadline = selected ? today : null;
-                        });
-                      },
-            ),
-            ChoiceChip(
-              key: const ValueKey('deadline-tomorrow'),
-              avatar: const Icon(Icons.event, size: 16),
-              label: Text(t['tomorrow']!),
-              selected: _isSameDay(_selectedDeadline, tomorrow),
-              onSelected:
-                  _busy
-                      ? null
-                      : (selected) {
-                        setState(() {
-                          _selectedDeadline = selected ? tomorrow : null;
-                        });
-                      },
-            ),
-            ChoiceChip(
-              key: const ValueKey('deadline-custom'),
-              avatar: const Icon(Icons.calendar_month, size: 16),
-              label: Text(
-                isCustom
-                    ? '${_selectedDeadline!.year}-${_selectedDeadline!.month.toString().padLeft(2, '0')}-${_selectedDeadline!.day.toString().padLeft(2, '0')}'
-                    : t['pickDate']!,
-              ),
-              selected: isCustom,
-              onSelected: _busy ? null : (_) => _pickCustomDate(today),
-            ),
-            if (_selectedDeadline != null)
-              IconButton(
-                key: const ValueKey('deadline-clear'),
-                tooltip: t['clearDate']!,
-                icon: const Icon(Icons.close, size: 18),
-                visualDensity: VisualDensity.compact,
-                onPressed:
-                    _busy
-                        ? null
-                        : () => setState(() => _selectedDeadline = null),
-              ),
-          ],
+        DeadlineDayChips(
+          t: t,
+          keyPrefix: 'deadline',
+          selected: _selectedDeadline,
+          enabled: !_busy,
+          onChanged:
+              (day) => setState(() {
+                _selectedDeadline = day;
+              }),
         ),
         if (_selectedDeadline != null)
           Padding(
@@ -292,35 +231,10 @@ class _InputSheetState extends State<InputSheet> {
     );
   }
 
-  Future<void> _pickCustomDate(DateTime today) async {
-    final window = deadlinePickerWindow(
-      now: DateTime.now(),
-      selected: _selectedDeadline ?? today,
-    );
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: window.initial,
-      firstDate: window.first,
-      lastDate: window.last,
-    );
-    if (mounted && picked != null) {
-      setState(() {
-        _selectedDeadline = DateTime(picked.year, picked.month, picked.day);
-      });
-    }
-  }
-
   Widget _buildReminderRow(BuildContext context, Map<String, String> t) {
     final hasReminder = _selectedReminderAt != null;
     final formattedTime =
-        hasReminder
-            ? () {
-              final dt = DateTime.fromMillisecondsSinceEpoch(
-                _selectedReminderAt!,
-              );
-              return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-            }()
-            : null;
+        hasReminder ? formatCivilDateTimeMs(_selectedReminderAt!) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,59 +280,16 @@ class _InputSheetState extends State<InputSheet> {
   }
 
   Future<void> _pickReminderDateTime() async {
-    final window = reminderPickerWindow(
-      now: DateTime.now(),
+    await pickReminderMoment(
+      context,
+      t: context.read<Store>().t,
       reminderAt: _selectedReminderAt,
       deadline: _selectedDeadline,
+      onPicked:
+          (moment) => setState(() {
+            _selectedReminderAt = moment;
+          }),
     );
-
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: window.initial,
-      firstDate: window.first,
-      lastDate: window.last,
-    );
-    if (pickedDate == null || !mounted) return;
-
-    final initialTime =
-        _selectedReminderAt != null
-            ? TimeOfDay.fromDateTime(
-              DateTime.fromMillisecondsSinceEpoch(_selectedReminderAt!),
-            )
-            : const TimeOfDay(hour: 9, minute: 0);
-
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-    if (pickedTime == null || !mounted) return;
-
-    final combined = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      pickedTime.hour,
-      pickedTime.minute,
-    );
-
-    if (combined.isBefore(DateTime.now())) {
-      final t = context.read<Store>().t;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              t['reminderPastError'] ?? 'Reminder time cannot be in the past',
-            ),
-          ),
-        );
-      }
-      return;
-    }
-
-    setState(() {
-      _selectedReminderAt = combined.millisecondsSinceEpoch;
-    });
-    await showReminderAccessFeedback(context);
   }
 
   Future<void> _submit() async {
@@ -436,17 +307,7 @@ class _InputSheetState extends State<InputSheet> {
             .where((s) => s.isNotEmpty)
             .toList();
 
-    final deadlineSnapshot =
-        _selectedDeadline == null
-            ? null
-            : DateTime(
-              _selectedDeadline!.year,
-              _selectedDeadline!.month,
-              _selectedDeadline!.day,
-              23,
-              59,
-              59,
-            ).millisecondsSinceEpoch;
+    final deadlineSnapshot = endOfCivilDayMs(_selectedDeadline);
 
     if (_mode == InputModePref.single) {
       store.addTasks([
