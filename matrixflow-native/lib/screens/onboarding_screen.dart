@@ -103,12 +103,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final theme = Theme.of(context);
     final policy = PlatformUiPolicy.of(context);
     final step1Desc =
-        '${t['onboardingStep1Desc'] ?? ''} ${policy.isTouchLayout ? (t['onboardingNavAndroid'] ?? '') : (t['onboardingNavWindows'] ?? '')}'
+        '${t['onboardingStep1Desc']!} ${policy.isTouchLayout ? t['onboardingNavAndroid']! : t['onboardingNavWindows']!}'
             .trim();
     final step2Desc =
         policy.isTouchLayout
-            ? (t['onboardingStep2DescAndroid'] ?? t['onboardingStep2Desc'] ?? '')
-            : (t['onboardingStep2Desc'] ?? '');
+            ? t['onboardingStep2DescAndroid']!
+            : t['onboardingStep2Desc']!;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -131,7 +131,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     children: [
                       if (widget.isReviewMode)
                         Text(
-                          t['onboarding'] ?? 'Tutorial & Guide',
+                          t['onboarding']!,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -143,8 +143,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         onPressed: _finish,
                         child: Text(
                           widget.isReviewMode
-                              ? (t['onboardingClose'] ?? 'Close')
-                              : (t['onboardingSkip'] ?? 'Skip'),
+                              ? t['onboardingClose']!
+                              : t['onboardingSkip']!,
                           style: TextStyle(
                             color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w600,
@@ -167,10 +167,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         step: 1,
                         icon: Icons.grid_view,
                         iconColor: const Color(0xFFE53935),
-                        title: t['onboardingStep1Title'] ?? 'Eisenhower Matrix & Rapid Add',
-                        description: step1Desc.isEmpty
-                            ? 'Tasks are organized by urgency and importance into four quadrants. Enter multiple lines to create several tasks at once.'
-                            : step1Desc,
+                        title: t['onboardingStep1Title']!,
+                        description: step1Desc,
                         mockup: _buildMatrixMockup(theme, t),
                       ),
                       _buildSlide(
@@ -178,10 +176,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         step: 2,
                         icon: Icons.open_with,
                         iconColor: const Color(0xFF1E88E5),
-                        title: t['onboardingStep2Title'] ?? 'Drag & Drop Quadrant Movement',
-                        description: step2Desc.isEmpty
-                            ? 'Long-press any task card to drag and drop it into another quadrant. You can also use the secondary tap Move Menu.'
-                            : step2Desc,
+                        title: t['onboardingStep2Title']!,
+                        description: step2Desc,
                         mockup: _buildDragMockup(theme, t),
                       ),
                       _buildSlide(
@@ -189,9 +185,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         step: 3,
                         icon: Icons.checklist,
                         iconColor: const Color(0xFF43A047),
-                        title: t['onboardingStep3Title'] ?? 'Task Details, Subtasks & Reminders',
-                        description: t['onboardingStep3Desc'] ??
-                            'Tap any task to open its details. Add subtask checklists, Markdown notes, deadlines, and punctual alarm reminders.',
+                        title: t['onboardingStep3Title']!,
+                        description: t['onboardingStep3Desc']!,
                         mockup: _buildDetailsMockup(theme, t),
                       ),
                       _buildSlide(
@@ -199,9 +194,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         step: 4,
                         icon: Icons.history,
                         iconColor: const Color(0xFFFB8C00),
-                        title: t['onboardingStep4Title'] ?? 'Completed Tasks & 5s Undo',
-                        description: t['onboardingStep4Desc'] ??
-                            'Swipe right to complete or left to delete with a 5-second undo window. Find, restore, or delete tasks in Completed Tasks.',
+                        title: t['onboardingStep4Title']!,
+                        description: t['onboardingStep4Desc']!,
                         mockup: _buildCompletedMockup(theme, t),
                       ),
                       _buildSlide(
@@ -209,9 +203,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         step: 5,
                         icon: Icons.auto_awesome,
                         iconColor: const Color(0xFF8E24AA),
-                        title: t['onboardingStep5Title'] ?? 'AI Assistant & BYOK Privacy',
-                        description: t['onboardingStep5Desc'] ??
-                            'Configure your own API key in Settings for AI quadrant classification. All task data stays 100% locally on your device.',
+                        title: t['onboardingStep5Title']!,
+                        description: t['onboardingStep5Desc']!,
                         mockup: _buildAiMockup(theme, t),
                       ),
                     ],
@@ -228,7 +221,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         OutlinedButton(
                           key: const ValueKey('onboarding-prev-btn'),
                           onPressed: _prevPage,
-                          child: Text(t['onboardingPrev'] ?? 'Previous'),
+                          child: Text(t['onboardingPrev']!),
                         )
                       else
                         const SizedBox(width: 80),
@@ -263,9 +256,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: Text(
                           _currentPage == _pageCount - 1
                               ? (widget.isReviewMode
-                                  ? (t['onboardingClose'] ?? 'Close')
-                                  : (t['onboardingStart'] ?? 'Get Started'))
-                              : (t['onboardingNext'] ?? 'Next'),
+                                  ? t['onboardingClose']!
+                                  : t['onboardingStart']!)
+                              : t['onboardingNext']!,
                         ),
                       ),
                     ],
@@ -344,17 +337,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               Expanded(
                 child: _mockQuadrantCard(
-                  title: t['q1'] ?? 'Urgent & Important',
+                  title: t['q1']!,
                   color: Color(quadrantColors[1]!),
-                  items: ['Release update v1.0', 'Fix critical bug'],
+                  items: t['onboardingSampleQ1']!.split('\n'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _mockQuadrantCard(
-                  title: t['q2'] ?? 'Not Urgent but Important',
+                  title: t['q2']!,
                   color: Color(quadrantColors[2]!),
-                  items: ['Quarterly goals', 'Read documentation'],
+                  items: t['onboardingSampleQ2']!.split('\n'),
                 ),
               ),
             ],
@@ -364,17 +357,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               Expanded(
                 child: _mockQuadrantCard(
-                  title: t['q3'] ?? 'Urgent but Not Important',
+                  title: t['q3']!,
                   color: Color(quadrantColors[3]!),
-                  items: ['Reply vendor emails'],
+                  items: t['onboardingSampleQ3']!.split('\n'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _mockQuadrantCard(
-                  title: t['q4'] ?? 'Not Urgent & Not Important',
+                  title: t['q4']!,
                   color: Color(quadrantColors[4]!),
-                  items: ['Organize desktop folders'],
+                  items: t['onboardingSampleQ4']!.split('\n'),
                 ),
               ),
             ],
@@ -461,7 +454,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     Icon(Icons.drag_indicator, size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: 6),
-                    const Text('Design review task', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text(
+                      t['onboardingSampleDragTask']!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -476,7 +475,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   border: Border.all(color: const Color(0xFF1E88E5)),
                 ),
                 child: Text(
-                  t['q2'] ?? 'Q2: Plan',
+                  t['q2']!,
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
                 ),
               ),
@@ -484,7 +483,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            t['shortcutHint'] ?? 'Tip: Long press card to drag or right-click to move',
+            t['onboardingDragHint']!,
             style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
@@ -507,7 +506,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               const Icon(Icons.check_box_outlined, size: 16),
               const SizedBox(width: 6),
-              const Text('Weekly sprint delivery', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              Text(
+                t['onboardingSampleDetailTask']!,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -534,7 +536,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     Icon(Icons.check_circle, size: 14, color: theme.colorScheme.primary),
                     const SizedBox(width: 6),
-                    const Text('1. Draft architecture spec', style: TextStyle(fontSize: 11)),
+                    Text(
+                      '1. ${t['onboardingSampleSubtask1']!}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -542,7 +547,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     Icon(Icons.radio_button_unchecked, size: 14, color: theme.colorScheme.outline),
                     const SizedBox(width: 6),
-                    const Text('2. Run automated regression tests', style: TextStyle(fontSize: 11)),
+                    Text(
+                      '2. ${t['onboardingSampleSubtask2']!}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ],
                 ),
               ],
@@ -567,15 +575,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.task_alt),
-            title: Text(t['completedTasks'] ?? 'Completed Tasks'),
-            subtitle: Text(t['completedAtTime']?.replaceAll('{time}', '12:30') ?? '12:30'),
+            title: Text(t['completedTasks']!),
+            subtitle: Text(t['completedAtTime']!.replaceAll('{time}', '12:30')),
           ),
           Wrap(
             spacing: 16,
-            children: [
-              Text(t['restoreTask'] ?? 'Restore'),
-              Text(t['deleteCompletedTask'] ?? 'Delete'),
-            ],
+            children: [Text(t['restoreTask']!), Text(t['deleteCompletedTask']!)],
           ),
         ],
       ),
@@ -611,7 +616,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Icon(Icons.shield_outlined, size: 16, color: theme.colorScheme.primary),
               const SizedBox(width: 6),
               Text(
-                '100% Local Storage · Pure Client · BYOK',
+                t['onboardingLocalBadge']!,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
               ),
             ],
