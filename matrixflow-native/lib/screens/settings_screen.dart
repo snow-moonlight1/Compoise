@@ -17,6 +17,7 @@ import '../shortcuts.dart';
 import '../storage.dart';
 import '../theme.dart';
 import '../ui/font_policy.dart';
+import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/accessible_tap_target.dart';
 import 'onboarding_screen.dart';
@@ -1016,7 +1017,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final fonts = AppFontPolicy.of(context);
                 final family = fonts.familyFor(store.settings.fontFamily);
                 final fallback = fonts.fallbackFor(store.settings.fontFamily);
-                final scale = fontScaleFactor(store.settings.fontSize);
+                // The app-wide CombinedTextScaler already applies the font size
+                // preference, so the base sizes here stay unscaled.
                 return Container(
                   key: const ValueKey('font-preview-card'),
                   padding: const EdgeInsets.symmetric(
@@ -1045,7 +1047,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           fontFamily: family,
                           fontFamilyFallback: fallback,
                           fontWeight: fonts.titleWeight,
-                          fontSize: 16 * scale,
+                          fontSize: 16,
                           height: 1.35,
                         ),
                       ),
@@ -1058,7 +1060,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           fontFamily: family,
                           fontFamilyFallback: fallback,
                           fontWeight: fonts.bodyWeight,
-                          fontSize: 14 * scale,
+                          fontSize: 14,
                           height: 1.4,
                         ),
                       ),
@@ -1071,7 +1073,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           fontFamily: family,
                           fontFamilyFallback: fallback,
                           fontWeight: fonts.bodyWeight,
-                          fontSize: 14 * scale,
+                          fontSize: 14,
                           height: 1.4,
                         ),
                       ),
@@ -2062,6 +2064,11 @@ class _ColorDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Same reduced-motion policy as the task animations: the dot has to reach
+    // its final size on the first frame instead of tweening to it.
+    final selectionDuration = MotionPolicy.reduceMotionOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 200);
     return AccessibleTapTarget(
       hitTargetKey: ValueKey('theme-color-hit-${themeColor.name}'),
       minSide: AccessibleTapTarget.minTouchTarget,
@@ -2074,7 +2081,7 @@ class _ColorDot extends StatelessWidget {
       child: Tooltip(
         message: tooltip,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: selectionDuration,
           curve: Curves.easeOut,
           width: selected ? 34 : 28,
           height: selected ? 34 : 28,

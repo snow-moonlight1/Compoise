@@ -138,7 +138,11 @@ class _AnimatedStrikeThroughTextState
   );
 
   List<ui.TextBox> _boxes = const [];
-  (String, TextStyle, int?, TextOverflow, Locale?, TextDirection, double, double)?
+
+  /// Cache identity for [_boxes]. It carries the [TextScaler] itself, not
+  /// `scaler.scale(1.0)`: two non-linear scalers can agree at 1 dp and still
+  /// lay out a 16 dp glyph at different widths.
+  (String, TextStyle, int?, TextOverflow, Locale?, TextDirection, double, TextScaler)?
   _layoutKey;
 
   @override
@@ -182,7 +186,7 @@ class _AnimatedStrikeThroughTextState
       widget.locale,
       direction,
       maxWidth,
-      scaler.scale(1.0),
+      scaler,
     );
     if (_layoutKey == key) return _boxes;
     if (widget.text.isEmpty || !maxWidth.isFinite) {
@@ -198,16 +202,23 @@ class _AnimatedStrikeThroughTextState
       ellipsis: widget.overflow == TextOverflow.ellipsis ? '…' : null,
       locale: widget.locale,
       textScaler: scaler,
-    )..layout(maxWidth: maxWidth);
-    final selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: widget.text.length,
     );
-    _boxes =
-        painter
-            .getBoxesForSelection(selection)
-            .where((box) => box.right > box.left)
-            .toList();
+    List<ui.TextBox> boxes;
+    try {
+      painter.layout(maxWidth: maxWidth);
+      final selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: widget.text.length,
+      );
+      boxes =
+          painter
+              .getBoxesForSelection(selection)
+              .where((box) => box.right > box.left)
+              .toList();
+    } finally {
+      painter.dispose();
+    }
+    _boxes = boxes;
     _layoutKey = key;
     return _boxes;
   }
