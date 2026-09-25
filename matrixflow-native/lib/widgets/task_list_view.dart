@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../ui/motion_policy.dart';
-import 'input_sheet.dart';
+import 'batch_decompose_sheet.dart';
+import 'task_detail_panel.dart';
 import 'task_card.dart';
 import 'task_exit.dart';
 

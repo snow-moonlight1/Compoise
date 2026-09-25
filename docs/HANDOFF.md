@@ -1,5 +1,13 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前状态：OS21、OS22 合入 main（2026-09-25）
+
+- 接手基线 `77d81f13f6972fe0b9237e09f03a846e05712b09`，主工作区干净。OS21 独立分支 `os21-page-coordination / 2e903cc6305e19ab31955101da7ae5a59c0f1500` 的七个提交与 OS22 `codex/os22 / 9921209563b1baed771939c2e52650ac847400c7` 均从该基线出发，文件不重叠，已顺序 cherry-pick。OS21 worktree 原有三个未提交的 Windows 生成文件行尾差异保持原样，未纳入 main。最终集成提交完整哈希见交接回复。
+- OS21 抽出共享日期 UI、任务草稿与子项编辑会话、三页详情会话、设置模型请求和备份协调。搜索/完成页详情断点统一为 924；原有分隔样式保留。OS22 的 Windows 1 万条合成任务同机 profile 测量证实列表嵌套收缩构建造成约 2500 卡片挂载、首帧构建最大约 1.6 s；换成单一惰性 `CustomScrollView` 后约 24 卡片、4.9 ms，滚动超 144 Hz 预算由 66/67 降为 1/306；release 修后样本和原始数据见 `OS22_NOTES.md`。宫格与 Store 查询未动，Android 帧未测。
+- 集成审查修正：页面关闭后备份流程不再继续打开导出选择器，导入已提交后的异步返回不回写已释放的设置输入框；新增取消回归。`quadrant_pane.dart`/`task_list_view.dart` 改为直接导入编辑与批量拆解模块，移除 `input_sheet.dart` 的临时再导出，清理 OS21 提交里的尾随空格与末尾空行。合并态默认 `flutter test --no-pub` **560/560**、`flutter analyze --no-pub` **0 issues**；Windows Debug mock 集成 **2/2** 并构建成功，Windows Release 和 Android debug APK 构建成功。`adb devices` 无连接设备。双端真实 IME、窗口缩放/焦点及 Android 触摸仍需人工验收；合成 Windows 帧数据不代表所有设备。
+- **下一波将 OS27 拆成三个文件不重叠的并行子批次，从最终 main 同一提交各建独立 worktree：** A=公开文档，独占根/native README、ARCHITECTURE、DEVELOPMENT、文档索引、CONTRIBUTING、SECURITY 和 `pubspec.yaml` 的描述，写 `OS27_DOCS_NOTES.md`；B=三语与当前文案，独占 `l10n.dart`、`onboarding_screen.dart`、`desktop_shell_windows.dart` 及本包文案测试，写 `OS27_COPY_NOTES.md`；C=平台与公开状态证据，只运行隔离的 Android/Windows 可用场景、文档命令和链接核对，不改产品代码或 A/B 文件，写 `OS27_VALIDATION_NOTES.md`。公共 AGENTS、HANDOFF、CHANGELOG、实施计划和 OS27 最终状态由集成人在三者完成后统一收口；A 对未到手的 B/C 结果注明待补，不伪造远端、联系地址或设备证据。OS26 正式身份/签名、托管发布和升级实机仍待持有人；不因此宣称稳定发行。继续暂停 WP10/WP29/UI 实验，冻结 React/Tauri/Capacitor。
+
+
 ## 当前状态：OS18、OS20、OS23 合入 main（2026-09-25）
 
 - 接手基线 `0f5e4f62b4d4fc6a7dcb2440dd12e540dcd4196d`，主工作区干净。三包从同一基线开发、产品文件不重叠；依次合入 OS20 `f774063af990164fa6c3ba9bcbb232f976b268ed`、OS18 `7aa9e5132bb5aac62bbf53bf9012659020542cff`、OS23 `7db940cc9364fd782a8c962a6c7bd18d15f351a6` 和补丁 `c983cde0ecb1fe0539af7bbd266dbbb70ce310e4`。main 对应 cherry-pick 为 `8827f57`、`c06fdc8`、`85a3354`、`2ed10bc`；最终集成提交完整哈希见本轮交接回复。原 OS18 worktree 的三个未提交 Windows 生成文件只有行尾差异，保留在原工作树；主线未纳入。

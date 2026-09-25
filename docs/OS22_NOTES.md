@@ -1,5 +1,7 @@
 # OS22 实施记录：列表性能测量与惰性构建
 
+> main 集成补记（2026-09-25）：列表路由现直接导入 `task_detail_panel.dart` 与 `batch_decompose_sheet.dart`，不再经 `input_sheet.dart` 再导出；惰性构建与测量数据保持本文件所述。双端合并态测试见 HANDOFF。
+
 日期：2026-09-25。包号：**OS22**（对应审查报告 F19）。状态：**已实施列表惰性构建**。Android 未测。Windows profile 有同条件前后数据，Windows release 测了修复后的同一套合成场景。
 
 ## 1. 接手与边界

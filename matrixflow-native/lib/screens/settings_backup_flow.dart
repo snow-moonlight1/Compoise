@@ -67,11 +67,16 @@ class SettingsBackupFlow {
               ],
             ),
       );
-      if (includeCredential == null) return const BackupResult(BackupOutcome.cancelled);
+      if (includeCredential == null || _closed || !context.mounted) {
+        return const BackupResult(BackupOutcome.cancelled);
+      }
       final json =
           includeCredential
               ? await store.exportJsonWithCredential()
               : store.exportJson();
+      if (_closed || !context.mounted) {
+        return const BackupResult(BackupOutcome.cancelled);
+      }
       final bytes = Uint8List.fromList(utf8.encode(json));
       final path = await FilePicker.platform.saveFile(
         fileName:
@@ -108,7 +113,7 @@ class SettingsBackupFlow {
         allowedExtensions: ['json'],
         withData: false,
       );
-      if (!context.mounted || picked == null) {
+      if (_closed || !context.mounted || picked == null) {
         return const BackupResult(BackupOutcome.cancelled);
       }
       final file = picked.files.single;
@@ -136,14 +141,16 @@ class SettingsBackupFlow {
       if (bytes == null) throw const FormatException('No file data');
       final json = ImportPreflight.decode(bytes);
 
-      if (!context.mounted) return const BackupResult(BackupOutcome.cancelled);
+      if (_closed || !context.mounted) {
+        return const BackupResult(BackupOutcome.cancelled);
+      }
       final mode = await _askMode(context, t);
-      if (mode == null || !context.mounted) {
+      if (mode == null || _closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
       }
       final plan = store.previewImport(json, mode);
       final choice = await _confirmPlan(context, t, plan, mode);
-      if (choice == null || !context.mounted) {
+      if (choice == null || _closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
       }
 
@@ -156,23 +163,23 @@ class SettingsBackupFlow {
         throw StateError('Import save failed');
       }
       final desktopResult = await applyDesktopSettings(store);
-      syncAiFields();
+      if (!_closed && context.mounted) syncAiFields();
       final shell = DesktopShellService.instance;
       final desktopWarning =
           shell.isDesktopSupported && desktopResult.hasFailure
           ? '\n${desktopStatusText(store.t, shell)}'
           : '';
-      return BackupResult(BackupOutcome.succeeded, 
+      return BackupResult(BackupOutcome.succeeded,
         '${t['importSuccess']} (${plan.addedTasks})$desktopWarning',
       );
     } on FormatException catch (error) {
-      return BackupResult(BackupOutcome.failed, 
+      return BackupResult(BackupOutcome.failed,
         error.message.startsWith('Conflicting')
             ? t['importConflictBlocked']!
             : t['importError']!,
       );
     } catch (_) {
-      return BackupResult(BackupOutcome.failed, 
+      return BackupResult(BackupOutcome.failed,
         t[applying ? 'importSaveError' : 'importError']!,
       );
     } finally {

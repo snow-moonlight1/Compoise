@@ -13,6 +13,7 @@ import 'package:matrixflow_native/main.dart';
 import 'package:matrixflow_native/models.dart';
 import 'package:matrixflow_native/screens/matrix_screen.dart';
 import 'package:matrixflow_native/screens/search_screen.dart';
+import 'package:matrixflow_native/screens/settings_backup_flow.dart';
 import 'package:matrixflow_native/screens/settings_screen.dart';
 import 'package:matrixflow_native/services/desktop_shell_service.dart';
 import 'package:matrixflow_native/storage.dart';
@@ -265,6 +266,36 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('closing backup flow before export choice stops file picking', (
+    tester,
+  ) async {
+    final store = await setup(tester);
+    final picker = TestPicker();
+    FilePicker.platform = picker;
+    late BuildContext hostContext;
+    await tester.pumpWidget(
+      app(
+        store,
+        Builder(
+          builder: (context) {
+            hostContext = context;
+            return const Scaffold(body: SizedBox.shrink());
+          },
+        ),
+      ),
+    );
+    final flow = SettingsBackupFlow(onBusyChanged: (_) {});
+    final result = flow.export(hostContext, store);
+    await tester.pumpAndSettle();
+    flow.close();
+    await tester.tap(find.text(store.t['exportWithoutCredential']!));
+    await tester.pumpAndSettle();
+
+    expect((await result).outcome, BackupOutcome.cancelled);
+    expect(picker.savedBytes, isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('explicit plaintext export requires choice; picker failure has no success', (tester) async {
     final store = await setup(tester);

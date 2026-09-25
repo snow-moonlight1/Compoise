@@ -10,11 +10,6 @@ import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
 import 'task_edit_draft.dart';
 
-// The list widgets reach these two routes through this library; retarget them
-// to the owning modules and drop both lines.
-export 'batch_decompose_sheet.dart' show showBatchDecomposeSheet;
-export 'task_detail_panel.dart' show showTaskEditSheet;
-
 class InputSheet extends StatefulWidget {
   final InputModePref initialMode;
   final bool embedded;

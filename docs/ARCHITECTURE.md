@@ -1,8 +1,14 @@
 # 架构
 
-> **2026-09-25 当前覆盖：** OS01–OS20、OS23–OS26 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。平台未测项见 HANDOFF。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
+> **2026-09-25 当前覆盖：** OS01–OS26 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。平台未测项见 HANDOFF。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
+
+## 当前页面会话与列表构建（OS21/OS22）
+
+`TaskEditDraft` 持有任务详情的输入 controller 和字段级草稿合并，详情面板负责释放；子项弹窗也自行释放 controller。`TaskDetailSession` 统一主界面、搜索和完成页的打开、离开及草稿确认，三页使用同一个 924 逻辑像素的并列详情断点。日期/提醒选择由 `date_edit_fields.dart` 共享。设置页的模型请求与连接测试有代际和取消规则，`SettingsBackupFlow` 协调预检、选择、事务应用及结果；页面关闭后不再启动导出选择或写回输入框。双端真实 IME 和窗口人工操作仍待验。
+
+列表视图用一个 `CustomScrollView`，各象限标题后接惰性 `SliverList.builder`，保留卡片身份、滚动锚点、退场和父子展开。Windows 1 万合成任务的同机 profile 对照显示挂载卡片约 2500→24、首帧构建最大约 1.6 s→4.9 ms；这是该 Windows 环境的测量，不代表 Android。宫格仍使用原有惰性列表；Store 查询未因此改动。原始帧数据与设备条件见 [OS22 记录](OS22_NOTES.md)。
 
 ## 当前 Windows 单实例、控件可访问性与发行边界（OS16/OS19/OS26）
 

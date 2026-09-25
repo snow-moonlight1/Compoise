@@ -1699,4 +1699,3 @@ class _ColorDot extends StatelessWidget {
     );
   }
 }
-

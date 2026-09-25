@@ -11,6 +11,7 @@ import '../services/desktop_exit_coordinator.dart';
 import '../services/desktop_shell_service.dart';
 import '../ui/desktop_exit_strings.dart';
 import '../ui/platform_ui_policy.dart';
+import '../widgets/batch_decompose_sheet.dart';
 import '../widgets/board_picker.dart';
 import '../widgets/home_actions.dart';
 import '../widgets/input_sheet.dart';
