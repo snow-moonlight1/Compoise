@@ -12,8 +12,10 @@
 | [架构](ARCHITECTURE.md) | 当前存储、凭据、AI 请求和各 OS 包已经落地的结构 |
 | [参与说明](../CONTRIBUTING.md) | 本地提交方式；Issue 与 Pull Request 地址待配置 |
 | [安全政策](../SECURITY.md) | 安全报告渠道待配置；密钥、明文备份和端点行为 |
+| [隐私说明](PRIVACY_POLICY.md) | 当前本机数据、AI 请求、系统凭据和明文备份；上架前需持有人复核 |
 | [交接](HANDOFF.md) | 文件顶部是当前集成状态，其余段落是历史交接 |
 | [OS27 文档记录](OS27_DOCS_NOTES.md) | 本批文档改了什么、依据是什么、还有哪些待补 |
+| [OS27 文案记录](OS27_COPY_NOTES.md)、[平台记录](OS27_VALIDATION_NOTES.md) | 三语文案、Windows 隔离实测和未测边界 |
 | [OS26 发行记录](OS26_NOTES.md) | 签名、remote、许可证扫描和持有人尚未决定的事项 |
 | [工具链声明](../matrixflow-native/toolchain.json) | Flutter 3.32.8 / Dart 3.8.1 的修订号与本机路径 |
 | [MIT 许可证](../LICENSE) | 源码许可 |
@@ -30,9 +32,9 @@
 
 ## 发行计划
 
-[发行规划](RELEASE_PLAN.md) 记录目标渠道和依赖许可证。它不是已经发布的公告。其中 Material Icons 一行已经按固定 SDK 写成 CC-BY 4.0。第 3 节的流程图仍画着本地缺少证书时回退 debug 签名；当前 `scripts/build_release.ps1` 在正式 Android 打包时会拒绝，不以那张图为准。
+[发行规划](RELEASE_PLAN.md) 记录目标渠道和依赖许可证，不是已经发布的公告。Android 正式签名缺失时发行脚本拒绝构建，Windows 仍未签名。
 
-[2026-09-22 开源准备计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md) 的文首状态说明 OS01–OS26 已集成。计划后部保留的启动提示词是历史派单。
+[2026-09-22 开源准备计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md) 的文首状态说明 OS01–OS27 的范围已集成。计划后部保留的启动提示词是历史派单。
 
 ## 历史材料
 
@@ -40,14 +42,13 @@
 
 | 文档 | 阅读时注意 |
 |---|---|
-| [变更记录](CHANGELOG.md) | 只追加、不改写的历史。OS27 文档子批次没有往里面加条目 |
+| [变更记录](CHANGELOG.md) | 只追加、不改写的历史；OS27 集成条目已追加顶部 |
 | [2026-09-08 实施计划](IMPLEMENTATION_PLAN_2026-09-08.md) | 早期工作包。WP10 继续暂停 |
 | [UX 返修计划](IMPLEMENTATION_PLAN_2026-09-17_UX_REWORK.md) | UX01–07 的历史计划。原 UX08 收口并入 OS27 |
 | [Flutter 主线决策](ADR_FLUTTER_PRIMARY_2026-09-09.md) | 2026-09-09 起 Flutter 成为唯一持续开发客户端 |
 | [2026-09-22 全库审查](FLUTTER_REVIEW_2026-09-22.md) | F24 是本批文档要面对的差异。文中的测试数字是审查当时的数字 |
-| [隐私政策](PRIVACY_POLICY.md) | 仍写着密钥明文存放在 SharedPreferences，并链接了本仓库不存在的 GitHub 地址。当前行为以架构和安全政策为准 |
-| [商店文案](STORE_LISTING.md) | 隐私政策链接指向同一未配置地址。没有商店上架记录 |
-| [v1.0.0 发行说明](release_notes/v1.0.0.md) | 标题写成了已经首发，并保留了已删除的命令台和绝对隐私表述。稳定发行尚未开始 |
+| [商店文案草稿](STORE_LISTING.md) | 未上架；地址、签名、截图与设备验收待持有人确认 |
+| [v1.0.0 发行说明草稿](release_notes/v1.0.0.md) | 尚未发行；需在正式签名和托管完成后复核 |
 | [OS15 记录](OS15_NOTES.md)、[OS23 记录](OS23_NOTES.md)、[OS25 记录](OS25_NOTES.md) | 各包验收记录，不替代 HANDOFF 顶部。同目录还有 OS16–OS22 与 OS26 记录。没有 `OS24_NOTES.md` |
 
 OS24 的工具链结论在 [toolchain.json](../matrixflow-native/toolchain.json) 和 [开发指南](DEVELOPMENT.md)。

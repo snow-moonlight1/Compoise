@@ -1,84 +1,31 @@
-# MatrixFlow AI 隐私政策 / Privacy Policy
+# MatrixFlow AI 隐私说明 / Privacy Notice
 
-> **生效日期 / Effective Date**: 2026-09-16  
-> **版本 / Version**: 1.0.0
+状态：2026-09-25 源码候选说明；公开托管、维护者联系方式和稳定二进制发行尚未配置。上架前须由持有人复核并公布正式生效日期。
 
----
+## 中文
 
-## 中文版 (Chinese Version)
+MatrixFlow AI 当前维护 Flutter Android 与 Windows 客户端。任务、看板、备注和普通设置保存在设备的应用数据中；任务库没有应用层加密，也没有账号或自动云同步。普通待办可离线使用。应用代码没有集成广告或行为分析 SDK。
 
-MatrixFlow AI（以下简称“我们”或“本应用”）是一款致力于保护用户隐私的**纯本地离线（Local-First）**艾森豪威尔四象限待办管理应用。我们深知个人数据与待办事项的重要性，因此在设计之初便确立了“**零数据收集、100% 用户自主掌控**”的核心安全原则。
+用户填写的 AI API 密钥通过系统保护存储保存。Android 使用 Keystore，Windows 使用系统凭据保护与应用目录中的加密文件。旧版本的明文配置在新存储写入并读回成功后才迁移清理；这不保证物理介质上已安全擦除。系统备份与设备迁移不保证凭据可用，详见 [架构](ARCHITECTURE.md) 和 [备份格式](BACKUP_FORMAT.md)。
 
-请您仔细阅读本隐私政策以了解我们如何对待您的数据。
+用户主动使用 AI 分类、分组或拆解时，应用把相关任务文本和提示词从本机发送到设置中的模型端点，并用密钥鉴权。预设端点使用 HTTPS；自定义端点可以是第三方代理或 HTTP，接收方和传输保护取决于用户配置。模型列表查询携带密钥，但不携带任务正文。应用当前没有自营的 AI 中转服务器。第三方端点的数据处理由其运营者决定。
 
-### 1. 数据存储与本地优先原则
-- **100% 纯本地存储**：您的所有待办任务、子任务、备注、四象限分类、自定义看板、已完成历史与统计数据，均直接存储在您设备的本地存储空间中（通过 `SharedPreferences` 持久化）。
-- **无中央服务器**：本应用不设立任何用户账户系统，无中央后端服务器，不记录、不接收、也不转存您的任何待办内容。
-- **完全离线可用**：在没有任何网络连接的情况下，本应用的所有基础待办管理、排序、筛选与统计功能均可完整使用。
+默认 v2 JSON 备份是**明文文件**，包含任务和配置，但省略 `customApiKey`。每次明确选择包含凭据并确认提示后，文件才会加入**明文密钥**。旧 v1/v2 含密钥文件仍可导入；覆盖导入默认保留本机密钥，替换它需要用户明确选择。请按敏感文件保管备份。
 
-### 2. BYOK 自带密钥与 AI 服务直连
-- **BYOK 机制（Bring Your Own Key）**：本应用支持用户自主输入大语言模型服务商（包括 DeepSeek、火山引擎、阿里云百炼或任何 OpenAI 兼容协议服务商）的 API Key。
-- **端到端直接通信**：当您发起 AI 任务智能分类、自动分组或长期目标拆解时，请求将**直接从您的设备发送给配置的 API 地址**。内置预设使用 HTTPS；自定义地址可能指向第三方代理或使用 HTTP，接收方与传输安全取决于您的配置。
-- **绝不中转密钥与待办**：MatrixFlow 团队绝无任何私有代理或数据抓取服务器，绝不收集、上传或转售您的 API Key 或待办内容。您的密钥以明文保存在设备的应用数据中（SharedPreferences），应用未对其额外加密。
+Android 提醒可能使用通知、精确闹钟、开机恢复和震动权限；Windows 可使用本地通知、托盘和热键。权限、系统设置和设备行为会影响提醒是否送达。
 
-### 3. 零遥测与零第三方追踪
-- **无广告 SDK**：应用内不包含任何商业广告组件或广告联盟 SDK。
-- **无分析埋点 SDK**：本应用未集成 Google Analytics、Firebase Analytics、友盟、TalkingData 等任何第三方用户行为追踪或崩溃统计工具。
-- **静默运行**：我们不记录您的设备型号、IMEI、MAC 地址、剪贴板内容或网络运行日志。
+公开 Issue、Pull Request 和安全邮箱尚未配置。当前安全报告入口状态见 [SECURITY.md](../SECURITY.md)。
 
-### 4. 权限使用与合规说明
-为了实现本地待办提醒与手势震动反馈，应用可能向系统申请以下必要权限，我们承诺绝不越权滥用：
+## English
 
-| 权限名称 | 平台 | 用途说明 | 必要性与合规保障 |
-|---|---|---|---|
-| `INTERNET` | Android / Windows | 访问网络 | 仅用于用户主动触发 AI 功能时直连模型服务商 API；离线待办完全无需网络。 |
-| `POST_NOTIFICATIONS` | Android | 显示系统通知 | 用于待办设定的截止时间与自定义提醒时刻触发横幅提醒。用户可随时在系统设置中关闭。 |
-| `SCHEDULE_EXACT_ALARM` | Android | 精确闹钟排期 | 用于在指定时间点准时触发提醒。本应用**坚决不使用**高危的 `USE_EXACT_ALARM` 权限，完全符合应用商店合规审查。 |
-| `RECEIVE_BOOT_COMPLETED` | Android | 开机自启广播 | 仅用于手机重启后重新向系统注册尚未到期的待办定时提醒，绝不用于后台常驻偷跑。 |
-| `VIBRATE` | Android | 震动控制 | 用于到期提醒震动提示以及任务长按拖拽时的轻微触觉反馈。 |
+MatrixFlow AI currently maintains Flutter clients for Android and Windows. Tasks, boards, notes, and ordinary settings are stored in the app's local data. The task library has no application-level encryption, account, or automatic cloud sync. Ordinary task management works offline. The current app does not include advertising or behavioral analytics SDKs.
 
-### 5. 数据导出与备份控制
-- 用户可随时使用内置的「数据备份」功能将全部待办与看板导出为标准 JSON 格式。备份为未加密的明文 JSON，包含任务、备注以及 AI 配置中的 API Key。导出的文件由用户决定保存位置和传输方式。
+Your AI API key is kept in system-protected storage. Android uses Keystore; Windows uses system credential protection together with an encrypted file in the app directory. Older plaintext configuration is removed only after the new store has written and read the key successfully. This does not promise secure erasure of physical media. System backup or device migration may not restore the credential; see [architecture](ARCHITECTURE.md) and [backup format](BACKUP_FORMAT.md).
 
-### 6. 联系我们
-如果您对本隐私政策有任何疑问或改进建议，欢迎通过 GitHub 仓库提交 Issue 或 Pull Request：  
-GitHub: [https://github.com/matrixflow/matrixflow](https://github.com/matrixflow/matrixflow)
+When you initiate AI classification, grouping, or decomposition, the app sends the relevant task text and prompt from your device to the model endpoint configured in Settings, using your key for authentication. Presets use HTTPS. A custom endpoint may be a third-party proxy or use HTTP, so its operator and your configuration determine the recipient and transport protection. Model discovery sends the key but no task body. The app currently operates no AI relay server. The endpoint operator controls its own data handling.
 
----
+The default v2 JSON backup is **plaintext** and includes tasks and configuration, but omits `customApiKey`. The key is included **in plaintext** only when you explicitly select that option and confirm its warning on each export. Older v1/v2 backups containing keys remain readable. Overwrite import keeps the device's current key by default; replacing it requires an explicit choice. Handle backups as sensitive files.
 
-## English Version
+Android reminders may use notification, exact alarm, boot recovery, and vibration permissions. Windows can use local notifications, a tray icon, and hotkeys. Delivery depends on permissions, system settings, and device behavior.
 
-MatrixFlow AI ("we", "us", or "the app") is a **Local-First, privacy-centric** Eisenhower Matrix task management application. We believe your tasks, notes, and personal data belong exclusively to you. MatrixFlow is architected with a strict **Zero-Data Collection, 100% User-Owned** philosophy.
-
-### 1. Data Storage & Local-First Philosophy
-- **100% On-Device Storage**: All tasks, subtasks, notes, quadrant categories, custom boards, and completion stats are stored locally on your device (via SharedPreferences, without application-level encryption).
-- **No Central Servers**: There are no user accounts, no login walls, and no central servers operated by MatrixFlow. We never receive, inspect, or retain your task contents.
-- **Full Offline Availability**: Core productivity features operate completely without an active internet connection.
-
-### 2. BYOK (Bring Your Own Key) & Direct AI Connections
-- **BYOK Architecture**: Users provide their own API Keys for AI model providers (such as DeepSeek, Volcengine, Alibaba Bailian, OpenAI, or custom compatible endpoints).
-- **End-to-End Direct Transmission**: When you use AI task classification or goal decomposition, your device communicates **directly with the configured API address**. Built-in presets use HTTPS; custom addresses may point to third-party proxies or use HTTP. The recipient and transport security depend on your configuration.
-- **Zero Proxy or Intermediary**: MatrixFlow never routes, intercepts, proxies, or stores your API keys or prompts on any intermediary server. Keys are stored as plaintext in local application data using SharedPreferences; the app does not add encryption.
-
-### 3. Zero Telemetry & Zero Third-Party Tracking
-- **No Ads**: The application contains no advertising SDKs or tracking pixels.
-- **No Analytics**: We do not integrate telemetry SDKs such as Firebase Analytics, Umeng, or Mixpanel.
-- **No Fingerprinting**: We do not collect device identifiers (IMEI, MAC address, IDFA) or browser history.
-
-### 4. Permissions & Compliance
-We request only the minimal permissions strictly necessary to deliver productivity features:
-
-| Permission | Platform | Purpose | Compliance Guarantee |
-|---|---|---|---|
-| `INTERNET` | Android / Windows | Network Access | Strictly utilized when sending user-initiated AI requests to chosen providers. |
-| `POST_NOTIFICATIONS` | Android | Show Notifications | Used to display task reminder banners at scheduled times. Can be toggled in system settings. |
-| `SCHEDULE_EXACT_ALARM` | Android | Exact Scheduling | Triggers task reminders accurately on time. MatrixFlow **strictly avoids `USE_EXACT_ALARM`** to remain fully compliant with Google Play and app store guidelines. |
-| `RECEIVE_BOOT_COMPLETED` | Android | Reschedule on Reboot | Restores active reminders after a device restart; no persistent background bloat. |
-| `VIBRATE` | Android | Haptic Feedback | Provides subtle haptic sensations during drag-and-drop and alarms. |
-
-### 5. Data Backup & User Ownership
-You can export and import your tasks at any time in transparent JSON format. Backups are unencrypted plaintext JSON and include tasks, notes, and the API Key in your AI configuration. You control where the files are stored and how they are transferred.
-
-### 6. Contact & Open Source Inquiries
-For questions or suggestions regarding privacy, please visit our open-source project repository:  
-GitHub: [https://github.com/matrixflow/matrixflow](https://github.com/matrixflow/matrixflow)
+Public issue tracking and a security contact are not yet configured. See [SECURITY.md](../SECURITY.md) for the current reporting status. This notice is a source candidate dated 2026-09-25; the owner must review it and set an effective date before publication.

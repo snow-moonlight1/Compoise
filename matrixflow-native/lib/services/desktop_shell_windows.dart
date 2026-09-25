@@ -6,7 +6,6 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../l10n.dart';
-import '../models.dart';
 import 'desktop_shell_host.dart';
 
 @visibleForTesting
@@ -62,9 +61,7 @@ class WindowsDesktopShellHost
       _bound = true;
     }
 
-    // The host has no locale of its own, so the tray takes the dictionary's
-    // English entries; localizing it needs labels passed in from the UI.
-    final labels = dictOf(Language.en);
+    final labels = dictOf(callbacks.language);
     try {
       await windowManager.setPreventClose(true);
       await trayManager.setIcon('assets/tray_icon.ico');

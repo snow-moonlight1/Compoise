@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:matrixflow_native/models.dart';
 import 'package:matrixflow_native/screens/settings_screen.dart';
 import 'package:matrixflow_native/services/desktop_shell_host.dart';
 import 'package:matrixflow_native/services/desktop_shell_service.dart';
@@ -14,6 +15,27 @@ void main() {
   tearDown(DesktopShellService.instance.resetForTest);
 
   group('OS14 desktop shell real-result coordination', () {
+    test('language change reapplies tray labels without restarting hotkey', () async {
+      final host = _FakeDesktopShellHost();
+      final service = DesktopShellService.forTest(host);
+      await service.applySettings(
+        closeToTray: true,
+        globalShortcut: 'Ctrl+Alt+M',
+        language: Language.en,
+      );
+      expect(host.callbacks?.language, Language.en);
+      await service.applySettings(
+        closeToTray: true,
+        globalShortcut: 'Ctrl+Alt+M',
+        language: Language.zh,
+      );
+      expect(host.callbacks?.language, Language.zh);
+      expect(host.startCalls, 2);
+      expect(host.registerCalls, 1);
+      await service.retrySettings();
+      expect(host.startCalls, 2);
+    });
+
     test(
       'tray init failure disables close-to-tray and retry can recover',
       () async {

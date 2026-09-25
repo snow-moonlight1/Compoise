@@ -8,6 +8,7 @@ Future<DesktopShellSettingsResult> applyDesktopSettings(Store store) =>
     DesktopShellService.instance.applySettings(
       closeToTray: store.settings.closeToTray,
       globalShortcut: store.settings.globalShortcut,
+      language: store.settings.language,
     );
 
 /// One human-readable line about the desktop shell: what is being applied, what

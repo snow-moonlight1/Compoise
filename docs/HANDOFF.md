@@ -1,5 +1,12 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前状态：OS27 三路集成，编号包收口（2026-09-25）
+
+- 基线 `1625c1767b1893847ff4650218aba0e41a2886d4` 原本干净。公开文档、三语文案和平台验证三条独立分支各自从该基线开发且提交文件不重叠；main 依次 cherry-pick 为 `989b7a3`、`5cae752`、`2f992c6`。两条 Agent 工作树仍有未提交的 Windows Flutter 生成文件行尾差异，原样留在各自工作树，未并入 main。
+- README、Flutter README、ARCHITECTURE、DEVELOPMENT、文档索引、CONTRIBUTING、SECURITY 和 `pubspec.yaml` 描述按当前主线更新。引导页和三语字典清理英文兜底与绝对化隐私/无损表述，AI 文案交代用户配置端点；托盘从字典读取文案。集成时补上语言传递和变更后的菜单刷新，同时把隐私说明、商店物料、发行说明与发行规划里的旧发布声明收口。三路原始记录见 `OS27_DOCS_NOTES.md`、`OS27_COPY_NOTES.md`、`OS27_VALIDATION_NOTES.md`。
+- 验证分支用固定 Flutter 3.32.8 完成原基线默认 560/560、analyze 0、Windows mock 集成 2/2、Windows 系统凭据 1/1、Windows Release 与 Android debug 构建；还做了隔离 Windows 托盘/通知/退出 smoke 和合成 1 万任务 profile 测量。用户任务库前后哈希相同。OS27 文案分支默认 577/577、analyze 0。合并后新增托盘语言回归；最终主线定向 OS14+OS27 **26/26**、默认 `flutter test --no-pub` **578/578**、`flutter analyze --no-pub` **0 issues**、Windows mock 集成 **2/2**，Windows Release 与 Android debug APK 构建成功。审过的 11 份公开 Markdown 有 102 条本地相对链接、0 条失效。上述 Windows 隔离证据不等于真实用户会话手工验收。
+- **OS27 是 2026-09-22 开源准备计划最后一个编号包，代码与文档范围已收口；稳定发行仍未完成。** 公开 remote、正式 Android keystore、Windows 代码签名、Android 真机触摸/输入/提醒/系统凭据/升级、托管 CI 和实际下载页仍无证据。OS10/11 真实厂商调用未测，旧 UX08 未逐项实测，也没有收到用户总体实机认可记录。F21/F22 与 OS26 发行门槛不因文档收口而自动关闭。下一步由持有人提供身份、签名、托管和设备后，按 OS26 清单完成发行验收；不自动新增 OS28。WP10/WP29/UI 实验继续暂停，React/Tauri/Capacitor 保持冻结。
+
 ## 当前状态：OS21、OS22 合入 main（2026-09-25）
 
 - 接手基线 `77d81f13f6972fe0b9237e09f03a846e05712b09`，主工作区干净。OS21 独立分支 `os21-page-coordination / 2e903cc6305e19ab31955101da7ae5a59c0f1500` 的七个提交与 OS22 `codex/os22 / 9921209563b1baed771939c2e52650ac847400c7` 均从该基线出发，文件不重叠，已顺序 cherry-pick。OS21 worktree 原有三个未提交的 Windows 生成文件行尾差异保持原样，未纳入 main。最终集成提交完整哈希见交接回复。

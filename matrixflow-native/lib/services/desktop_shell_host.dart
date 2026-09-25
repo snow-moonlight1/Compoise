@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models.dart';
 
 enum DesktopShellResultKind {
   success,
@@ -38,6 +39,7 @@ class DesktopShellResult {
 }
 
 class DesktopShellHostCallbacks {
+  final Language language;
   final VoidCallback onWindowCloseRequested;
   final VoidCallback onRestoreRequested;
   final VoidCallback? onQuickAddRequested;
@@ -45,6 +47,7 @@ class DesktopShellHostCallbacks {
   final VoidCallback? onExitRequested;
 
   const DesktopShellHostCallbacks({
+    this.language = Language.en,
     required this.onWindowCloseRequested,
     required this.onRestoreRequested,
     this.onQuickAddRequested,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models.dart';
 import 'desktop_shell_host.dart';
 import 'desktop_shell_windows.dart';
 
@@ -88,6 +89,8 @@ class DesktopShellService extends ChangeNotifier {
 
   String _desiredGlobalShortcut = '';
   String get desiredGlobalShortcut => _desiredGlobalShortcut;
+  Language _desiredLanguage = Language.en;
+  Language? _appliedTrayLanguage;
 
   bool _isApplyingSettings = false;
   bool get isApplyingSettings => _isApplyingSettings;
@@ -145,11 +148,13 @@ class DesktopShellService extends ChangeNotifier {
   Future<DesktopShellSettingsResult> applySettings({
     required bool closeToTray,
     required String globalShortcut,
+    Language language = Language.en,
   }) {
     final generation = ++_latestGeneration;
     final normalizedShortcut = globalShortcut.trim();
     _desiredCloseToTray = closeToTray;
     _desiredGlobalShortcut = normalizedShortcut;
+    _desiredLanguage = language;
     _isApplyingSettings = true;
     notifyListeners();
 
@@ -160,12 +165,14 @@ class DesktopShellService extends ChangeNotifier {
               generation: generation,
               closeToTray: closeToTray,
               globalShortcut: normalizedShortcut,
+              language: language,
             )
             : previous.then(
               (_) => _applySettingsNow(
                 generation: generation,
                 closeToTray: closeToTray,
                 globalShortcut: normalizedShortcut,
+                language: language,
               ),
             );
     final tail = run.then<void>((_) {}, onError: (_, _) {});
@@ -181,12 +188,14 @@ class DesktopShellService extends ChangeNotifier {
   Future<DesktopShellSettingsResult> retrySettings() => applySettings(
     closeToTray: _desiredCloseToTray,
     globalShortcut: _desiredGlobalShortcut,
+    language: _desiredLanguage,
   );
 
   Future<DesktopShellSettingsResult> _applySettingsNow({
     required int generation,
     required bool closeToTray,
     required String globalShortcut,
+    required Language language,
   }) async {
     if (generation != _latestGeneration) {
       return _supersededResult(generation, closeToTray, globalShortcut);
@@ -208,10 +217,11 @@ class DesktopShellService extends ChangeNotifier {
 
     final host = _host ??= _hostFactory();
     var tray = _trayResult;
-    if (!tray.succeeded) {
+    if (!tray.succeeded || _appliedTrayLanguage != language) {
       try {
         tray = await host.start(
           DesktopShellHostCallbacks(
+            language: language,
             onWindowCloseRequested: handleWindowCloseRequest,
             onRestoreRequested: restoreWindow,
             onQuickAddRequested: () {
@@ -225,6 +235,7 @@ class DesktopShellService extends ChangeNotifier {
             onExitRequested: exitApplication,
           ),
         );
+        if (tray.succeeded) _appliedTrayLanguage = language;
       } catch (error) {
         tray = DesktopShellResult(
           DesktopShellResultKind.unavailable,
@@ -422,6 +433,7 @@ class DesktopShellService extends ChangeNotifier {
       }
 
       _trayResult = const DesktopShellResult.disabled();
+      _appliedTrayLanguage = null;
       _hotkeyResult = const DesktopShellResult.disabled();
       _effectiveCloseToTray = false;
       _registeredGlobalShortcut = null;
@@ -465,6 +477,8 @@ class DesktopShellService extends ChangeNotifier {
     _desiredCloseToTray = false;
     _effectiveCloseToTray = false;
     _desiredGlobalShortcut = '';
+    _desiredLanguage = Language.en;
+    _appliedTrayLanguage = null;
     _isApplyingSettings = false;
     _lastSettingsResult = null;
     _hotkeyTrigger = null;

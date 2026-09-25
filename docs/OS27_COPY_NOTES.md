@@ -1,5 +1,7 @@
 # OS27 文案子批次（B）记录
 
+本文件记录 B 分支提交时的状态；托盘随语言变化的接口已由集成人补齐，最终结果见 [HANDOFF 顶部](HANDOFF.md)。
+
 基线：`main / 1625c1767b1893847ff4650218aba0e41a2886d4`，独立 worktree `D:/Dev_project/martix-wt-os27b`（分支 `os27-copy-review`）。
 独占文件：`matrixflow-native/lib/l10n.dart`、`lib/screens/onboarding_screen.dart`、`lib/services/desktop_shell_windows.dart`、`test/os27_copy_test.dart` 与本文件。
 未改：README、ARCHITECTURE、DEVELOPMENT、CONTRIBUTING、SECURITY、`pubspec.yaml`、AGENTS/HANDOFF/CHANGELOG/实施计划；未触碰冻结的 React/Tauri/Capacitor；未开始下一包。

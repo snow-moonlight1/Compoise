@@ -4,6 +4,8 @@
 > 生效日期：2026-09-16  
 > 适用范围：MatrixFlow AI 客户端（Flutter Android + Windows 主线及 GitHub/应用商店发行）
 
+> 状态：发行规划草稿；公开 remote、正式签名、商店上架与设备升级尚未完成。当前可执行门槛以 `scripts/build_release.ps1` 和 [OS26 记录](OS26_NOTES.md) 为准。
+
 ---
 
 ## 1. 开源协议与合规授权
@@ -69,7 +71,7 @@ MatrixFlow 客户端依赖及打包资源的核对范围、许可证与未决项
 flowchart TD
     A[构建触发] --> B{本地开发 还是 CI构建?}
     B -- 本地开发 (无私钥) --> C[读取 android/key.properties]
-    C -- 文件不存在 --> D[优雅回退: 使用 debug.keystore / 调试签名]
+    C -- 文件不存在 --> D[正式发行拒绝；开发 debug 构建另行运行]
     C -- 文件存在 --> E[本地 Release 签名]
     B -- CI / Release 发布 --> F[读取 GitHub Actions Secrets]
     F --> G[BASE64 注入 key.properties / PFX 证书]
@@ -114,15 +116,15 @@ flowchart TD
 
 ## 5. 隐私安全与 BYOK 纯本地合规规范
 
-MatrixFlow 坚持**用户主权与绝对隐私**原则，并在应用商店送审与开源物料中做如下合规保证：
+以下是送审时需要核对的行为边界；当前正式发行尚未完成。详见 [隐私说明](PRIVACY_POLICY.md)。
 
-1. **100% 本地优先（Local-First & Offline-Ready）**：
+1. **本地优先（Local-First & Offline-Ready）**：
    - 所有任务数据、四象限分类、子任务、历史统计数据、自定义看板全部保存在设备本地 `SharedPreferences`。
    - 应用无默认后台服务器、无外部用户数据库、不支持也不强制任何注册登录。
 2. **BYOK（Bring Your Own Key）直连模式**：
-   - 用户填写的 API Key 仅在本地持久化，并在发起 AI 分类/拆解时直接与用户配置的服务商（如 DeepSeek 官方接口、火山引擎或阿里云百炼）建立端到端加密通信（HTTPS）。
-   - 客户端绝无任何收集、中转、分析或转发用户密钥与待办内容至任何第三方中央服务器的后门逻辑。
-3. **零遥测、零埋点、零第三方 SDK**：
+   - API Key 存于系统保护存储。发起 AI 请求时，相关任务文本和提示词发往用户配置的端点；自定义端点可能是第三方代理或 HTTP，不能统一承诺 HTTPS 或官方直连。
+   - 当前客户端没有自营 AI 中转服务。默认明文备份省略密钥，明确选择包含时文件中仍是明文。
+3. **无广告与行为分析 SDK**：
    - 不集成任何商业广告 SDK、分析追踪 SDK（无友盟、TalkingData、Firebase Analytics、Google Analytics 等）。
    - 用户对待办的管理完全静默，不上传任何操作行为日志。
 4. **权限最小化与合规使用**：

@@ -208,6 +208,7 @@ class _MatrixHomeState extends State<MatrixHome> {
         final result = await shell.applySettings(
           closeToTray: store.settings.closeToTray,
           globalShortcut: store.settings.globalShortcut,
+          language: store.settings.language,
         );
         if (!mounted || !shell.isDesktopSupported || !result.hasFailure) return;
         ScaffoldMessenger.of(context).showSnackBar(

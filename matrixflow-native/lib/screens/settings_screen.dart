@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -222,10 +224,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ButtonSegment(value: Language.ja, label: Text('日本語')),
               ],
               selected: {store.settings.language},
-              onSelectionChanged:
-                  (s) => store.updateSettings(
-                    (settings) => settings..language = s.first,
-                  ),
+              onSelectionChanged: (s) {
+                store.updateSettings(
+                  (settings) => settings..language = s.first,
+                );
+                unawaited(applyDesktopSettings(store));
+              },
             ),
             const SizedBox(height: 20),
 
