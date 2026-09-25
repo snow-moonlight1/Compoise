@@ -204,6 +204,168 @@ class ModelRequestSession {
   }
 }
 
+/// Which request the connection panel is waiting for, if any.
+enum ConnectionRequestKind { none, probe, generation }
+
+/// One started connection request, together with the identity and model its
+/// reply is allowed to speak for.
+class _ConnectionRequest {
+  _ConnectionRequest(this.kind, this.identity, this.model);
+
+  final ConnectionRequestKind kind;
+  final ModelDiscoveryIdentity? identity;
+
+  /// Non-null only for generation, which also depends on the chosen model.
+  final String? model;
+  final AICancellation cancellation = AICancellation();
+}
+
+/// Owns the connection panel's request lifecycle: what is in flight, which
+/// identity and model a reply belongs to, and what may be shown.
+///
+/// Retirement is the only place that frees a request the panel is no longer
+/// waiting for, so a config change cannot leave a button spinning forever. A
+/// reply in turn only ever releases the busy flag of the request that started
+/// it, so an old answer cannot switch off a newer one's spinner.
+class ConnectionRequestSession {
+  ConnectionRequestSession({required this.onChanged});
+
+  final VoidCallback onChanged;
+
+  _ConnectionRequest? _running;
+  ConnectionProbe? _probe;
+  AiProbeStep? _generationResult;
+  ModelDiscoveryIdentity? _probeIdentity;
+  ModelDiscoveryIdentity? _generationIdentity;
+  String? _generationModel;
+  bool _disposed = false;
+
+  /// The endpoint/auth + discovery report, or null once its identity is gone.
+  ConnectionProbe? get probe => _probe;
+
+  /// The separately confirmed generation result, or null once its identity or
+  /// model is gone.
+  AiProbeStep? get generationResult => _generationResult;
+
+  bool get isBusy => _running != null;
+
+  ConnectionRequestKind get request =>
+      _running?.kind ?? ConnectionRequestKind.none;
+
+  /// Checks the endpoint and the model list for the config as it is now. Sends
+  /// no text, so it cannot be billed.
+  Future<void> runProbe(Store store) async {
+    if (!_startable) return;
+    final snapshot = store.copyAIConfig();
+    final request = _ConnectionRequest(
+      ConnectionRequestKind.probe,
+      tryModelDiscoveryIdentity(snapshot),
+      null,
+    );
+    _running = request;
+    onChanged();
+    try {
+      final result = await store.ai.testConnection(
+        snapshot,
+        cancellation: request.cancellation,
+      );
+      if (_isLive(store, request)) {
+        _probe = result;
+        _probeIdentity = request.identity;
+      }
+    } finally {
+      _settle(request);
+    }
+  }
+
+  /// One short completion against the selected model. The panel calls this only
+  /// after the user confirmed it may be billed.
+  Future<void> runGeneration(Store store) async {
+    if (!_startable) return;
+    final snapshot = store.copyAIConfig();
+    final request = _ConnectionRequest(
+      ConnectionRequestKind.generation,
+      tryModelDiscoveryIdentity(snapshot),
+      snapshot.model.trim(),
+    );
+    _running = request;
+    onChanged();
+    try {
+      final result = await store.ai.testModelGeneration(
+        snapshot,
+        cancellation: request.cancellation,
+      );
+      if (_isLive(store, request)) {
+        _generationResult = result;
+        _generationIdentity = request.identity;
+        _generationModel = request.model;
+      }
+    } finally {
+      _settle(request);
+    }
+  }
+
+  /// Re-runs the ownership rules against the live config: a result whose
+  /// identity or model has moved on disappears, and a reply that can no longer
+  /// be shown is cancelled and stops holding the buttons.
+  ///
+  /// Cancelling is a side effect, so the host calls this from its widget
+  /// lifecycle rather than while building. That rebuild renders the new state.
+  void syncWithLiveConfig(Store store) {
+    if (_disposed) return;
+    final request = _running;
+    if (request != null && !_belongs(store, request)) {
+      request.cancellation.cancel();
+      _running = null;
+    }
+    final live = tryModelDiscoveryIdentity(store.aiConfig);
+    if (_probe != null && _probeIdentity != live) {
+      _probe = null;
+      _probeIdentity = null;
+    }
+    if (_generationResult != null &&
+        (_generationIdentity != live ||
+            store.aiConfig.model.trim() != _generationModel)) {
+      _generationResult = null;
+      _generationIdentity = null;
+      _generationModel = null;
+    }
+  }
+
+  /// Cancels what is in flight and refuses any late reply, so the host can call
+  /// it straight from its own dispose.
+  void dispose() {
+    _disposed = true;
+    final request = _running;
+    _running = null;
+    request?.cancellation.cancel();
+  }
+
+  bool get _startable => !_disposed && _running == null;
+
+  /// Whether the live config is still the one [request] started against. A
+  /// probe answer says nothing about the chosen model, so only generation
+  /// compares it.
+  bool _belongs(Store store, _ConnectionRequest request) {
+    if (request.identity != tryModelDiscoveryIdentity(store.aiConfig)) {
+      return false;
+    }
+    return
+        request.model == null || store.aiConfig.model.trim() == request.model;
+  }
+
+  bool _isLive(Store store, _ConnectionRequest request) =>
+      !_disposed && identical(_running, request) && _belongs(store, request);
+
+  /// Frees busy for [request] and only for [request]: whoever retired it
+  /// already gave the buttons back, and a newer request keeps its spinner.
+  void _settle(_ConnectionRequest request) {
+    if (!identical(_running, request)) return;
+    _running = null;
+    onChanged();
+  }
+}
+
 /// The three-step connection report: endpoint and credential, model discovery,
 /// and an explicitly confirmed generation call. Each result belongs to the
 /// identity it started with, so editing the config mid-flight retires it.
@@ -221,20 +383,28 @@ class TestConnectionButton extends StatefulWidget {
 }
 
 class _TestConnectionButtonState extends State<TestConnectionButton> {
-  bool _probing = false;
-  bool _generating = false;
-  int _generation = 0;
-  ConnectionProbe? _probe;
-  AiProbeStep? _generationResult;
-  ModelDiscoveryIdentity? _probeIdentity;
-  String? _generationModel;
+  /// The panel renders this session and never manages a request itself.
+  late final ConnectionRequestSession _session = ConnectionRequestSession(
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+  );
 
-  bool get _busy => _probing || _generating;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _session.syncWithLiveConfig(widget.store);
+  }
+
+  @override
+  void didUpdateWidget(TestConnectionButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _session.syncWithLiveConfig(widget.store);
+  }
 
   @override
   void dispose() {
-    // Retire any reply still on its way before the State goes away.
-    _generation++;
+    _session.dispose();
     super.dispose();
   }
 
@@ -242,19 +412,9 @@ class _TestConnectionButtonState extends State<TestConnectionButton> {
   Widget build(BuildContext context) {
     final t = widget.t;
     final theme = Theme.of(context);
-    final live = tryModelDiscoveryIdentity(widget.store.aiConfig);
-    if (_probeIdentity != null && _probeIdentity != live) {
-      _probe = null;
-      _generationResult = null;
-      _probeIdentity = null;
-      _generationModel = null;
-      _generation++;
-    } else if (_generationResult != null &&
-        widget.store.aiConfig.model.trim() != _generationModel) {
-      _generationResult = null;
-      _generationModel = null;
-      _generation++;
-    }
+    final probe = _session.probe;
+    final request = _session.request;
+    final busy = _session.isBusy;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -262,21 +422,21 @@ class _TestConnectionButtonState extends State<TestConnectionButton> {
           theme,
           key: const ValueKey('connection-endpoint-status'),
           label: t['connectionEndpointLabel']!,
-          step: _probe?.endpointAuth,
+          step: probe?.endpointAuth,
           idle: t['aiCheckSkipped']!,
         ),
         _statusLine(
           theme,
           key: const ValueKey('connection-discovery-status'),
           label: t['connectionDiscoveryLabel']!,
-          step: _probe?.modelDiscovery,
+          step: probe?.modelDiscovery,
           idle: t['aiCheckSkipped']!,
         ),
         _statusLine(
           theme,
           key: const ValueKey('connection-generation-status'),
           label: t['connectionGenerationLabel']!,
-          step: _generationResult,
+          step: _session.generationResult,
           idle: t['aiGenerationNotRun']!,
         ),
         const SizedBox(height: 8),
@@ -286,22 +446,26 @@ class _TestConnectionButtonState extends State<TestConnectionButton> {
           children: [
             OutlinedButton.icon(
               key: const ValueKey('test-connection-btn'),
-              onPressed: _busy ? null : _runProbe,
+              onPressed: busy ? null : _runProbe,
               icon:
-                  _probing
+                  request == ConnectionRequestKind.probe
                       ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                       : const Icon(Icons.wifi_tethering, size: 18),
-              label: Text(_probing ? t['processing']! : t['testConnection']!),
+              label: Text(
+                request == ConnectionRequestKind.probe
+                    ? t['processing']!
+                    : t['testConnection']!,
+              ),
             ),
             OutlinedButton.icon(
               key: const ValueKey('test-generation-btn'),
-              onPressed: _busy ? null : _confirmGeneration,
+              onPressed: busy ? null : _confirmGeneration,
               icon:
-                  _generating
+                  request == ConnectionRequestKind.generation
                       ? const SizedBox(
                         width: 16,
                         height: 16,
@@ -309,7 +473,9 @@ class _TestConnectionButtonState extends State<TestConnectionButton> {
                       )
                       : const Icon(Icons.play_circle_outline, size: 18),
               label: Text(
-                _generating ? t['processing']! : t['testGeneration']!,
+                request == ConnectionRequestKind.generation
+                    ? t['processing']!
+                    : t['testGeneration']!,
               ),
             ),
           ],
@@ -345,25 +511,10 @@ class _TestConnectionButtonState extends State<TestConnectionButton> {
     return '$known (${step.status})';
   }
 
-  Future<void> _runProbe() async {
-    final snapshot = AIConfig.fromJson(widget.store.aiConfig.toJson());
-    final identity = tryModelDiscoveryIdentity(snapshot);
-    final ticket = ++_generation;
-    setState(() => _probing = true);
-    final result = await widget.store.ai.testConnection(snapshot);
-    if (!mounted || ticket != _generation) return;
-    if (tryModelDiscoveryIdentity(widget.store.aiConfig) != identity) {
-      setState(() => _probing = false);
-      return;
-    }
-    setState(() {
-      _probing = false;
-      _probe = result;
-      _probeIdentity = identity;
-    });
-  }
+  Future<void> _runProbe() => _session.runProbe(widget.store);
 
   Future<void> _confirmGeneration() async {
+    if (_session.isBusy) return;
     final accepted = await showDialog<bool>(
       context: context,
       builder:
@@ -384,24 +535,9 @@ class _TestConnectionButtonState extends State<TestConnectionButton> {
             ],
           ),
     );
+    // Only an explicit yes starts a call that can be billed, and it starts
+    // against the config as it is once the dialog closes.
     if (accepted != true || !mounted) return;
-    final snapshot = AIConfig.fromJson(widget.store.aiConfig.toJson());
-    final identity = tryModelDiscoveryIdentity(snapshot);
-    final model = snapshot.model.trim();
-    final ticket = ++_generation;
-    setState(() => _generating = true);
-    final result = await widget.store.ai.testModelGeneration(snapshot);
-    if (!mounted || ticket != _generation) return;
-    if (tryModelDiscoveryIdentity(widget.store.aiConfig) != identity ||
-        widget.store.aiConfig.model.trim() != model) {
-      setState(() => _generating = false);
-      return;
-    }
-    setState(() {
-      _generating = false;
-      _generationResult = result;
-      _probeIdentity = identity;
-      _generationModel = model;
-    });
+    await _session.runGeneration(widget.store);
   }
 }
