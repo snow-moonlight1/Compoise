@@ -1,6 +1,13 @@
 # 项目交接文档（HANDOFF.md）
 
-## 当前状态：OS15、OS17、OS25 合入 main（2026-09-25）
+## 当前状态：OS16、OS19、OS26 合入 main（2026-09-25）
+
+- 接手基线 `0aec23f176a15eae398dbf292086e6827cea74da`，主工作区原本干净。三条独立分支从该基线出发，合入 OS16 `b0cb29ff6ffb5432797475aa4db705108bcca7c9`、OS19 `020d293d5cc10e3a87fd661bf0a0c241222c2173`、OS26 `b9f1400` 与 `d1892ae`，代码无冲突。OS19 工作树的三个未提交 Windows 生成文件保留原样、未纳入主线。集成修正 OS26 的两处 EOF 空行，并校正发行计划的字体许可、产物名及就绪状态。
+- OS16 限制 Windows 同用户双进程争用任务库，后续启动转发窗口激活/通知参数；隔离 Windows smoke 已在独立分支通过，真实通知点击与跨账号/会话未测。OS19 补 48dp 热区、语义及键盘焦点；Android 触摸与 Windows Narrator 人工验收未测。OS26 已实现发行脚本、正式 Android 签名拒绝门槛和审计；没有正式 keystore、remote 或实机升级证据，未发布。细节分别见 `OS16_NOTES.md`、`OS19_NOTES.md`、`OS26_NOTES.md`。
+- 固定 Flutter 3.32.8 合并态默认 `flutter test --no-pub` **514/514**、`flutter analyze --no-pub` **0 issues**；Windows Release 与 Android debug APK 均构建成功，`flutter test --no-pub integration_test/app_test.dart` **2/2**。正式 Android release、GitHub 托管 runner、双端设备级交互不能用 mock 代替。最终 main 哈希见本次提交与交接回复。
+- 下一波建议同一最终 main 基线并行三个独立 worktree：A=OS18（设置页字号预览、`theme.dart`、`animated_task_title.dart` 的缩放与文本测量；设置页主题色动效随现有 reduceMotion 即时归零）；B=OS20（`storage.dart`、Store 命令及 `matrix_screen.dart` 的直接状态写入和修订号）；C=OS23（`ui/motion_policy.dart`、`widgets/anim.dart`、`task_exit.dart`、`quadrant_transition_layout.dart`、`quadrant_pane.dart`、`task_list_view.dart`、`task_card.dart`、`onboarding_screen.dart` 的动效策略）。A 不改 `task_card.dart`、Store 或 motion policy；B 不改设置页、文字测量及动画 widget；C 不改设置页、`animated_task_title.dart`、Store 或 `matrix_screen.dart`。若完整验收确需跨界修改，先把需求和最小接口记录在各自 `docs/OSxx_NOTES.md`，由集成人处理；公共 AGENTS、HANDOFF、ARCHITECTURE、CHANGELOG、计划由集成人更新。OS21/22 等 OS20，OS27 等本波结果或有据延期决定。继续暂停 WP10/WP29/UI 实验及冻结 Web/Tauri/Capacitor。
+
+## 历史状态：OS15、OS17、OS25 合入 main（2026-09-25）
 
 - 接手基线 `cc9ce2765dc90211d58cfc487c8b9c2bfc442124`，主工作区干净。独立提交为 OS15 `cfcc4704743cfd15ccf78a11f343a038ffd42949`、OS17 `7a083a3b6d7fec5cd055936312d5076212bf836e`、OS25 `5404090442f534d30a962fa551b9617802c67f3f`；三个提交均从同一基线出发，产品改动无重叠文件，依次 cherry-pick 到 main。OS17 worktree 原有三个未提交的 Windows 插件生成文件仅为行尾差异，未纳入合并，也未清理。
 - OS15：退出路径统一等待草稿选择与 OS06 保存结果，重复关闭只销毁一次；独立分支曾因 GUI 启动授权超时未测真进程退出，本次集成已补做隔离 Windows Debug 真退出 smoke。OS17：权限未知、排程/取消失败和有界重试账本已实施；Android 真通知及 Windows 未来时刻排程仍未测。OS25：无密钥 PR/push workflow、当前 mock 集成入口和独立 Windows 通知/托盘 smoke 已实施；GitHub 托管 runner 未执行。各包具体证据见 `OS15_NOTES.md`、`OS17_NOTES.md`、`OS25_NOTES.md`。

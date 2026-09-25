@@ -566,8 +566,3 @@ Write-Host "Staging dir: $StagingDir"
 Write-Host 'Manifest:    RELEASE_MANIFEST.txt'
 Write-Host 'Checksums:   SHA256SUMS.txt'
 Get-ChildItem $StagingDir | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
-
-
-
-
-

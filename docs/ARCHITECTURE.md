@@ -1,8 +1,16 @@
 # 架构
 
-> **2026-09-25 当前覆盖：** OS01–OS15、OS17、OS24、OS25 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。OS15 退出、OS17 提醒和 OS25 CI 见下方当前章节；平台未测项见 HANDOFF。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
+> **2026-09-25 当前覆盖：** OS01–OS17、OS19、OS24–OS26 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。平台未测项见 HANDOFF。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
+
+## 当前 Windows 单实例、控件可访问性与发行边界（OS16/OS19/OS26）
+
+Windows runner 在 Flutter 与 Store 启动前用按用户 SID 命名的互斥体限定主进程；后续进程经受限命名管道转发启动参数，主窗口负责显示与通知 payload 分发。转发失败时后续进程不打开任务库。隔离 Windows 双实例 smoke 已过；跨账号/会话、真实系统通知点击尚未测，详见 [OS16 记录](OS16_NOTES.md)。
+
+任务父子复选框、展开控件和设置颜色选择等使用至少 48dp 命中区，提供独立语义与键盘操作，视觉复选框尺寸保持 OS02 层级。自动化探针和 Windows 构建已过；Android 触摸、Windows Narrator 人工操作尚未测，详见 [OS19 记录](OS19_NOTES.md)。
+
+发行脚本和工作流核对版本、签名及产物清单；Android 正式包缺正式签名时拒绝，Windows 包按未签名披露。当前无 remote、正式 keystore 和设备升级证据，不能据本地构建宣称已经发行。许可证、历史秘密扫描与身份待决项见 [OS26 记录](OS26_NOTES.md)。
 
 ## 当前 Flutter 日期与提醒（OS12）
 

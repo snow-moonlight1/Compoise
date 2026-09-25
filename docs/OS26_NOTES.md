@@ -248,6 +248,3 @@
 
 - 未改：`matrixflow-native/lib/**`（Store、设置页、任务 widget、提醒业务代码）、`windows/runner/**`、`integration_test/**`、`test/review/**`、`matrixflow-native/pubspec.yaml`、冻结的 React / Tauri / Capacitor、公共文档（AGENTS / HANDOFF / ARCHITECTURE / CHANGELOG / 实施计划）。
 - 未做：未改 `applicationId`、未生成或提交任何秘密、未打 tag、未发布 Release、未推送、未配置 remote、未重写 Git 历史、未开始 OS27。
-
-
-

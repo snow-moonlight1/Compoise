@@ -16,7 +16,7 @@
   - 未来规划的 WP29 托管 AI 服务为独立运行组件（服务端代理），其商业运营与账本代码独立于开源客户端，客户端开源不影响商业服务合规性。
 
 ### 1.2 第三方依赖合规清单
-MatrixFlow 客户端核心依赖经过严格的许可审查，全量依赖均为与 MIT 兼容的宽松型开源许可（Permissive Licenses），无 GPL/AGPL 等传染性协议风险：
+MatrixFlow 客户端依赖及打包资源的核对范围、许可证与未决项见 [OS26 审计记录](OS26_NOTES.md)。下表保留主要依赖与资源摘要；传递依赖 `dbus` 为 MPL-2.0，Material Icons 字体以当前固定 Flutter SDK 的许可文件为准。
 
 | 依赖库 / 组件 | 许可证 | 用途说明 | 合规要求 |
 |---|---|---|---|
@@ -28,7 +28,7 @@ MatrixFlow 客户端核心依赖经过严格的许可审查，全量依赖均为
 | **file_picker** (^8.1.7) | MIT | 导入/导出 JSON 文件选择器 | MIT 兼容 |
 | **flutter_local_notifications** (^19.5.0) | BSD-3-Clause | Android/Windows 本地定时通知与提醒 | 保留 BSD 版权声明 |
 | **timezone** (^0.10.1) | BSD-2-Clause | 本地日历天与夏令时时区转换 | 保留 BSD 版权声明 |
-| **Material Icons** | Apache 2.0 | 应用内置矢量图标 | 商业与开源自由使用 |
+| **Material Icons 字体** | CC-BY 4.0（固定 Flutter SDK 的 `materialicons_license.txt`） | 应用内置图标字体 | 发行前补充 Google 署名与许可链接；见 OS26 未决项 |
 | **系统字体 (Noto / Roboto / Segoe UI)** | OFL / Apache 2.0 | 优先使用系统预置字体与字体偏好 | 无外部商用字体版权侵权风险 |
 
 ### 1.3 冻结 Legacy Web 归档声明
@@ -63,7 +63,7 @@ MatrixFlow 客户端核心依赖经过严格的许可审查，全量依赖均为
 
 ## 3. 签名安全与凭据隔离方案
 
-严格遵循**安全凭据永不入库**原则，实现本地调试、自动化 CI 与正式发行的三层解耦隔离：
+正式 Android 发行要求外部提供签名材料并通过签名校验；缺少材料时发行脚本和工作流拒绝生成正式产物。Windows 当前只生成未签名绿色包。下图记录目标流程，PFX Windows 签名步骤尚未实施：
 
 ```mermaid
 flowchart TD
@@ -73,7 +73,7 @@ flowchart TD
     C -- 文件存在 --> E[本地 Release 签名]
     B -- CI / Release 发布 --> F[读取 GitHub Actions Secrets]
     F --> G[BASE64 注入 key.properties / PFX 证书]
-    G --> H[签名构建生成 Release APK / EXE]
+    G --> H[签名构建生成 Android Release APK；Windows 签名待实施]
     H --> I[自动清理中间临时证书文件]
 ```
 
@@ -87,7 +87,7 @@ flowchart TD
    storeFile=matrixflow-release.jks
    ```
 3. **安全回退机制**：
-   - 当 `key.properties` 不存在时，`android/app/build.gradle.kts` 自动优雅降级为 `debug` 签名配置或输出警告，确保 `flutter test`、本地编译与开源协作者克隆仓库后能直接 `build` 无障碍，不报 Gradle 配置崩溃。
+   - 无 `key.properties` 的开发和测试构建可继续；正式发行设置 `REQUIRE_RELEASE_SIGNING=true`，缺签名必须失败。不能把 debug 签名 APK 作为正式发行包。
 4. **CI 自动化注入**：
    - CI 环境通过环境变量 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`、`ANDROID_STORE_PASSWORD` 动态生成临时签名文件，构建完成后立即删除。
 
@@ -103,11 +103,11 @@ flowchart TD
 
 | 渠道类别 | 渠道名称 | 交付产物 | 审核/上架资质要求 | 准备就绪状态 |
 |---|---|---|---|---|
-| **开源与开发者** | **GitHub Release** | `matrixflow-v1.0.0-android.apk`<br>`matrixflow-v1.0.0-windows-portable.zip`<br>`SHA256SUMS.txt` | • GitHub 仓库公开<br>• Release Notes 中英文<br>• 完整源码与免责声明 | **完全就绪（首发主渠道）** |
-| **Android 极客社区** | **酷安 (Coolapk)** | Release APK (v8a/v7a/universal) | • 开发者实名认证<br>• 应用图标、5 张高清截图<br>• 隐私政策规范（无后台越权） | **完全就绪** |
-| **国内主流商店** | **小米应用商店** | Release 64位 APK | • 企业/个人开发者认证<br>• 软件著作权（部分类别可后补）<br>• App ICP 备案号<br>• 权限合法合规说明 | **材料就绪，待账号提交** |
-| **国内主流商店** | **华为应用市场** | Release 64位 APK | • 华为开发者认证<br>• 纯本地离线隐私合规审核<br>• 64 位纯包体测试报告 | **材料就绪，待账号提交** |
-| **Windows 渠道** | **GitHub 绿色便携包** | ZIP 压缩归档（免安装解压即用） | • 无需管理员权限<br>• 配置保存于标准 LocalAppData<br>• 附带哈希校验 | **完全就绪（桌面首发）** |
+| **开源与开发者** | **GitHub Release** | `matrixflow-v1.0.0+1-android.apk`<br>`matrixflow-v1.0.0+1-windows-portable.zip`<br>`SHA256SUMS.txt` | • GitHub 仓库公开<br>• 正式 Android 签名<br>• 完整源码与免责声明 | **待托管身份、签名与发布验收** |
+| **Android 极客社区** | **酷安 (Coolapk)** | Release APK | • 开发者实名认证<br>• 应用图标、截图<br>• 隐私政策规范 | **未提交，待发行材料** |
+| **国内主流商店** | **小米应用商店** | Release 64位 APK | • 企业/个人开发者认证<br>• 权限合法合规说明 | **未提交，资质待核** |
+| **国内主流商店** | **华为应用市场** | Release 64位 APK | • 华为开发者认证<br>• 隐私合规审核<br>• 包体测试报告 | **未提交，资质待核** |
+| **Windows 渠道** | **GitHub 绿色便携包** | ZIP 压缩归档（免安装解压即用） | • 附带哈希校验<br>• 如实披露未签名状态 | **本地构建已测，托管发行未测** |
 | **Windows 商店** | **Microsoft Store** | MSIX 桌面包 | • 微软开发者个人/企业账户 ($19一次性)<br>• Partner Center 送审包 | 后续路线演进 |
 
 ---
