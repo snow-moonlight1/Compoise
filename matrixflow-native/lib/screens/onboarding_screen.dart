@@ -19,6 +19,11 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+
+  /// Target of an in-flight programmatic page turn, so toggling reduce motion
+  /// on mid-slide can jump straight to the intended slide instead of waiting
+  /// for the ~300ms turn to finish.
+  int? _turnTarget;
   static const int _pageCount = 5;
 
   @override
@@ -35,17 +40,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _goToPage(int target) {
+    _turnTarget = target;
     // Under reduced motion the tutorial flips to the slide instead of sliding
     // across it; both the Next button and arrow keys share this path.
     if (MotionPolicy.reduceMotionNow(context)) {
       setState(() => _currentPage = target);
       _pageController.jumpToPage(target);
+      _turnTarget = null;
     } else {
       _pageController.animateToPage(
         target,
         duration: MotionPolicy.pageTurn,
         curve: Curves.easeInOut,
       );
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reduce motion switched on while a programmatic page turn is still
+    // sliding: jump to the intended slide on the next frame.
+    final target = _turnTarget;
+    if (target != null && MotionPolicy.reduceMotionOf(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _pageController.jumpToPage(target);
+        _turnTarget = null;
+      });
     }
   }
 
@@ -126,7 +148,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Expanded(
                   child: PageView(
                     controller: _pageController,
-                    onPageChanged: (index) => setState(() => _currentPage = index),
+                    onPageChanged: (index) => setState(() {
+                      _currentPage = index;
+                      _turnTarget = null;
+                    }),
                     children: [
                       _buildSlide(
                         context,

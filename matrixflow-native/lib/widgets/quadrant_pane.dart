@@ -71,6 +71,23 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     super.dispose();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reduce motion switched on while the post-drop scroll-to-top is still
+    // running: finish at the top on the next frame instead of letting the
+    // ~250ms scroll tween out.
+    if (MotionPolicy.reduceMotionOf(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final controller = _scrollController;
+        if (controller.hasClients && controller.offset != 0) {
+          controller.jumpTo(0);
+        }
+      });
+    }
+  }
+
   void _scrollToTopIfNeeded() {
     // Decide reduce-motion at the drop: under reduced motion the list jumps to
     // the top instead of tweening, so moving a task never leaves a long scroll

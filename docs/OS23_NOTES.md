@@ -41,8 +41,8 @@ SnackBar 的 1400/1800/5000ms 是**展示时长**（用户可撤销窗口），�
 ### 3.2 运行中开启减少动画 → 立即到可交互终态
 
 - **入场 `StaggerIn`**：build 里 `MotionPolicy.reduceMotionOf(context)`（watch）一旦为真且 controller 未完成，直接 `_controller.value = 1`。这样减少动画在淡入/交错延迟中途被打开时，行立即完全可见、可点击；已完成的行不受影响，"每元素只播一次"语义不变（不会重播）。
-- **引导翻页**：抽 `_goToPage(target)`。reduceMotion 时 `setState(_currentPage=target)` + `jumpToPage(target)`（同步翻页，不再滑动）；否则 `animateToPage(target, duration: pageTurn)`。Next 按钮与左/右箭头快捷键同走此路。
-- **scrollToTop**：在落位（DragTarget accept）那一刻读 `reduceMotionNow`，为真则 `jumpTo(0)`，否则 `animateTo(0, scrollToTop)`。决定时机在回调时，不延迟到 postFrame。
+- **引导翻页**：抽 `_goToPage(target)`。reduceMotion 时 `setState(_currentPage=target)` + `jumpToPage(target)`（同步翻页，不再滑动）；否则 `animateToPage(target, duration: pageTurn)`。Next 按钮与左/右箭头快捷键同走此路。**运行中切换**：新增字段 `_turnTarget` 记录在途翻页目标，`didChangeDependencies` 监听 reduceMotion，开关在滑动中途打开时，下一帧 `jumpToPage(_turnTarget)`，不等 300ms 滑完；`onPageChanged` 与跳转后都会清掉目标，避免陈旧值。
+- **scrollToTop**：在落位（DragTarget accept）那一刻读 `reduceMotionNow`，为真则 `jumpTo(0)`，否则 `animateTo(0, scrollToTop)`。**运行中切换**：pane 的 `didChangeDependencies` 监听 reduceMotion，开关在 250ms 回滚动画中途打开时，下一帧 `jumpTo(0)` 立即到顶。
 - **布局遮罩 `_listFade`**：build 的 reduceMotion 分支在原有 `_geometry` snap 之外，把列表模式遮罩也归位终态——`fadeOutOnly` 时 snap 到 0 并 `_scheduleFadeOutDone()`（与 `didChangeDependencies` 既有写法一致，有 generation 防重），否则 snap 到 1。补齐了原"几何 snap 但列表遮罩还在淡"的缺口。
 - **退出**：`task_exit.dart` 经盘点**无需改动**。reduceMotion 运行中打开时，pane 的 build 调 `_exitRetention.sync(reduceMotion:true)` → `clear()`，在途退出行（含仍在 exitHold 等待折叠的）整棵从列表移除，立即终态。
 
@@ -58,14 +58,18 @@ SnackBar 的 1400/1800/5000ms 是**展示时长**（用户可撤销窗口），�
 - **`anim.dart` 里的静态 `StrikeThrough`（非 AnimatedStrikeThroughText）**：它本来就是立即切换 `TextDecoration`、无动画，`completed_screen.dart` 在用，无需处理。
 - **退出折叠时序**：修前已正确，仅确认记录，未改 `task_exit.dart`。
 - **SnackBar 展示时长**：不是动效，保留。
+- **Dismissible 在途滑动/折叠（≤200ms）**：`task_card.dart` 的 Dismissible 在新动作发起时已按 reduceMotion 给 `Duration.zero`，但 Flutter SDK 的 `Dismissible` 不重写 `didUpdateWidget`，move/resize 控制器的时长只在创建时写入（SDK `dismissible.dart` 中控制器构造处），运行中翻转开关不会加速已经在途的回弹/折叠。不能用改 key 重建 Dismissible 来修：删除路径的 resize 一旦被重建打断，`onDismissed` 不再触发，**删除会丢失**。该在途窗口最长 200ms，且完成/删除的功能状态在手势确认时就已提交（删除线本身也会在 reduce 下立即到终态），不构成"不可交互"状态，故保留并记录，等未来替换/封装 Dismissible 时再处理。
 
 ## 5. 验证
 
-- 专项 `test/os23_motion_policy_test.dart`：**3/3**。
+- 专项 `test/os23_motion_policy_test.dart`：**6/6**。
   - 常量单测锁死 13 个时长的单一来源与数值。
   - reduceMotion=真时点 Next，**一帧内** Previous 按钮与第二页标题即出现（证明走 `jumpToPage`，而非旧 300ms 滑动）。
   - 对照：reduceMotion=假时点 Next 后 50ms 仍在第 1 页（证明动画路径未被误改成瞬时），`pumpAndSettle` 后正常到第 2 页。
-- 默认全量 `flutter test --no-pub`：**517/517**（基线同命令 514/514，差值为本包新增 3 项；未删改既有用例）。`flutter analyze --no-pub`：**No issues found**。
+  - **翻页中途打开 reduceMotion**：300ms 滑动到 120ms 时翻转开关，下一帧跳到目标 slide（运行中切换）。
+  - **reduceMotion=真时拖放**：目标 pane 已滚动（offset>100），落位后两帧内 `jumpTo(0)`，无 250ms 滚动。
+  - **滚动中途打开 reduceMotion**：250ms 回滚动画到 100ms 时翻转开关，下一帧 `jumpTo(0)` 立即到顶（运行中切换）。
+- 默认全量 `flutter test --no-pub`：**520/520**（基线同命令 514/514，差值为本包新增 6 项；未删改既有用例）。`flutter analyze --no-pub`：**No issues found**。
 - 复跑既有用例 `ux06_regression`（含 reduceMotion 直达终态）、`ux07`、`ux_state`、`onboarding_test`、`widget_regression` 随全量绿。
 - **未做（widget/mock 无法代替，按双端人工验收挂起）**：
   - Android 触摸：拖放落位后减少动画下是否立即到顶、无滚动残影；onboarding 手指滑动与按钮翻页手感；四象限聚焦/退出几何在减少动画下是否瞬切且无残影。
