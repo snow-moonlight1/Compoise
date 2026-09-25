@@ -1,0 +1,29 @@
+# MatrixFlow AI — Android release signing template (OS26)
+
+Copy this file to `matrixflow-native/android/key.properties` (or
+`matrixflow-native/android/app/key.properties`), replace the placeholder values
+with the real release credentials, and keep it out of Git: `.gitignore` already
+ignores `key.properties`, `keystore.properties`, `*.jks`, `*.keystore`, `*.pfx`
+and `*.p12`.
+
+`storeFile` is resolved relative to this file when it is not an absolute path,
+so `release.jks` means `matrixflow-native/android/app/release.jks`.
+
+```properties
+keyAlias=matrixflow-release
+keyPassword=REPLACE_WITH_KEY_PASSWORD
+storePassword=REPLACE_WITH_STORE_PASSWORD
+storeFile=release.jks
+```
+
+Notes:
+
+- Create the keystore yourself with `keytool` and keep the file plus its
+  passwords outside the repository. Do not commit the filled file and do not
+  paste its values into issues, CI logs or documentation.
+- In CI the workflow builds the same files from repository secrets
+  (`ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_PASSWORD`,
+  `ANDROID_KEY_ALIAS`) and deletes them again after the build.
+- Without these credentials `scripts/build_release.ps1 -Platform Android`
+  refuses to build, because a debug-signed APK must never be published as a
+  formal release.

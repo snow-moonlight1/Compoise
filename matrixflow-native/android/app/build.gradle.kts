@@ -127,7 +127,10 @@ tasks.register("verifyFormalReleaseSigning") {
         if (store == null || !store.exists()) {
             throw GradleException(
                 "Formal release signing credentials are required. " +
-                    "Refusing to publish a debug-signed APK.",
+                    "Refusing to publish a debug-signed APK. " +
+                    "Provide android/key.properties (template: android/key.properties.example) " +
+                    "or the ANDROID_KEYSTORE_PATH, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD and " +
+                    "ANDROID_STORE_PASSWORD environment variables. See docs/OS26_NOTES.md.",
             )
         }
     }

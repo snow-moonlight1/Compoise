@@ -6,12 +6,41 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# OS26 least privilege: the workflow may only read by default. The publish job
+# is the single place that asks for contents:write.
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Verify release tag and pubspec version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify tag against pubspec.yaml
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
+        run: |
+          if ($env:RELEASE_EVENT -eq 'push') {
+            ./scripts/build_release.ps1 -Platform Windows -ExpectedTag $env:RELEASE_TAG -ValidateOnly
+          } else {
+            Write-Host 'Manual run: no tag to compare, validating pubspec.yaml only.'
+            ./scripts/build_release.ps1 -Platform Windows -ValidateOnly
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host 'Release version, build number and tag are aligned; no artifact was written by this job.'
+
   build-android:
     name: Build Android Release APK
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -30,60 +59,117 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Require release signing credentials
+      - name: Require the OS24 Flutter revision
         shell: bash
         run: |
-          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] || \
-             [ -z "${{ secrets.ANDROID_STORE_PASSWORD }}" ] || \
-             [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ] || \
-             [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ]; then
-            echo "Formal release builds must provide ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_PASSWORD, and ANDROID_KEY_ALIAS."
-            echo "Refusing to publish a debug-signed APK."
-            exit 1
-          fi
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > matrixflow-native/android/app/release.jks
-          cat <<EOF > matrixflow-native/android/key.properties
-          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=release.jks
-          EOF
-          echo "Release keystore configured."
+          set -euo pipefail
+          flutter --version --machine > flutter-version.json
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
+
+      - name: Require release signing credentials
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS; do
+            if [ -z "${!name:-}" ]; then
+              echo "Formal release builds must provide ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_PASSWORD, and ANDROID_KEY_ALIAS."
+              echo "Refusing to publish a debug-signed APK."
+              exit 1
+            fi
+          done
+          mkdir -p matrixflow-native/android/app
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > matrixflow-native/android/app/release.jks
+          chmod 600 matrixflow-native/android/app/release.jks
+          {
+            echo "storePassword=$ANDROID_STORE_PASSWORD"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "storeFile=release.jks"
+          } > matrixflow-native/android/key.properties
+          chmod 600 matrixflow-native/android/key.properties
+          echo "Release keystore configured from repository secrets. Values are not printed."
 
       - name: Install dependencies & verify
         working-directory: matrixflow-native
         run: |
           flutter pub get
-          flutter analyze
-          flutter test
+          flutter analyze --no-pub
+          flutter test --no-pub
 
       - name: Extract App Version
         id: version
         shell: bash
         run: |
-          VERSION=$(grep '^version:' matrixflow-native/pubspec.yaml | sed -E 's/version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          LINE=$(grep '^version:' matrixflow-native/pubspec.yaml | head -n 1 || true)
+          VERSION=$(printf '%s' "$LINE" | sed -E 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+).*/\1/')
+          BUILD=$(printf '%s' "$LINE" | sed -E 's/^version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\+([0-9]+).*/\1/')
+          if [ -z "$VERSION" ] || [ -z "$BUILD" ]; then
+            echo "pubspec.yaml must declare version X.Y.Z+N before a release can be staged."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "BUILD=$BUILD" >> "$GITHUB_OUTPUT"
 
       - name: Build Android Release APK
         working-directory: matrixflow-native
         env:
           REQUIRE_RELEASE_SIGNING: 'true'
-        run: flutter build apk --release
+        run: flutter build apk --release --no-pub
 
-      - name: Rename APK
+      - name: Verify the APK is not debug-signed
         shell: bash
         run: |
+          set -euo pipefail
+          APK=matrixflow-native/build/app/outputs/flutter-apk/app-release.apk
+          SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK_DIR" ]; then
+            echo "The Android SDK location is unknown, so the release certificate cannot be checked."
+            exit 1
+          fi
+          APKSIGNER=$(ls "$SDK_DIR"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner was not found in the Android build-tools, so the release certificate cannot be checked."
+            exit 1
+          fi
+          "$APKSIGNER" verify --print-certs "$APK" > apk-certs.txt
+          grep -E 'Signer #1 certificate DN|Signer #1 certificate SHA-256 digest' apk-certs.txt
+          if grep -q 'CN=Android Debug' apk-certs.txt; then
+            echo "The release APK is signed with the Android debug certificate. Refusing to stage it."
+            exit 1
+          fi
+
+      - name: Stage Android artifact
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p release_artifacts
-          cp matrixflow-native/build/app/outputs/flutter-apk/app-release.apk "release_artifacts/matrixflow-v${{ steps.version.outputs.VERSION }}-android.apk"
+          cp matrixflow-native/build/app/outputs/flutter-apk/app-release.apk \
+            "release_artifacts/matrixflow-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-android.apk"
+          ls -l release_artifacts
+
+      - name: Remove release signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f matrixflow-native/android/key.properties matrixflow-native/android/app/release.jks
+          echo "Temporary signing material removed from the runner workspace."
 
       - name: Upload Android APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-release-apk
           path: release_artifacts/*.apk
+          if-no-files-found: error
 
   build-windows:
     name: Build Windows Portable Release
+    needs: preflight
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -96,49 +182,90 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Require the OS24 Flutter revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version --machine > flutter-version.json
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
+
+      - name: Enable Windows desktop
+        working-directory: matrixflow-native
+        run: flutter config --enable-windows-desktop
+
       - name: Install dependencies & verify
         working-directory: matrixflow-native
         run: |
           flutter pub get
-          flutter analyze
-          flutter test
+          flutter analyze --no-pub
+          flutter test --no-pub
 
       - name: Extract App Version
         id: version
         shell: pwsh
         run: |
-          $content = Get-Content matrixflow-native/pubspec.yaml
-          $ver = "1.0.0"
-          foreach ($line in $content) {
-            if ($line -match '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)') {
-              $ver = $Matches[1]
-              break
-            }
+          $line = (Get-Content matrixflow-native/pubspec.yaml | Where-Object { $_ -match '^version:' } | Select-Object -First 1)
+          if ($line -notmatch '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$') {
+            Write-Error 'pubspec.yaml must declare version X.Y.Z+N before a release can be staged.'
+            exit 1
           }
-          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          "VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "BUILD=$($Matches[2])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Build Windows Release
         working-directory: matrixflow-native
-        run: flutter build windows --release
+        run: flutter build windows --release --no-pub
+
+      - name: Verify Windows file version and signature state
+        shell: pwsh
+        run: |
+          $exe = 'matrixflow-native/build/windows/x64/runner/Release/matrixflow_native.exe'
+          if (-not (Test-Path $exe)) { throw "Missing release executable: $exe" }
+          $info = (Get-Item $exe).VersionInfo
+          $expected = "${{ steps.version.outputs.VERSION }}.${{ steps.version.outputs.BUILD }}"
+          Write-Host "ProductName=$($info.ProductName) FileVersion=$($info.FileVersion) ProductVersion=$($info.ProductVersion)"
+          Write-Host "CompanyName=$($info.CompanyName) LegalCopyright=$($info.LegalCopyright)"
+          if ($info.ProductName -ne 'MatrixFlow AI') { throw "Unexpected ProductName: $($info.ProductName)" }
+          if ($info.FileVersion -ne $expected) { throw "FileVersion $($info.FileVersion) does not match pubspec $expected" }
+          $signature = Get-AuthenticodeSignature -FilePath $exe
+          Write-Host "Authenticode=$($signature.Status)"
+          if ($signature.Status -ne 'NotSigned') {
+            throw "This workflow does not sign Windows binaries, yet the executable reports $($signature.Status)."
+          }
+          Write-Host 'Windows binaries are unsigned on purpose; the release notes disclose this.'
 
       - name: Package Windows Portable ZIP
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path release_artifacts -Force | Out-Null
-          $ver = "${{ steps.version.outputs.VERSION }}"
-          $zipPath = "release_artifacts/matrixflow-v$ver-windows-portable.zip"
+          $zipPath = "release_artifacts/matrixflow-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-windows-portable.zip"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Compress-Archive -Path "matrixflow-native/build/windows/x64/runner/Release/*" -DestinationPath $zipPath -CompressionLevel Optimal
+          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zipPath))
+          try {
+            $names = $archive.Entries | ForEach-Object { $_.FullName -replace '/', '\' }
+            if ($names -notcontains 'matrixflow_native.exe') { throw 'The ZIP does not contain matrixflow_native.exe.' }
+            if ($names -notcontains 'data\app.so') { throw 'The ZIP does not contain data\app.so.' }
+            Write-Host "ZIP entries: $($names.Count)"
+          } finally {
+            $archive.Dispose()
+          }
 
       - name: Upload Windows Portable artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-portable-zip
           path: release_artifacts/*.zip
+          if-no-files-found: error
 
   publish-release:
-    name: Publish GitHub Release
-    needs: [build-android, build-windows]
+    name: Publish GitHub Release draft
+    needs: [preflight, build-android, build-windows]
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    # The only job that may write to the repository.
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -149,18 +276,55 @@ jobs:
           path: release_artifacts
           merge-multiple: true
 
-      - name: Generate SHA256 Checksums
+      - name: Write release notes with the real signing state
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cat > release_artifacts/RELEASE_NOTES.md <<EOF
+          Draft build prepared by the MatrixFlow release workflow.
+
+          - Tag: ${RELEASE_TAG}
+          - Android APK: signed with the repository release keystore. The workflow refuses a debug-signed APK.
+          - Windows portable ZIP: not code-signed (no Authenticode certificate yet), so SmartScreen may warn.
+          - SHA256SUMS.txt lists exactly the artifacts built by this run.
+
+          Review the draft before publishing it.
+          EOF
+          cat release_artifacts/RELEASE_NOTES.md
+
+      - name: Verify the artifact set and generate SHA256SUMS
         working-directory: release_artifacts
         shell: bash
         run: |
-          sha256sum * > SHA256SUMS.txt
+          set -euo pipefail
+          ls -l
+          pattern='^matrixflow-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+-(android\.apk|windows-portable\.zip)$'
+          artifacts=$(ls -1 | grep -E "$pattern" | sort || true)
+          count=$(printf '%s\n' "$artifacts" | grep -c . || true)
+          unexpected=$(ls -1 | grep -E -v "$pattern" | grep -E -v '^(RELEASE_NOTES\.md|SHA256SUMS\.txt)$' | wc -l || true)
+          echo "Artifacts: $count; unexpected files: $unexpected"
+          if [ "$count" -ne 2 ] || [ "$unexpected" -ne 0 ]; then
+            echo "Refusing to publish: expected exactly one APK and one Windows ZIP, nothing else."
+            exit 1
+          fi
+          if ! printf '%s\n' "$artifacts" | grep -q -- '-android\.apk$' || ! printf '%s\n' "$artifacts" | grep -q -- '-windows-portable\.zip$'; then
+            echo "Refusing to publish: both the Android APK and the Windows ZIP must be present."
+            exit 1
+          fi
+          rm -f SHA256SUMS.txt
+          sha256sum $artifacts > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release_artifacts/*
+          files: |
+            release_artifacts/SHA256SUMS.txt
+            release_artifacts/*.apk
+            release_artifacts/*.zip
+          body_path: release_artifacts/RELEASE_NOTES.md
           generate_release_notes: true
           draft: true
           prerelease: false
