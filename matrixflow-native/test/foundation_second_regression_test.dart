@@ -96,7 +96,7 @@ void main() {
         fixture.sample('Alpha')..reminderAt = when,
         fixture.sample('Beta')..reminderAt = when,
       ];
-      store.tasks = old;
+      store.debugReplaceTasks(old);
       final plugin = review.DelayedSchedulePlugin();
       final service = FlutterLocalNotificationsReminderService(plugin: plugin)
         ..setInitializedForTest(true);

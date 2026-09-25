@@ -127,7 +127,7 @@ void main() {
     store.createBoard('Second');
     final other = store.boards.firstWhere((b) => b.name == 'Second');
     store.setActiveBoard(homeId);
-    store.tasks.add(
+    store.addTasks([
       Task(
         id: 'other-task',
         boardId: other.id,
@@ -135,7 +135,7 @@ void main() {
         quadrant: qDo,
         createdAt: 1,
       ),
-    );
+    ]);
     store.addTasks([store.newTask('Home Task', quadrant: qDo)]);
     await pumpSearch(tester, store, platform: TargetPlatform.android);
     expect(find.text('Home Task'), findsOneWidget);

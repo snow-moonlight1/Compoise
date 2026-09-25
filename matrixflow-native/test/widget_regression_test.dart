@@ -1539,7 +1539,7 @@ void main() {
         quadrant: qDelegate,
         createdAt: 100,
       );
-      store.tasks.add(t3);
+      store.addTasks([t3]);
 
       // Switch back to first board
       store.setActiveBoard(b1Id);
@@ -1677,7 +1677,7 @@ void main() {
         quadrant: qDo,
         createdAt: 100,
       );
-      store.tasks.add(taskBoard2);
+      store.addTasks([taskBoard2]);
 
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
@@ -2570,7 +2570,7 @@ void main() {
       final b2Id = store.boards.firstWhere((b) => b.name == 'Board 2').id;
       final t2_1 = Task(id: 't2-1', boardId: b2Id, title: 'B2 Task 1', quadrant: qDo, createdAt: 1);
       final t2_2 = Task(id: 't2-2', boardId: b2Id, title: 'B2 Task 2', quadrant: qPlan, createdAt: 2);
-      store.tasks.addAll([t2_1, t2_2]);
+      store.addTasks([t2_1, t2_2]);
 
       // Switch back to Board 1
       store.setActiveBoard(b1Id);

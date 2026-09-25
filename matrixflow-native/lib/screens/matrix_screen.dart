@@ -212,14 +212,15 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
   }
 
+  ReminderService? _boundReminders;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ReminderService.instance.onNotificationSelected =
-            _handleNotificationPayload;
-      }
+      if (!mounted) return;
+      _boundReminders = context.read<Store>().reminderService;
+      _boundReminders!.onNotificationSelected = _handleNotificationPayload;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -276,9 +277,8 @@ class _MatrixHomeState extends State<MatrixHome> {
 
   @override
   void dispose() {
-    if (ReminderService.instance.onNotificationSelected ==
-        _handleNotificationPayload) {
-      ReminderService.instance.onNotificationSelected = null;
+    if (_boundReminders?.onNotificationSelected == _handleNotificationPayload) {
+      _boundReminders!.onNotificationSelected = null;
     }
     super.dispose();
   }

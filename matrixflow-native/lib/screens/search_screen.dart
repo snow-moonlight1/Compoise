@@ -491,11 +491,10 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   onChanged: (val) {
                     if (isSubtask && subtask != null) {
-                      subtask.completed = val;
+                      store.setSubtaskCompleted(task.id, subtask.id, val);
                     } else {
-                      task.completed = val;
+                      store.setTaskCompleted(task.id, val);
                     }
-                    store.updateTask(task);
                   },
                 ),
                 const SizedBox(width: 8),

@@ -42,15 +42,15 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
   Widget build(BuildContext context) {
     final store = context.watch<Store>();
     return ValueListenableBuilder<Map<int, ReminderPayload>>(
-      valueListenable: ReminderService.instance.scheduleFailures,
+      valueListenable: store.reminderService.scheduleFailures,
       builder: (context, scheduleFailures, _) =>
           ValueListenableBuilder<Map<int, ReminderPayload>>(
-            valueListenable: ReminderService.instance.cancelFailures,
+            valueListenable: store.reminderService.cancelFailures,
             builder:
                 (context, cancelFailures, _) =>
                     ValueListenableBuilder<ReminderPermissionStatus?>(
                       valueListenable:
-                          ReminderService.instance.observedPermission,
+                          store.reminderService.observedPermission,
                       builder: (context, permission, _) {
                         final hasFailures =
                             scheduleFailures.isNotEmpty ||

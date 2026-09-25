@@ -14,28 +14,43 @@ import 'theme.dart';
 Future<void> main([List<String> args = const <String>[]]) async {
   WidgetsFlutterBinding.ensureInitialized();
   await ensureWindowsWindowManager();
+  final reminders = ReminderService.instance;
+  final persistence = const SharedPreferencesStorePersistence();
   await SingleInstanceController.install(
     initialArguments: args,
     onActivated: (incoming) {
       dispatchSingleInstanceActivation(
         incoming,
         restoreWindow: DesktopShellService.instance.restoreWindow,
-        deliverPayload: ReminderService.instance.acceptExternalActivation,
+        deliverPayload: reminders.acceptExternalActivation,
       );
     },
   );
-  await ReminderService.instance.init();
-  runApp(const MatrixFlowApp());
+  await reminders.init();
+  runApp(MatrixFlowApp(reminders: reminders, persistence: persistence));
 }
 
 class MatrixFlowApp extends StatelessWidget {
   final List<Locale>? deviceLocales;
-  const MatrixFlowApp({super.key, this.deviceLocales});
+  final ReminderService? reminders;
+  final StorePersistence? persistence;
+  const MatrixFlowApp({
+    super.key,
+    this.deviceLocales,
+    this.reminders,
+    this.persistence,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => Store(deviceLocales: deviceLocales)..init(),
+      create:
+          (_) =>
+              Store(
+                deviceLocales: deviceLocales,
+                reminders: reminders,
+                persistence: persistence,
+              )..init(),
       child: Consumer<Store>(
         builder: (context, store, _) {
           if (!store.ready) {
