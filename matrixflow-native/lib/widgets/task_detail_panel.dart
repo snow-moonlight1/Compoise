@@ -304,7 +304,8 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
 
   void _save() {
     if (hasPendingImeComposition(_draft.titleController) ||
-        hasPendingImeComposition(_draft.notesController)) {
+        hasPendingImeComposition(_draft.notesController) ||
+        hasPendingImeComposition(_draft.newSubtaskController)) {
       return;
     }
     if (!_draft.hasTitle) return;
@@ -319,6 +320,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       return;
     }
 
+    // A save is the user saying this draft is finished, so the composer row is
+    // written as a subtask instead of quietly disappearing with the editor.
+    _draft.takeNewSubtask();
     store.updateTask(_draft.applyTo(current));
     _draft.markDiscarding();
     widget.onDirtyChanged?.call(false);
@@ -1018,6 +1022,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             children: [
                               Expanded(
                                 child: TextField(
+                                  key: const ValueKey('edit-new-subtask'),
                                   controller: _draft.newSubtaskController,
                                   decoration: InputDecoration(
                                     hintText: t['addSubtask']!,

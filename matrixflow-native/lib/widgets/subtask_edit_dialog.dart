@@ -78,7 +78,10 @@ class _SubtaskEditDialogState extends State<_SubtaskEditDialog> {
   }
 
   void _submit() {
-    if (hasPendingImeComposition(_title)) return;
+    if (hasPendingImeComposition(_title) ||
+        hasPendingImeComposition(_notes)) {
+      return;
+    }
     final title = _title.text.trim();
     if (title.isEmpty) return;
     final notes = _notes.text.trim();

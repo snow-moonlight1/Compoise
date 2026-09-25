@@ -8,19 +8,35 @@ import 'date_edit_fields.dart';
 /// True while an IME composition is still open: the visible text is not yet the
 /// text the user intends, so every commit path waits for it to close. Chinese,
 /// Japanese and other composing input arrive through this state.
-bool hasPendingImeComposition(TextEditingController controller) =>
-    controller.value.composing.isValid;
+///
+/// Only a range that exists *and* holds text is an open composition. Once a
+/// candidate is chosen the platform leaves a valid but collapsed caret, and an
+/// input that never composed anything reports [TextRange.empty]; neither may
+/// hold up a commit, or finished Chinese and Japanese text could never be saved.
+bool hasPendingImeComposition(TextEditingController controller) {
+  final composing = controller.value.composing;
+  return composing.isValid && !composing.isCollapsed;
+}
 
 /// One task's unsaved edit: the field controllers, the snapshot taken when the
 /// editor opened, and the rules that decide what counts as a change and what a
 /// save writes back. It never touches the Store, and the widget that owns a
 /// draft disposes it.
+///
+/// The subtask composer belongs to the draft even before its row exists:
+/// * Text there that was never added counts as an unsaved change, so closing
+///   and switching task have to pass the discard prompt instead of losing it.
+/// * A save turns it into a real subtask row, so saving never drops it.
+/// * A discard drops it together with the rest of the draft.
+/// * Pointing the draft at another task clears it, so it can never be added to
+///   a different task.
 class TaskEditDraft {
   /// [onChanged] fires for user edits only, never while [load] fills the
   /// fields, so a host can refresh and re-read dirtiness from one callback.
   TaskEditDraft(Task task, {required this.onChanged}) {
     titleController.addListener(_handleTextChanged);
     notesController.addListener(_handleTextChanged);
+    newSubtaskController.addListener(_handleTextChanged);
     load(task);
   }
 
@@ -60,6 +76,12 @@ class TaskEditDraft {
   /// A deadline is a civil day, stored as the end of that day.
   int? get deadlineMs => endOfCivilDayMs(deadline);
 
+  /// Text in the composer row that has not become a subtask yet.
+  String get pendingSubtaskTitle => newSubtaskController.text.trim();
+
+  /// A composer row holding only whitespace is nothing the user meant to keep.
+  bool get hasPendingSubtask => pendingSubtaskTitle.isNotEmpty;
+
   /// A close already decided by a save, delete or discard does not ask again.
   bool get isDiscarding => _discarding;
 
@@ -75,6 +97,7 @@ class TaskEditDraft {
     if (isLongTerm != _initialIsLongTerm) return true;
     if (urgencyMode != _initialUrgencyMode) return true;
     if (_subtasksJson(subtasks) != _initialSubtasksJson) return true;
+    if (hasPendingSubtask) return true;
     return false;
   }
 
@@ -84,6 +107,9 @@ class TaskEditDraft {
     _loading = true;
     titleController.text = task.title;
     notesController.text = task.notesMarkdown ?? '';
+    // A half-written subtask belongs to the task that is being left, never to
+    // [task]: clearing here is what keeps it from landing on the wrong parent.
+    newSubtaskController.clear();
     quadrant = task.quadrant;
     deadline =
         task.deadline == null
@@ -108,7 +134,7 @@ class TaskEditDraft {
 
   /// Adds a subtask from the composer row, or null when there is nothing to add.
   SubTask? takeNewSubtask() {
-    final text = newSubtaskController.text.trim();
+    final text = pendingSubtaskTitle;
     if (text.isEmpty) return null;
     final subtask = SubTask(id: newId(), title: text);
     newSubtaskController.clear();
@@ -203,6 +229,7 @@ class TaskEditDraft {
   void dispose() {
     titleController.removeListener(_handleTextChanged);
     notesController.removeListener(_handleTextChanged);
+    newSubtaskController.removeListener(_handleTextChanged);
     titleController.dispose();
     notesController.dispose();
     newSubtaskController.dispose();
