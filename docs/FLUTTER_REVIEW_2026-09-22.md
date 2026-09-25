@@ -1,5 +1,7 @@
 # Flutter 全库审查与开源准备评估
 
+> **2026-09-25 状态注记：** 本文的 F12、F14、F22 是 2026-09-22 审查时的问题证据；对应 OS15、OS17、OS25 已实施并集成。当前验收和剩余平台限制以 [实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md) 与 [HANDOFF](HANDOFF.md) 为准；原始发现文字保留供追溯。
+
 日期：2026-09-22。审查基线：`main / 9c622fd` 加接手时已有的 R1–R5、S1 修复与回归，**不是干净 HEAD**。对应执行文档：[开源准备实施计划](IMPLEMENTATION_PLAN_2026-09-22_OPEN_SOURCE_READINESS.md)。本轮只审查、记录和添加合成反例，不修改产品实现，不提交、不打包、不发布。
 
 ## 1. 结论与用户需求

@@ -13,6 +13,7 @@
 ## 改动
 
 - `.github/workflows/pr.yml`：`pull_request` 和所有分支 `push` 都跑检查，不靠 tag。权限只有 `contents: read`。四个 job 都安装 Flutter 3.32.8 stable，并用 `toolchain.json` 核对版本、Dart 和 framework revision。
+- 集成修正：版本核对改读 `flutter --version --machine` 的完整 framework/engine revision；普通 `flutter --version` 仅打印短 revision，会误使每个 job 失败。
   - `analyze-and-test`：`flutter pub get`、`flutter analyze --no-pub`、`flutter test --no-pub`。测试步骤没有 `continue-on-error`。
   - `android-debug`：Temurin 17，`flutter build apk --debug`，`REQUIRE_RELEASE_SIGNING=false`。不构建 release，不读取发布密钥。
   - `windows-debug`：`flutter test --no-pub integration_test/app_test.dart`，然后 `flutter build windows --debug`。
@@ -49,9 +50,11 @@ Android debug 构建中，Kotlin daemon 仍对跨盘增量缓存报错（pub cac
 
 真实 smoke 在本机桌面显示了一条标题为 `OS25 smoke` 的通知，随后取消；托盘图标创建后销毁。它没有打开任务库。
 
+集成补测（2026-09-25）：main 合并 OS15/OS17/OS25 后再次运行隔离 Windows smoke，返回 `PASS notification=shown tray=success profile=untouched`；该 smoke 只验证即时通知与托盘，不验证未来定时排程。
+
 ## 没有覆盖的场景
 
 - GitHub 托管 runner 没有执行。Windows job 里的 mock 集成测试依赖可启动的桌面会话；本机 Windows 已通过，托管 runner 尚未证实。
 - 没有 Android 设备，因此没有 Android 上的 mock 集成或真实通知 smoke。
 - 没有正式 keystore，没有打正式 release APK。缺签名现在只应挡住设置了 `REQUIRE_RELEASE_SIGNING=true` 的 release 任务。
-- 公共交接文档仍写着 OS25 未开始。集成时再更新。
+- 独立分支当时的公共交接文档写着 OS25 未开始；2026-09-25 集成后已更新状态，见 HANDOFF 顶部。

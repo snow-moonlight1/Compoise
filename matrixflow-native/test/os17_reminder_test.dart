@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -81,6 +83,21 @@ class FakeAndroidPlugin implements AndroidFlutterLocalNotificationsPlugin {
       return Future<bool?>.value(notificationsEnabled);
     }
     return Future<bool?>.value(true);
+  }
+}
+
+class DelayedReminderLedgerStore implements ReminderLedgerStore {
+  final initialRead = Completer<String?>();
+  String? value;
+  int writeCount = 0;
+
+  @override
+  Future<String?> read() => initialRead.future;
+
+  @override
+  Future<void> write(String? next) async {
+    value = next;
+    writeCount++;
   }
 }
 
@@ -343,6 +360,44 @@ void main() {
   });
 
   group('OS17 restart compensation', () {
+    test('a new failure waits for the startup ledger read before writing', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final priorLedger = InMemoryReminderLedgerStore();
+      final first = await _service(
+        FakeNotificationPlugin()..failSchedule = true,
+        priorLedger,
+      );
+      final trigger = DateTime.now().millisecondsSinceEpoch + 600000;
+      await first.scheduleReminder(
+        boardId: 'b1',
+        taskId: 'old',
+        title: 'Synthetic old',
+        triggerAtMs: trigger,
+      );
+      await _flush(first);
+
+      final delayed = DelayedReminderLedgerStore();
+      final second = await _service(
+        FakeNotificationPlugin()..failSchedule = true,
+        delayed,
+      );
+      final loading = second.loadPendingJobs();
+      await second.scheduleReminder(
+        boardId: 'b1',
+        taskId: 'new',
+        title: 'Synthetic new',
+        triggerAtMs: trigger,
+      );
+      expect(delayed.writeCount, 0);
+
+      delayed.initialRead.complete(priorLedger.value);
+      await loading;
+      await _flush(second);
+      expect(second.pendingJobs, hasLength(2));
+      expect(delayed.value, contains('old'));
+      expect(delayed.value, contains('new'));
+    });
+
     test('a new process retries the schedule the ledger recorded', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final ledger = InMemoryReminderLedgerStore();

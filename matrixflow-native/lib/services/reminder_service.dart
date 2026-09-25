@@ -401,6 +401,7 @@ abstract class ReminderService {
 
   final Map<String, ReminderPendingJob> _pendingJobs = {};
   bool _pendingLoaded = false;
+  Future<void>? _pendingLoadFuture;
   Future<void> _pendingWrites = Future.value();
 
   /// Failed schedules, projected from the ledger and keyed by notification id.
@@ -408,10 +409,16 @@ abstract class ReminderService {
       Map.unmodifiable(_pendingJobs);
 
   /// Reads persisted retry records once per process. Safe to call repeatedly.
-  Future<void> loadPendingJobs() async {
-    if (_pendingLoaded) return;
-    _pendingLoaded = true;
+  Future<void> loadPendingJobs() {
+    if (_pendingLoaded) return Future.value();
+    return _pendingLoadFuture ??= _readPendingJobs().whenComplete(() {
+      _pendingLoadFuture = null;
+    });
+  }
+
+  Future<void> _readPendingJobs() async {
     final raw = await ledgerStore.read();
+    _pendingLoaded = true;
     if (raw == null || raw.trim().isEmpty) return;
     try {
       final decoded = jsonDecode(raw);
@@ -503,7 +510,13 @@ abstract class ReminderService {
   }
 
   Future<void> clearAllPendingJobs() async {
-    // A full wipe must not pull the old records back in.
+    // Let an in-flight read settle before wiping, or it could repopulate the
+    // in-memory ledger after the clear has already reached disk.
+    try {
+      await loadPendingJobs();
+    } catch (_) {
+      // A deliberate full wipe can proceed even when the old ledger is unreadable.
+    }
     _pendingLoaded = true;
     _pendingJobs.clear();
     _publishPendingJobs();
@@ -1647,7 +1660,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     _restoreGeneration++;
     final leftovers = Map<int, ReminderPayload>.of(trackedReminders);
     trackedReminders.clear();
-    unawaited(clearAllPendingJobs());
+    final clearPending = clearAllPendingJobs();
     for (final id in _revision.keys.toList()) {
       _bump(id);
     }
@@ -1657,6 +1670,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     _activeTimers.clear();
     _queuedReschedule = null;
     return _enqueue(() async {
+      await clearPending;
       if (!_initialized) return;
       try {
         await _plugin.cancelAll();

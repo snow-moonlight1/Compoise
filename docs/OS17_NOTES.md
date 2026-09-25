@@ -44,6 +44,7 @@
 - 快速编辑与删除保持串行：每次 `scheduleReminder`/`cancelReminder` 都推进代际，迟到的系统答复会被补偿取消。
 - 日志与错误类别只写异常类型或 `PlatformException/<code>`（去空白），不再打印 `toString()`；持久记录不含任务标题与备注，专项测试对此做了断言。
 - 账本落盘是“触发后不等待”：内存状态与 UI 通知同步更新，磁盘写排队进行。因此提醒结果不依赖存储是否完成，也不声称 SharedPreferences 提供掉电原子性。
+- 集成修正：首次账本读取期间的其他调用等待同一 Future，避免新失败先写入并覆盖旧记录；全量取消等待在途读取后再清空。新增延迟读取回归测试。
 
 ## 4. 设置页与横幅
 
@@ -76,5 +77,5 @@
 ## 8. 下一位接手者需要知道的
 
 - 可领取：OS20（Store 命令边界与修订号一致性，依赖本包的提醒结果类型与 `reconcileReminders()` 注入点）；OS19 可在使用设置页提醒区之外继续（设置页本包只动提醒段）。
-- 集成人需要更新的公共文档：本包状态（开源准备计划 OS17 行）、`HANDOFF.md`、`ARCHITECTURE.md` 的提醒契约、`CHANGELOG.md` 顶部条目、`docs/REMINDERS_DESIGN.md` 中“权限检查返回 granted/unsupported”的旧描述，以及新增本地键 `matrixflow-reminder-pending` 与 `windowsPermissionActive` 文案移除。
+- 公共文档已在 2026-09-25 集成时更新：计划状态、`HANDOFF.md`、`ARCHITECTURE.md` 的提醒契约、`CHANGELOG.md` 顶部条目和 `docs/REMINDERS_DESIGN.md` 的历史 API 说明。新增本地键为 `matrixflow-reminder-pending`，旧 `windowsPermissionActive` 文案已移除。
 - 若要关闭“未测”项：需要 Android 真机（通知权限、精确闹钟、重启后台排程）与 Windows 实机（横幅、专注助手、托盘保活下 `scheduledInApp` 行为）各一轮人工验证，并记录设备与系统版本。

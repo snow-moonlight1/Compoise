@@ -40,9 +40,12 @@ void main() {
     expect(workflow.contains('contents: write'), isFalse);
     expect(setup.allMatches(workflow).length, 4);
     expect(workflow.contains('toolchain.json'), isTrue);
+    expect('flutter --version --machine'.allMatches(workflow).length, 4);
     expect(workflow.contains('pin.flutterVersion'), isTrue);
     expect(workflow.contains('pin.dartVersion'), isTrue);
     expect(workflow.contains('pin.revision'), isTrue);
+    expect(workflow.contains('frameworkRevision:pin.revision'), isTrue);
+    expect(workflow.contains('engineRevision:pin.engineRevision'), isTrue);
     expect(verified()['flutterVersion'], '3.32.8');
     expect(verified()['revision'], 'edada7c56edf4a183c1735310e123c7f923584f1');
     expect(workflow.contains('flutter analyze --no-pub'), isTrue);

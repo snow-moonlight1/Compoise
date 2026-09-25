@@ -13,6 +13,7 @@
 - 窗口关闭与托盘退出统一进入 `DesktopShellService.exitApplication()`：并发请求共享同一个进行中 Future，完成后再次请求不会重复销毁；取消或失败后允许重试。
 - 关闭到托盘保持独立语义：托盘可用时仅隐藏窗口，不触发退出守卫或销毁。
 - Windows host 不再在托盘菜单回调后直接 `destroy()`；host 自身缓存销毁 Future，避免重复释放。
+- 集成修正：原生 `destroy()` 失败时清除缓存的 Future，下一次退出可以重新尝试释放。
 - Windows runner 的 `Win32Window::Destroy()` 增加生命周期幂等保护，避免显式销毁、`WM_DESTROY` 重入和析构路径重复执行 `OnDestroy()`。
 - `MatrixHome` 在真正退出前处理当前任务详情或新建任务草稿；用户选择继续编辑时取消退出，选择放弃后才进入保存协调。IME composition 场景不会被当作提交动作，取消退出保留草稿文本且不创建任务。
 - 保存协调先调用现有 `Store.flush()` 并等待最新队列；失败或 8 秒超时后明确提供“重试 / 不保存并退出 / 取消退出”。重试调用现有 `Store.retrySave()`，只有成功或用户明确选择不保存时才允许最终销毁。
@@ -34,6 +35,8 @@
 新增 `tool/os15_windows_exit_smoke.dart`。该入口不创建 `Store`、不读取用户任务数据，使用独立窗口完成桌面初始化，在退出守卫完成并写入 `COORDINATOR completed` 证据后调用真实 host 销毁。
 
 本轮三次尝试启动已构建的独立 Debug 实例，均在执行前被 IDE 的外部 GUI 进程授权提示超时取消；因此没有把“进程真实退出”登记为通过。Debug/Release 编译均已通过，但真实关闭仍需在可批准 GUI 启动的会话执行：
+
+集成补测（2026-09-25）：在 main 的隔离 Debug 实例中完成真实退出，报告依次为 `START`、`EXIT requested`、`COORDINATOR started`、`COORDINATOR completed`，随后 `flutter run` 输出 `Lost connection to device.` 并以 0 退出。本段保留独立分支当时未测的历史记录。
 
 ```powershell
 cd D:\Dev_project\martix-wt-os15\matrixflow-native

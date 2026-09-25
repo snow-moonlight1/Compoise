@@ -1,6 +1,6 @@
 # 架构
 
-> **2026-09-24 当前覆盖：** OS01–OS14 和 OS24 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。OS12 日期/提醒、OS13 焦点和 OS14 桌面运行态见下方章节；OS10/11 真实厂商调用与双端实机仍未测。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
+> **2026-09-25 当前覆盖：** OS01–OS15、OS17、OS24、OS25 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。OS15 退出、OS17 提醒和 OS25 CI 见下方当前章节；平台未测项见 HANDOFF。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
@@ -12,7 +12,19 @@
 
 ## 当前 Flutter Windows shell（OS14）
 
-`DesktopShellService` 通过 `DesktopShellHost` 与 Windows host 隔离；`applySettings` 返回托盘、热键、期望关闭策略和实际生效状态。启动、设置页修改和设置导入后都应用当前设置，连续修改按代际串行，旧异步结果不会公布。托盘初始化失败时 `isTrayInitialized=false`，关闭按钮不隐藏窗口；隐藏系统调用失败也保留可见状态。热键失败或冲突及注销失败向设置页报告并提供重试，不能把期望配置当成已注册状态。Windows runner 直接检查 `RegisterHotKey` 返回值，窗口显示/隐藏通过 runner 通道并回读可见性。Android 不调用桌面 host。独立 Windows Debug 测试窗口验证初始化、隐藏、托盘回调召回、保留快捷键冲突和重试；Windows Release 已编译，正式安装及人工鼠标操作未测。真正退出的幂等性与保存协调仍由 OS15 处理。
+`DesktopShellService` 通过 `DesktopShellHost` 与 Windows host 隔离；`applySettings` 返回托盘、热键、期望关闭策略和实际生效状态。启动、设置页修改和设置导入后都应用当前设置，连续修改按代际串行，旧异步结果不会公布。托盘初始化失败时 `isTrayInitialized=false`，关闭按钮不隐藏窗口；隐藏系统调用失败也保留可见状态。热键失败或冲突及注销失败向设置页报告并提供重试，不能把期望配置当成已注册状态。Windows runner 直接检查 `RegisterHotKey` 返回值，窗口显示/隐藏通过 runner 通道并回读可见性。Android 不调用桌面 host。独立 Windows Debug 测试窗口验证初始化、隐藏、托盘回调召回、保留快捷键冲突和重试；Windows Release 已编译，正式安装及人工鼠标操作未测。
+
+## 当前 Flutter 退出协调（OS15）
+
+窗口关闭和托盘退出调用同一 `DesktopShellService.exitApplication()`，并发请求共享 Future；关闭到托盘仅隐藏，不触发真正退出。`MatrixHome` 先处理详情或新建任务草稿，选择继续编辑就取消退出。真正退出前 `DesktopExitSaveCoordinator` 等待 `Store.flush()` 的最新批次；失败或 8 秒超时后由用户选择重试、不保存并退出或取消。host 与 Windows runner 的销毁路径幂等；原生销毁抛错时可再试。隔离 Windows Debug 实例已验证协调完成后进程自行退出；用户真实任务库和安装态关闭流程未用该 smoke 验证。
+
+## 当前 Flutter 提醒重试（OS17）
+
+`ReminderService` 将权限 `unknown` 与 `unsupported` 分开，排程和取消返回可区分结果。失败记录在本地 `matrixflow-reminder-pending`，仅含必要 ID、时刻、次数和错误类别，不进入普通 JSON 备份。`Store.reconcileReminders()` 先按当前任务重排，再补偿上次失败；过期、已删除、已完成或编辑过的提醒不会复活。重试有次数、时限及账本容量上界；首次读取与并发写入共用 Future。设置页测试提醒按真实结果显示，失败横幅区分排程与取消。Windows 隔离 smoke 已验证即时通知显示与取消；未来时刻排程、系统重启补偿及 Android 真机通知未验收。SharedPreferences 返回成功不保证掉电持久化。
+
+## 当前 PR 检查（OS25）
+
+`.github/workflows/pr.yml` 在 PR/push 上运行固定 Flutter 3.32.8 的分析、默认测试、Android debug 与 Windows debug；完整 framework/engine revision 通过 `flutter --version --machine` 核对。集成测试使用生产入口、隔离偏好/凭据和本地 HTTP mock，真实 Windows 通知/托盘 smoke 独立手动触发。正式 Android release 缺签名门槛只作用于正式发布任务。当前没有 remote，GitHub 托管 runner 尚未执行；本机 smoke 不代表 Android 真通知已测。
 
 ## 当前 Flutter 密钥边界（OS08/OS09）
 

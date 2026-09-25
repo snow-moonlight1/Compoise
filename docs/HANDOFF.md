@@ -1,6 +1,13 @@
 # 项目交接文档（HANDOFF.md）
 
-## 当前状态：四包合入 main（2026-09-24）
+## 当前状态：OS15、OS17、OS25 合入 main（2026-09-25）
+
+- 接手基线 `cc9ce2765dc90211d58cfc487c8b9c2bfc442124`，主工作区干净。独立提交为 OS15 `cfcc4704743cfd15ccf78a11f343a038ffd42949`、OS17 `7a083a3b6d7fec5cd055936312d5076212bf836e`、OS25 `5404090442f534d30a962fa551b9617802c67f3f`；三个提交均从同一基线出发，产品改动无重叠文件，依次 cherry-pick 到 main。OS17 worktree 原有三个未提交的 Windows 插件生成文件仅为行尾差异，未纳入合并，也未清理。
+- OS15：退出路径统一等待草稿选择与 OS06 保存结果，重复关闭只销毁一次；独立分支曾因 GUI 启动授权超时未测真进程退出，本次集成已补做隔离 Windows Debug 真退出 smoke。OS17：权限未知、排程/取消失败和有界重试账本已实施；Android 真通知及 Windows 未来时刻排程仍未测。OS25：无密钥 PR/push workflow、当前 mock 集成入口和独立 Windows 通知/托盘 smoke 已实施；GitHub 托管 runner 未执行。各包具体证据见 `OS15_NOTES.md`、`OS17_NOTES.md`、`OS25_NOTES.md`。
+- 集成审查修正：OS25 workflow 使用 `flutter --version --machine` 的完整字段核对 OS24 pin，避免普通 `--version` 的短 revision 导致每个 CI job 误失败；OS17 首次账本读取与并发写入共用同一 Future，全量清除等待在途读取；OS15 原生销毁失败不再永久缓存失败 Future。固定 SDK `D:\Dev_SDKs\Flutter_3.32.8` 下，合并态默认 `flutter test --no-pub` **495/495**、`flutter analyze --no-pub` **0 issues**；`flutter test --no-pub integration_test/app_test.dart` **2/2**，Windows Release 和 Android debug APK 均构建成功。隔离 Windows Debug 真退出 smoke 日志依次为 `START`、`EXIT requested`、`COORDINATOR started`、`COORDINATOR completed`，进程自行退出；OS25 真通知/托盘 smoke 返回 `PASS notification=shown tray=success profile=untouched`。两项 smoke 不读取用户任务库；通知 smoke 验证了 Windows 即时显示与托盘，未验证未来定时提醒。Android 无设备、GitHub 托管 runner 未执行。
+- 下一波在本轮最终 main 哈希上各建独立 worktree 并发：A=OS16，独占 Windows 单实例入口、runner/桌面 host 与隔离实例验证，先拿多实例竞争证据再决定修复，不碰用户运行中的实例；B=OS19，独占设置页、三语字典和任务交互 widget，完成 48dp 热区、语义与键盘操作；C=OS26，独占发行 workflow、打包脚本、Android release 配置和发行元数据，先准备可复核清单，包名/签名/托管身份需要持有人决定时以具体结果请求，不擅自发布。A 不改设置页或发行脚本；B 不改 runner/Store；C 不改 Windows 单实例逻辑或产品 UI。公共 AGENTS、HANDOFF、ARCHITECTURE、CHANGELOG、实施计划由下一位集成人统一更新，各 Agent 只写独立 `docs/OS16_NOTES.md` 等。OS20 虽已满足硬依赖，但可能与 OS16 的存储并发治理相交，本波暂不并行；OS18 与 OS19 共享文字 widget/设置页，也暂不并行。继续暂停 WP10/WP29/UI 实验，冻结 Web/Tauri/Capacitor。
+
+## 历史状态：四包合入 main（2026-09-24）
 
 - 从 `main / 0e9a3b36213c297f7350955c82a8634ebf9d97ca` 接手；OS13 已在该基线，分别审阅并集成 OS12 `c3e802276b8f0e2b2cfff3183b553397a12f5f4c`、OS14 `7ce0e791c3968cce6179d51bd9d10eabee27da40` 和 OS24 `5a14c17e10c2946fe24031ff2821eca81d1b4505`。三者仅文档合并冲突；产品代码无重叠冲突。主线集成提交依次为 `d146c75`、`1e9c019`、`ad9a582`，最终修正提交完整哈希见 Git 和本轮交接回复。
 - OS12：本地日历日期范围、提醒选择初值与“明天/本周”语义已实施；OS-R06 转绿，独立分支专项 16/16、全量 441/441、analyze 0。OS13：退场与隐藏子树焦点隔离，OS-R07 转绿；基线全量 428/428、analyze 0。OS14：Windows 托盘/热键结果、设置应用与失败重试，独立分支专项 8/8、全量 433/433、analyze 0，Windows Release 构建和隔离 Debug smoke 通过。OS24：固定 Flutter 3.32.8 / Dart 3.8.1，保留旧 SDK 回退；独立分支专项 4/4、全量 429/429、analyze 0，Android debug 和 Windows build 通过。

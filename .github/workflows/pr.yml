@@ -39,8 +39,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+          flutter --version --machine > flutter-version.json
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
 
       - name: Install dependencies
         working-directory: matrixflow-native
@@ -86,8 +86,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+          flutter --version --machine > flutter-version.json
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
 
       - name: Install dependencies
         working-directory: matrixflow-native
@@ -117,8 +117,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+          flutter --version --machine > flutter-version.json
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
 
       - name: Enable Windows desktop
         working-directory: matrixflow-native
@@ -155,8 +155,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version > "$RUNNER_TEMP/flutter-version.txt"
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=fs.readFileSync(process.env.RUNNER_TEMP + '/flutter-version.txt','utf8'); const need=[pin.flutterVersion, pin.dartVersion, pin.revision]; for (const item of need) { if (!out.includes(item)) { console.error(out); console.error('Missing pin ' + item); process.exit(1); } } console.log(pin.flutterVersion + ' ' + pin.revision);"
+          flutter --version --machine > flutter-version.json
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
 
       - name: Install dependencies
         working-directory: matrixflow-native

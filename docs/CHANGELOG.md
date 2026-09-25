@@ -1,5 +1,11 @@
 # 更新日志
 
+## 2026-09-25 · OS15/OS17/OS25 退出、提醒与无密钥检查
+
+- Windows 窗口关闭与托盘退出合并为幂等协调路径：先处理草稿，再等待保存结果；失败或超时由用户明确选择重试、不保存退出或取消。原生销毁失败可重试；隔离 Windows Debug 测试实例已验证协调完成后进程自行退出。
+- 提醒权限未知不再误报已授权；排程与取消失败分别提示并进入有界本地重试账本，重启按当前任务数据补偿。测试提醒按实际结果反馈。Windows 隔离 smoke 已验证即时通知，未来定时排程与 Android 真机仍未验收。
+- 新增固定 Flutter 3.32.8 的无密钥 PR/push 分析、测试及 Android/Windows debug 检查；更新隔离的 mock 集成测试和手动 Windows 通知/托盘 smoke。正式 release 缺签名时拒绝发布。GitHub 托管 runner 尚未执行；验证细节见 `docs/HANDOFF.md`。
+
 ## 2026-09-24 · OS24 固定 Flutter 3.32.8 工具链
 
 - 已验证工具链固定为 Flutter 3.32.8 stable / Dart 3.8.1（framework `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`）。CI release workflow、README、开发指南和打包脚本使用该版本。没有顺带升级依赖。

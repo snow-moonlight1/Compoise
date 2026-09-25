@@ -182,7 +182,17 @@ class WindowsDesktopShellHost
   }
 
   @override
-  Future<void> destroy() => _destroyFuture ??= _destroyOnce();
+  Future<void> destroy() => _destroyFuture ??= _destroyWithRetry();
+
+  Future<void> _destroyWithRetry() async {
+    try {
+      await _destroyOnce();
+    } catch (_) {
+      // A failed native destroy must not permanently latch the failed Future.
+      _destroyFuture = null;
+      rethrow;
+    }
+  }
 
   Future<void> _destroyOnce() async {
     await unregisterHotkey();

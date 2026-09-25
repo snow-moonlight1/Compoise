@@ -1,5 +1,7 @@
 # MatrixFlow AI: 本地日期时间提醒与通知技术契约与架构设计规范 (REMINDERS_DESIGN.md)
 
+> **2026-09-25 当前实现覆盖：** OS17 已将权限查询的 `unknown`、排程/取消结果、失败账本与重启补偿接入 Flutter，见 [架构](ARCHITECTURE.md) 和 [交接](HANDOFF.md)。下文第 5 节的 Dart 接口和 `NoopReminderService` 是 WP25-R 当时的研究草案，不能作为现行 API 使用：当前 `requestPermission()` 返回 `ReminderPermissionStatus`，`scheduleReminder()` / `cancelReminder()` 返回结果类型，`NoopReminderService` 不把未知平台报告为已授权。Windows 隔离 smoke 已验证即时显示与托盘，未来排程和 Android 真通知仍需设备验收。
+
 > 本文档依据 `docs/IMPLEMENTATION_PLAN_2026-09-08.md` 中 **WP25-R**（本地日期时间提醒研究与契约）要求制定。
 > 梳理 Android 精确闹钟权限、厂商后台限制、Windows 桌面托盘与通知联动、三维日期语义解耦、数据演进契约以及跨平台统一服务接口定义。
 
