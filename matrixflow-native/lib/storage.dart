@@ -93,7 +93,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   bool hasSeenOnboarding = false;
   String? startupError;
   String? persistenceError;
-  Future<void> _pendingWrites = Future.value();
+
+  /// The store's single serial commit owner.
+  ///
+  /// Ordinary task/board/settings commands, the import transaction and every
+  /// disk commit are chained onto this one future, so their
+  /// read/derive/commit sections can never interleave. [SaveProtocol] keeps its
+  /// own slot queue for on-disk ordering; this chain decides *which* state is
+  /// committed and in which order. Anything that changes persisted state and
+  /// awaits must run through [_runTransaction].
+  Future<void> _commitGate = Future.value();
   bool _saveScheduled = false;
   int _dirtyRevision = 0;
   int _savedRevision = 0;
@@ -1474,9 +1483,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Returns the number of tasks imported. [mode] is 'merge' or 'overwrite'.
   ///
-  /// Product file import uses [applyImport], which commits the OS06 batch
-  /// before changing memory. This synchronous entry remains for existing
-  /// tests: it still preflights, then updates memory and queues a save.
+  /// Test-compatibility entry only. The product file import is [applyImport],
+  /// which runs the whole transaction on the serial commit owner. This
+  /// synchronous helper cannot await, so it preflights, changes memory and
+  /// queues its save on that same owner. It never touches the credential
+  /// store: an imported key is not adopted here, unlike [applyImport] with
+  /// `importCredential`.
   int importData(Map<String, dynamic> json, String mode) {
     final plan = previewImport(json, mode);
     if (plan.conflicts != 0) throw const FormatException('Conflicting IDs');
@@ -1494,30 +1506,55 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         revision: _dirtyRevision,
       );
 
-  /// Persist the proposed complete state before changing live state.
+  /// Commits one import as the store's only multi-step transaction.
+  ///
+  /// It runs inside the serial commit owner, so no ordinary command can land
+  /// a disk commit in the middle of it. The order inside the transaction is
+  /// fixed and is the contract every other commit path relies on:
+  ///   1. drain credential writes that were already accepted (RF03 replaces
+  ///      this drain with a unified completion/result object; the ordering
+  ///      contract below stays the same),
+  ///   2. write the credential choice this import carries,
+  ///   3. re-derive the plan from its payload against the *live* library, so
+  ///      commands accepted while steps 1-2 were running are part of the
+  ///      result instead of being overwritten by the old preview,
+  ///   4. apply that state to memory with no await in between,
+  ///   5. commit exactly one batch built from the applied state, and roll the
+  ///      memory back if the batch does not commit.
+  ///
+  /// Commands are never rejected while an import is in flight: they change
+  /// memory immediately and their own commit is queued on the same owner, so
+  /// input stays on screen and is saved either by this transaction (merge) or
+  /// by the next queued commit.
   Future<SaveResult> applyImport(
     ImportPlan plan, {
     bool importCredential = false,
+  }) => _runTransaction(
+    () => _commitImportLocked(plan, importCredential: importCredential),
+  );
+
+  Future<SaveResult> _commitImportLocked(
+    ImportPlan plan, {
+    required bool importCredential,
   }) async {
-    await _credentialWrites;
+    if (_disposed) return const SaveResult(false, 0);
     if (plan.conflicts != 0 || hasStartupRecovery || credentialError != null) {
       return const SaveResult(false, 0);
     }
-    final preceding = await flush();
-    if (!preceding.success ||
-        plan.baseRevision != _dirtyRevision ||
-        _disposed) {
+    await _credentialWrites;
+    if (_disposed) return const SaveResult(false, 0);
+    final effective = _rebaseImport(plan);
+    // A conflict that only appears once the plan is re-derived means the
+    // library moved under the confirmation. Refuse instead of applying a
+    // state the user never confirmed; nothing is written and memory is kept.
+    if (effective == null || effective.conflicts != 0) {
       return const SaveResult(false, 0);
     }
-    final nextSettings = plan.settings ?? settings;
-    final nextConfig =
-        plan.aiConfig == null ? aiConfig : _copyConfig(plan.aiConfig!);
     final oldCredential = _confirmedCredential;
     final newCredential =
-        importCredential && plan.hasCredential
-            ? plan.aiConfig!.apiKey
+        importCredential && effective.hasCredential
+            ? effective.aiConfig!.apiKey
             : oldCredential;
-    nextConfig.apiKey = newCredential;
     if (newCredential != oldCredential) {
       try {
         if (newCredential.isEmpty) {
@@ -1536,38 +1573,130 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         return const SaveResult(false, 0);
       }
     }
-    final active =
-        plan.mode == 'overwrite' ? plan.boards.first.id : activeBoardId;
-    final values = _snapshotValues(
-      boardsValue: plan.boards,
-      tasksValue: plan.tasks,
-      settingsValue: nextSettings,
-      configValue: nextConfig,
-      activeValue: active,
-    );
+    final before = captureSnapshot();
+    _applyImportState(effective);
+    final atCommit = _dirtyRevision;
+    final values = _snapshotValues();
     final result = await _saveProtocol!.commit(values);
     lastSaveResult = result;
     if (!result.success) {
-      if (newCredential != oldCredential) {
+      _rollbackImport(before, values);
+      // Only this import moved the credential, so only this import may put it
+      // back. A choice accepted while the batch was committing is newer than
+      // [oldCredential] and survives; RF03 replaces this check with the
+      // credential completion/result object.
+      if (newCredential != oldCredential &&
+          _confirmedCredential == oldCredential) {
         await _restoreCredential(oldCredential);
       }
       persistenceError = t['storageWriteError'];
+      if (_dirtyRevision > _savedRevision) _scheduleCommit();
       if (!_disposed) notifyListeners();
       return result;
     }
     _savedValues = values;
     _confirmedCredential = newCredential;
     credentialError = null;
-    _dirtyRevision++;
-    _savedRevision = _dirtyRevision;
+    // Only the revisions up to the snapshot we just wrote are durable. A
+    // command accepted while the batch was committing stays dirty and its
+    // own commit is still queued on the owner.
+    _savedRevision = atCommit;
     persistenceError = null;
-    if (_disposed) return result;
-    _applyImportState(plan);
-    notifyListeners();
+    if (_dirtyRevision > _savedRevision) _scheduleCommit();
+    if (!_disposed) notifyListeners();
     return result;
   }
 
+  /// Re-derives [plan] from the payload it was inspected from, against the
+  /// live library. Returns null when the payload no longer yields a valid
+  /// import for the current state.
+  ImportPlan? _rebaseImport(ImportPlan plan) {
+    final payload = plan.payload;
+    if (payload == null) {
+      // Hand-built plans cannot be re-derived. Accept them only when nothing
+      // has been accepted since the preview.
+      return plan.baseRevision == _dirtyRevision ? plan : null;
+    }
+    try {
+      return ImportPreflight.inspect(
+        payload,
+        plan.mode,
+        currentBoards: boards,
+        currentTasks: tasks,
+        revision: _dirtyRevision,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Undoes exactly what the import changed after its batch failed to commit.
+  ///
+  /// The disk still holds [before], so the library must return there — except
+  /// for records a command touched afterwards. [atCommit] was captured between
+  /// applying the plan and writing the batch, so a record that now differs from
+  /// it was changed by such a command and keeps its live form; everything else
+  /// falls back to [before]. Settings, config and the active board are single
+  /// values decided the same way, which means a change a command made on top of
+  /// values this import supplied keeps them as they are.
+  void _rollbackImport(StoreSnapshot before, Map<String, String> atCommit) {
+    _boards = _carryPostCommitRecords(
+      before: [for (final board in before.boards) board.toJson()],
+      live: [for (final board in _boards) board.toJson()],
+      committed: atCommit[_kBoards],
+    ).map(Board.fromJson).toList();
+    _tasks = _carryPostCommitRecords(
+      before: [for (final task in before.tasks) task.toJson()],
+      live: [for (final task in _tasks) task.toJson()],
+      committed: atCommit[_kTasks],
+    ).map(Task.fromJson).toList();
+    if (jsonEncode(settings.toJson()) == atCommit[_kSettings]) {
+      settings = AppSettings.fromJson(before.settings.toJson());
+    }
+    // The persisted config never carries the key, so the credential has to be
+    // part of deciding whether anything touched the config after the commit.
+    if (jsonEncode(aiConfig.toJson(includeCredential: false)) ==
+            atCommit[_kConfig] &&
+        aiConfig.apiKey == before.aiConfig.apiKey) {
+      aiConfig = _copyConfig(before.aiConfig);
+    }
+    if (activeBoardId == atCommit[_kActiveBoard]) {
+      activeBoardId = before.activeBoardId;
+    }
+  }
+
+  /// Three-way merge over records keyed by id: [committed] is the base, the
+  /// [live] records are the changes to keep, [before] is the state to fall back
+  /// on for everything the commit itself introduced or rewrote.
+  static Iterable<Map<String, dynamic>> _carryPostCommitRecords({
+    required List<Map<String, dynamic>> before,
+    required List<Map<String, dynamic>> live,
+    required String? committed,
+  }) {
+    final beforeById = {for (final item in before) item['id'] as String: item};
+    final liveById = {for (final item in live) item['id'] as String: item};
+    final committedById = <String, String>{
+      if (committed != null)
+        for (final item in (jsonDecode(committed) as List)
+            .cast<Map<String, dynamic>>())
+          item['id'] as String: jsonEncode(item),
+    };
+    Map<String, dynamic>? kept(String id) {
+      final current = liveById[id];
+      final unchanged =
+          current == null
+              ? !committedById.containsKey(id)
+              : jsonEncode(current) == committedById[id];
+      return unchanged ? beforeById[id] : current;
+    }
+    return [
+      for (final id in {...beforeById.keys, ...liveById.keys})
+        if (kept(id) != null) kept(id)!,
+    ];
+  }
+
   void _applyImportState(ImportPlan plan) {
+    _dirtyRevision++;
     if (plan.mode == 'overwrite') {
       bumpAllBoardEpochs();
       for (final board in plan.boards) {
@@ -1637,39 +1766,64 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _saveSettings();
   }
 
+  /// Runs [body] as the next job of the serial commit owner. The chain never
+  /// completes with an error, so one failed job cannot strand the queue; the
+  /// caller still observes the error through the returned future.
+  Future<T> _runTransaction<T>(Future<T> Function() body) {
+    final previous = _commitGate;
+    final response = Completer<T>();
+    _commitGate = () async {
+      await previous;
+      try {
+        response.complete(await body());
+      } catch (error, stack) {
+        response.completeError(error, stack);
+      }
+    }();
+    return response.future;
+  }
+
   void _write(String key, String value) {
     if (!ready || _disposed || hasStartupRecovery || credentialError != null) {
       return;
     }
     _dirtyRevision++;
-    if (!_saveScheduled) {
-      _saveScheduled = true;
-      _pendingWrites = _pendingWrites.then((_) async {
-        // Coalesce every mutation in the current synchronous command.
-        await Future<void>.value();
-        while (_savedRevision < _dirtyRevision && !_disposed) {
-          final target = _dirtyRevision;
-          final values = _snapshotValues();
-          final result = await _saveProtocol!.commit(values);
-          lastSaveResult = result;
-          if (!result.success) {
-            persistenceError = t['storageWriteError'];
-            if (!_disposed) notifyListeners();
-            _saveScheduled = false;
-            return;
-          }
-          _savedRevision = target;
-          _savedValues = values;
-          persistenceError = null;
-          if (!_disposed) notifyListeners();
-        }
-        _saveScheduled = false;
-      });
-    }
+    _scheduleCommit();
   }
 
+  /// Queues one commit job on the serial owner. The scheduler coalesces every
+  /// mutation accepted before that job runs.
+  void _scheduleCommit() {
+    if (_saveScheduled) return;
+    _saveScheduled = true;
+    // The job is observed through [flush] and [lastSaveResult], not its own future.
+    _runTransaction(() async {
+      // Coalesce every mutation in the current synchronous command.
+      await Future<void>.value();
+      while (_savedRevision < _dirtyRevision && !_disposed) {
+        final target = _dirtyRevision;
+        final values = _snapshotValues();
+        final result = await _saveProtocol!.commit(values);
+        lastSaveResult = result;
+        if (!result.success) {
+          persistenceError = t['storageWriteError'];
+          if (!_disposed) notifyListeners();
+          _saveScheduled = false;
+          return;
+        }
+        _savedRevision = target;
+        _savedValues = values;
+        persistenceError = null;
+        if (!_disposed) notifyListeners();
+      }
+      _saveScheduled = false;
+    });
+  }
+
+  /// Waits for every commit already accepted by the store, including an
+  /// in-flight import, and reports the result of the most recent disk commit.
   Future<SaveResult> flush() async {
-    await _pendingWrites;
+    await _commitGate;
     return lastSaveResult;
   }
 

@@ -11,6 +11,11 @@ class ImportPlan {
   final AppSettings? settings;
   final AIConfig? aiConfig;
   final bool hasCredential;
+  /// Original payload the plan was inspected from, kept so a commit can
+  /// re-derive the plan against the live library. A preview is a snapshot of
+  /// an older state; replaying it blindly would drop commands accepted after
+  /// the preview. Shallow and unmodifiable: mutating it cannot change a plan.
+  final Map<String, dynamic>? payload;
   final int addedBoards;
   final int addedTasks;
   final int skipped;
@@ -28,6 +33,7 @@ class ImportPlan {
     this.settings,
     this.aiConfig,
     this.hasCredential = false,
+    this.payload,
     required this.addedBoards,
     required this.addedTasks,
     required this.skipped,
@@ -421,6 +427,7 @@ class ImportPreflight {
           (payload['aiConfig'] as Map<String, dynamic>).containsKey(
             'customApiKey',
           ),
+      payload: Map<String, dynamic>.unmodifiable(payload),
       addedBoards: addedBoards,
       addedTasks: addedTasks,
       skipped: skipped,
