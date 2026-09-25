@@ -32,7 +32,7 @@
 ## 3. 草稿、提交与释放规则
 
 - 草稿由 `TaskDetailPanel` 的 State 创建、在 `dispose()` 里 `TaskEditDraft.dispose()` 一次性释放三个 controller；切换任务走 `load()` 重用同一批 controller，与原来的 GlobalKey/身份行为一致。
-- 脏值判定、"哪些字段真的被改过"、子项合并（未动的行跟随 live 任务、动过的行保留编辑并捡回别人改过的其它字段）全部集中在 `TaskEditDraft`。写回仍由页面向导调用 `Store.updateTask(draft.applyTo(current))` 完成，草稿本身不碰 Store。
+- 脏值判定、"哪些字段真的被改过"、子项合并（未动的行跟随 live 任务、动过的行保留编辑并捡回别人改过的其它字段）全部集中在 `TaskEditDraft`。写回仍由详情面板调用 `Store.updateTask(draft.applyTo(current))` 完成，草稿对象本身不碰 Store。
 - 所有提交路径先看 IME 组字：详情保存（按钮与 Ctrl/Cmd+Enter）、新建输入面板提交、添加子项、子项对话框确认。中文输入过程中的 Ctrl+Enter 只结束组字，不会半截入库。
 - 子项对话框改为独立 widget：controller 在其 State 的 `dispose()` 释放；结果以 `SubTaskEditResult` 返回，取消不改草稿。
 - 异步释放规则统一为「代际 + 显式 `dispose()`/`close()`」：`ModelRequestSession.dispose()` 递增代际并取消在途请求后拒绝任何迟到回包；`SettingsBackupFlow.close()` 后不再开始也不再回报；拆解弹窗沿用 `_closed` + `AICancellation.cancel()`。
@@ -42,7 +42,7 @@
 - 搜索页与完成页的侧栏判定改为 `PlatformUiPolicy.canShowSideDetail(...)`，面板宽度取 `PlatformUiPolicy.sideDetailWidth`，与主界面同源（原先两处硬编码 `>= 900` 与 `width: 350`）。
   - 数值影响：350 与 `sideDetailWidth` 相同，面板宽度不变；断点由 900 变 924（=350+14+560），窗口宽度落在 900–924 之间时搜索/完成页由「并列侧栏」变为与主界面一致的「整页编辑器」。这是本包唯一可观察的行为变化，属于统一要求。
   - 分隔物保持各自原样：主界面仍是 14px 间距，搜索/完成页仍是原来的 1px `VerticalDivider`（`DetailSideBySide` 允许传入分隔件并保留各自的交叉轴对齐），未借统一之名重画。
-- 草稿退出规则统一为 `TaskDetailSession`：打开/切换前确认、面板自关时记账、Escape 与离开页面都走 `confirmLeave`；窄布局的模态编辑器由会话记录脏标记并在关闭时清零。
+- 草稿退出规则统一为 `TaskDetailSession`：打开与切换前确认、面板自行关闭时结算、Escape 与离开页面都走 `confirmLeave`；窄布局的模态编辑器由会话记录脏标记并在关闭时清零。
 - **返回拦截仍在详情面板自身的 `PopScope`**：三个页面共用同一份实现，页面不再各自加一层 `PopScope`。集成过程中验证过一次：给搜索/完成页再加页面级 `PopScope` 会让 `SR03 *back guards draft*` 出现两层确认对话框（`Expected: <1> Actual: <2>`），该加法已撤回。
 
 ## 5. 设置页请求与备份
@@ -61,6 +61,7 @@
 - 合并态默认 `flutter test --no-pub` **555/555**（接手基线 544/544 + 本包 11），`flutter analyze --no-pub` **0 issues**。
 - 相邻回归未改即通过：`os12_date_reminder_test`（日期/提醒选择窗口与取消语义，含子项与 composer）、`foundation_second_regression_test` 的 `SR03` 草稿保护、`foundation_regression_test` 的 `F01/F12` 切换保护与 `F03/R11` 子项反向合并、`os15_desktop_exit_test` 的组字退场、`os10/os11` 模型发现与协议能力、`os20_store_boundary_test`。
 - Windows Debug 目标设备集成测试 `flutter test --no-pub integration_test/app_test.dart` **2/2**；`flutter build windows --debug` 与 `flutter build apk --debug` 均构建成功。三者都跑在集成测试的 mock 平台边界与编译器上，不是真实设备操作。
+- 审查探针：`test/review/preopensource_review_probe.dart`（OS-R01…R07）**7/7** 与接手基线一致。`test/review/wp28_review_probe.dart` + `foundation_second_review_probe.dart` 在**接手基线上同样 13 红**（两次运行都是 `+14 -13`）——这些是不在默认套件里的历史反例探针，登记的事项属于其他/后续工作包，本包既没修好也没弄坏它们。
 
 ## 7. 留给集成人的越界事项
 
@@ -74,4 +75,4 @@
 - Android 与 Windows **设备/窗口人工验收未做**：快速切换详情、缩窄窗口、中文输入法 Ctrl+Enter、子项弹窗反复开关、设置页快速切换请求与导入向导，都只有 widget/mock 证据，不能代替真机触摸与真实 IME 行为。`adb devices` 本轮未接设备。
 - 真实 AI 厂商调用未测（无密钥，专项使用 gated `MockClient`）。导入/导出仍依赖 `file_picker` 平台通道，`SettingsBackupFlow` 的取消/失败路径未在真机上驱动，本包只测到结果类型与 Store 交互层。
 - `DetailSideBySide` 保留各页面原有分隔件与交叉轴对齐，因此「统一」限于宽度与断点，不包含视觉归一；如需彻底统一分隔表现，需要另外的 UI 决定（当前 UI 实验仍暂停）。
-- 提交顺序与本包四个原子步骤一一对应，逐步可审：拆除互引 → 共享日期 UI → 草稿/子项会话 → 页面详情会话 → 设置请求与备份协调（最后一步含新测试与本文档）。
+- 分支 `os21-page-coordination` 上共 6 个提交，与五个抽离步骤一一对应，逐步可审：拆除互引 → 共享日期 UI → 草稿与子项会话 → 页面详情会话 → 设置请求与备份协调 → 专项测试与本记录。哈希见本轮交接回复。
