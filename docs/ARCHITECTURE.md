@@ -1,6 +1,6 @@
 # 架构
 
-> **2026-09-25 当前覆盖：** OS01–OS17、OS19、OS24–OS26 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。平台未测项见 HANDOFF。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
+> **2026-09-25 当前覆盖：** OS01–OS20、OS23–OS26 已集成 main。OS24 固定 Flutter 3.32.8 stable / Dart 3.8.1（`D:\Dev_SDKs\Flutter_3.32.8`），原 `D:\Dev_SDKs\Flutter_SDK` 保留回退。平台未测项见 HANDOFF。旧 Web/v1 与旧包状态是历史说明。继续暂停 WP10/WP29/UI 实验。
 
 > 2026-09-20 更新：UX01–07 已实现。列表聚焦退出交叉（R1–R5）及淡出中切换视图卡住（S1）已修。自动化 359 项通过，双端实机未验；下一包 UX08（全路径验收）。下文旧包进度为历史，现状以 HANDOFF 与 UX 返修计划为准。
 
@@ -11,6 +11,14 @@ Windows runner 在 Flutter 与 Store 启动前用按用户 SID 命名的互斥�
 任务父子复选框、展开控件和设置颜色选择等使用至少 48dp 命中区，提供独立语义与键盘操作，视觉复选框尺寸保持 OS02 层级。自动化探针和 Windows 构建已过；Android 触摸、Windows Narrator 人工操作尚未测，详见 [OS19 记录](OS19_NOTES.md)。
 
 发行脚本和工作流核对版本、签名及产物清单；Android 正式包缺正式签名时拒绝，Windows 包按未签名披露。当前无 remote、正式 keystore 和设备升级证据，不能据本地构建宣称已经发行。许可证、历史秘密扫描与身份待决项见 [OS26 记录](OS26_NOTES.md)。
+
+## 当前字号、Store 与动效边界（OS18/OS20/OS23）
+
+应用字号由 `main.dart` 的 `MaterialApp.builder` 组合系统与应用 scaler 一次；设置页预览不再另乘应用字号。逐行划线的测量缓存以 `TextScaler` 对象为身份，临时 `TextPainter` 用后释放，象限标题测量也遵循此规则。平台真实非线性缩放与双端人工观感未测。
+
+`Store` 的任务和看板列表为不可修改的列表视图，`captureSnapshot()` 提供隔离的板、任务、配置和设置副本；设置页用 `copyAIConfig()` 复制单份配置草稿再提交。任务实体仍可变，调用者不可把从列表取得的任务直接改作持久化命令。移动、紧急重置和截止日期自动提升更新任务修订号，旧撤销不会覆盖之后的编辑。提醒与持久化由组合根注入 Store；同步 `importData` 仍保留给内部兼容调用。
+
+入场、几何、列表遮罩、引导、拖放回顶与退出的时长统一来自 `lib/ui/motion_policy.dart`。运行中打开减少动画时，正在执行的回顶或翻页跳到目标；手动滚动位置保持。动画中的中途切换已有 widget 回归，双端人工手感未测。
 
 ## 当前 Flutter 日期与提醒（OS12）
 
@@ -66,7 +74,7 @@ Flutter 使用 `ExportData` v2 JSON 默认导出，并通过 `DataMigrator` 读�
 
 `lib/save_protocol.dart` 将任务、板、AI 配置、设置、活跃板与 onboarding 状态合成带 revision/Adler-32 校验的完整快照，在两个 SharedPreferences 槽之间轮换，以指针为提交点。启动优先读取指针所指快照；旧键继续作为兼容镜像。提交前失败重启读取旧批次，提交后镜像失败重启读取新批次；指针或已提交槽损坏交 OS05 恢复页。`Store.flush` 返回 `SaveResult`，失败横幅可重试，成功清除错误。当前快照与镜像省略 API 密钥；升级前的旧槽须完成 OS09 迁移清理。SharedPreferences 返回成功并不等于抗强杀/掉电持久化，未验证平台文件系统或多实例竞争。
 
-`lib/import_preflight.dart` 统一设置页的 v1/v2 预检，文件最大 4 MiB、嵌套深度 12、最多 500 板/10000 任务/50000 子项。板/任务在各自域唯一，子项在同父任务唯一；相同记录可跳过，内容冲突拒绝或阻断；孤儿、空备份及缺省修复有预检结果。设置页预览新增/跳过/冲突/修复/警告与覆盖影响，确认后 `Store.applyImport` 先提交完整保存批次，再改内存并重排提醒；失败保留旧库。现存同步 `Store.importData` 只供内部兼容调用，虽共用预检仍是先更新内存后排队保存，产品文件导入不再调用它，待 OS20 移除。普通导出默认省略密钥；显式包含及导入凭据选择见 OS08/OS09 当前章节。
+`lib/import_preflight.dart` 统一设置页的 v1/v2 预检，文件最大 4 MiB、嵌套深度 12、最多 500 板/10000 任务/50000 子项。板/任务在各自域唯一，子项在同父任务唯一；相同记录可跳过，内容冲突拒绝或阻断；孤儿、空备份及缺省修复有预检结果。设置页预览新增/跳过/冲突/修复/警告与覆盖影响，确认后 `Store.applyImport` 先提交完整保存批次，再改内存并重排提醒；失败保留旧库。现存同步 `Store.importData` 只供内部兼容调用，虽共用预检仍是先更新内存后排队保存；产品文件导入不再调用它。普通导出默认省略密钥；显式包含及导入凭据选择见 OS08/OS09 当前章节。
 
 本文档描述 MatrixFlow AI 的代码结构与运行机制。当前代码基线：`main / 747eb35` + WP21-N + WP03-N + WP04-N + WP23-N + WP12-S-N + WP22-A-N + WP22-B-N + WP05-N + WP06-N + WP02-N + WP01-N + WP07-N + WP08-V-N + WP08-T-N + WP24-N + WP26-A-N + WP26-B-N-Windows + WP27-A-N。2026-09-09 路线已切换为 **Flutter Android/Windows 唯一持续开发客户端**，React/Tauri/Capacitor 冻结保留。本文的 React 结构与流程作为历史参考，不构成新增功能的双端同步要求。
 

@@ -846,6 +846,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     taskRevisions: Map.unmodifiable(Map<String, int>.from(_taskSeq)),
   );
 
+  /// Detached config draft for settings edits without mutating live state.
+  AIConfig copyAIConfig() => _copyConfig(aiConfig);
+
   /// Test setup that must not schedule reminders or bump revisions.
   @visibleForTesting
   void debugReplaceTasks(List<Task> next) {

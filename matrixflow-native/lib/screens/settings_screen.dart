@@ -195,6 +195,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  void _editAIConfig(Store store, void Function(AIConfig) edit) {
+    final next = store.copyAIConfig();
+    edit(next);
+    store.updateAIConfig(next);
+  }
+
   void _onProviderChanged(String newProvider, Store store) {
     _invalidateDisplayedDiscovery();
     final preset = getAIProviderPreset(newProvider);
@@ -203,16 +209,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _discoveryError = null;
     _customModelMode = false;
 
-    store.aiConfig.provider = newProvider;
-    store.aiConfig.apiKey = '';
+    final next = store.copyAIConfig();
+    next.provider = newProvider;
+    next.apiKey = '';
     if (!preset.isCustom) {
-      store.aiConfig.baseUrl = preset.defaultBaseUrl;
-      store.aiConfig.protocol = preset.defaultProtocol;
-      store.aiConfig.model = preset.defaultModel;
+      next.baseUrl = preset.defaultBaseUrl;
+      next.protocol = preset.defaultProtocol;
+      next.model = preset.defaultModel;
       _baseUrlController.text = preset.defaultBaseUrl;
       _modelController.text = preset.defaultModel;
     }
-    store.updateAIConfig(store.aiConfig);
+    store.updateAIConfig(next);
 
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -260,7 +267,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final generation = ++_discoveryGeneration;
     _attemptedIdentity = identity;
     _requestedIdentity = identity;
-    final snapshot = AIConfig.fromJson(store.aiConfig.toJson());
+    final snapshot = store.copyAIConfig();
     _flightFingerprint = _discoveryFingerprint(snapshot);
     final modelAtStart = snapshot.model;
 
@@ -297,9 +304,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             models,
             currentModel: store.aiConfig.model,
           );
-          store.aiConfig.model = best;
           _modelController.text = best;
-          store.updateAIConfig(store.aiConfig);
+          _editAIConfig(store, (config) => config.model = best);
           _customModelMode = false;
         } else {
           _customModelMode = false;
@@ -602,7 +608,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               controller: _apiKeyController,
               onSubmitted: (_) => _commitDiscovery(store),
               onChanged: (v) {
-                store.updateAIConfig(store.aiConfig..apiKey = v);
+                _editAIConfig(store, (config) => config.apiKey = v);
                 _onCredentialOrEndpointChanged(store);
               },
             ),
@@ -701,7 +707,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     });
                   } else if (val != null) {
                     _modelController.text = val;
-                    store.updateAIConfig(store.aiConfig..model = val);
+                    _editAIConfig(store, (config) => config.model = val);
                   }
                 },
               ),
@@ -730,7 +736,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 controller: _modelController,
                 onChanged: (v) {
-                  store.updateAIConfig(store.aiConfig..model = v);
+                  _editAIConfig(store, (config) => config.model = v);
                 },
               ),
             ],
@@ -752,8 +758,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 value: store.aiConfig.enableThinking,
                 onChanged:
-                    (v) => store.updateAIConfig(
-                      store.aiConfig..enableThinking = v,
+                    (v) => _editAIConfig(
+                      store,
+                      (config) => config.enableThinking = v,
                     ),
               ),
             ],
@@ -788,7 +795,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: store.aiConfig.protocol,
                 onChanged: (value) {
                   if (value != null && value != store.aiConfig.protocol) {
-                    store.updateAIConfig(store.aiConfig..protocol = value);
+                    _editAIConfig(store, (config) => config.protocol = value);
                     _invalidateDisplayedDiscovery();
                     setState(() {});
                   }
@@ -808,7 +815,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: _baseUrlController,
                 onSubmitted: (_) => _commitDiscovery(store),
                 onChanged: (v) {
-                  store.updateAIConfig(store.aiConfig..baseUrl = v);
+                  _editAIConfig(store, (config) => config.baseUrl = v);
                   _onCredentialOrEndpointChanged(store);
                 },
               ),
@@ -848,7 +855,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       controller: _baseUrlController,
                       onSubmitted: (_) => _commitDiscovery(store),
                       onChanged: (v) {
-                        store.updateAIConfig(store.aiConfig..baseUrl = v);
+                        _editAIConfig(store, (config) => config.baseUrl = v);
                         _onCredentialOrEndpointChanged(store);
                       },
                     ),

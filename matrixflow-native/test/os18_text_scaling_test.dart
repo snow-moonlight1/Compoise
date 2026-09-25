@@ -203,7 +203,7 @@ void main() {
             settings: AppSettings()..fontSize = entry.key,
             systemScaler: TextScaler.linear(system),
           );
-    
+
           final title = tester
               .getSize(find.byKey(const ValueKey('font-preview-title')))
               .width;
@@ -275,7 +275,7 @@ void main() {
           settings: AppSettings()..fontSize = pref,
           systemScaler: const TextScaler.linear(1.25),
         );
-  
+
         // Both lines declare an explicit height, so their boxes are a direct
         // read-out of the effective font size: 16 x 1.35 against 14 x 1.4.
         final title = tester

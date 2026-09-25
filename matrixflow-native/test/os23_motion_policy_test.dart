@@ -167,6 +167,32 @@ void main() {
   );
 
   testWidgets(
+    'OS23: page turn still snaps after the destination crosses center',
+    (tester) async {
+      final (store, _) = await makeStore(
+        settings: AppSettings()..reduceMotion = false,
+      );
+      await tester.pumpWidget(wrapOnboarding(store));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 190));
+      final pageView = tester.widget<PageView>(find.byType(PageView));
+      expect(pageView.controller!.page, greaterThan(0.5));
+      expect(pageView.controller!.page, lessThan(1));
+
+      store.updateSettings((s) => s..reduceMotion = true);
+      await tester.pump();
+      await tester.pump();
+      expect(pageView.controller!.page, 1);
+
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
+
+  testWidgets(
     'OS23: dropped task jumps a scrolled pane to top at once under reduce motion',
     (tester) async {
       setViewport(tester, const Size(600, 700));
@@ -243,6 +269,38 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
 
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
+
+  testWidgets(
+    'OS23: reduce motion preserves a manually scrolled pane',
+    (tester) async {
+      setViewport(tester, const Size(600, 700));
+      final (store, _) = await makeStore(
+        settings: AppSettings()..reduceMotion = false,
+      );
+      await seedMatrix(store);
+      await tester.pumpWidget(wrapMatrix(store));
+      await tester.pumpAndSettle();
+
+      final q1List = find.byKey(PageStorageKey('${store.activeBoardId}-$qDo'));
+      await tester.drag(q1List, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: q1List, matching: find.byType(Scrollable)),
+      );
+      final offset = scrollable.position.pixels;
+      expect(offset, greaterThan(100));
+
+      store.updateSettings((s) => s..reduceMotion = true);
+      await tester.pump();
+      await tester.pump();
+      expect(scrollable.position.pixels, offset);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
       store.dispose();
     },

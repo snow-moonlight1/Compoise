@@ -1,5 +1,12 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前状态：OS18、OS20、OS23 合入 main（2026-09-25）
+
+- 接手基线 `0f5e4f62b4d4fc6a7dcb2440dd12e540dcd4196d`，主工作区干净。三包从同一基线开发、产品文件不重叠；依次合入 OS20 `f774063af990164fa6c3ba9bcbb232f976b268ed`、OS18 `7aa9e5132bb5aac62bbf53bf9012659020542cff`、OS23 `7db940cc9364fd782a8c962a6c7bd18d15f351a6` 和补丁 `c983cde0ecb1fe0539af7bbd266dbbb70ce310e4`。main 对应 cherry-pick 为 `8827f57`、`c06fdc8`、`85a3354`、`2ed10bc`；最终集成提交完整哈希见本轮交接回复。原 OS18 worktree 的三个未提交 Windows 生成文件只有行尾差异，保留在原工作树；主线未纳入。
+- OS18 修正设置字号预览重复缩放、划线在非线性 scaler 下的缓存与测量；OS20 修正任务修订和命令入口、提供隔离快照与可注入持久化/提醒服务；OS23 统一动效时长并处理运行中切换减少动画。集成审查补上设置页配置草稿入口、象限标题 painter 释放，并修正手动滚动误回顶和引导页动画过半后目标丢失，新增两条回归。旧同步 `importData` 仍仅供内部兼容调用；`Task` 元素仍可变，OS21/OS22 应按现有边界演进。细节见 OS18/OS20/OS23 独立记录。
+- 固定 Flutter 3.32.8 的合并态专项（凭据、模型发现、协议、Store、动效）**54/54**，默认 `flutter test --no-pub` **544/544**，`flutter analyze --no-pub` **0 issues**；Windows Debug mock 集成 **2/2** 并成功构建，Windows Release 和 Android debug APK 构建成功。Android `adb devices` 无连接设备。双端真实字号/动效手感、Android 触摸及 Windows 键盘/焦点人工操作未测，不以 widget/mock 代替。
+- **下一波可并行两个完整包，须从本轮最终 main 同一提交各建独立 worktree：** A=OS21，独占 `settings_screen.dart`、`input_sheet.dart`、`task_detail_panel.dart`、搜索/完成页、共享日期 UI 和所需 `matrix_screen.dart` 编排；B=OS22，独占 `storage.dart`、`task_query.dart`、`quadrant_pane.dart`、`task_list_view.dart` 与合成性能工具。A 不改 Store、列表 widget 或性能工具；B 不改设置/编辑页、`matrix_screen.dart`、引导与三语文案。任一包需要越界接口时记在各自 `docs/OS21_NOTES.md`/`OS22_NOTES.md`，由集成人合并；公共 AGENTS、HANDOFF、ARCHITECTURE、CHANGELOG、计划也由集成人统一更新。OS22 先测 1k/10k 合成任务的 profile/release 帧与内存，证据不足可作有据延期，不用 debug 单测耗时冒充设备帧。OS27 等 OS21/OS22 的完成或延期结论后再整体实施。OS26 正式签名、托管发布与升级证据仍待持有人；继续暂停 WP10/WP29/UI 实验及冻结 Web/Tauri/Capacitor。
+
 ## 当前状态：OS16、OS19、OS26 合入 main（2026-09-25）
 
 - 接手基线 `0aec23f176a15eae398dbf292086e6827cea74da`，主工作区原本干净。三条独立分支从该基线出发，合入 OS16 `b0cb29ff6ffb5432797475aa4db705108bcca7c9`、OS19 `020d293d5cc10e3a87fd661bf0a0c241222c2173`、OS26 `b9f1400` 与 `d1892ae`，代码无冲突。OS19 工作树的三个未提交 Windows 生成文件保留原样、未纳入主线。集成修正 OS26 的两处 EOF 空行，并校正发行计划的字体许可、产物名及就绪状态。

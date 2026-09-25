@@ -407,8 +407,13 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
         maxLines: 2,
         textDirection: TextDirection.ltr,
         textScaler: scaler,
-      )..layout(maxWidth: titleW);
-      maxTitleH = math.max(maxTitleH, painter.height);
+      );
+      try {
+        painter.layout(maxWidth: titleW);
+        maxTitleH = math.max(maxTitleH, painter.height);
+      } finally {
+        painter.dispose();
+      }
     }
     // dot/count row (16) + gap (3) + title + vertical padding (12).
     return math.max(48.0, 31.0 + maxTitleH);

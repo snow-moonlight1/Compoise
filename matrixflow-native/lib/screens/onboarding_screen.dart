@@ -24,6 +24,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   /// on mid-slide can jump straight to the intended slide instead of waiting
   /// for the ~300ms turn to finish.
   int? _turnTarget;
+  int _turnGeneration = 0;
   static const int _pageCount = 5;
 
   @override
@@ -40,6 +41,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _goToPage(int target) {
+    final generation = ++_turnGeneration;
     _turnTarget = target;
     // Under reduced motion the tutorial flips to the slide instead of sliding
     // across it; both the Next button and arrow keys share this path.
@@ -52,7 +54,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         target,
         duration: MotionPolicy.pageTurn,
         curve: Curves.easeInOut,
-      );
+      ).whenComplete(() {
+        if (generation == _turnGeneration) _turnTarget = null;
+      });
     }
   }
 
@@ -63,8 +67,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // sliding: jump to the intended slide on the next frame.
     final target = _turnTarget;
     if (target != null && MotionPolicy.reduceMotionOf(context)) {
+      final generation = _turnGeneration;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted ||
+            generation != _turnGeneration ||
+            _turnTarget != target ||
+            !MotionPolicy.reduceMotionNow(context)) {
+          return;
+        }
+        _turnGeneration++;
         _pageController.jumpToPage(target);
         _turnTarget = null;
       });
@@ -148,10 +159,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Expanded(
                   child: PageView(
                     controller: _pageController,
-                    onPageChanged: (index) => setState(() {
-                      _currentPage = index;
-                      _turnTarget = null;
-                    }),
+                    onPageChanged: (index) =>
+                        setState(() => _currentPage = index),
                     children: [
                       _buildSlide(
                         context,

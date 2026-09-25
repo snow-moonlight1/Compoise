@@ -1,5 +1,7 @@
 # OS18 记录 — 单次字号缩放与文本测量
 
+> main 集成补记（2026-09-25）：OS23 的 `quadrant_transition_layout.dart` 标题测量 painter 已在集成修正中释放；本文件第 6 节记录的是独立分支当时的跨包缺口。
+
 ## 1. 接手与边界
 
 - 基线：`main / 0f5e4f62b4d4fc6a7dcb2440dd12e540dcd4196d`，接手时主工作区干净。独立 worktree `D:\Dev_project\martix-wt-os18`，分支 `codex/os18`。
