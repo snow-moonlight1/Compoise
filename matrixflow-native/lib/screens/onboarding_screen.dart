@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../quadrant.dart';
 import '../storage.dart';
+import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -33,12 +34,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     Navigator.of(context).pop();
   }
 
-  void _nextPage() {
-    if (_currentPage < _pageCount - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
+  void _goToPage(int target) {
+    // Under reduced motion the tutorial flips to the slide instead of sliding
+    // across it; both the Next button and arrow keys share this path.
+    if (MotionPolicy.reduceMotionNow(context)) {
+      setState(() => _currentPage = target);
+      _pageController.jumpToPage(target);
+    } else {
+      _pageController.animateToPage(
+        target,
+        duration: MotionPolicy.pageTurn,
         curve: Curves.easeInOut,
       );
+    }
+  }
+
+  void _nextPage() {
+    if (_currentPage < _pageCount - 1) {
+      _goToPage(_currentPage + 1);
     } else {
       _finish();
     }
@@ -46,10 +59,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _prevPage() {
     if (_currentPage > 0) {
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      _goToPage(_currentPage - 1);
     }
   }
 

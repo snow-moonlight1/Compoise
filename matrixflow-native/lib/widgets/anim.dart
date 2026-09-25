@@ -16,8 +16,10 @@ class StaggerIn extends StatefulWidget {
 }
 
 class _StaggerInState extends State<StaggerIn> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: MotionPolicy.entranceFade,
+  );
   late final Animation<double> _fade =
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
 
@@ -55,6 +57,13 @@ class _StaggerInState extends State<StaggerIn> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    // Reduced motion switched on while the stagger delay / fade is still
+    // running: land on the fully-visible terminal frame instead of waiting out
+    // the remaining entrance. The one-shot nature is preserved (we never
+    // re-forward once completed).
+    if (MotionPolicy.reduceMotionOf(context) && !_controller.isCompleted) {
+      _controller.value = 1;
+    }
     return AnimatedBuilder(
       animation: _fade,
       builder: (context, child) => Opacity(

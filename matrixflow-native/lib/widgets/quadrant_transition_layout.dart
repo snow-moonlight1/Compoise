@@ -75,11 +75,6 @@ class QuadrantTransitionLayout extends StatefulWidget {
   final bool fadeOutOnly;
   final VoidCallback? onFadeOutDone;
 
-  static const Duration enterDuration = Duration(milliseconds: 320);
-  static const Duration switchDuration = Duration(milliseconds: 300);
-  static const Duration exitDuration = Duration(milliseconds: 280);
-  static const Duration listFadeDuration = Duration(milliseconds: 220);
-
   @override
   State<QuadrantTransitionLayout> createState() =>
       _QuadrantTransitionLayoutState();
@@ -93,7 +88,7 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
   )..addStatusListener(_onGeometryStatus);
   late final AnimationController _listFade = AnimationController(
     vsync: this,
-    duration: QuadrantTransitionLayout.listFadeDuration,
+    duration: MotionPolicy.listFade,
     value:
         _inListMode && widget.focusedQuadrant != null && !widget.fadeOutOnly
             ? 0
@@ -246,9 +241,9 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
   }
 
   Duration _durationFor(int? from, int? to) {
-    if (to == null) return QuadrantTransitionLayout.exitDuration;
-    if (from == null) return QuadrantTransitionLayout.enterDuration;
-    return QuadrantTransitionLayout.switchDuration;
+    if (to == null) return MotionPolicy.geometryExit;
+    if (from == null) return MotionPolicy.geometryEnter;
+    return MotionPolicy.geometrySwitch;
   }
 
   double _paneOpacityFor(int? state, int q) =>
@@ -429,14 +424,28 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
             ? const Color(0xFFD5DAE1)
             : theme.colorScheme.outlineVariant;
 
-    if (MotionPolicy.reduceMotionOf(context) && _geometry.isAnimating) {
-      _geometry
-        ..stop()
-        ..value = 1;
-      _frozenRelFrom = null;
-      _frozenFromBlend = null;
-      _frozenPaneOpacity = null;
-      _fromState = _toState;
+    final reduceMotion = MotionPolicy.reduceMotionOf(context);
+    if (reduceMotion) {
+      // Reduce motion switched on mid-transition: bake the geometry terminal
+      // immediately instead of letting the retarget animation finish.
+      if (_geometry.isAnimating) {
+        _geometry
+          ..stop()
+          ..value = 1;
+        _frozenRelFrom = null;
+        _frozenFromBlend = null;
+        _frozenPaneOpacity = null;
+        _fromState = _toState;
+      }
+      // The list-mode overlay fades on its own controller; reconcile it too so
+      // a runtime toggle does not leave the overlay fading for another ~220ms.
+      final listTerminal = widget.fadeOutOnly ? 0.0 : 1.0;
+      if (_listFade.value != listTerminal) {
+        _listFade
+          ..stop()
+          ..value = listTerminal;
+        if (widget.fadeOutOnly) _scheduleFadeOutDone();
+      }
     }
 
     return AnimatedBuilder(

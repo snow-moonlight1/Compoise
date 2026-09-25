@@ -75,9 +75,9 @@ class TaskCard extends StatelessWidget {
         direction:
             selecting ? DismissDirection.none : DismissDirection.horizontal,
         movementDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+            reduceMotion ? Duration.zero : MotionPolicy.dismissible,
         resizeDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+            reduceMotion ? Duration.zero : MotionPolicy.dismissible,
         background: _buildSwipeBackground(
           context: context,
           alignment: Alignment.centerLeft,

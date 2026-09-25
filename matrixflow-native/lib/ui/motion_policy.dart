@@ -24,6 +24,36 @@ class MotionPolicy {
   /// Entrance stagger step used by [StaggerIn].
   static const Duration entranceStep = Duration(milliseconds: 45);
 
+  /// Fade + slide-up duration of one [StaggerIn] row (the stagger delay
+  /// between rows is [entranceStep]).
+  static const Duration entranceFade = Duration(milliseconds: 260);
+
+  /// UX07 continuous-geometry transition: matrix -> focused quadrant.
+  static const Duration geometryEnter = Duration(milliseconds: 320);
+
+  /// UX07 continuous-geometry transition: retargeting to another quadrant.
+  static const Duration geometrySwitch = Duration(milliseconds: 300);
+
+  /// UX07 continuous-geometry transition: focused quadrant -> matrix.
+  static const Duration geometryExit = Duration(milliseconds: 280);
+
+  /// Fade of the list-mode focus overlay enter/exit.
+  static const Duration listFade = Duration(milliseconds: 220);
+
+  /// Animated scroll-to-top after a task is dropped into a quadrant.
+  static const Duration scrollToTop = Duration(milliseconds: 250);
+
+  /// Onboarding page turn between tutorial slides.
+  static const Duration pageTurn = Duration(milliseconds: 300);
+
+  /// Dismissible swipe movement / resize when completing or deleting a card.
+  static const Duration dismissible = Duration(milliseconds: 200);
+
+  /// Drag-target hover tint on a quadrant/list section. Deliberately kept
+  /// animated even under reduce motion: it is a local pointer affordance that
+  /// never gates hit testing or focus, and is outside the OS23 transition set.
+  static const Duration hoverHighlight = Duration(milliseconds: 180);
+
   /// Reads the policy and rebuilds the caller when the app setting changes.
   static bool reduceMotionOf(BuildContext context) {
     if (_systemRequestsReducedMotion(context)) return true;

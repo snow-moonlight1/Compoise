@@ -160,7 +160,7 @@ class _TaskListViewState extends State<TaskListView> {
         final highlighted = isHovered || candidate.isNotEmpty;
 
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: MotionPolicy.hoverHighlight,
           curve: Curves.easeOut,
           decoration: BoxDecoration(
             color:

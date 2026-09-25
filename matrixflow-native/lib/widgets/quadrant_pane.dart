@@ -72,11 +72,20 @@ class _QuadrantPaneState extends State<QuadrantPane> {
   }
 
   void _scrollToTopIfNeeded() {
+    // Decide reduce-motion at the drop: under reduced motion the list jumps to
+    // the top instead of tweening, so moving a task never leaves a long scroll
+    // animation running.
+    final reduce = MotionPolicy.reduceMotionNow(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients && _scrollController.offset > 0) {
+      if (!_scrollController.hasClients || _scrollController.offset <= 0) {
+        return;
+      }
+      if (reduce) {
+        _scrollController.jumpTo(0);
+      } else {
         _scrollController.animateTo(
           0,
-          duration: const Duration(milliseconds: 250),
+          duration: MotionPolicy.scrollToTop,
           curve: Curves.easeOut,
         );
       }
@@ -161,7 +170,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       builder: (context, candidate, _) {
         final highlighted = _hovering || candidate.isNotEmpty;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: MotionPolicy.hoverHighlight,
           curve: Curves.easeOut,
           decoration: BoxDecoration(
             color:
