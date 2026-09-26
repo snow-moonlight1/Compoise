@@ -67,11 +67,11 @@ class SaveProtocol {
     }.every(values.containsKey)) {
       throw const FormatException('Incomplete committed batch');
     }
-    final body = jsonEncode({
-      'revision': decoded['revision'],
-      'values': values,
-    });
-    if (_checksum(body) != decoded['check']) {
+    // The reader re-frames the body from the same two pieces the writer used,
+    // so a library an older build wrote still verifies here.
+    final valuesJson = jsonEncode(values);
+    final prefix = _bodyPrefix(decoded['revision']);
+    if (_bodyChecksum(prefix, valuesJson) != decoded['check']) {
       throw const FormatException('Committed batch checksum failed');
     }
     _activeSlot = pointer;
@@ -96,12 +96,15 @@ class SaveProtocol {
   Future<SaveResult> _commitOnce(Map<String, String> values) async {
     final next = revision + 1;
     final slot = _activeSlot == _slotA ? _slotB : _slotA;
-    final body = jsonEncode({'revision': next, 'values': values});
-    final payload = jsonEncode({
-      'revision': next,
-      'values': values,
-      'check': _checksum(body),
-    });
+    // The library is encoded once. The body is never materialised: the payload
+    // is its two pieces plus the check, and the check sums the same bytes.
+    final valuesJson = jsonEncode(values);
+    final prefix = _bodyPrefix(next);
+    final payload = _bodyPayload(
+      prefix,
+      valuesJson,
+      _bodyChecksum(prefix, valuesJson),
+    );
     try {
       if (!await _set(slot, payload)) return SaveResult(false, next);
       if (!await _set(pointerKey, slot)) {
@@ -148,15 +151,14 @@ class SaveProtocol {
         if (!config.containsKey('customApiKey')) continue;
         config.remove('customApiKey');
         values['matrixflow-config'] = jsonEncode(config);
-        final body = jsonEncode({
-          'revision': batch['revision'],
-          'values': values,
-        });
-        updated = jsonEncode({
-          'revision': batch['revision'],
-          'values': values,
-          'check': _checksum(body),
-        });
+        // Same framing helper as the writer, so a rewritten slot still loads.
+        final valuesJson = jsonEncode(values);
+        final prefix = _bodyPrefix(batch['revision']);
+        updated = _bodyPayload(
+          prefix,
+          valuesJson,
+          _bodyChecksum(prefix, valuesJson),
+        );
       } catch (_) {
         // An uncommitted damaged slot cannot be used for recovery. Keep the
         // committed slot, but remove this copy in case it contains plaintext.
@@ -201,13 +203,39 @@ class SaveProtocol {
     return true;
   }
 
-  static int _checksum(String value) {
+  /// The framing in front of the encoded values map: `{"revision":N,"values":`.
+  ///
+  /// `revision` stays loosely typed because `scrubCredentials` re-frames
+  /// whatever the stored batch holds; `jsonEncode` renders it exactly the way
+  /// the map literal this replaced did.
+  static String _bodyPrefix(Object? revision) =>
+      '{"revision":${jsonEncode(revision)},"values":';
+
+  /// The committed payload: the body plus `,"check":N}`.
+  static String _bodyPayload(String prefix, String valuesJson, int check) =>
+      '$prefix$valuesJson,"check":$check}';
+
+  /// Adler-32 over the UTF-8 bytes of the committed body, which is exactly
+  /// `prefix + valuesJson + '}'`.
+  ///
+  /// [load], [_commitOnce] and [scrubCredentials] all call this one helper: if
+  /// any of them framed or summed differently, a library an older build wrote
+  /// would be reported as damaged. The pieces are fed in order, so the
+  /// whole-library values string is turned into UTF-8 once and is never
+  /// concatenated into a second copy of the payload.
+  static int _bodyChecksum(String prefix, String valuesJson) {
     var a = 1;
     var b = 0;
-    for (final byte in utf8.encode(value)) {
-      a = (a + byte) % 65521;
-      b = (b + a) % 65521;
+    void feed(String text) {
+      for (final byte in utf8.encode(text)) {
+        a = (a + byte) % 65521;
+        b = (b + a) % 65521;
+      }
     }
+
+    feed(prefix);
+    feed(valuesJson);
+    feed('}');
     return (b << 16) | a;
   }
 }

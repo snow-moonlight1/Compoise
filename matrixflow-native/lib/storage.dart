@@ -589,13 +589,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   void completeOnboarding() {
     hasSeenOnboarding = true;
-    _write(_kHasSeenOnboarding, 'true');
+    _markDirty();
     notifyListeners();
   }
 
   void resetOnboardingForTest() {
     hasSeenOnboarding = false;
-    _write(_kHasSeenOnboarding, 'false');
+    _markDirty();
     notifyListeners();
   }
 
@@ -1924,7 +1924,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     return response.future;
   }
 
-  void _write(String key, String value) {
+  /// Records that live state changed and queues a commit. It used to take the
+  /// key and its encoded value, which nothing read: `_snapshotValues()` re-derives
+  /// every persisted key when the queued commit runs, so encoding here only made
+  /// the caller pay for a whole-library `jsonEncode` that was then discarded
+  /// (RF09 C1, docs/RF09_SERIALIZATION_NOTES.md).
+  void _markDirty() {
     if (!ready || _disposed || hasStartupRecovery || credentialError != null) {
       return;
     }
@@ -2004,7 +2009,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (!await retryCredential()) return flush();
     }
     _savedRevision = _dirtyRevision;
-    _write(_kTasks, '');
+    // Retry means "write the current state again", so it has to make the store
+    // dirty even when no command changed anything since the last batch.
+    _markDirty();
     // A credential retry can queue reminder work, so the ledger barrier is
     // re-checked here instead of trusting the pass above.
     return flush(includeReminderLedger: includeReminderLedger);
@@ -2045,16 +2052,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _kHasSeenOnboarding: hasSeenOnboarding.toString(),
   };
 
-  void _saveTasks() =>
-      _write(_kTasks, jsonEncode(tasks.map((t) => t.toJson()).toList()));
-  void _saveBoardsMeta() {
-    _write(_kBoards, jsonEncode(boards.map((b) => b.toJson()).toList()));
-    _write(_kActiveBoard, activeBoardId);
-  }
+  // Each of these marks one accepted mutation dirty. They keep their names
+  // because callers read them as the per-domain save command, and one bump is
+  // enough: the queued commit re-derives all six persisted keys together.
+  void _saveTasks() => _markDirty();
 
-  void _saveConfig() =>
-      _write(_kConfig, jsonEncode(aiConfig.toJson(includeCredential: false)));
-  void _saveSettings() => _write(_kSettings, jsonEncode(settings.toJson()));
+  void _saveBoardsMeta() => _markDirty();
+
+  void _saveConfig() => _markDirty();
+
+  void _saveSettings() => _markDirty();
 
   List<Locale> _resolvePlatformLocales() {
     try {
