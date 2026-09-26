@@ -15,6 +15,7 @@
 - RF10 在 Android 16 原机与 Android 15 模拟器均验证隔离 Release 包的**单文件** SAF 保存、真实字节落盘与导入。原机导入两条合成任务后强停重启读回成功。此前 A6 “点按无反应”主要是坐标未命中，也可由凭据模态框的屏障点按取消复现；并非已证实的源码缺陷。原机用户应用 `com.matrixflow.app` 未被覆盖，测试包 `com.matrixflow.rf10saf` 已卸载，相关合成文件已删除。Android 多卷 SAF、真实 IME、凭据跨重启及 Windows 原生文件对话框仍未测。设备的 `wm size 1080x2400` / `wm density 420` 覆盖为更早阶段遗留，本轮未重置。
 - 已从集成主线 `3d784df` 的 `git archive` 在仓库外构建 Android Release 测试包，仅在构建副本修改 `applicationId` 为 `com.matrixflow.review0926`、应用名为“MatrixFlow 测试 0926”。APK：`D:\Dev_project\matrixflow-review-3d784df-20260926.apk`，59,338,152 bytes，SHA-256 `7E7889BE5667926972B5870378303256AA808CC824A4470F384A18494EF0D36F`。`aapt` 已核对包名/入口，`apksigner` 已核对开发签名；这不是 OS26 正式发行签名。
 - `adb -s 87d18604 install -r` 返回 `Success`，`pm path` 确认测试包与原有 `com.matrixflow.app` 同时安装，`am start` 后 `pidof` 返回进程。用户可从“MatrixFlow 测试 0926”图标开始手工验收；测试包使用独立空数据区，未覆盖正式应用或其数据。安装/启动检查不等于 Android SAF 多卷、真实 IME、凭据跨重启及提醒送达通过。
+- 导入目标修复后的测试包已从 `4ed54d7` 构建完成：[matrixflow-review-4ed54d7-20260926.apk](D:\Dev_project\matrixflow-review-4ed54d7-20260926.apk)，59,338,138 bytes，SHA-256 `70BA43B5E98205D5820B6295A72ACEE4CD31C32C863D6D1B4D24B8BB15D19B9C`，包名仍为 `com.matrixflow.review0926`。构建时设备已从 adb 列表掉线，尚未安装这份新包；重新连接 `87d18604` 后执行 `adb install -r`，不清除测试数据或正式应用。
 
 ## 当前状态：RF04 超计数、RF08 提示、RF09 C1/C2、RF10 退出防护集成（2026-09-26）
 
