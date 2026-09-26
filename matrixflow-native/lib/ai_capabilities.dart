@@ -47,8 +47,9 @@ class ThinkingPlan {
 ///   no thinking field and reports that the model cannot be switched off.
 /// - `claude-sonnet-5`, `claude-opus-5`, `claude-opus-4-6/4-7/4-8`,
 ///   `claude-sonnet-4-6`: `thinking: {type: "adaptive"}` plus
-///   `output_config.effort`; off omits both, because `disabled` is documented
-///   as rejected for this generation.
+///   `output_config.effort`. Sonnet 5 accepts `disabled`; Opus 5 accepts it at
+///   effort high or below. These two use explicit `disabled` when off. On the
+///   4.x models, omission leaves thinking off.
 /// - `claude-3-7-sonnet*`, `claude-3-5-*`, `claude-*-4`, `claude-*-4-5`: manual
 ///   extended thinking, which is opt-in. On sends `enabled` with a
 ///   `budget_tokens` inside the documented `>= 1024` and `< max_tokens` window;
@@ -70,6 +71,8 @@ class ThinkingPlan {
 /// - https://api-docs.deepseek.com/quick_start/pricing
 /// - https://platform.claude.com/docs/en/about-claude/models/overview
 /// - https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+/// - https://platform.claude.com/docs/en/build-with-claude/thinking
+/// - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5
 /// - https://platform.claude.com/docs/en/build-with-claude/effort
 /// - https://platform.claude.com/docs/en/models/fable-5-1/migration-guide
 /// - https://platform.claude.com/docs/en/api/messages
@@ -188,13 +191,17 @@ ThinkingPlan _responses(AIConfig config, String model) {
 const _anthropicAlwaysOn = ['claude-fable-5', 'claude-mythos-5', 'claude-opus-5-5'];
 
 const _anthropicAdaptive = [
-  'claude-sonnet-5',
-  'claude-opus-5',
   'claude-opus-4-8',
   'claude-opus-4-7',
   'claude-opus-4-6',
   'claude-sonnet-4-6',
 ];
+
+/// Only these documented 5.0 models (and dated snapshots) have an explicit
+/// off switch. Do not infer the same for 5.5 or a future minor version.
+final _anthropicExplicitOff = RegExp(
+  r'^claude-(sonnet|opus)-5(-\d{8})?$',
+);
 
 const _anthropicManual = [
   'claude-3-7-sonnet',
@@ -230,6 +237,20 @@ ThinkingPlan _anthropic(AIConfig config, String model) {
     }
     return const ThinkingPlan(hintCode: 'aiThinkingAlwaysOn');
   }
+  if (_anthropicExplicitOff.hasMatch(id)) {
+    return config.enableThinking
+        ? const ThinkingPlan(
+          fields: {
+            'thinking': {'type': 'adaptive'},
+            'output_config': {'effort': 'high'},
+          },
+        )
+        : const ThinkingPlan(
+          fields: {
+            'thinking': {'type': 'disabled'},
+          },
+        );
+  }
   if (_idMatchesAny(id, _anthropicAdaptive)) {
     if (config.enableThinking) {
       return const ThinkingPlan(
@@ -239,7 +260,8 @@ ThinkingPlan _anthropic(AIConfig config, String model) {
         },
       );
     }
-    return const ThinkingPlan(hintCode: 'aiThinkingNotForciblyOff');
+    // On these 4.x models, thinking is opt-in; omission is the documented off.
+    return const ThinkingPlan();
   }
   if (_idMatchesAny(id, _anthropicManual)) {
     // Extended thinking is opt-in, so leaving it out is the documented off.

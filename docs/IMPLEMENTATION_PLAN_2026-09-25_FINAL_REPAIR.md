@@ -19,7 +19,7 @@ RF01 已确认是 Debug 与 Release 构建模式差异并关闭，不再派发�
 | RF01 | Android Release 聚焦体验验收，必要时定位 | 用户首要 / P2 | 无 | **已完成**：用户确认 Release 正常，Debug 卡顿归因构建模式；无源码修复 |
 | RF02 | 导入与普通命令共享一致的提交顺序 | P1 | 无 | **源码已集成**：RF-R01 转绿；默认回归 18 项；设备未测 |
 | RF03 | 凭据最后意图、保存结果与退出 barrier | P1 | RF02 | **源码已集成**：RF-R02/03 转绿；默认回归 13 项；RF10 双端定向未测 |
-| RF04 | 自身备份必须可恢复 | P1 | RF02 | **源码已集成**：RF-R04 转绿；默认回归 9 项；设备未测 |
+| RF04 | 自身备份必须可恢复 | P1 | RF02 | **受支持计数内源码已集成**：RF-R04 转绿；默认回归 10 项（含跨 RF03 验证）；超计数历史库残余见 HANDOFF；设备未测 |
 | RF05 | AI 连接/生成请求失效后释放忙碌状态 | P2 | 无 | **源码已集成**：RF-R06 转绿；默认回归 21 项；真机未测 |
 | RF06 | 模型版本及端点的准确能力规则 | P2 | RF05 接口稳定 | **源码已集成**：RF-R07 转绿；新增默认回归 35 项；真实厂商调用未测 |
 | RF07 | IME 与未提交子项草稿生命周期 | P2 | 无 | **源码已集成**：RF-R05 转绿；默认回归 22 项；双端 IME 人工未测 |
@@ -89,7 +89,7 @@ RF01 已确认是 Debug 与 Release 构建模式差异并关闭，不再派发�
 
 1. Responses：`reasoning.effort=none` 只发给文档列出 none 的版本（`gpt-5.1`、`gpt-5.5`、`gpt-5.6`、`gpt-6-sol`、`gpt-6-luna`）。原始 `gpt-5` 及其日期快照的取值集是 `minimal/low/medium/high`，关闭思考改发 `minimal` 并显示新的 `aiThinkingLowestEffort` 说明；`gpt-6-astra` 文档明确 none 会返回 HTTP 400，因此省略参数。`gpt-5.2`、`gpt-5-mini`、`gpt-5-chat`、o 系列等未列出取值集的版本一律省略，并沿用 `aiThinkingNotForciblyOff` 告知不能强制关闭。
 2. OpenAI Compatible：DeepSeek 的 `thinking` 扩展改为只跟随端点声明，官方预设或 `api.deepseek.com` 才发送；`provider=custom` 下同名 `deepseek-*` 反代不再收到该参数，改显示 `aiThinkingCapabilityUnverified`（该状态在思考开关两种位置都提示，因为厂商默认是开启）。
-3. Anthropic：家族归属改为显式文档清单。始终思考的 `claude-fable-5*`、`claude-mythos-5*`、`claude-opus-5-5` 不再收到任何 `thinking` 字段（文档说明 `thinking:{type:disabled}` 返回 400）；adaptive 代（`claude-sonnet-5`、`claude-opus-5`、`claude-opus-4-6/4-7/4-8`、`claude-sonnet-4-6`）关闭思考时省略参数并提示不能强制关闭；手动 extended thinking 代（`claude-3-7-sonnet*`、`claude-*-4-5`、`claude-haiku-4-5*`）关闭思考时按文档的 opt-in 语义省略该字段，开启时 `budget_tokens` 保持在 ≥1024 且 < `max_tokens` 的窗口内；未列出的 Claude id 一律不发送厂商参数。原实现对所有 Anthropic 模型发送 `thinking:{type:"disabled"}`，属于本包修复的参数合约错误，因此同步调整 OS11 与 `ai_service_test` 的相应断言。
+3. Anthropic：家族归属改为显式文档清单。始终思考的 `claude-fable-5*`、`claude-mythos-5*`、`claude-opus-5-5` 不再收到任何 `thinking` 字段（文档说明 `thinking:{type:disabled}` 返回 400）；集成复核补正：`claude-sonnet-5` 和 `claude-opus-5` 在当前请求的 high 强度下明确支持 `thinking:{type:disabled}`，关闭时应发送该字段。`claude-opus-4-6/4-7/4-8`、`claude-sonnet-4-6` 关闭思考时省略参数即可，因这些型号默认不启用思考。手动 extended thinking 代（`claude-3-7-sonnet*`、`claude-*-4-5`、`claude-haiku-4-5*`）关闭时按 opt-in 语义省略字段，开启时 `budget_tokens` 保持在 ≥1024 且 < `max_tokens` 的窗口内；未列出的 Claude id 不发送厂商参数。型号规则以官方文档逐项核对，不把“所有 Anthropic 都禁止 disabled”写成契约。
 4. 短探测：新增 `classifyGenerationProbe`，把 200 回复分为完整成功、预算内被截断但确有正文（`aiGenerationPartial`，计为可用）、只有 reasoning 或正文前即被截断（`aiGenerationThinkingOnly`，计为不足但明确不是认证失败）、真正空回复（`aiGenerationEmpty`）。401/403、429、超时、取消与非法响应分类不变；生成前确认对话框和费用提示保留，探测结果页仍显示费用说明。
 5. 验证：`test/rf06_model_capability_rules_test.dart` 35 项默认回归覆盖上述七类 mock body 与结果分类；共享探针原断言未改，`os_final_review_probe.dart` 由 3/7 变 4/7（RF-R07 转绿，RF-R02/03/04 仍属 RF03/RF04）。默认全量 `flutter test --no-pub` **674/674**，`flutter analyze --no-pub` **0 issues**，OS10+OS11+RF05 定向 **43/43**。未使用真实凭据，未发送任何付费请求；真实厂商调用与 Android/Windows 设置页验收仍未测。
 

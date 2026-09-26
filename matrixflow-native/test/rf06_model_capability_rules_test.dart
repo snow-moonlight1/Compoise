@@ -68,8 +68,6 @@ const _alwaysOn = [
 ];
 
 const _adaptive = [
-  'claude-sonnet-5',
-  'claude-opus-5',
   'claude-opus-4-6',
   'claude-opus-4-7',
   'claude-opus-4-8',
@@ -290,6 +288,17 @@ void main() {
   });
 
   group('Anthropic uses the documented model list', () {
+    test('Sonnet 5 and Opus 5 can explicitly disable thinking', () {
+      for (final id in ['claude-sonnet-5', 'claude-opus-5']) {
+        final off = planThinking(anthropic(id));
+        expect(off.fields['thinking'], {'type': 'disabled'}, reason: id);
+        expect(off.hintCode, isNull, reason: id);
+        final on = planThinking(anthropic(id, thinking: true));
+        expect(on.fields['thinking'], {'type': 'adaptive'}, reason: id);
+        expect(on.fields['output_config'], {'effort': 'high'}, reason: id);
+      }
+    });
+
     test('always-on models send no thinking field at either switch position', () {
       for (final id in _alwaysOn) {
         final off = planThinking(anthropic(id));
@@ -301,7 +310,7 @@ void main() {
       }
     });
 
-    test('adaptive models ask for adaptive plus effort, and omit both when off',
+    test('4.x adaptive models ask for adaptive and omit it when off',
         () {
       for (final id in _adaptive) {
         final on = planThinking(anthropic(id, thinking: true));
@@ -309,7 +318,7 @@ void main() {
         expect(on.fields['output_config'], {'effort': 'high'}, reason: id);
         final off = planThinking(anthropic(id));
         expect(off.fields, isEmpty, reason: id);
-        expect(off.hintCode, 'aiThinkingNotForciblyOff', reason: id);
+        expect(off.hintCode, isNull, reason: id);
       }
     });
 
@@ -353,7 +362,7 @@ void main() {
       );
     });
 
-    test('no Anthropic plan ever sends thinking type disabled', () {
+    test('always-on and unsupported Anthropic models never receive disabled', () {
       for (final id in [..._alwaysOn, ..._adaptive, ..._manual, ..._undocumentedClaude, '']) {
         for (final thinking in [true, false]) {
           final fields = planThinking(anthropic(id, thinking: thinking)).fields;
@@ -376,6 +385,8 @@ void main() {
       'official-deepseek',
       'deepseek-alias-on-proxy',
       'claude-known',
+      'claude-sonnet-5-off',
+      'claude-opus-5-off',
       'claude-unknown',
     ]) {
       test(caseName, () async {
@@ -394,6 +405,8 @@ void main() {
           ),
           'deepseek-alias-on-proxy' => cfg(model: 'deepseek-v4-pro', thinking: true),
           'claude-known' => anthropic('claude-opus-5-5'),
+          'claude-sonnet-5-off' => anthropic('claude-sonnet-5'),
+          'claude-opus-5-off' => anthropic('claude-opus-5'),
           _ => anthropic('claude-nova-9', thinking: true),
         };
         await service.analyzeTasks(
@@ -422,6 +435,13 @@ void main() {
           case 'deepseek-alias-on-proxy':
             expect(body.containsKey('thinking'), isFalse);
             expect(body.keys.toSet(), {'model', 'messages', 'response_format'});
+          case 'claude-sonnet-5-off':
+          case 'claude-opus-5-off':
+            expect(body['thinking'], {'type': 'disabled'});
+            expect(body.containsKey('output_config'), isFalse);
+            expect(body.keys.toSet(), {
+              'model', 'max_tokens', 'system', 'messages', 'thinking',
+            });
           default:
             expect(body.containsKey('reasoning'), isFalse);
             expect(body.containsKey('thinking'), isFalse);

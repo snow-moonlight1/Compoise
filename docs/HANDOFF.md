@@ -1,10 +1,18 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前状态：RF03、RF04、RF06 集成（2026-09-26）
+
+- 从干净的 `main / ca1f209` 依次 cherry-pick RF03 `2ecd7a3`、RF04 `6461781`、RF06 `e898de6`，主线对应 `ef985b2`、`66542ee`、`91fc54a`。产品文件自动合并；共同文档冲突保留三包记录并统一集成状态。原 worktree/分支未改，未 push，冻结端未改。
+- RF03 的 `flush()` 现在等待普通保存、凭据和已接受导入；RF04 的 `exportBackup(includeCredential: true)` 沿 `exportJsonWithCredential()` 等待同一完成屏障后读取已确认凭据。新增跨包回归：凭据写入被阻塞时导出不提前完成，释放后只导出最新合成值。RF04 分卷仅首卷带 AI 配置，导入时首卷一次凭据选择；结果库数量在 RF02 活库重推导时再校验，超限整笔拒绝。
+- RF06 的 GPT-5/DeepSeek 参数规则和短探测结果已集成。集成复核 [Claude thinking 文档](https://platform.claude.com/docs/en/build-with-claude/thinking)、[Sonnet 5 说明](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5) 后修正原分支过宽的“Anthropic 不发送 disabled”断言：`claude-sonnet-5`、默认 high 强度的 `claude-opus-5` 支持显式关闭；4.x 自适应型号省略字段即关闭；始终思考的型号继续拒绝关闭字段。新反例在修前红、修后绿，OS11 旧断言同步到逐型号契约。
+- 固定 Flutter 3.32.8 集成态默认 `flutter test --no-pub` **700/700**、共享 `test/review/os_final_review_probe.dart` **7/7**、`flutter analyze --no-pub` **0 issues**。Android 当前 `adb devices` 无连接设备；RF02–07 新路径的 Android Release 与 Windows Release 定向人工验收、真实 AI 厂商调用、Windows 多卷文件对话框操作均未声称完成，归 RF10。RF04 对已经超过结果库计数上限的历史库仍有已记录限制：分卷文件可能成功导出，却无法在合并到上限后继续恢复；这类库不在当前受支持计数契约内，RF10 需明确向用户呈现，不能把“所有旧库都可恢复”写成完成。用户此前确认的双端 Release 聚焦结论仍保留；OS26 正式签名/托管发行/升级证据仍独立待办。
+- 下一批并发可拆为 RF08 提醒边界源码包、RF09 测量先行包、RF10 已集成路径的平台定向验收包。RF09 的源码优化须在 RF08 集成并审查测量后决定；RF10 的最终收口须等所有 RF 源码包结束。三个包用独立 worktree 和独立记录文件，公共 AGENTS/HANDOFF/CHANGELOG/返修计划由集成人统一更新。
+
 ## RF06 独立分支交接（2026-09-26，已集成）
 
 - 分支 `codex/rf06-model-capabilities`，worktree `D:\Dev_project\martix-rf06`，起点 `main / ca1f209f06c5459b983ef492bfd69a92667380f5`。只改 `matrixflow-native/lib/ai_capabilities.dart`、`lib/ai_service.dart`、`lib/l10n.dart` 与本包测试/文档；未 push，未动 RF03/RF04/RF08 范围，冻结端未改。
 - 能力表改为按厂商 2026-09-26 官方文档逐条列出的具体模型版本与端点判断，家族正则不再当作能力依据（来源清单在 `ai_capabilities.dart` 头部注释）。原始 GPT-5 关闭思考改发 `minimal` 并新增说明文案，`none` 只发给文档列出它的 `gpt-5.1/5.5/5.6`、`gpt-6-sol/luna`；`gpt-6-astra` 与未列出取值集的版本（`gpt-5.2`、`gpt-5-mini`、`gpt-5-chat`、o 系列）省略参数并明确“不能强制关闭”。
-- DeepSeek 的 `thinking` 扩展只看端点声明：官方预设或 `api.deepseek.com` 才发送；`provider=custom` 下同名 `deepseek-*` 反代改提示能力未确认（思考开关两档都提示，因厂商默认开启）。Anthropic 改为显式文档清单：始终思考的 `claude-fable-5*`/`claude-mythos-5*`/`claude-opus-5-5` 完全不收 `thinking` 字段，adaptive 代关闭时省略，手动代按 opt-in 语义省略；**原实现无条件发送 `thinking:{type:"disabled"}` 是本包修复的参数合约错误**，据此调整了 OS11 与 `ai_service_test` 的相应断言，其余 OS10/OS11/RF05 契约未改。
+- DeepSeek 的 `thinking` 扩展只看端点声明：官方预设或 `api.deepseek.com` 才发送；`provider=custom` 下同名 `deepseek-*` 反代改提示能力未确认（思考开关两档都提示，因厂商默认开启）。Anthropic 改为显式文档清单：始终思考的 `claude-fable-5*`/`claude-mythos-5*`/`claude-opus-5-5` 不收 `thinking:{type:"disabled"}`，手动代按 opt-in 语义省略。集成复核官方文档后补正：`claude-sonnet-5` 与 high 强度的 `claude-opus-5` 支持显式 `disabled`；4.x 自适应型号默认不思考，关闭时省略字段即可。原实现无条件向所有 Anthropic 型号发送 `disabled` 不符合逐型号契约。
 - 短探测新增 `classifyGenerationProbe`，把 200 回复分成完整成功、被 16-token 预算截断但确有正文（算可用）、只有 reasoning 或正文前截断（算不足，明确不是认证失败）、真正空回复；401/403、429、超时、取消、非法响应分类与三协议行为保持，生成前确认对话框与费用提示保留。
 - 验证：新增 `test/rf06_model_capability_rules_test.dart` **35/35**；共享探针 `test/review/os_final_review_probe.dart` 原断言未改，结果 **4/7**（RF-R07 转绿，RF-R02/03/04 仍属 RF03/RF04）。默认全量 `flutter test --no-pub` **674/674**，`flutter analyze --no-pub` **0 issues**，OS10+OS11+RF05 定向 **43/43**。固定 SDK `D:\Dev_SDKs\Flutter_3.32.8`。
 - 未测：没有任何真实凭据或授权，未发送真实厂商请求，所以文档结论是参数合约层面的核对，不是厂商实测；Android/Windows 设置页的思考开关、探测部分成功文案与连接面板显示仍待 RF10 人工验收。本包不做正式发布，也不改 AGENTS.md 的集成状态段（留给集成人）。新 worktree 的 `flutter pub get` 只改了 `windows/flutter/` 三个生成文件的行尾，未纳入提交。

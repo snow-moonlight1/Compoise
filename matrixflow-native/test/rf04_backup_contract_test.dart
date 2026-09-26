@@ -1,5 +1,6 @@
 // RF04: a backup this app exports successfully must be restorable by this app.
 // Synthetic data only: no real user library, no real API key.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -164,6 +165,29 @@ class _Credential implements CredentialStore {
   Future<String?> read() async => value;
   @override
   Future<void> write(String value) async => this.value = value;
+  @override
+  Future<void> delete() async => value = null;
+}
+
+class _DelayedCredential implements CredentialStore {
+  String? value;
+  final entered = Completer<void>();
+  final release = Completer<void>();
+  bool delayNextWrite = false;
+
+  @override
+  Future<String?> read() async => value;
+
+  @override
+  Future<void> write(String next) async {
+    if (delayNextWrite) {
+      delayNextWrite = false;
+      entered.complete();
+      await release.future;
+    }
+    value = next;
+  }
+
   @override
   Future<void> delete() async => value = null;
 }
@@ -768,6 +792,38 @@ void main() {
     );
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('matrixflow-config'), isNot(contains(sentinel)));
+  });
+
+  test('RF03/RF04 explicit export waits for the latest credential', () async {
+    SharedPreferences.setMockInitialValues({});
+    final credentials = _DelayedCredential();
+    final store = Store(credentialStore: credentials);
+    await store.init();
+    addTearDown(store.dispose);
+    expect(
+      await store.updateAIConfig(AIConfig(apiKey: 'synthetic-old')),
+      isTrue,
+    );
+
+    credentials.delayNextWrite = true;
+    final updating = store.updateAIConfig(AIConfig(apiKey: 'synthetic-new'));
+    await credentials.entered.future;
+    var exportFinished = false;
+    final exporting = store.exportBackup(includeCredential: true).then((value) {
+      exportFinished = true;
+      return value;
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(exportFinished, isFalse);
+
+    credentials.release.complete();
+    expect(await updating, isTrue);
+    final bundle = await exporting;
+    expect(bundle.recoverable, isTrue);
+    final payload = jsonDecode(bundle.parts.single.json) as Map<String, dynamic>;
+    final config = payload['aiConfig'] as Map<String, dynamic>;
+    expect(config['customApiKey'], 'synthetic-new');
+    expect(credentials.value, 'synthetic-new');
   });
 }
 

@@ -183,8 +183,7 @@ void main() {
     );
     expect(adaptive.fields['thinking'], {'type': 'adaptive'});
     expect(adaptive.fields['output_config'], {'effort': 'high'});
-    // RF06: `thinking: {type: disabled}` is documented as rejected for this
-    // generation, so an off switch omits the field and says reasoning may go on.
+    // Sonnet 4.6 defaults to thinking off, so omission honors the off switch.
     final sonnetOff = planThinking(
       cfg(
         protocol: AIProtocol.anthropic,
@@ -193,7 +192,7 @@ void main() {
       ),
     );
     expect(sonnetOff.fields, isEmpty);
-    expect(sonnetOff.hintCode, 'aiThinkingNotForciblyOff');
+    expect(sonnetOff.hintCode, isNull);
 
     final alwaysOn = planThinking(
       cfg(
