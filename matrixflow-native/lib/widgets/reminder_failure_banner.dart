@@ -6,7 +6,9 @@ import '../storage.dart';
 ///
 /// Schedule and cancellation failures are separate rows because they need
 /// opposite retries, and an undetectable permission state is called out
-/// instead of being reported as granted.
+/// instead of being reported as granted. A retry ledger that could not be
+/// read, written or extended is reported the same way: without a row the
+/// storage problem would look like "nothing is pending".
 class ReminderFailureBanner extends StatefulWidget {
   const ReminderFailureBanner({super.key});
 
@@ -17,6 +19,7 @@ class ReminderFailureBanner extends StatefulWidget {
 class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
   bool _retryingSchedule = false;
   bool _retryingCancel = false;
+  bool _retryingLedger = false;
 
   String _names(Store store, Iterable<ReminderPayload> payloads) {
     final names =
@@ -41,6 +44,17 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<Store>();
+    return ValueListenableBuilder<ReminderLedgerIssue?>(
+      valueListenable: store.reminderService.ledgerIssue,
+      builder: (context, ledgerIssue, _) => _failures(store, ledgerIssue),
+    );
+  }
+
+  /// Rows for everything the banner reports: pending schedule and cancellation
+  /// work plus whatever the retry ledger says about its own storage. The ledger
+  /// row is driven straight from the notifier, so it disappears as soon as the
+  /// service withdraws the issue instead of being cached here.
+  Widget _failures(Store store, ReminderLedgerIssue? ledgerIssue) {
     return ValueListenableBuilder<Map<int, ReminderPayload>>(
       valueListenable: store.reminderService.scheduleFailures,
       builder: (context, scheduleFailures, _) =>
@@ -107,6 +121,15 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
                                 }
                               },
                             ),
+                          if (ledgerIssue != null)
+                            _row(
+                              context,
+                              bannerKey: _ledgerKey(ledgerIssue.kind),
+                              buttonKey: const ValueKey('retry-reminder-ledger'),
+                              message: _ledgerMessage(store, ledgerIssue),
+                              busy: _retryingLedger,
+                              onRetry: _ledgerRetry(ledgerIssue.kind),
+                            ),
                           if (hasFailures &&
                               permission == ReminderPermissionStatus.unknown)
                             _note(
@@ -136,14 +159,70 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
     );
   }
 
+  /// Identifies which ledger problem is on screen, so a regression test can
+  /// tell the four states apart instead of only proving "something is shown".
+  Key _ledgerKey(ReminderLedgerIssueKind kind) => switch (kind) {
+    ReminderLedgerIssueKind.read => const ValueKey('reminder-ledger-read'),
+    ReminderLedgerIssueKind.write => const ValueKey('reminder-ledger-write'),
+    ReminderLedgerIssueKind.overflow => const ValueKey(
+      'reminder-ledger-overflow',
+    ),
+    ReminderLedgerIssueKind.damaged => const ValueKey('reminder-ledger-damaged'),
+  };
+
+  /// What the ledger problem means for the user. The wording stays about the
+  /// retry records this app keeps: it never promises that the system will
+  /// deliver a notification.
+  String _ledgerMessage(Store store, ReminderLedgerIssue issue) =>
+      switch (issue.kind) {
+        ReminderLedgerIssueKind.read => store.t['reminderLedgerUnreadable']!,
+        ReminderLedgerIssueKind.write => store.t['reminderLedgerWriteFailed']!,
+        ReminderLedgerIssueKind.overflow => store.t['reminderLedgerFull']!
+            .replaceAll('{count}', '${issue.count}')
+            .replaceAll('{cap}', '${ReminderService.maxPendingJobs}'),
+        ReminderLedgerIssueKind.damaged => store.t['reminderLedgerDamaged']!
+            .replaceAll('{count}', '${issue.count}'),
+      };
+
+  /// The action that actually fits the reported problem. A full ledger and
+  /// records that were already skipped are facts about what is stored, so they
+  /// are reported without a button that could not change them.
+  Future<void> Function()? _ledgerRetry(ReminderLedgerIssueKind kind) =>
+      switch (kind) {
+        ReminderLedgerIssueKind.read => _rereadLedger,
+        ReminderLedgerIssueKind.write => _rewriteLedger,
+        ReminderLedgerIssueKind.overflow ||
+        ReminderLedgerIssueKind.damaged => null,
+      };
+
+  Future<void> _rereadLedger() async {
+    final service = context.read<Store>().reminderService;
+    setState(() => _retryingLedger = true);
+    try {
+      await service.loadPendingJobs();
+    } finally {
+      if (mounted) setState(() => _retryingLedger = false);
+    }
+  }
+
+  Future<void> _rewriteLedger() async {
+    final service = context.read<Store>().reminderService;
+    setState(() => _retryingLedger = true);
+    try {
+      await service.retryPendingLedger();
+    } finally {
+      if (mounted) setState(() => _retryingLedger = false);
+    }
+  }
+
   Widget _row(
     BuildContext context, {
     required Key bannerKey,
-    required Key buttonKey,
     required String message,
-    required String names,
+    String names = '',
+    Key? buttonKey,
     required bool busy,
-    required Future<void> Function() onRetry,
+    Future<void> Function()? onRetry,
   }) {
     final store = context.read<Store>();
     return Padding(
@@ -159,11 +238,14 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
-          TextButton(
-            key: buttonKey,
-            onPressed: busy ? null : onRetry,
-            child: Text(store.t['retry']!),
-          ),
+          // A ledger state the user cannot act on here has no button, so the
+          // row states the fact instead of offering a retry that changes nothing.
+          if (onRetry != null)
+            TextButton(
+              key: buttonKey,
+              onPressed: busy ? null : onRetry,
+              child: Text(store.t['retry']!),
+            ),
         ],
       ),
     );

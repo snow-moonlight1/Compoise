@@ -517,6 +517,14 @@ const Map<Language, Map<String, String>> _dicts = {
         'Local reminders are not available on this platform.',
     'reminderCancelFailed':
         'The reminder is gone here, but an existing system notification could not be cancelled.',
+    'reminderLedgerUnreadable':
+        'Saved reminder retry records could not be read, so reminders still waiting for another attempt may be missing from this list. Retry to read them again.',
+    'reminderLedgerWriteFailed':
+        'Reminder retry records could not be saved on this device, so reminders still waiting for another attempt may be lost when the app closes.',
+    'reminderLedgerFull':
+        'The reminder retry list keeps at most {cap} records and is full, so {count} reminder(s) could not be queued for another attempt.',
+    'reminderLedgerDamaged':
+        '{count} unreadable reminder retry record(s) were skipped. The other records were kept.',
     'taskNotFound': 'Task no longer exists or has been deleted',
     'completedAtTime': 'Completed: {time}',
     'timeUnknown': 'Time unknown',
@@ -1003,6 +1011,13 @@ const Map<Language, Map<String, String>> _dicts = {
     'permissionUnknown': '当前系统不提供通知状态查询，仍可能被系统设置拦截。',
     'permissionUnsupported': '当前平台不支持本地提醒。',
     'reminderCancelFailed': '任务中的提醒已删除，但系统里已有的通知取消失败。',
+    'reminderLedgerUnreadable':
+        '无法读取已保存的提醒重试记录，仍在等待再次尝试的提醒可能不在这个列表里。点“重试”可重新读取。',
+    'reminderLedgerWriteFailed':
+        '提醒重试记录无法保存到本机，应用关闭后，仍在等待再次尝试的提醒可能丢失。',
+    'reminderLedgerFull':
+        '提醒重试列表最多保留 {cap} 条，目前已满，因此有 {count} 条提醒未能加入重试。',
+    'reminderLedgerDamaged': '有 {count} 条提醒重试记录已损坏并被跳过，其余记录仍然保留。',
     'taskNotFound': '该任务不存在或已被删除',
     'completedAtTime': '完成时间: {time}',
     'timeUnknown': '时间未知',
@@ -1496,6 +1511,14 @@ const Map<Language, Map<String, String>> _dicts = {
     'permissionUnsupported': 'このプラットフォームではローカルリマインダーを利用できません。',
     'reminderCancelFailed':
         'タスク側のリマインダーは削除されましたが、既存のシステム通知をキャンセルできませんでした。',
+    'reminderLedgerUnreadable':
+        '保存された通知リトライ記録を読み取れませんでした。再試行待ちの通知がこの一覧に表示されない可能性があります。「再試行」で読み直せます。',
+    'reminderLedgerWriteFailed':
+        '通知リトライ記録をこの端末に保存できませんでした。アプリを終了すると、再試行待ちの記録が失われる可能性があります。',
+    'reminderLedgerFull':
+        '通知リトライ一覧は最大 {cap} 件までで、現在は満杯です。そのため {count} 件の通知を再試行に登録できませんでした。',
+    'reminderLedgerDamaged':
+        '{count} 件の通知リトライ記録が読み取れず読み飛ばしました。残りの記録は保持されています。',
     'taskNotFound': 'タスクが見つからないか、既に削除されています',
     'completedAtTime': '完了日時: {time}',
     'timeUnknown': '日時不明',
