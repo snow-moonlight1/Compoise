@@ -37,7 +37,7 @@ void main() {
     });
 
     test(
-      'tray init failure disables close-to-tray and retry can recover',
+      'tray init failure disables close-to-tray and a window close runs true exit',
       () async {
         final host = _FakeDesktopShellHost();
         host.startHandler = () async {
@@ -61,13 +61,39 @@ void main() {
         service.onExit = () => exited = true;
         expect(service.handleWindowCloseRequest(), isTrue);
         expect(host.hideCalls, 0);
-        expect(exited, isTrue);
+        await _waitUntil(() => exited);
+        // Joining the already-running exit reports the completed result once.
+        expect(
+          await service.exitApplication(),
+          DesktopExitResult.completed,
+        );
+        expect(host.destroyCalls, 1);
+      },
+    );
 
-        service.onExit = null;
+    test(
+      'tray init failure can be recovered by retrySettings without an exit',
+      () async {
+        final host = _FakeDesktopShellHost();
+        host.startHandler = () async {
+          if (host.startCalls == 1) {
+            return const DesktopShellResult(DesktopShellResultKind.unavailable);
+          }
+          return const DesktopShellResult.success();
+        };
+        final service = DesktopShellService.forTest(host);
+
+        final failed = await service.applySettings(
+          closeToTray: true,
+          globalShortcut: '',
+        );
+        expect(failed.tray.kind, DesktopShellResultKind.unavailable);
+
         final recovered = await service.retrySettings();
         expect(recovered.tray.succeeded, isTrue);
         expect(recovered.closeToTrayEffective, isTrue);
         expect(host.startCalls, 2);
+        expect(host.destroyCalls, 0);
       },
     );
 

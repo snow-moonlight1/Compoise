@@ -16,6 +16,7 @@ class DesktopShellSettingsResult {
   final String requestedShortcut;
   final String? registeredShortcut;
   final bool superseded;
+  final bool aborted;
 
   const DesktopShellSettingsResult({
     required this.generation,
@@ -26,6 +27,7 @@ class DesktopShellSettingsResult {
     required this.requestedShortcut,
     required this.registeredShortcut,
     this.superseded = false,
+    this.aborted = false,
   });
 
   bool get hasFailure => tray.isFailure || hotkey.isFailure;
@@ -49,6 +51,13 @@ class DesktopShellService extends ChangeNotifier {
     : _hostFactory = (() => host),
       _desktopSupportOverride = true,
       _host = host;
+
+  /// Uses a host factory so tests can prove an exit in progress never creates
+  /// another host instance.
+  @visibleForTesting
+  DesktopShellService.forTestFactory(DesktopShellHost Function() hostFactory)
+    : _hostFactory = hostFactory,
+      _desktopSupportOverride = true;
 
   /// Allows older tests to simulate desktop support without touching real OS
   /// integration. OS14 tests inject a fake host instead.
@@ -215,6 +224,26 @@ class DesktopShellService extends ChangeNotifier {
       return result;
     }
 
+    // An exit attempt blocks settings work: wait for its outcome instead of
+    // racing the destroy. A completed exit aborts the apply; after a failed
+    // destroy the host has been restored, so the apply is re-evaluated from
+    // scratch; a cancelled attempt leaves everything alive and work continues.
+    final initialExit = await _awaitExitSettled();
+    if (initialExit == DesktopExitResult.completed) {
+      return _abortedResult(generation, closeToTray, globalShortcut);
+    }
+    if (initialExit == DesktopExitResult.failed) {
+      return _applySettingsNow(
+        generation: generation,
+        closeToTray: closeToTray,
+        globalShortcut: globalShortcut,
+        language: language,
+      );
+    }
+    if (generation != _latestGeneration) {
+      return _supersededResult(generation, closeToTray, globalShortcut);
+    }
+
     final host = _host ??= _hostFactory();
     var tray = _trayResult;
     if (!tray.succeeded || _appliedTrayLanguage != language) {
@@ -242,6 +271,19 @@ class DesktopShellService extends ChangeNotifier {
           detail: error.toString(),
         );
       }
+    }
+
+    final afterStartExit = await _awaitExitSettled();
+    if (afterStartExit == DesktopExitResult.completed) {
+      return _abortedResult(generation, closeToTray, globalShortcut);
+    }
+    if (afterStartExit == DesktopExitResult.failed) {
+      return _applySettingsNow(
+        generation: generation,
+        closeToTray: closeToTray,
+        globalShortcut: globalShortcut,
+        language: language,
+      );
     }
     if (generation != _latestGeneration) {
       return _supersededResult(generation, closeToTray, globalShortcut);
@@ -273,6 +315,19 @@ class DesktopShellService extends ChangeNotifier {
         );
       }
     }
+
+    final afterHotkeyExit = await _awaitExitSettled();
+    if (afterHotkeyExit == DesktopExitResult.completed) {
+      return _abortedResult(generation, closeToTray, globalShortcut);
+    }
+    if (afterHotkeyExit == DesktopExitResult.failed) {
+      return _applySettingsNow(
+        generation: generation,
+        closeToTray: closeToTray,
+        globalShortcut: globalShortcut,
+        language: language,
+      );
+    }
     if (generation != _latestGeneration) {
       return _supersededResult(generation, closeToTray, globalShortcut);
     }
@@ -296,6 +351,54 @@ class DesktopShellService extends ChangeNotifier {
     return result;
   }
 
+  /// Awaits any exit attempt currently in progress, chaining across attempts
+  /// that restart immediately. Returns the last [DesktopExitResult] once the
+  /// attempts settle (null when no attempt was observed).
+  /// [DesktopExitResult.completed] means settings work must abort;
+  /// [DesktopExitResult.failed] means the host was restored and the caller
+  /// should re-evaluate.
+  Future<DesktopExitResult?> _awaitExitSettled() async {
+    DesktopExitResult? last;
+    while (true) {
+      if (_hasExited) return DesktopExitResult.completed;
+      final attempt = _exitInFlight;
+      if (attempt == null) return last;
+      last = await attempt;
+      if (last == DesktopExitResult.completed) {
+        return DesktopExitResult.completed;
+      }
+    }
+  }
+
+  DesktopShellSettingsResult _abortedResult(
+    int generation,
+    bool closeToTray,
+    String globalShortcut,
+  ) {
+    final result = DesktopShellSettingsResult(
+      generation: generation,
+      tray: const DesktopShellResult.disabled(),
+      hotkey: const DesktopShellResult.disabled(),
+      requestedCloseToTray: closeToTray,
+      closeToTrayEffective: false,
+      requestedShortcut: globalShortcut,
+      registeredShortcut: null,
+      aborted: true,
+    );
+    _settleApplyFlag(generation);
+    return result;
+  }
+
+  /// Resets the applying flag for the latest generation. A newer queued apply
+  /// already claimed the flag itself, so it keeps ownership.
+  void _settleApplyFlag(int generation) {
+    if (generation != _latestGeneration) return;
+    if (_isApplyingSettings) {
+      _isApplyingSettings = false;
+      notifyListeners();
+    }
+  }
+
   DesktopShellSettingsResult _supersededResult(
     int generation,
     bool closeToTray,
@@ -313,6 +416,11 @@ class DesktopShellService extends ChangeNotifier {
 
   void _publish(DesktopShellSettingsResult result) {
     if (result.generation != _latestGeneration || result.superseded) return;
+    // An exit that overtook the apply must not have shell state resurrected.
+    if (_hasExited || _exitInFlight != null) {
+      _settleApplyFlag(result.generation);
+      return;
+    }
     _lastSettingsResult = result;
     _isApplyingSettings = false;
     notifyListeners();
@@ -357,13 +465,18 @@ class DesktopShellService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Direct API retained for focused callers/tests. It now waits for the host
-  /// and returns the host's typed result instead of reporting success early.
+  /// Direct API retained for focused callers/tests. It waits for any in-flight
+  /// exit to settle and returns the host's typed result instead of reporting
+  /// success early.
   Future<DesktopShellResult> registerGlobalHotkey(
     String shortcut,
     VoidCallback onTrigger,
   ) async {
     if (!isDesktopSupported) return const DesktopShellResult.unsupported();
+    final exit = await _awaitExitSettled();
+    if (exit == DesktopExitResult.completed) {
+      return const DesktopShellResult.disabled();
+    }
     final host = _host ??= _hostFactory();
     _hotkeyTrigger = onTrigger;
     DesktopShellResult result;
@@ -375,6 +488,11 @@ class DesktopShellService extends ChangeNotifier {
         detail: error.toString(),
       );
     }
+    final lateExit = await _awaitExitSettled();
+    if (lateExit == DesktopExitResult.completed) {
+      _hotkeyTrigger = null;
+      return const DesktopShellResult.disabled();
+    }
     _hotkeyResult = result;
     _registeredGlobalShortcut = host.registeredShortcut;
     if (_registeredGlobalShortcut == null) _hotkeyTrigger = null;
@@ -383,6 +501,11 @@ class DesktopShellService extends ChangeNotifier {
   }
 
   Future<DesktopShellResult> unregisterGlobalHotkey() async {
+    if (!isDesktopSupported) return const DesktopShellResult.unsupported();
+    final exit = await _awaitExitSettled();
+    if (exit == DesktopExitResult.completed) {
+      return const DesktopShellResult.disabled();
+    }
     final host = _host;
     if (host == null) return const DesktopShellResult.disabled();
     DesktopShellResult result;
@@ -393,6 +516,10 @@ class DesktopShellService extends ChangeNotifier {
         DesktopShellResultKind.unavailable,
         detail: error.toString(),
       );
+    }
+    final lateExit = await _awaitExitSettled();
+    if (lateExit == DesktopExitResult.completed) {
+      return const DesktopShellResult.disabled();
     }
     _hotkeyResult =
         result.succeeded ? const DesktopShellResult.disabled() : result;
@@ -424,6 +551,7 @@ class DesktopShellService extends ChangeNotifier {
   }
 
   Future<DesktopExitResult> _performExit() async {
+    DesktopShellHost? detachedHost;
     try {
       final guard = onExit;
       if (guard != null) {
@@ -438,21 +566,24 @@ class DesktopShellService extends ChangeNotifier {
       _effectiveCloseToTray = false;
       _registeredGlobalShortcut = null;
       _hotkeyTrigger = null;
-      final host = _host;
+      detachedHost = _host;
       _host = null;
       notifyListeners();
+      final host = detachedHost;
       if (host != null) {
-        try {
-          await host.destroy();
-        } catch (_) {
-          _host = host;
-          return DesktopExitResult.failed;
-        }
+        await host.destroy();
       }
       _hasExited = true;
       return DesktopExitResult.completed;
     } catch (_) {
-      return DesktopExitResult.cancelled;
+      // The host was detached but destroy (or anything after detachment)
+      // failed: restore it so the app keeps running and settings can retry.
+      // Guard rejection returns above and still reports cancelled.
+      final host = detachedHost;
+      if (host != null && _host == null) _host = host;
+      return host != null
+          ? DesktopExitResult.failed
+          : DesktopExitResult.cancelled;
     }
   }
 
