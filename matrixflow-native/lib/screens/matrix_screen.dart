@@ -110,8 +110,10 @@ class _MatrixHomeState extends State<MatrixHome> {
     if (!mounted || !await _prepareDraftForExit() || !mounted) return false;
     final store = context.read<Store>();
     return DesktopExitSaveCoordinator(
-      flush: store.flush,
-      retrySave: store.retrySave,
+      // The exit barrier also waits for the reminder retry ledger, so pending
+      // reminder work is never lost behind a reported clean shutdown.
+      flush: () => store.flush(includeReminderLedger: true),
+      retrySave: () => store.retrySave(includeReminderLedger: true),
       timeout: widget.exitSaveTimeout,
       chooseAfterProblem:
           (problem) => showDesktopExitSaveProblem(

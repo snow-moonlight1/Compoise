@@ -140,7 +140,9 @@ class ReminderPendingJob {
     this.subtaskId,
     this.triggerAtMs,
     this.attempts = 0,
+    this.firstFailedAtMs,
     this.updatedAtMs = 0,
+    this.exhausted = false,
     this.errorKind,
   });
 
@@ -150,8 +152,20 @@ class ReminderPendingJob {
   final String taskId;
   final String? subtaskId;
   final int? triggerAtMs;
+
+  /// Automatic attempts this generation already spent.
   final int attempts;
+
+  /// When this generation first failed. The retry age is measured from here so
+  /// a restart cannot extend the life of a broken record.
+  final int? firstFailedAtMs;
+
+  /// When this record was last touched.
   final int updatedAtMs;
+
+  /// The automatic budget is spent: the record stops retrying itself but stays
+  /// visible until the user changes the reminder or asks for a retry.
+  final bool exhausted;
   final String? errorKind;
 
   String get key => '${kind.name}:$notificationId';
@@ -159,7 +173,15 @@ class ReminderPendingJob {
   ReminderPayload get payload =>
       ReminderPayload(boardId: boardId, taskId: taskId, subtaskId: subtaskId);
 
-  ReminderPendingJob withAttempt({int? failedAtMs, String? errorKind}) =>
+  /// True when [other] describes the same reminder the user still expects, so a
+  /// later request must not renew the attempt history.
+  bool coversSameReminder(ReminderPayload other, {int? triggerAtMs}) =>
+      taskId == other.taskId &&
+      subtaskId == other.subtaskId &&
+      (kind == ReminderPendingKind.cancel || triggerAtMs == this.triggerAtMs);
+
+  /// Counts one more automatic failure against the same generation.
+  ReminderPendingJob withAttempt({required int failedAtMs, String? errorKind}) =>
       ReminderPendingJob(
         kind: kind,
         notificationId: notificationId,
@@ -168,8 +190,34 @@ class ReminderPendingJob {
         subtaskId: subtaskId,
         triggerAtMs: triggerAtMs,
         attempts: attempts + 1,
-        updatedAtMs: failedAtMs ?? updatedAtMs,
+        firstFailedAtMs: firstFailedAtMs ?? failedAtMs,
+        updatedAtMs: failedAtMs,
+        exhausted: attempts + 1 >= ReminderService.maxAutomaticRetries,
         errorKind: errorKind ?? this.errorKind,
+      );
+
+  /// Keeps the identity of a record whose board context was unknown earlier.
+  ReminderPendingJob withKnownBoard(String boardId) =>
+      this.boardId.isNotEmpty || boardId.isEmpty
+      ? this
+      : copyWith(boardId: boardId);
+
+  /// Stops automatic retries without hiding the failure from the user.
+  ReminderPendingJob markExhausted() => copyWith(exhausted: true);
+
+  ReminderPendingJob copyWith({String? boardId, bool? exhausted}) =>
+      ReminderPendingJob(
+        kind: kind,
+        notificationId: notificationId,
+        boardId: boardId ?? this.boardId,
+        taskId: taskId,
+        subtaskId: subtaskId,
+        triggerAtMs: triggerAtMs,
+        attempts: attempts,
+        firstFailedAtMs: firstFailedAtMs,
+        updatedAtMs: updatedAtMs,
+        exhausted: exhausted ?? this.exhausted,
+        errorKind: errorKind,
       );
 
   Map<String, dynamic> toJson() => {
@@ -180,7 +228,9 @@ class ReminderPendingJob {
     if (subtaskId != null) 'subtaskId': subtaskId,
     if (triggerAtMs != null) 'triggerAtMs': triggerAtMs,
     'attempts': attempts,
+    if (firstFailedAtMs != null) 'firstFailedAtMs': firstFailedAtMs,
     'updatedAtMs': updatedAtMs,
+    'exhausted': exhausted,
     if (errorKind != null) 'errorKind': errorKind,
   };
 
@@ -197,6 +247,15 @@ class ReminderPendingJob {
     if (kind == null || id is! int || taskId is! String || taskId.isEmpty) {
       return null;
     }
+    final attempts = json['attempts'] is int ? json['attempts'] as int : 0;
+    final updatedAtMs = json['updatedAtMs'] is int
+        ? json['updatedAtMs'] as int
+        : 0;
+    // A ledger written before first-failure tracking still has one usable
+    // timestamp, so its age is measured from the last recorded failure.
+    final firstFailedAtMs = json['firstFailedAtMs'] is int
+        ? json['firstFailedAtMs'] as int
+        : (attempts > 0 ? updatedAtMs : null);
     return ReminderPendingJob(
       kind: kind,
       notificationId: id,
@@ -204,8 +263,12 @@ class ReminderPendingJob {
       taskId: taskId,
       subtaskId: json['subtaskId'] as String?,
       triggerAtMs: json['triggerAtMs'] is int ? json['triggerAtMs'] as int : null,
-      attempts: json['attempts'] is int ? json['attempts'] as int : 0,
-      updatedAtMs: json['updatedAtMs'] is int ? json['updatedAtMs'] as int : 0,
+      attempts: attempts,
+      firstFailedAtMs: firstFailedAtMs,
+      updatedAtMs: updatedAtMs,
+      exhausted:
+          json['exhausted'] == true ||
+          attempts >= ReminderService.maxAutomaticRetries,
       errorKind: json['errorKind'] is String ? json['errorKind'] as String : null,
     );
   }
@@ -235,32 +298,97 @@ class InMemoryReminderLedgerStore implements ReminderLedgerStore {
 }
 
 /// Local-only key: never part of ExportData, backups or credential migration.
+/// Read and write failures are reported to the service instead of being turned
+/// into an empty ledger, so a storage problem cannot look like "nothing pending".
 class SharedPreferencesReminderLedgerStore implements ReminderLedgerStore {
   static const String storageKey = 'matrixflow-reminder-pending';
 
   @override
   Future<String?> read() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(storageKey);
-    } catch (_) {
-      return null;
-    }
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(storageKey);
   }
 
   @override
   Future<void> write(String? value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (value == null) {
-        await prefs.remove(storageKey);
-      } else {
-        await prefs.setString(storageKey, value);
-      }
-    } catch (_) {
-      // A lost ledger only means the next start cannot compensate automatically.
+    final prefs = await SharedPreferences.getInstance();
+    if (value == null) {
+      await prefs.remove(storageKey);
+    } else {
+      await prefs.setString(storageKey, value);
     }
   }
+}
+
+/// Whether a ledger record entered the local retry queue.
+enum ReminderLedgerUpdate {
+  /// A new retry record is now tracked.
+  recorded,
+
+  /// An existing record for the same reminder was updated.
+  refreshed,
+
+  /// The ledger is full, so the work was not queued and the caller must not
+  /// assume it will be retried.
+  rejected,
+}
+
+/// Completed result of the queued local ledger writes.
+@immutable
+class ReminderLedgerWriteResult {
+  const ReminderLedgerWriteResult({
+    this.writes = 0,
+    this.success = true,
+    this.errorKind,
+  });
+
+  /// How many writes finished while waiting.
+  final int writes;
+
+  /// False when the last write did not reach local storage.
+  final bool success;
+  final String? errorKind;
+
+  bool get failed => !success;
+
+  @override
+  String toString() =>
+      'ReminderLedgerWriteResult(writes: $writes, success: $success, '
+      'errorKind: $errorKind)';
+}
+
+/// Why the retry ledger is not a trustworthy mirror of the in-memory records.
+enum ReminderLedgerIssueKind {
+  /// The stored ledger could not be read.
+  read,
+
+  /// The stored ledger could not be written.
+  write,
+
+  /// The ledger is full and refused new retry work.
+  overflow,
+
+  /// Part of the stored ledger was unreadable and had to be ignored.
+  damaged,
+}
+
+@immutable
+class ReminderLedgerIssue {
+  const ReminderLedgerIssue({
+    required this.kind,
+    this.errorKind,
+    this.count = 0,
+  });
+
+  final ReminderLedgerIssueKind kind;
+  final String? errorKind;
+
+  /// How many records this issue concerns, when it is a count.
+  final int count;
+
+  @override
+  String toString() =>
+      'ReminderLedgerIssue(${kind.name}, errorKind: $errorKind, count: $count)';
 }
 
 /// Counts from one restart reconciliation pass.
@@ -271,6 +399,9 @@ class ReminderReconcileReport {
     this.retried = 0,
     this.dropped = 0,
     this.stillPending = 0,
+    this.exhausted = 0,
+    this.skipped = 0,
+    this.rejected = 0,
   });
 
   final int recovered;
@@ -278,10 +409,23 @@ class ReminderReconcileReport {
   final int dropped;
   final int stillPending;
 
+  /// Records whose automatic budget is spent and now wait for the user.
+  final int exhausted;
+
+  /// Records the fresh rebuild pass had already attempted in this cycle.
+  final int skipped;
+
+  /// Records the full ledger refused to queue.
+  final int rejected;
+
+  /// True when this pass could not finish everything the user still expects.
+  bool get needsAttention => exhausted > 0 || rejected > 0 || stillPending > 0;
+
   @override
   String toString() =>
       'ReminderReconcileReport(recovered: $recovered, retried: $retried, '
-      'dropped: $dropped, stillPending: $stillPending)';
+      'dropped: $dropped, stillPending: $stillPending, exhausted: $exhausted, '
+      'skipped: $skipped, rejected: $rejected)';
 }
 
 /// Payload included with notification for deep-linking back to the task.
@@ -404,6 +548,42 @@ abstract class ReminderService {
   Future<void>? _pendingLoadFuture;
   Future<void> _pendingWrites = Future.value();
 
+  /// Why the ledger is not a faithful mirror of memory, or null when it is.
+  /// Failures and refusals are reported here instead of being swallowed.
+  final ValueNotifier<ReminderLedgerIssue?> ledgerIssue = ValueNotifier(null);
+
+  /// Retry records the full ledger refused during this process.
+  int refusedRecords = 0;
+
+  /// Bumped by a full clear, so an older in-flight read cannot repopulate it.
+  int _clearEpoch = 0;
+
+  /// Keys and notification ids cleared while a read was still in flight. They
+  /// are re-applied after the merge, or the clear would be undone by the read.
+  final Set<String> _clearedWhileLoading = {};
+  final Set<String> _clearedSuffixesWhileLoading = {};
+
+  /// Notification ids the fresh rebuild pass already asked the platform about.
+  final Set<String> _attemptedInFreshPass = {};
+
+  /// True only while a rebuild pass is running, so ordinary edits and retries
+  /// are never mistaken for work this startup cycle already covered.
+  bool _rebuildPass = false;
+
+  /// Last ledger write error; null again once a write has landed.
+  String? _lastWriteError;
+
+  /// Writes queued and writes that reached storage, so an idle ledger can be
+  /// reported without waiting for a barrier it does not need.
+  int _writesQueued = 0;
+  int _writesCompleted = 0;
+
+  /// True while a queued ledger write still has to reach storage, or the last
+  /// attempt failed. A caller that must not lose pending reminder work can use
+  /// this to decide whether a barrier is needed at all.
+  bool get hasUnlandedLedgerWrites =>
+      _writesQueued != _writesCompleted || _lastWriteError != null;
+
   /// Failed schedules, projected from the ledger and keyed by notification id.
   Map<String, ReminderPendingJob> get pendingJobs =>
       Map.unmodifiable(_pendingJobs);
@@ -417,30 +597,121 @@ abstract class ReminderService {
   }
 
   Future<void> _readPendingJobs() async {
-    final raw = await ledgerStore.read();
+    final epochAtStart = _clearEpoch;
+    final String? raw;
+    try {
+      raw = await ledgerStore.read();
+    } catch (e) {
+      // An unreadable ledger is not an empty ledger: keep trying later and say
+      // so, instead of pretending no reminder work is pending.
+      _publishLedgerIssue(
+        ReminderLedgerIssue(
+          kind: ReminderLedgerIssueKind.read,
+          errorKind: reminderErrorKind(e),
+        ),
+      );
+      debugPrint('Reminder ledger read failed: ${reminderErrorKind(e)}');
+      return;
+    }
     _pendingLoaded = true;
     if (raw == null || raw.trim().isEmpty) return;
+    if (_clearEpoch != epochAtStart) {
+      // A full clear landed while this read was in flight and owns the ledger.
+      _clearedWhileLoading.clear();
+      _clearedSuffixesWhileLoading.clear();
+      return;
+    }
+    final stored = <ReminderPendingJob>[];
+    var damaged = 0;
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map) return;
-      final jobs = decoded['jobs'];
-      if (jobs is! List) return;
-      var merged = false;
-      for (final entry in jobs) {
-        final job = ReminderPendingJob.fromJson(entry);
-        if (job == null) continue;
-        // In-memory records are newer than anything still on disk.
-        if (_pendingJobs.containsKey(job.key) ||
-            _pendingJobs.length >= maxPendingJobs) {
-          continue;
+      final jobs = decoded is Map ? decoded['jobs'] : null;
+      if (jobs is List) {
+        for (final entry in jobs) {
+          final job = ReminderPendingJob.fromJson(entry);
+          if (job == null) {
+            damaged++;
+            continue;
+          }
+          stored.add(job);
         }
-        _pendingJobs[job.key] = job;
-        merged = true;
+      } else {
+        damaged++;
       }
-      if (merged) _publishPendingJobs();
     } catch (e) {
+      damaged++;
       debugPrint('Ignored unreadable reminder ledger: ${e.runtimeType}');
     }
+    if (damaged > 0) {
+      _publishLedgerIssue(
+        ReminderLedgerIssue(
+          kind: ReminderLedgerIssueKind.damaged,
+          count: damaged,
+        ),
+      );
+    }
+    // A ledger written by an older build can be larger than the current cap:
+    // keep the newest records and report the rest instead of dropping quietly.
+    if (stored.length > maxPendingJobs) {
+      stored.sort(
+        (a, b) => (b.firstFailedAtMs ?? b.updatedAtMs).compareTo(
+          a.firstFailedAtMs ?? a.updatedAtMs,
+        ),
+      );
+      final overflow = stored.length - maxPendingJobs;
+      stored.removeRange(maxPendingJobs, stored.length);
+      _noteRefused(overflow);
+    }
+    var merged = false;
+    for (final job in stored) {
+      // In-memory records are newer than anything still on disk.
+      if (_pendingJobs.containsKey(job.key) ||
+          _pendingJobs.length >= maxPendingJobs) {
+        continue;
+      }
+      _pendingJobs[job.key] = job;
+      merged = true;
+    }
+    if (_applyClearsRequestedDuringLoad()) merged = true;
+    if (merged) _publishPendingJobs();
+  }
+
+  /// Re-applies clears that were requested while the read was still running.
+  bool _applyClearsRequestedDuringLoad() {
+    var changed = false;
+    for (final suffix in _clearedSuffixesWhileLoading) {
+      for (final key in _pendingJobs.keys
+          .where((k) => k.endsWith(suffix))
+          .toList()) {
+        _pendingJobs.remove(key);
+        changed = true;
+      }
+    }
+    _clearedSuffixesWhileLoading.clear();
+    for (final key in _clearedWhileLoading) {
+      if (_pendingJobs.remove(key) != null) changed = true;
+    }
+    _clearedWhileLoading.clear();
+    return changed;
+  }
+
+  void _publishLedgerIssue(ReminderLedgerIssue issue) {
+    final current = ledgerIssue.value;
+    if (current?.kind != issue.kind ||
+        current?.errorKind != issue.errorKind ||
+        current?.count != issue.count) {
+      ledgerIssue.value = issue;
+    }
+  }
+
+  void _noteRefused(int count) {
+    refusedRecords += count;
+    _publishLedgerIssue(
+      ReminderLedgerIssue(
+        kind: ReminderLedgerIssueKind.overflow,
+        count: refusedRecords,
+      ),
+    );
   }
 
   void _publishPendingJobs() {
@@ -461,57 +732,146 @@ abstract class ReminderService {
     }
   }
 
-  /// Serializes the ledger to disk after the one-time load, so a record written
-  /// during startup cannot erase the records still on disk. Never awaited by a
-  /// schedule or cancel result: reminder results must not depend on storage.
-  void _persistPendingJobs() {
-    _pendingWrites = _pendingWrites
-        .then((_) async {
-          await loadPendingJobs();
-          final payload = jsonEncode({
-            'v': 1,
-            'jobs': [for (final job in _pendingJobs.values) job.toJson()],
-          });
-          await ledgerStore.write(_pendingJobs.isEmpty ? null : payload);
-        })
-        .catchError((Object error) {
-          debugPrint(
-            'Reminder ledger write failed: ${reminderErrorKind(error)}',
-          );
-        });
+  /// Serializes the ledger after the one-time load, so a record written during
+  /// startup cannot erase the records still on disk. A schedule or cancel result
+  /// never waits for it; [flushPendingLedger] is the explicit completion.
+  Future<void> _persistPendingJobs() {
+    _writesQueued++;
+    _pendingWrites = _pendingWrites.then((_) => _writeLedger()).catchError((
+      Object error,
+    ) {
+      _recordWriteFailure(error);
+    });
+    return _pendingWrites;
   }
 
-  /// Updates the in-memory ledger and notifies the UI synchronously.
-  Future<void> trackPendingJob(ReminderPendingJob job) async {
-    if (_pendingJobs.length >= maxPendingJobs &&
-        !_pendingJobs.containsKey(job.key)) {
-      return;
+  Future<void> _writeLedger() async {
+    try {
+      await loadPendingJobs();
+      final payload = jsonEncode({
+        'v': 1,
+        'jobs': [for (final job in _pendingJobs.values) job.toJson()],
+      });
+      await ledgerStore.write(_pendingJobs.isEmpty ? null : payload);
+      _writesCompleted++;
+      _lastWriteError = null;
+      if (ledgerIssue.value?.kind == ReminderLedgerIssueKind.write) {
+        ledgerIssue.value = null;
+      }
+    } catch (error) {
+      _recordWriteFailure(error);
+      rethrow;
+    }
+  }
+
+  void _recordWriteFailure(Object error) {
+    _lastWriteError = reminderErrorKind(error);
+    _publishLedgerIssue(
+      ReminderLedgerIssue(
+        kind: ReminderLedgerIssueKind.write,
+        errorKind: _lastWriteError,
+      ),
+    );
+    debugPrint('Reminder ledger write failed: $_lastWriteError');
+  }
+
+  /// Waits until every queued ledger write has been attempted and reports
+  /// whether local storage now holds the current records.
+  Future<ReminderLedgerWriteResult> flushPendingLedger() async {
+    final before = _writesCompleted;
+    while (true) {
+      final barrier = _pendingWrites;
+      await barrier;
+      if (identical(barrier, _pendingWrites)) break;
+    }
+    return ReminderLedgerWriteResult(
+      writes: _writesCompleted - before,
+      success: _lastWriteError == null,
+      errorKind: _lastWriteError,
+    );
+  }
+
+  /// Re-serializes the in-memory records after a refused or failed write.
+  Future<bool> retryPendingLedger() async {
+    try {
+      await loadPendingJobs();
+    } catch (_) {
+      // A retry may proceed even when the old ledger could not be read.
+    }
+    _pendingLoaded = true;
+    await _persistPendingJobs();
+    return !(await flushPendingLedger()).failed;
+  }
+
+  /// Records retry work and reports whether the ledger now owns it. A full
+  /// ledger refuses explicitly, so a caller never assumes a silent success.
+  Future<ReminderLedgerUpdate> trackPendingJob(ReminderPendingJob job) async {
+    final existing = _pendingJobs[job.key];
+    if (existing == null && _pendingJobs.length >= maxPendingJobs) {
+      if (!_evictExhaustedRecord()) {
+        _noteRefused(1);
+        debugPrint('Reminder ledger is full: refused ${job.key}');
+        return ReminderLedgerUpdate.rejected;
+      }
     }
     _pendingJobs[job.key] = job;
     _publishPendingJobs();
-    _persistPendingJobs();
+    unawaited(_persistPendingJobs());
+    return existing == null
+        ? ReminderLedgerUpdate.recorded
+        : ReminderLedgerUpdate.refreshed;
+  }
+
+  /// Frees one slot for live work. Only a record that already spent its budget
+  /// may be dropped to make room.
+  bool _evictExhaustedRecord() {
+    ReminderPendingJob? victim;
+    for (final job in _pendingJobs.values) {
+      if (!job.exhausted) continue;
+      if (victim == null ||
+          (job.firstFailedAtMs ?? job.updatedAtMs) <
+              (victim.firstFailedAtMs ?? victim.updatedAtMs)) {
+        victim = job;
+      }
+    }
+    if (victim == null) return false;
+    _pendingJobs.remove(victim.key);
+    debugPrint(
+      'Reminder ledger dropped an exhausted record to make room: ${victim.key}',
+    );
+    return true;
   }
 
   Future<void> clearPendingJob(String key) async {
-    if (_pendingJobs.remove(key) == null) return;
+    final loading = _pendingLoadFuture;
+    if (loading != null) _clearedWhileLoading.add(key);
+    if (_pendingJobs.remove(key) == null && loading == null) return;
     _publishPendingJobs();
-    _persistPendingJobs();
+    unawaited(_persistPendingJobs());
   }
 
   Future<void> clearPendingForNotification(int notificationId) async {
     final suffix = ':$notificationId';
+    final loading = _pendingLoadFuture;
     final keys = _pendingJobs.keys.where((k) => k.endsWith(suffix)).toList();
-    if (keys.isEmpty) return;
+    if (keys.isEmpty && loading == null) return;
+    if (loading != null) _clearedSuffixesWhileLoading.add(suffix);
     for (final key in keys) {
       _pendingJobs.remove(key);
     }
+    if (keys.isEmpty) return;
     _publishPendingJobs();
-    _persistPendingJobs();
+    unawaited(_persistPendingJobs());
   }
 
   Future<void> clearAllPendingJobs() async {
-    // Let an in-flight read settle before wiping, or it could repopulate the
-    // in-memory ledger after the clear has already reached disk.
+    // The epoch tells an in-flight read that a full clear owns the ledger, and
+    // awaiting the read keeps a merge from repopulating it after the wipe.
+    _clearEpoch++;
+    _clearedWhileLoading.clear();
+    _clearedSuffixesWhileLoading.clear();
+    _attemptedInFreshPass.clear();
+    _rebuildPass = false;
     try {
       await loadPendingJobs();
     } catch (_) {
@@ -520,12 +880,13 @@ abstract class ReminderService {
     _pendingLoaded = true;
     _pendingJobs.clear();
     _publishPendingJobs();
-    _persistPendingJobs();
+    unawaited(_persistPendingJobs());
   }
 
   /// Completes once every queued ledger write has been attempted.
   @visibleForTesting
-  Future<void> pendingLedgerWrites() => _pendingWrites;
+  Future<ReminderLedgerWriteResult> pendingLedgerWrites() =>
+      flushPendingLedger();
 
   static ReminderService? _instance;
   static ReminderService get instance => _instance ??= _createDefault();
@@ -578,6 +939,11 @@ abstract class ReminderService {
   Future<ReminderPermissionStatus> requestPermission();
 
   /// Schedules a local notification reminder for a task or subtask.
+  ///
+  /// [userInitiated] marks a request the user just made, such as editing the
+  /// reminder time or pressing retry. Only a user request or a changed trigger
+  /// starts a new retry generation; an automatic retry keeps counting against
+  /// the budget its generation already spent.
   Future<ReminderScheduleResult> scheduleReminder({
     required String boardId,
     required String taskId,
@@ -588,12 +954,14 @@ abstract class ReminderService {
     bool sound = true,
     bool vibrate = true,
     bool recordRetry = true,
+    bool userInitiated = false,
   });
 
   /// Cancels an existing scheduled reminder.
   Future<ReminderCancelResult> cancelReminder(
     String taskId, {
     String? subtaskId,
+    bool userInitiated = false,
   });
 
   /// Cancels all reminders for all tasks on a specific board.
@@ -607,30 +975,71 @@ abstract class ReminderService {
 
   /// Replays ledger work that a previous run could not finish, dropping records
   /// the current task data no longer backs. Runs after [rescheduleAllFuture].
+  ///
+  /// The age of a record is measured from its first failure, so a restart
+  /// cannot extend it, and a record whose budget is spent stays in the ledger
+  /// as an exhausted entry instead of disappearing as if it had succeeded —
+  /// but only while the current task data still asks for that reminder.
   Future<ReminderReconcileReport> reconcilePending(List<Task> allTasks) async {
     await loadPendingJobs();
     var recovered = 0, retried = 0, dropped = 0, stillPending = 0;
+    var exhausted = 0, skipped = 0, rejected = 0;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
+    // The fresh rebuild pass already asked the platform about these ids, so
+    // counting them again here would spend the budget twice per cycle.
+    final attemptedInFreshPass = _attemptedInFreshPass.toSet();
+    _attemptedInFreshPass.clear();
+    _rebuildPass = false;
     for (final key in _pendingJobs.keys.toList()) {
       final job = _pendingJobs[key];
       if (job == null) continue;
+      final firstFailureMs = job.firstFailedAtMs ?? job.updatedAtMs;
       final tooOld =
-          job.updatedAtMs > nowMs ||
-          nowMs - job.updatedAtMs > pendingTtlMs;
-      if (tooOld || job.attempts >= maxAutomaticRetries) {
+          job.updatedAtMs > nowMs || nowMs - firstFailureMs > pendingTtlMs;
+      if (tooOld) {
         await clearPendingJob(key);
         dropped++;
         continue;
       }
       final source = _reminderSource(allTasks, job);
+      // The live edit path owns the notification now: a reminder that was
+      // removed, completed or re-dated must not be resurrected, and a ghost
+      // cancel whose id was re-armed is replaced instead of cancelled. A spent
+      // budget may not keep either record alive.
+      final outdatedSchedule =
+          job.kind == ReminderPendingKind.reschedule &&
+          (source.triggerAtMs != job.triggerAtMs ||
+              source.triggerAtMs == null ||
+              source.triggerAtMs! <= nowMs);
+      final replacedGhost =
+          job.kind == ReminderPendingKind.cancel &&
+          source.triggerAtMs != null &&
+          source.triggerAtMs! > nowMs;
+      if (outdatedSchedule || replacedGhost) {
+        await clearPendingJob(key);
+        dropped++;
+        continue;
+      }
+      if (job.exhausted || job.attempts >= maxAutomaticRetries) {
+        if (!job.exhausted) {
+          await trackPendingJob(job.markExhausted());
+        }
+        exhausted++;
+        continue;
+      }
       if (job.kind == ReminderPendingKind.reschedule) {
-        if (source.triggerAtMs != job.triggerAtMs ||
-            source.triggerAtMs == null ||
-            source.triggerAtMs! <= nowMs) {
-          // Removed, completed or re-edited: the live edit path owns the
-          // notification now, so never resurrect an outdated reminder.
-          await clearPendingJob(key);
-          dropped++;
+        if (attemptedInFreshPass.contains(key)) {
+          // The rebuild pass already spent this cycle's attempt on this id, so
+          // the record is classified from its new state instead of retried.
+          skipped++;
+          final current = _pendingJobs[key];
+          if (current == null) {
+            recovered++;
+          } else if (current.exhausted) {
+            exhausted++;
+          } else {
+            stillPending++;
+          }
           continue;
         }
         retried++;
@@ -645,32 +1054,40 @@ abstract class ReminderService {
         if (result.accepted) {
           recovered++;
         } else if (_pendingJobs.containsKey(key)) {
-          await trackPendingJob(
+          // The same generation: the budget grows, it is not renewed.
+          final update = await trackPendingJob(
             job.withAttempt(failedAtMs: nowMs, errorKind: result.errorKind),
           );
-          stillPending++;
+          if (update == ReminderLedgerUpdate.rejected) {
+            rejected++;
+          } else if (_pendingJobs[key]?.exhausted ?? false) {
+            exhausted++;
+          } else {
+            stillPending++;
+          }
         } else {
           dropped++;
         }
         continue;
       }
 
-      if (source.triggerAtMs != null && source.triggerAtMs! > nowMs) {
-        // A reminder was re-added for this notification id, which replaces the
-        // ghost instead of leaving it to cancel.
-        await clearPendingJob(key);
-        dropped++;
-        continue;
-      }
       retried++;
       final result = await cancelReminder(job.taskId, subtaskId: job.subtaskId);
       if (result.succeeded) {
         recovered++;
       } else if (_pendingJobs.containsKey(key)) {
-        await trackPendingJob(
+        // The same cancellation identity keeps its own budget, so repeated
+        // failures across restarts cannot retry forever.
+        final update = await trackPendingJob(
           job.withAttempt(failedAtMs: nowMs, errorKind: result.errorKind),
         );
-        stillPending++;
+        if (update == ReminderLedgerUpdate.rejected) {
+          rejected++;
+        } else if (_pendingJobs[key]?.exhausted ?? false) {
+          exhausted++;
+        } else {
+          stillPending++;
+        }
       } else {
         dropped++;
       }
@@ -680,6 +1097,9 @@ abstract class ReminderService {
       retried: retried,
       dropped: dropped,
       stillPending: stillPending,
+      exhausted: exhausted,
+      skipped: skipped,
+      rejected: rejected,
     );
   }
 
@@ -720,13 +1140,134 @@ abstract class ReminderService {
   /// failure can be retried one notification at a time.
   final Map<int, ReminderPayload> trackedReminders = {};
 
+  /// Prepares a fresh rebuild pass: the stored records are read first, so a
+  /// startup pass continues the retry budget the previous run already spent
+  /// instead of writing a new generation, and the ids this pass already asked
+  /// the platform about are forgotten.
+  @protected
+  Future<void> beginReminderRebuild() async {
+    await loadPendingJobs();
+    _attemptedInFreshPass.clear();
+    _rebuildPass = true;
+  }
+
+  /// A schedule that must not reach the platform because its generation already
+  /// spent the automatic budget, or null when the request may proceed. The
+  /// ledger is left untouched, so the user still sees the pending failure.
+  @protected
+  ReminderScheduleResult? spentBudgetSchedule({
+    required int notificationId,
+    required int triggerAtMs,
+    required bool userInitiated,
+  }) {
+    if (userInitiated) return null;
+    final key = '${ReminderPendingKind.reschedule.name}:$notificationId';
+    final job = _pendingJobs[key];
+    if (job == null || !job.exhausted) return null;
+    // A different trigger is a new generation the live edit path owns.
+    if (job.triggerAtMs != triggerAtMs) return null;
+    return ReminderScheduleResult(
+      ReminderScheduleStatus.failed,
+      notificationId: notificationId,
+      errorKind: 'retryBudgetExhausted',
+    );
+  }
+
+  /// A cancellation that must not reach the platform because its identity
+  /// already spent the automatic budget, or null when it may proceed.
+  @protected
+  ReminderCancelResult? spentBudgetCancel({
+    required int notificationId,
+    required bool userInitiated,
+  }) {
+    if (userInitiated) return null;
+    final key = '${ReminderPendingKind.cancel.name}:$notificationId';
+    final job = _pendingJobs[key];
+    if (job == null || !job.exhausted) return null;
+    return ReminderCancelResult(
+      ReminderCancelStatus.failed,
+      notificationId: notificationId,
+      errorKind: 'retryBudgetExhausted',
+    );
+  }
+
+  /// One failed arming. The same reminder keeps counting against the budget its
+  /// generation already spent; only a changed trigger or an explicit user retry
+  /// starts a new generation, so a restart cannot renew the budget by itself.
+  ReminderPendingJob failedScheduleJob({
+    required ReminderPayload payload,
+    required int notificationId,
+    required int triggerAtMs,
+    String? errorKind,
+    required bool userInitiated,
+  }) {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final existing =
+        _pendingJobs['${ReminderPendingKind.reschedule.name}:$notificationId'];
+    if (existing != null &&
+        !userInitiated &&
+        existing.coversSameReminder(payload, triggerAtMs: triggerAtMs)) {
+      return existing
+          .withAttempt(failedAtMs: nowMs, errorKind: errorKind)
+          .withKnownBoard(payload.boardId);
+    }
+    return ReminderPendingJob(
+      kind: ReminderPendingKind.reschedule,
+      notificationId: notificationId,
+      boardId: payload.boardId,
+      taskId: payload.taskId,
+      subtaskId: payload.subtaskId,
+      triggerAtMs: triggerAtMs,
+      firstFailedAtMs: nowMs,
+      updatedAtMs: nowMs,
+      errorKind: errorKind,
+    );
+  }
+
+  /// One failed cancellation, keeping the notification identity it was recorded
+  /// with so a later retry cancels the same id.
+  ReminderPendingJob failedCancelJob({
+    required ReminderPayload payload,
+    required int notificationId,
+    String? errorKind,
+    required bool userInitiated,
+  }) {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final existing =
+        _pendingJobs['${ReminderPendingKind.cancel.name}:$notificationId'];
+    if (existing != null &&
+        !userInitiated &&
+        existing.coversSameReminder(payload)) {
+      return existing
+          .withAttempt(failedAtMs: nowMs, errorKind: errorKind)
+          .withKnownBoard(payload.boardId);
+    }
+    return ReminderPendingJob(
+      kind: ReminderPendingKind.cancel,
+      notificationId: notificationId,
+      boardId: payload.boardId,
+      taskId: payload.taskId,
+      subtaskId: payload.subtaskId,
+      firstFailedAtMs: nowMs,
+      updatedAtMs: nowMs,
+      errorKind: errorKind,
+    );
+  }
+
   @protected
   Future<ReminderScheduleResult> recordScheduleOutcome({
     required ReminderPayload payload,
     required int triggerAtMs,
     required ReminderScheduleResult result,
     required bool recordRetry,
+    bool userInitiated = false,
   }) async {
+    final rescheduleKey =
+        '${ReminderPendingKind.reschedule.name}:${result.notificationId}';
+    if (_rebuildPass && result.status != ReminderScheduleStatus.superseded) {
+      // The platform was asked about this id in this rebuild cycle.
+      _attemptedInFreshPass.add(rescheduleKey);
+    }
     switch (result.status) {
       case ReminderScheduleStatus.scheduled:
       case ReminderScheduleStatus.scheduledInApp:
@@ -740,22 +1281,17 @@ abstract class ReminderService {
         await clearPendingForNotification(result.notificationId);
       case ReminderScheduleStatus.superseded:
       case ReminderScheduleStatus.expired:
-        await clearPendingJob(
-          '${ReminderPendingKind.reschedule.name}:${result.notificationId}',
-        );
+        await clearPendingJob(rescheduleKey);
       case ReminderScheduleStatus.unavailable:
       case ReminderScheduleStatus.failed:
         if (recordRetry) {
           await trackPendingJob(
-            ReminderPendingJob(
-              kind: ReminderPendingKind.reschedule,
+            failedScheduleJob(
+              payload: payload,
               notificationId: result.notificationId,
-              boardId: payload.boardId,
-              taskId: payload.taskId,
-              subtaskId: payload.subtaskId,
               triggerAtMs: triggerAtMs,
-              updatedAtMs: DateTime.now().millisecondsSinceEpoch,
               errorKind: result.errorKind,
+              userInitiated: userInitiated,
             ),
           );
         }
@@ -767,6 +1303,7 @@ abstract class ReminderService {
   Future<ReminderCancelResult> recordCancelOutcome({
     required ReminderPayload payload,
     required ReminderCancelResult result,
+    bool userInitiated = false,
   }) async {
     final key = '${ReminderPendingKind.cancel.name}:${result.notificationId}';
     if (result.succeeded) {
@@ -774,14 +1311,11 @@ abstract class ReminderService {
       await clearPendingJob(key);
     } else {
       await trackPendingJob(
-        ReminderPendingJob(
-          kind: ReminderPendingKind.cancel,
+        failedCancelJob(
+          payload: payload,
           notificationId: result.notificationId,
-          boardId: payload.boardId,
-          taskId: payload.taskId,
-          subtaskId: payload.subtaskId,
-          updatedAtMs: DateTime.now().millisecondsSinceEpoch,
           errorKind: result.errorKind,
+          userInitiated: userInitiated,
         ),
       );
     }
@@ -838,6 +1372,7 @@ class NoopReminderService extends ReminderService {
     bool sound = true,
     bool vibrate = true,
     bool recordRetry = true,
+    bool userInitiated = false,
   }) async => ReminderScheduleResult(
     ReminderScheduleStatus.scheduled,
     notificationId: generateNotificationId(taskId, subtaskId: subtaskId),
@@ -847,6 +1382,7 @@ class NoopReminderService extends ReminderService {
   Future<ReminderCancelResult> cancelReminder(
     String taskId, {
     String? subtaskId,
+    bool userInitiated = false,
   }) async => ReminderCancelResult(
     ReminderCancelStatus.cancelled,
     notificationId: generateNotificationId(taskId, subtaskId: subtaskId),
@@ -862,7 +1398,9 @@ class NoopReminderService extends ReminderService {
   Future<void> cancelAll() async {}
 
   @override
-  Future<void> rescheduleAllFuture(List<Task> allTasks) async {}
+  Future<void> rescheduleAllFuture(List<Task> allTasks) async {
+    await beginReminderRebuild();
+  }
 }
 
 /// In-memory implementation of ReminderService for unit and widget testing.
@@ -925,6 +1463,7 @@ class InMemoryReminderService extends ReminderService {
     bool sound = true,
     bool vibrate = true,
     bool recordRetry = true,
+    bool userInitiated = false,
   }) async {
     final id = generateNotificationId(taskId, subtaskId: subtaskId);
     final payload = ReminderPayload(
@@ -932,6 +1471,12 @@ class InMemoryReminderService extends ReminderService {
       taskId: taskId,
       subtaskId: subtaskId,
     );
+    final spent = spentBudgetSchedule(
+      notificationId: id,
+      triggerAtMs: triggerAtMs,
+      userInitiated: userInitiated,
+    );
+    if (spent != null) return spent;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     ReminderScheduleResult result;
     if (nowMs - triggerAtMs > ReminderService.deliveryGraceMs) {
@@ -970,6 +1515,7 @@ class InMemoryReminderService extends ReminderService {
       triggerAtMs: triggerAtMs,
       result: result,
       recordRetry: recordRetry,
+      userInitiated: userInitiated,
     );
   }
 
@@ -977,11 +1523,17 @@ class InMemoryReminderService extends ReminderService {
   Future<ReminderCancelResult> cancelReminder(
     String taskId, {
     String? subtaskId,
+    bool userInitiated = false,
   }) async {
     final id = generateNotificationId(taskId, subtaskId: subtaskId);
     final payload =
         trackedReminders[id] ??
         ReminderPayload(boardId: '', taskId: taskId, subtaskId: subtaskId);
+    final spent = spentBudgetCancel(
+      notificationId: id,
+      userInitiated: userInitiated,
+    );
+    if (spent != null) return spent;
     ReminderCancelResult result;
     if (cancelFault != null) {
       result = ReminderCancelResult(
@@ -997,7 +1549,11 @@ class InMemoryReminderService extends ReminderService {
         notificationId: id,
       );
     }
-    return recordCancelOutcome(payload: payload, result: result);
+    return recordCancelOutcome(
+      payload: payload,
+      result: result,
+      userInitiated: userInitiated,
+    );
   }
 
   @override
@@ -1027,6 +1583,7 @@ class InMemoryReminderService extends ReminderService {
 
   @override
   Future<void> rescheduleAllFuture(List<Task> allTasks) async {
+    await beginReminderRebuild();
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     for (final t in allTasks) {
       if (t.completed) continue;
@@ -1325,6 +1882,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     bool sound = true,
     bool vibrate = true,
     bool recordRetry = true,
+    bool userInitiated = false,
   }) {
     final notifId = generateNotificationId(taskId, subtaskId: subtaskId);
     final gen = _bump(notifId);
@@ -1336,6 +1894,14 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       subtaskId: subtaskId,
     );
     return _enqueue(() async {
+      // A generation that already spent its automatic budget is not offered to
+      // the platform again; its record stays so the user still sees the gap.
+      final spent = spentBudgetSchedule(
+        notificationId: notifId,
+        triggerAtMs: triggerAtMs,
+        userInitiated: userInitiated,
+      );
+      if (spent != null) return spent;
       ReminderScheduleResult at(
         ReminderScheduleStatus status, {
         String? errorKind,
@@ -1352,6 +1918,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         payload: payload,
         triggerAtMs: triggerAtMs,
         recordRetry: recordRetry,
+        userInitiated: userInitiated,
         result: at(status, errorKind: errorKind),
       );
 
@@ -1440,6 +2007,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         payload: payload,
         triggerAtMs: triggerAtMs,
         recordRetry: recordRetry,
+        userInitiated: userInitiated,
         result: result,
       );
     });
@@ -1599,29 +2167,46 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   Future<ReminderCancelResult> cancelReminder(
     String taskId, {
     String? subtaskId,
+    bool userInitiated = false,
   }) {
     final notifId = generateNotificationId(taskId, subtaskId: subtaskId);
     final payload =
         trackedReminders[notifId] ??
         ReminderPayload(boardId: '', taskId: taskId, subtaskId: subtaskId);
+    final spent = spentBudgetCancel(
+      notificationId: notifId,
+      userInitiated: userInitiated,
+    );
+    if (spent != null) {
+      // The identity keeps its exhausted record, so the user still sees that a
+      // notification may survive on the platform side.
+      unawaited(
+        clearPendingJob('${ReminderPendingKind.reschedule.name}:$notifId'),
+      );
+      return Future<ReminderCancelResult>.value(spent);
+    }
     _bump(notifId);
     unawaited(
       clearPendingJob('${ReminderPendingKind.reschedule.name}:$notifId'),
     );
     _activeTimers[notifId]?.cancel();
     _activeTimers.remove(notifId);
-    return _enqueue(() => _cancelNow(payload, notifId));
+    return _enqueue(
+      () => _cancelNow(payload, notifId, userInitiated: userInitiated),
+    );
   }
 
   /// Cancels without queueing, so [cancelAll] can retry per notification after a
   /// bulk failure without waiting on its own chain slot.
   Future<ReminderCancelResult> _cancelNow(
     ReminderPayload payload,
-    int notifId,
-  ) async {
+    int notifId, {
+    bool userInitiated = false,
+  }) async {
     if (!_initialized) {
       return recordCancelOutcome(
         payload: payload,
+        userInitiated: userInitiated,
         result: ReminderCancelResult(
           ReminderCancelStatus.unavailable,
           notificationId: notifId,
@@ -1633,6 +2218,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       await _plugin.cancel(notifId);
       return recordCancelOutcome(
         payload: payload,
+        userInitiated: userInitiated,
         result: ReminderCancelResult(
           ReminderCancelStatus.cancelled,
           notificationId: notifId,
@@ -1643,6 +2229,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       debugPrint('Notification cancel failed: $kind');
       return recordCancelOutcome(
         payload: payload,
+        userInitiated: userInitiated,
         result: ReminderCancelResult(
           ReminderCancelStatus.failed,
           notificationId: notifId,
@@ -1697,6 +2284,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
 
   @override
   Future<void> rescheduleAllFuture(List<Task> allTasks) async {
+    await beginReminderRebuild();
     if (!_initialized) {
       _queuedReschedule =
           allTasks.map((t) => Task.fromJson(t.toJson())).toList();

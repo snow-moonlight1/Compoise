@@ -529,16 +529,22 @@ void main() {
         expect(report.retried, 1, reason: 'pass $pass retries once');
         expect(service.pendingJobs.values.single.attempts, pass);
       }
+      // RF08: a spent budget stops the automatic retries but keeps the failure
+      // reported, instead of dropping the record as if it had succeeded.
       final last = await service.reconcilePending(tasks);
-      expect(last.dropped, 1);
-      expect(service.pendingJobs, isEmpty);
+      expect(last.dropped, 0);
+      expect(last.exhausted, 1);
+      expect(service.pendingJobs, hasLength(1));
+      expect(service.pendingJobs.values.single.exhausted, isTrue);
+      expect(service.scheduleFailures.value, hasLength(1));
 
-      final callsAfterDrop = plugin.countOf(#zonedSchedule);
+      final callsAfterBudget = plugin.countOf(#zonedSchedule);
       final extra = await service.reconcilePending(tasks);
       expect(extra.retried, 0);
+      expect(extra.exhausted, 1);
       expect(
         plugin.countOf(#zonedSchedule),
-        callsAfterDrop,
+        callsAfterBudget,
         reason: 'the ledger stops retrying once the bound is reached',
       );
     });

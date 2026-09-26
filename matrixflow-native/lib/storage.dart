@@ -176,6 +176,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       await service.cancelReminder(
         payload.taskId,
         subtaskId: payload.subtaskId,
+        userInitiated: true,
       );
       return null;
     }
@@ -186,6 +187,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       title: sub?.title ?? task.title,
       body: sub?.notesMarkdown ?? task.notesMarkdown,
       triggerAtMs: when,
+      // The user asked for this retry, so it opens a new retry generation
+      // instead of spending the budget the automatic retries already used.
+      userInitiated: true,
     );
   }
 
@@ -199,20 +203,38 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     return service.cancelReminder(
       payload.taskId,
       subtaskId: payload.subtaskId,
+      userInitiated: true,
     );
   }
 
+  /// Outcome of the most recent startup reminder pass, kept so a failure or a
+  /// spent retry budget is never reported as a silent success.
+  ReminderReconcileReport? lastReminderReport;
+
   /// Rebuilds the OS schedule from task data, then finishes reminder work a
-  /// previous run could not. Ordering matters: reconciliation must not re-arm a
-  /// reminder the fresh pass already accepted.
-  Future<void> reconcileReminders() async {
+  /// previous run could not. Ordering matters: the stored ledger is read first
+  /// so a startup pass continues the retry budget the previous run already
+  /// spent instead of starting a new generation, and reconciliation must not
+  /// re-arm a reminder the fresh pass has already attempted.
+  Future<ReminderReconcileReport> reconcileReminders() async {
     final service = reminderService;
+    var report = const ReminderReconcileReport();
     try {
+      await service.loadPendingJobs();
+      if (_disposed) return report;
       await service.rescheduleAllFuture(tasks);
-      await service.reconcilePending(tasks);
+      if (_disposed) return report;
+      report = await service.reconcilePending(tasks);
+      // The ledger is the only memory a restart can use, so this pass is not
+      // finished until its records have been through a completed write.
+      await service.flushPendingLedger();
     } catch (_) {
-      // Reminder delivery is tracked separately from library persistence.
+      // Reminder delivery is tracked separately from library persistence; the
+      // failure stays visible through scheduleFailures/cancelFailures and the
+      // ledger issue notifier.
     }
+    lastReminderReport = report;
+    return report;
   }
 
   /// Clears every notification before a full library replace, then rebuilds.
@@ -762,6 +784,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           title: updated.title,
           body: updated.notesMarkdown,
           triggerAtMs: updated.reminderAt!,
+          // Only a real reminder change is a user request; an unrelated edit
+          // must keep spending the budget this reminder already used.
+          userInitiated: updated.reminderAt != oldTask.reminderAt,
         );
       } else {
         reminderService.cancelReminder(updated.id);
@@ -775,6 +800,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
             title: sub.title,
             body: updated.title,
             triggerAtMs: sub.reminderAt!,
+            userInitiated:
+                oldSubMap[sub.id]?.reminderAt != sub.reminderAt,
           );
         } else {
           reminderService.cancelReminder(
@@ -1936,21 +1963,40 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Waits for every accepted save, credential operation and import on the
   /// serial owner. A secure-storage failure is a failed save for exit purposes.
-  Future<SaveResult> flush() async {
+  ///
+  /// [includeReminderLedger] adds the reminder retry ledger, which is the only
+  /// memory a restart has for pending reminder work. The exit barrier uses it so
+  /// a lost ledger cannot be reported as a clean shutdown; data flows such as a
+  /// backup export keep the library-only contract. The barrier is only awaited
+  /// when a write is actually outstanding, so a clean library is not delayed.
+  Future<SaveResult> flush({bool includeReminderLedger = false}) async {
     await _drainCommits();
+    final ledger =
+        includeReminderLedger && reminderService.hasUnlandedLedgerWrites
+        ? await reminderService.flushPendingLedger()
+        : null;
     if (credentialError != null ||
         _pendingCredentialRollback != null ||
         _pendingCredentialValue != null ||
         _credentialMigrationPending ||
-        _savedRevision < _dirtyRevision) {
+        _savedRevision < _dirtyRevision ||
+        (ledger?.failed ?? false)) {
       return SaveResult(false, lastSaveResult.revision);
     }
     return lastSaveResult;
   }
 
-  Future<SaveResult> retrySave() async {
+  Future<SaveResult> retrySave({bool includeReminderLedger = false}) async {
     if (!ready || hasStartupRecovery) return const SaveResult(false, 0);
     await _drainCommits();
+    if (includeReminderLedger && reminderService.hasUnlandedLedgerWrites) {
+      final ledger = await reminderService.flushPendingLedger();
+      if (ledger.failed && !await reminderService.retryPendingLedger()) {
+        // Retrying did not land the ledger, so the barrier still owes the
+        // caller a failed result instead of the library-only answer.
+        return flush(includeReminderLedger: true);
+      }
+    }
     if (credentialError != null ||
         _pendingCredentialValue != null ||
         _pendingCredentialRollback != null ||
@@ -1959,7 +2005,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
     _savedRevision = _dirtyRevision;
     _write(_kTasks, '');
-    return flush();
+    // A credential retry can queue reminder work, so the ledger barrier is
+    // re-checked here instead of trusting the pass above.
+    return flush(includeReminderLedger: includeReminderLedger);
   }
 
   Future<void> _drainCommits() async {
