@@ -60,25 +60,24 @@ class SettingsBackupFlow {
     try {
       final includeCredential = await showDialog<bool>(
         context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: Text(t['exportCredentialTitle']!),
-              content: Text(t['exportCredentialWarning']!),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(t['cancel']!),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: Text(t['exportWithoutCredential']!),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: Text(t['exportWithCredential']!),
-                ),
-              ],
+        builder: (dialogContext) => AlertDialog(
+          title: Text(t['exportCredentialTitle']!),
+          content: Text(t['exportCredentialWarning']!),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(t['cancel']!),
             ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t['exportWithoutCredential']!),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(t['exportWithCredential']!),
+            ),
+          ],
+        ),
       );
       if (includeCredential == null || _closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
@@ -184,12 +183,36 @@ class SettingsBackupFlow {
       if (_closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
       }
-      final mode = await _askMode(context, t);
-      if (mode == null || _closed || !context.mounted) {
+      final selectedMode = await _askMode(context, t);
+      if (selectedMode == null || _closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
       }
-      final plan = store.previewImport(json, mode);
-      final choice = await _confirmPlan(context, t, plan, mode);
+      final targetBoardId = selectedMode == 'merge-existing'
+          ? await _askTargetBoard(context, t, store)
+          : null;
+      if (_closed ||
+          !context.mounted ||
+          (selectedMode == 'merge-existing' && targetBoardId == null)) {
+        return const BackupResult(BackupOutcome.cancelled);
+      }
+      final mode = selectedMode == 'merge-existing' ? 'merge' : selectedMode;
+      final plan = store.previewImport(
+        json,
+        mode,
+        targetBoardId: targetBoardId,
+      );
+      final targetBoardName = targetBoardId == null
+          ? null
+          : store.boards
+                .where((board) => board.id == targetBoardId)
+                .firstOrNull
+                ?.name;
+      final choice = await _confirmPlan(
+        context,
+        t,
+        plan,
+        targetBoardName: targetBoardName,
+      );
       if (choice == null || _closed || !context.mounted) {
         return const BackupResult(BackupOutcome.cancelled);
       }
@@ -209,19 +232,22 @@ class SettingsBackupFlow {
           shell.isDesktopSupported && desktopResult.hasFailure
           ? '\n${desktopStatusText(store.t, shell)}'
           : '';
-      return BackupResult(BackupOutcome.succeeded,
+      return BackupResult(
+        BackupOutcome.succeeded,
         '${t['importSuccess']} (${plan.addedTasks})$desktopWarning',
       );
     } on BackupRejectedException catch (error) {
       return BackupResult(BackupOutcome.failed, t[error.copy]!);
     } on FormatException catch (error) {
-      return BackupResult(BackupOutcome.failed,
+      return BackupResult(
+        BackupOutcome.failed,
         error.message.startsWith('Conflicting')
             ? t['importConflictBlocked']!
             : t['importError']!,
       );
     } catch (_) {
-      return BackupResult(BackupOutcome.failed,
+      return BackupResult(
+        BackupOutcome.failed,
         t[applying ? 'importSaveError' : 'importError']!,
       );
     } finally {
@@ -232,61 +258,35 @@ class SettingsBackupFlow {
   Future<String?> _askMode(BuildContext context, Map<String, String> t) =>
       showDialog<String>(
         context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: Text(t['importOptions']!),
-              content: Text(t['importPrompt']!),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(t['cancel']!),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, 'merge'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t['importModeMerge']!),
-                      Text(
-                        t['importModeMergeDesc']!,
-                        style: Theme.of(dialogContext).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                  ),
-                  onPressed: () => Navigator.pop(dialogContext, 'overwrite'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t['importModeOverwrite']!),
-                      Text(
-                        t['importModeOverwriteDesc']!,
-                        style: Theme.of(dialogContext).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-      );
-
-  Future<String?> _confirmPlan(
-    BuildContext context,
-    Map<String, String> t,
-    ImportPlan plan,
-    String mode,
-  ) => showDialog<String>(
-    context: context,
-    builder:
-        (dialogContext) => AlertDialog(
-          title: Text(t['importPreview']!),
+        builder: (dialogContext) => AlertDialog(
+          title: Text(t['importOptions']!),
           content: SingleChildScrollView(
-            child: Text(
-              '${mode == 'overwrite' ? t['confirmImport'] : t['importModeMergeDesc']}\n\n${_summary(t, plan)}\n\n${plan.hasCredential ? t['importCredentialPresent'] : ''}\n\n${_warningDetails(t, plan)}\n\n${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t['importPrompt']!),
+                const SizedBox(height: 8),
+                for (final option in [
+                  ('merge', 'importModeMerge', 'importModeMergeDesc'),
+                  (
+                    'merge-existing',
+                    'importModeMergeInto',
+                    'importModeMergeIntoDesc',
+                  ),
+                  (
+                    'overwrite',
+                    'importModeOverwrite',
+                    'importModeOverwriteDesc',
+                  ),
+                ])
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t[option.$2]!),
+                    subtitle: Text(t[option.$3]!),
+                    onTap: () => Navigator.pop(dialogContext, option.$1),
+                  ),
+              ],
             ),
           ),
           actions: [
@@ -294,31 +294,100 @@ class SettingsBackupFlow {
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(t['cancel']!),
             ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-              onPressed:
-                  plan.conflicts > 0
-                      ? null
-                      : () => Navigator.pop(dialogContext, 'keep'),
-              child: Text(
-                plan.hasCredential
-                    ? t['importKeepCredential']!
-                    : t['confirm']!,
-              ),
-            ),
-            if (plan.hasCredential)
-              TextButton(
-                onPressed:
-                    plan.conflicts > 0
-                        ? null
-                        : () => Navigator.pop(dialogContext, 'replace'),
-                child: Text(t['importReplaceCredential']!),
-              ),
           ],
         ),
+      );
+
+  Future<String?> _askTargetBoard(
+    BuildContext context,
+    Map<String, String> t,
+    Store store,
+  ) {
+    final boards = List.of(store.boards);
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(t['importSelectBoard']!),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 320,
+          child: ListView.builder(
+            itemCount: boards.length,
+            itemBuilder: (context, index) {
+              final board = boards[index];
+              return ListTile(
+                title: Text(board.name),
+                subtitle: Text(
+                  board.id == store.activeBoardId
+                      ? t['importCurrentBoard']!
+                      : board.id,
+                ),
+                onTap: () => Navigator.pop(dialogContext, board.id),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(t['cancel']!),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _confirmPlan(
+    BuildContext context,
+    Map<String, String> t,
+    ImportPlan plan, {
+    String? targetBoardName,
+  }) => showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(t['importPreview']!),
+      content: SingleChildScrollView(
+        child: Text(
+          '${_importDescription(t, plan, targetBoardName)}\n\n${_summary(t, plan)}\n\n${plan.hasCredential ? t['importCredentialPresent'] : ''}\n\n${_warningDetails(t, plan)}\n\n${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: Text(t['cancel']!),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+          onPressed: plan.conflicts > 0
+              ? null
+              : () => Navigator.pop(dialogContext, 'keep'),
+          child: Text(
+            plan.hasCredential ? t['importKeepCredential']! : t['confirm']!,
+          ),
+        ),
+        if (plan.hasCredential)
+          TextButton(
+            onPressed: plan.conflicts > 0
+                ? null
+                : () => Navigator.pop(dialogContext, 'replace'),
+            child: Text(t['importReplaceCredential']!),
+          ),
+      ],
+    ),
   );
+
+  String _importDescription(
+    Map<String, String> t,
+    ImportPlan plan,
+    String? targetBoardName,
+  ) {
+    if (plan.mode == 'overwrite') return t['confirmImport']!;
+    if (targetBoardName == null) return t['importModeMergeDesc']!;
+    return '${t['importTargetBoard']}: $targetBoardName\n'
+        '${t['importModeMergeIntoDesc']}';
+  }
 
   String _summary(Map<String, String> t, ImportPlan plan) =>
       '${t['importAddedBoards']}: ${plan.addedBoards}\n'

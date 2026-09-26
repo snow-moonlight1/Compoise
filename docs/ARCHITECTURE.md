@@ -16,7 +16,7 @@
 
 API 密钥经过 `CredentialStore`（`flutter_secure_storage` 10.3.4）。Android 使用 Keystore 与 AES-GCM。Windows 把密钥放在凭据管理器，把 AES-GCM 密文放在应用目录。默认 `ExportData` 省略 `customApiKey`。设置页每次明确选择包含密钥时，先警告明文，再从系统凭据读出并写入 JSON。旧的带密钥 v1/v2 仍可读取。覆盖导入默认保留本机密钥，预览中明确选择才替换。合并导入不导入配置或密钥。Android 关闭了应用自动备份和设备转移。Windows 上单独复制凭据或密文文件不是恢复契约。OS05 在迁移前保存的恢复副本仍可能含明文，并且不能当普通备份导入。
 
-设置页导出 v2。缺少 `version` 的文件按 v1 解释。`DataMigrator` 接受 v1 和 v2，拒绝其他版本。代码里的 `exportJson(version: 1)` 会丢掉 `urgencyMode`、笔记、提醒、`reminderTimezone`、`completedAt`，以及 v2 才有的视图、字体、完成率、减少动画、托盘和快捷键字段。设置页没有版本选择器。这种降级不能当成冻结 React 的无损读回。Android 与 Windows 使用同一套备份实现。备份是手动文件，不是自动同步。上限、冲突和字段见 [BACKUP_FORMAT.md](BACKUP_FORMAT.md)。
+设置页导出 v2。缺少 `version` 的文件按 v1 解释。`DataMigrator` 接受 v1 和 v2，拒绝其他版本。代码里的 `exportJson(version: 1)` 会丢掉 `urgencyMode`、笔记、提醒、`reminderTimezone`、`completedAt`，以及 v2 才有的视图、字体、完成率、减少动画、托盘和快捷键字段。设置页没有版本选择器。这种降级不能当成冻结 React 的无损读回。Android 与 Windows 使用同一套备份实现。备份是手动文件，不是自动同步。导入合并现在区分按备份任务板复用/新建与合并到用户选择的现有任务板；覆盖模式直接替换备份携带的任务板、待办和设置。上限、冲突和字段见 [BACKUP_FORMAT.md](BACKUP_FORMAT.md)。
 
 | 对外状态 | 当前 |
 |---|---|

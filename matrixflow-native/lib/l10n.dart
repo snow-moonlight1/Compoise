@@ -296,14 +296,21 @@ const Map<Language, Map<String, String>> _dicts = {
     'importErrorTooDeep':
         'This backup nests its data deeper than this app can read.',
     'confirmImport':
-        'Overwrite ALL current boards and tasks? This cannot be undone.',
+        'Replace all current boards and tasks, plus settings included in the backup? This cannot be undone.',
     'importOptions': 'Import Options',
     'importPrompt': 'How would you like to import tasks?',
-    'importModeMerge': 'Merge',
+    'importModeMerge': 'Merge with backup boards',
     'importModeMergeDesc':
-        'Adds tasks to existing boards and keeps the current data.',
+        'Create missing backup boards; reuse boards with matching IDs. Keep current data.',
+    'importModeMergeInto': 'Merge into an existing board',
+    'importModeMergeIntoDesc':
+        'Choose a board. Add all imported tasks there and keep current data.',
+    'importSelectBoard': 'Choose target board',
+    'importTargetBoard': 'Target board',
+    'importCurrentBoard': 'Current board',
     'importModeOverwrite': 'Overwrite All',
-    'importModeOverwriteDesc': 'Replace everything.',
+    'importModeOverwriteDesc':
+        'Replace all boards and tasks, plus settings included in the backup.',
     'importPreview': 'Review import',
     'importAddedBoards': 'Boards to add',
     'importAddedTasks': 'Tasks to add',
@@ -653,7 +660,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiGenerationOk': '所选模型已返回文本。',
     'aiGenerationEmpty': '所选模型返回了空内容。',
     'aiGenerationPartial': '所选模型返回了文本，但被 16 token 的探测预算截断，说明生成是可用的。',
-    'aiGenerationThinkingOnly': '模型确有响应，但回复里只有思考内容，或在正文出现前就被截断。端点与模型可用，这不是认证失败。探测预算刻意只有 16 token：请关闭思考模式，或接受思考模型需要更多额度。',
+    'aiGenerationThinkingOnly':
+        '模型确有响应，但回复里只有思考内容，或在正文出现前就被截断。端点与模型可用，这不是认证失败。探测预算刻意只有 16 token：请关闭思考模式，或接受思考模型需要更多额度。',
     'aiGenerationNotRun': '尚未测试所选模型生成。模型列表成功不等于可以生成。',
     'testGeneration': '测试所选模型生成',
     'testGenerationBilling': '生成测试可能产生费用，只有在你确认后才会发送。',
@@ -665,7 +673,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiThinkingNotForciblyOff':
         '当前模型没有可安全关闭推理的参数。请求会省略该字段，服务商仍可能进行推理。若要强制关闭，请改用接受 effort 为 none 的模型。',
     'aiThinkingLowestEffort': '该模型没有 none 强度。请求改用其文档允许的最低强度 minimal，因此模型仍可能思考。',
-    'aiThinkingCapabilityUnverified': '该端点并非声明了思考扩展的官方服务商 API，请求已省略该参数，模型可能默认仍在思考。请改用官方服务商预设，或有明确思考控制的模型。',
+    'aiThinkingCapabilityUnverified':
+        '该端点并非声明了思考扩展的官方服务商 API，请求已省略该参数，模型可能默认仍在思考。请改用官方服务商预设，或有明确思考控制的模型。',
     'boards': '任务板',
     'createBoard': '新建任务板',
     'renameBoard': '重命名',
@@ -824,13 +833,18 @@ const Map<Language, Map<String, String>> _dicts = {
     'importErrorTooLarge': '该备份文件超过本应用可导入的大小上限。',
     'importErrorTooManyRecords': '该备份的任务板、任务或子项数量超过本应用支持的上限。',
     'importErrorTooDeep': '该备份的数据嵌套过深，本应用无法读取。',
-    'confirmImport': '导入将覆盖当前所有任务板与任务，且无法撤销。确定继续吗？',
+    'confirmImport': '将替换当前所有任务板与任务，以及备份中包含的设置。此操作无法撤销。',
     'importOptions': '导入选项',
     'importPrompt': '您希望如何导入任务？',
-    'importModeMerge': '合并到当前',
-    'importModeMergeDesc': '添加到现有任务板，保留当前数据。',
+    'importModeMerge': '按备份任务板合并',
+    'importModeMergeDesc': '缺少的备份任务板会新建；同 ID 任务板复用。保留当前数据。',
+    'importModeMergeInto': '合并到现有任务板',
+    'importModeMergeIntoDesc': '选择目标任务板，将备份中的任务都加入该板，保留当前数据。',
+    'importSelectBoard': '选择目标任务板',
+    'importTargetBoard': '目标任务板',
+    'importCurrentBoard': '当前任务板',
     'importModeOverwrite': '覆盖所有',
-    'importModeOverwriteDesc': '完全替换当前所有任务和设置。',
+    'importModeOverwriteDesc': '替换所有任务板与任务，以及备份中包含的设置。',
     'importPreview': '预览导入',
     'importAddedBoards': '新增任务板',
     'importAddedTasks': '新增任务',
@@ -1014,10 +1028,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'reminderCancelFailed': '任务中的提醒已删除，但系统里已有的通知取消失败。',
     'reminderLedgerUnreadable':
         '无法读取已保存的提醒重试记录，仍在等待再次尝试的提醒可能不在这个列表里。点“重试”可重新读取。',
-    'reminderLedgerWriteFailed':
-        '提醒重试记录无法保存到本机，应用关闭后，仍在等待再次尝试的提醒可能丢失。',
-    'reminderLedgerFull':
-        '提醒重试列表最多保留 {cap} 条，目前已满，因此有 {count} 条提醒未能加入重试。',
+    'reminderLedgerWriteFailed': '提醒重试记录无法保存到本机，应用关闭后，仍在等待再次尝试的提醒可能丢失。',
+    'reminderLedgerFull': '提醒重试列表最多保留 {cap} 条，目前已满，因此有 {count} 条提醒未能加入重试。',
     'reminderLedgerDamaged': '有 {count} 条提醒重试记录已损坏并被跳过，其余记录仍然保留。',
     'reminderLedgerRepair': '修复列表',
     'taskNotFound': '该任务不存在或已被删除',
@@ -1145,7 +1157,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiGenerationOk': '選択モデルがテキストを返しました。',
     'aiGenerationEmpty': '選択モデルが空の応答を返しました。',
     'aiGenerationPartial': '選択モデルはテキストを返しましたが、16トークンの検証予算で途切れています。生成は動作します。',
-    'aiGenerationThinkingOnly': 'モデルは応答しましたが、内容が思考だけ、または本文の前に途切れました。エンドポイントとモデルは動作しており、認証失敗ではありません。検証予算は意図的に16トークンです。思考モードを切るか、思考モデルにはより多くの予算が必要だと承知してください。',
+    'aiGenerationThinkingOnly':
+        'モデルは応答しましたが、内容が思考だけ、または本文の前に途切れました。エンドポイントとモデルは動作しており、認証失敗ではありません。検証予算は意図的に16トークンです。思考モードを切るか、思考モデルにはより多くの予算が必要だと承知してください。',
     'aiGenerationNotRun': '選択モデルの生成はまだテストしていません。モデル一覧の成功は生成可能を意味しません。',
     'testGeneration': '選択モデルの生成をテスト',
     'testGenerationBilling': '生成テストは課金されることがあります。確認した後にだけ送信します。',
@@ -1306,9 +1319,12 @@ const Map<Language, Map<String, String>> _dicts = {
     'exportWithCredential': 'API キーを含める',
     'exportSuccess': 'バックアップを保存しました。',
     'exportPartsSuccess': 'バックアップを {n} 個のファイルに分割して保存しました。',
-    'exportPartsHint': 'このデータ量は 1 ファイルに収まりません。順序どおりに復元してください：1 番目を上書きで、以降のファイルをそれぞれマージでインポートします。',
-    'exportErrorTooLarge': '単一のタスクまたはメモが本アプリのバックアップ上限を超えています。短くしてから再エクスポートしてください。',
-    'exportErrorTooManyRecords': 'このデータ量は本アプリが復元できるバックアップの上限を超えています。一部のタスクを削除またはアーカイブしてから再エクスポートしてください。',
+    'exportPartsHint':
+        'このデータ量は 1 ファイルに収まりません。順序どおりに復元してください：1 番目を上書きで、以降のファイルをそれぞれマージでインポートします。',
+    'exportErrorTooLarge':
+        '単一のタスクまたはメモが本アプリのバックアップ上限を超えています。短くしてから再エクスポートしてください。',
+    'exportErrorTooManyRecords':
+        'このデータ量は本アプリが復元できるバックアップの上限を超えています。一部のタスクを削除またはアーカイブしてから再エクスポートしてください。',
     'importKeepCredential': 'この端末の API キーを保持',
     'importReplaceCredential': 'バックアップの API キーを使用',
     'importCredentialPresent': 'バックアップに API キーがあります。明示的に選択しない限り、この端末のキーを保持します。',
@@ -1320,13 +1336,18 @@ const Map<Language, Map<String, String>> _dicts = {
     'importErrorTooLarge': 'このバックアップは本アプリがインポートできるサイズ上限を超えています。',
     'importErrorTooManyRecords': 'このバックアップのボード・タスク・サブタスク数が本アプリの上限を超えています。',
     'importErrorTooDeep': 'このバックアップのネストが深すぎて本アプリは読み取れません。',
-    'confirmImport': '現在のボードとタスクをすべて上書きします。元に戻せません。続行しますか？',
+    'confirmImport': '現在のボードとタスク、およびバックアップに含まれる設定を置き換えます。元に戻せません。',
     'importOptions': 'インポートオプション',
     'importPrompt': 'タスクをどのようにインポートしますか？',
-    'importModeMerge': '統合',
-    'importModeMergeDesc': '既存のボードに追加し、現在のデータはそのまま残ります。',
+    'importModeMerge': 'バックアップのボードで統合',
+    'importModeMergeDesc': '不足するボードを作成し、同じ ID のボードは再利用します。現在のデータは残ります。',
+    'importModeMergeInto': '既存のボードに統合',
+    'importModeMergeIntoDesc': '対象ボードを選び、バックアップの全タスクを追加します。現在のデータは残ります。',
+    'importSelectBoard': '対象ボードを選択',
+    'importTargetBoard': '対象ボード',
+    'importCurrentBoard': '現在のボード',
     'importModeOverwrite': 'すべて上書き',
-    'importModeOverwriteDesc': '完全に置き換えます。',
+    'importModeOverwriteDesc': 'すべてのボードとタスク、およびバックアップに含まれる設定を置き換えます。',
     'importPreview': 'インポートの確認',
     'importAddedBoards': '追加するボード',
     'importAddedTasks': '追加するタスク',
@@ -1505,22 +1526,18 @@ const Map<Language, Map<String, String>> _dicts = {
     'testNotification': 'テスト通知を送信',
     'testNotificationSent': 'テスト通知を送信しました！通知バナーまたはアクションセンターを確認してください。',
     'reminderTestBody': 'MatrixFlow テスト通知',
-    'reminderTestInAppOnly':
-        'システムが予約通知を拒否したため、アプリ起動中のみ通知します。',
+    'reminderTestInAppOnly': 'システムが予約通知を拒否したため、アプリ起動中のみ通知します。',
     'reminderTestFailed': 'テスト通知に失敗しました。システムが受け付けませんでした。',
-    'permissionUnknown':
-        'このプラットフォームは通知状態を参照できないため、システム設定でブロックされている可能性があります。',
+    'permissionUnknown': 'このプラットフォームは通知状態を参照できないため、システム設定でブロックされている可能性があります。',
     'permissionUnsupported': 'このプラットフォームではローカルリマインダーを利用できません。',
-    'reminderCancelFailed':
-        'タスク側のリマインダーは削除されましたが、既存のシステム通知をキャンセルできませんでした。',
+    'reminderCancelFailed': 'タスク側のリマインダーは削除されましたが、既存のシステム通知をキャンセルできませんでした。',
     'reminderLedgerUnreadable':
         '保存された通知リトライ記録を読み取れませんでした。再試行待ちの通知がこの一覧に表示されない可能性があります。「再試行」で読み直せます。',
     'reminderLedgerWriteFailed':
         '通知リトライ記録をこの端末に保存できませんでした。アプリを終了すると、再試行待ちの記録が失われる可能性があります。',
     'reminderLedgerFull':
         '通知リトライ一覧は最大 {cap} 件までで、現在は満杯です。そのため {count} 件の通知を再試行に登録できませんでした。',
-    'reminderLedgerDamaged':
-        '{count} 件の通知リトライ記録が読み取れず読み飛ばしました。残りの記録は保持されています。',
+    'reminderLedgerDamaged': '{count} 件の通知リトライ記録が読み取れず読み飛ばしました。残りの記録は保持されています。',
     'reminderLedgerRepair': '一覧を修復',
     'taskNotFound': 'タスクが見つからないか、既に削除されています',
     'completedAtTime': '完了日時: {time}',
@@ -1535,8 +1552,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'onboardingStep1Title': 'アイゼンハワーマトリクスと高速追加',
     'onboardingStep1Desc': '緊急度と重要度の4象限でタスクを整理。改行を入力することで複数のタスクを一括登録できます。',
     'onboardingStep2Title': 'ドラッグ＆ドロップで象限移動',
-    'onboardingStep2Desc':
-        'タスクカードを押し続けて別の象限へドラッグ、または右クリックのメニューから移動。',
+    'onboardingStep2Desc': 'タスクカードを押し続けて別の象限へドラッグ、または右クリックのメニューから移動。',
     'onboardingStep3Title': '詳細・サブタスク・リマインダー',
     'onboardingStep3Desc':
         'カードをタップして詳細を表示。サブタスクのチェックリスト、Markdownメモ、期日、通知リマインダーを設定できます。',

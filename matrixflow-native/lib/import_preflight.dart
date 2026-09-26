@@ -6,6 +6,10 @@ import 'models.dart';
 
 class ImportPlan {
   final String mode;
+
+  /// When set, a merge routes every imported task into this existing board.
+  /// The choice is retained when the plan is recalculated at commit time.
+  final String? targetBoardId;
   final List<Board> boards;
   final List<Task> tasks;
   final AppSettings? settings;
@@ -30,6 +34,7 @@ class ImportPlan {
 
   const ImportPlan({
     required this.mode,
+    this.targetBoardId,
     required this.boards,
     required this.tasks,
     this.settings,
@@ -156,12 +161,20 @@ class ImportPreflight {
   static ImportPlan inspect(
     Map<String, dynamic> payload,
     String mode, {
+    String? targetBoardId,
     required List<Board> currentBoards,
     required List<Task> currentTasks,
     required int revision,
   }) {
     if (mode != 'merge' && mode != 'overwrite') {
       throw const FormatException('Invalid import mode');
+    }
+    if (targetBoardId != null && mode != 'merge') {
+      throw const FormatException('Target board requires merge mode');
+    }
+    if (targetBoardId != null &&
+        !currentBoards.any((board) => board.id == targetBoardId)) {
+      throw const FormatException('Import target board is missing');
     }
     void checkDepth(Object? value, int depth) {
       if (depth > maxDepth) {
@@ -232,16 +245,14 @@ class ImportPreflight {
       Set<String> allowed,
       String scope,
     ) {
-      final names =
-          record.keys
-              .where((key) => !allowed.contains(key))
-              .map(
-                (key) =>
-                    RegExp(r'^[A-Za-z_][A-Za-z0-9_]{0,48}$').hasMatch(key)
-                        ? key
-                        : '[invalid name]',
-              )
-              .toList();
+      final names = record.keys
+          .where((key) => !allowed.contains(key))
+          .map(
+            (key) => RegExp(r'^[A-Za-z_][A-Za-z0-9_]{0,48}$').hasMatch(key)
+                ? key
+                : '[invalid name]',
+          )
+          .toList();
       if (names.isNotEmpty) warnings.add('$scope: ${names.join(', ')}');
     }
 
@@ -275,11 +286,10 @@ class ImportPreflight {
         'closeToTray',
         'globalShortcut',
       }, 'Settings');
-      final normalized =
-          parseRecord(
-            () => AppSettings.fromJson(rawSettings),
-            'settings',
-          ).toJson();
+      final normalized = parseRecord(
+        () => AppSettings.fromJson(rawSettings),
+        'settings',
+      ).toJson();
       for (final key in rawSettings.keys) {
         if (normalized.containsKey(key) &&
             rawSettings[key] != normalized[key]) {
@@ -398,13 +408,10 @@ class ImportPreflight {
       final normalized = {...raw, 'subtasks': uniqueChildren};
       final task = parseRecord(() => Task.fromJson(normalized), 'task');
       final rawQuadrant = raw['quadrant'];
-      final acceptedQuadrant =
-          rawQuadrant is num
-              ? rawQuadrant == task.quadrant
-              : rawQuadrant is String &&
-                  RegExp(
-                    '^[Qq]?${task.quadrant}\$',
-                  ).hasMatch(rawQuadrant.trim());
+      final acceptedQuadrant = rawQuadrant is num
+          ? rawQuadrant == task.quadrant
+          : rawQuadrant is String &&
+                RegExp('^[Qq]?${task.quadrant}\$').hasMatch(rawQuadrant.trim());
       if (!acceptedQuadrant) {
         repairs++;
         warnings.add('Task $taskIndex quadrant normalized');
@@ -430,41 +437,50 @@ class ImportPreflight {
     if (cleanBoards.isEmpty && cleanTasks.isEmpty) warnings.add('Empty backup');
     final existingBoards = {for (final board in currentBoards) board.id: board};
     final existingTasks = {for (final task in currentTasks) task.id: task};
-    final resultBoards =
-        mode == 'merge'
-            ? List<Board>.from(currentBoards)
-            : List<Board>.from(migration.boards);
-    final resultTasks =
-        mode == 'merge'
-            ? List<Task>.from(currentTasks)
-            : List<Task>.from(migration.tasks);
+    final resultBoards = mode == 'merge'
+        ? List<Board>.from(currentBoards)
+        : List<Board>.from(migration.boards);
+    final resultTasks = mode == 'merge'
+        ? List<Task>.from(currentTasks)
+        : List<Task>.from(migration.tasks);
     var addedBoards = 0;
     var addedTasks = 0;
     var conflicts = 0;
     if (mode == 'merge') {
-      for (final board in migration.boards) {
-        final old = existingBoards[board.id];
-        if (old == null) {
-          resultBoards.add(board);
-          addedBoards++;
-        } else if (jsonEncode(old.toJson()) == jsonEncode(board.toJson())) {
-          skipped++;
-        } else {
-          conflicts++;
+      if (targetBoardId == null) {
+        for (final board in migration.boards) {
+          final old = existingBoards[board.id];
+          if (old == null) {
+            resultBoards.add(board);
+            addedBoards++;
+          } else if (jsonEncode(old.toJson()) == jsonEncode(board.toJson())) {
+            skipped++;
+          } else {
+            conflicts++;
+          }
         }
       }
       final validIds = resultBoards.map((board) => board.id).toSet();
+      final sourceIds = migration.boards.map((board) => board.id).toSet();
       for (final task in migration.tasks) {
-        if (!validIds.contains(task.boardId)) {
+        if (targetBoardId != null && !sourceIds.contains(task.boardId)) {
           skipped++;
           warnings.add('Orphan task skipped');
           continue;
         }
-        final old = existingTasks[task.id];
+        final imported = targetBoardId == null
+            ? task
+            : Task.fromJson({...task.toJson(), 'boardId': targetBoardId});
+        if (!validIds.contains(imported.boardId)) {
+          skipped++;
+          warnings.add('Orphan task skipped');
+          continue;
+        }
+        final old = existingTasks[imported.id];
         if (old == null) {
-          resultTasks.add(task);
+          resultTasks.add(imported);
           addedTasks++;
-        } else if (jsonEncode(old.toJson()) == jsonEncode(task.toJson())) {
+        } else if (jsonEncode(old.toJson()) == jsonEncode(imported.toJson())) {
           skipped++;
         } else {
           conflicts++;
@@ -512,6 +528,7 @@ class ImportPreflight {
     }
     return ImportPlan(
       mode: mode,
+      targetBoardId: targetBoardId,
       boards: resultBoards,
       tasks: resultTasks,
       settings: mode == 'overwrite' ? migration.settings : null,
