@@ -577,6 +577,7 @@ abstract class ReminderService {
   /// reported without waiting for a barrier it does not need.
   int _writesQueued = 0;
   int _writesCompleted = 0;
+  int _writeSuccesses = 0;
 
   /// True while a queued ledger write still has to reach storage, or the last
   /// attempt failed. A caller that must not lose pending reminder work can use
@@ -614,6 +615,9 @@ abstract class ReminderService {
       return;
     }
     _pendingLoaded = true;
+    if (ledgerIssue.value?.kind == ReminderLedgerIssueKind.read) {
+      ledgerIssue.value = null;
+    }
     if (raw == null || raw.trim().isEmpty) return;
     if (_clearEpoch != epochAtStart) {
       // A full clear landed while this read was in flight and owns the ledger.
@@ -748,12 +752,20 @@ abstract class ReminderService {
   Future<void> _writeLedger() async {
     try {
       await loadPendingJobs();
+      if (!_pendingLoaded) {
+        // Preserve the old ledger until it can be read and merged. Writing the
+        // new in-memory jobs alone would erase retry work from a prior run.
+        _lastWriteError = 'read';
+        return;
+      }
+      final coveredWrite = _writesQueued;
       final payload = jsonEncode({
         'v': 1,
         'jobs': [for (final job in _pendingJobs.values) job.toJson()],
       });
       await ledgerStore.write(_pendingJobs.isEmpty ? null : payload);
-      _writesCompleted++;
+      _writesCompleted = coveredWrite;
+      _writeSuccesses++;
       _lastWriteError = null;
       if (ledgerIssue.value?.kind == ReminderLedgerIssueKind.write) {
         ledgerIssue.value = null;
@@ -778,14 +790,14 @@ abstract class ReminderService {
   /// Waits until every queued ledger write has been attempted and reports
   /// whether local storage now holds the current records.
   Future<ReminderLedgerWriteResult> flushPendingLedger() async {
-    final before = _writesCompleted;
+    final before = _writeSuccesses;
     while (true) {
       final barrier = _pendingWrites;
       await barrier;
       if (identical(barrier, _pendingWrites)) break;
     }
     return ReminderLedgerWriteResult(
-      writes: _writesCompleted - before,
+      writes: _writeSuccesses - before,
       success: _lastWriteError == null,
       errorKind: _lastWriteError,
     );
@@ -793,12 +805,8 @@ abstract class ReminderService {
 
   /// Re-serializes the in-memory records after a refused or failed write.
   Future<bool> retryPendingLedger() async {
-    try {
-      await loadPendingJobs();
-    } catch (_) {
-      // A retry may proceed even when the old ledger could not be read.
-    }
-    _pendingLoaded = true;
+    await loadPendingJobs();
+    if (!_pendingLoaded) return false;
     await _persistPendingJobs();
     return !(await flushPendingLedger()).failed;
   }
@@ -859,8 +867,7 @@ abstract class ReminderService {
     for (final key in keys) {
       _pendingJobs.remove(key);
     }
-    if (keys.isEmpty) return;
-    _publishPendingJobs();
+    if (keys.isNotEmpty) _publishPendingJobs();
     unawaited(_persistPendingJobs());
   }
 

@@ -712,6 +712,56 @@ void main() {
       expect(afterRestart.pendingJobs, isEmpty);
     });
 
+    test('a notification clear during the read reaches storage too', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final plugin = CountingPlugin();
+      final ledger = await seededLedger(plugin);
+      final service = await _service(plugin, ledger);
+
+      final loading = service.loadPendingJobs();
+      await service.clearPendingForNotification(_id('t1'));
+      ledger.holdRead!.complete(ledger.seed);
+      ledger.holdRead = null;
+      await loading;
+      await _settle(service);
+
+      expect(service.pendingJobs, isEmpty);
+      expect(ledger.value, isNull);
+      final afterRestart = await _service(plugin, ledger);
+      await afterRestart.loadPendingJobs();
+      expect(afterRestart.pendingJobs, isEmpty);
+    });
+
+    test('an unreadable old ledger is not replaced by a new failure', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final plugin = CountingPlugin();
+      final ledger = await seededLedger(plugin);
+      ledger.holdRead = null;
+      ledger.failReads = true;
+      final service = await _service(plugin, ledger);
+
+      await service.trackPendingJob(ReminderPendingJob(
+        kind: ReminderPendingKind.reschedule,
+        notificationId: _id('t2'),
+        boardId: 'b1',
+        taskId: 't2',
+        triggerAtMs: _nowMs() + 600000,
+        firstFailedAtMs: _nowMs(),
+        updatedAtMs: _nowMs(),
+      ));
+      final first = await service.flushPendingLedger();
+      expect(first.success, isFalse);
+      expect(ledger.written, isFalse, reason: 'the unreadable old jobs remain on disk');
+      expect(service.ledgerIssue.value?.kind, ReminderLedgerIssueKind.read);
+
+      ledger.failReads = false;
+      expect(await service.retryPendingLedger(), isTrue);
+      final afterRestart = await _service(plugin, ledger);
+      await afterRestart.loadPendingJobs();
+      expect(afterRestart.pendingJobs.values.map((job) => job.taskId).toSet(),
+          {'t1', 't2'});
+    });
+
     test('a full clear wins over a read that is still in flight', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final plugin = CountingPlugin();
