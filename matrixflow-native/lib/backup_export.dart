@@ -23,6 +23,11 @@ class BackupPart {
 /// and [split] means the app could not produce files it would also accept on
 /// the import side, so export reports that instead of claiming a backup success
 /// the user cannot rely on.
+///
+/// [libraryTooLarge] is the record-count answer: the library holds more boards,
+/// tasks or subtasks than a restore may end up with, or it needs more volumes
+/// than [ImportPreflight.maxParts] allows. Both mean the same thing to the
+/// user — this library cannot be backed up on these limits.
 enum BackupStatus { single, split, oversizedRecord, libraryTooLarge }
 
 class BackupBundle {
@@ -40,7 +45,16 @@ class BackupBundle {
 /// Builds backup files from a document [Store.exportJson] already produced and
 /// keeps the export/import contract symmetric: every returned file is checked
 /// against the same [ImportPreflight] gates a restore runs, so a bundle reported
-/// as recoverable can be restored into a fresh, empty library.
+/// as recoverable can be restored into a fresh, empty library — every volume of
+/// it, in order.
+///
+/// Checking one file at a time is not enough on its own. The result library a
+/// restore ends up with is the sum of all the volumes, and the count caps
+/// apply to that sum, so a library that is over the caps can produce volumes
+/// that each pass on their own. A 10,599-task library did exactly that: two
+/// volumes, both legal alone, the second refused after the first had already
+/// restored 7,066 tasks. Counting the whole document up front closes that, so
+/// the guarantee is stated for the whole file set rather than per file.
 ///
 /// A library whose single file is within the ceiling is exported unchanged, byte
 /// for byte. A larger one is split along board boundaries so every part is a
@@ -57,6 +71,12 @@ BackupBundle buildBackupBundle(String document) {
     );
   }
   final decoded = jsonDecode(document) as Map<String, dynamic>;
+  // Refuse an over-count library here, before the expensive split and before a
+  // single file is written: no truncation, no dropped record, no raised cap,
+  // and the file flow shows the existing record-count advice.
+  if (_libraryCounts(decoded).overSupportedCaps) {
+    return const BackupBundle(status: BackupStatus.libraryTooLarge, parts: []);
+  }
   final groups = _groupByBoard(
     decoded['boards'] as List<dynamic>,
     decoded['tasks'] as List<dynamic>,
@@ -219,6 +239,63 @@ String? _gateRejection(String document) {
   } catch (_) {
     return 'importError';
   }
+}
+
+/// What a library holds, counted the way a restore that imports every volume in
+/// order ends up counting it.
+class _LibraryCounts {
+  const _LibraryCounts(this.boards, this.tasks, this.subtasks);
+
+  final int boards;
+  final int tasks;
+  final int subtasks;
+
+  bool get overSupportedCaps =>
+      boards > ImportPreflight.maxBoards ||
+      tasks > ImportPreflight.maxTasks ||
+      subtasks > ImportPreflight.maxSubtasks;
+}
+
+/// Counts the records a full restore of [decoded] would leave in the library.
+///
+/// Distinct ids, because that is what the import gate counts too: a board
+/// repeated by every volume its tasks span is one board, and an identical
+/// repeat is skipped rather than added. A record without a usable id is counted
+/// on its own — the gate refuses such a record anyway, and counting it can only
+/// make an export refusal come earlier, never later.
+_LibraryCounts _libraryCounts(Map<String, dynamic> decoded) {
+  final tasks = <Map<dynamic, dynamic>>[];
+  final seenTasks = <String>{};
+  for (final record in (decoded['tasks'] as List?) ?? const <dynamic>[]) {
+    if (record is! Map) continue;
+    final id = record['id'];
+    if (id is String && !seenTasks.add(id)) continue;
+    tasks.add(record);
+  }
+  var subtasks = 0;
+  for (final task in tasks) {
+    final children = task['subtasks'];
+    if (children is List) subtasks += _distinctIdCount(children);
+  }
+  return _LibraryCounts(
+    _distinctIdCount((decoded['boards'] as List?) ?? const <dynamic>[]),
+    tasks.length,
+    subtasks,
+  );
+}
+
+int _distinctIdCount(List<dynamic> records) {
+  final seen = <String>{};
+  var count = 0;
+  for (final record in records) {
+    final id = record is Map ? record['id'] : null;
+    if (id is String) {
+      if (seen.add(id)) count++;
+    } else {
+      count++;
+    }
+  }
+  return count;
 }
 
 int _encodedBytes(Object? value) => utf8.encode(jsonEncode(value)).length;

@@ -80,6 +80,87 @@ Map<String, dynamic> _atCaps({
   ],
 };
 
+/// A backup document shaped like a real export: [tasks] tasks on one board,
+/// each carrying [note] and [subtasks] children. Ids are offset by [offset] so
+/// two volumes of one library never collide.
+String _volume({
+  required int tasks,
+  String note = '',
+  int subtasks = 0,
+  int offset = 0,
+}) => jsonEncode({
+  'version': 2,
+  'timestamp': 1726000000000,
+  'boards': [
+    {'id': 'board-0', 'name': 'B', 'createdAt': 1},
+  ],
+  'tasks': [
+    for (var i = 0; i < tasks; i++)
+      {
+        'id': 'task-${offset + i}',
+        'boardId': 'board-0',
+        'title': 'T',
+        'quadrant': 1,
+        'createdAt': 1,
+        'notesMarkdown': note,
+        'subtasks': [
+          for (var s = 0; s < subtasks; s++)
+            {'id': 'sub-${offset + i}-$s', 'title': 'S', 'completed': false},
+        ],
+      },
+  ],
+});
+
+Map<String, dynamic> _payload(String document) =>
+    ImportPreflight.decode(Uint8List.fromList(utf8.encode(document)));
+
+/// One task per board on the live library: [count] boards besides the default
+/// one, each holding a single sizeable task. Used for the board-count cases.
+void _addBoardTasks(Store store, int count, {int cjkNotes = 3400}) {
+  for (var b = 0; b < count; b++) {
+    store.createBoard('B$b');
+  }
+  store.addTasks([
+    for (var b = 0; b < count; b++)
+      Task(
+        id: 't$b',
+        boardId: store.boards[b + 1].id,
+        title: 'T$b',
+        quadrant: 1,
+        createdAt: 1,
+        notesMarkdown: _cjk * cjkNotes,
+      ),
+  ]);
+}
+
+/// The 10,599-task library RF10 measured on a real device: 599 tasks past the
+/// supported cap, and about 5.7 MiB of text, so it does split into two volumes.
+const overCapTasks = 10599;
+
+/// Builds that library through the store, so the refusal is measured on the
+/// same path a user exports from. About 5.7 MiB, which is why these cases use
+/// moderate notes instead of the multi-megabyte fixtures elsewhere.
+Future<Store> overCapLibrary() async {
+  SharedPreferences.setMockInitialValues({});
+  final store = Store();
+  await store.init();
+  addTearDown(store.dispose);
+  final boardId = store.boards.first.id;
+  final note = _cjk * 170;
+  store.addTasks([
+    for (var i = 0; i < overCapTasks; i++)
+      Task(
+        id: 't$i',
+        boardId: boardId,
+        title: 'T$i',
+        quadrant: 1,
+        createdAt: 1,
+        notesMarkdown: note,
+      ),
+  ]);
+  return store;
+}
+
 Task _taskOn(String id, String boardId, String notes) => Task(
   id: id,
   boardId: boardId,
@@ -622,6 +703,279 @@ void main() {
     final crowdedBundle = await crowded.exportBackup();
     expect(crowdedBundle.status, BackupStatus.libraryTooLarge);
     expect(crowdedBundle.recoverable, isFalse);
+  });
+
+  test('RF04 volumes that restore one at a time still add up past the cap', () async {
+    // What RF10 measured on a real 10,599-task library: export reported a
+    // recoverable two-volume set, the first volume restored 7,066 tasks and the
+    // second was refused by the result-library gate. Each volume is inside the
+    // cap on its own, which is exactly why a per-volume export self check
+    // cannot see this: only the whole library can.
+    const total = 10599;
+    const firstVolume = 7066;
+    final note = _cjk * 170;
+    final first = _volume(tasks: firstVolume, note: note);
+    final second = _volume(
+      tasks: total - firstVolume,
+      note: note,
+      offset: firstVolume,
+    );
+
+    // Both files pass the gate on their own, so an export that only validates
+    // one volume at a time would hand them out as a working backup.
+    for (final document in [first, second]) {
+      expect(
+        utf8.encode(document).length,
+        lessThan(ImportPreflight.maxFileBytes),
+      );
+      expect(
+        () => ImportPreflight.inspect(
+          _payload(document),
+          'merge',
+          currentBoards: const [],
+          currentTasks: const [],
+          revision: 0,
+        ),
+        returnsNormally,
+      );
+    }
+
+    // Restoring them in the order the settings screen prints is refused on the
+    // second one, and the refusal drops nothing.
+    final store = await open();
+    final applied = store.previewImport(_payload(first), 'overwrite');
+    expect((await store.applyImport(applied)).success, isTrue);
+    expect(store.tasks, hasLength(firstVolume));
+    final refused = _rejection(
+      () => store.previewImport(_payload(second), 'merge'),
+    );
+    expect(refused.copy, 'importErrorTooManyRecords');
+    expect(store.tasks, hasLength(firstVolume));
+  });
+
+  test('RF04 an over-cap library is refused instead of exported as volumes', () async {
+    // The 10,599-task library RF10 W7 measured on a real device. About 5.7 MiB
+    // of text, so it really does split into two volumes — the case that used to
+    // report a recoverable backup the import gate would refuse halfway through.
+    final store = await overCapLibrary();
+    expect(utf8.encode(store.exportJson()).length,
+        greaterThan(ImportPreflight.maxBytes));
+    final bundle = await store.exportBackup();
+    expect(bundle.recoverable, isFalse);
+    expect(bundle.status, BackupStatus.libraryTooLarge);
+    expect(bundle.parts, isEmpty);
+
+    // Nothing was truncated, dropped or deleted: memory and disk still hold
+    // every record the user had.
+    expect(store.tasks, hasLength(overCapTasks));
+    expect((await store.flush()).success, isTrue);
+    final restarted = Store();
+    await restarted.init();
+    addTearDown(restarted.dispose);
+    expect(restarted.tasks, hasLength(overCapTasks));
+  });
+
+  testWidgets('RF04 export of an over-cap library writes no file', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = Store();
+    // `Store.init` starts a periodic timer, so the library is built on the
+    // real clock. Nothing here awaits persistence: a save awaited inside
+    // `runAsync` has no event loop to complete it.
+    await tester.runAsync(() async {
+      await store.init();
+      final boardId = store.boards.first.id;
+      final note = _cjk * 170;
+      store.addTasks([
+        for (var i = 0; i < overCapTasks; i++)
+          Task(
+            id: 't$i',
+            boardId: boardId,
+            title: 'T$i',
+            quadrant: 1,
+            createdAt: 1,
+            notesMarkdown: note,
+          ),
+      ]);
+    });
+    addTearDown(store.dispose);
+    expect(store.tasks, hasLength(overCapTasks));
+
+    late BuildContext context;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (inner) {
+              context = inner;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+    final written = <String, Uint8List>{};
+    final flow = SettingsBackupFlow(
+      onBusyChanged: (_) {},
+      writeFile: (path, bytes) async => written[path] = bytes,
+    );
+    final picker = _Recorder(saves: 4);
+    FilePicker.platform = picker;
+    final result = await _exportWithChoice(tester, flow, context, store);
+
+    // The user is told the library is over the record limit on the device that
+    // holds it, and gets no file that could not be restored.
+    expect(result.outcome, BackupOutcome.failed);
+    expect(result.message, store.t['exportErrorTooManyRecords']);
+    expect(picker.asked, isEmpty);
+    expect(written, isEmpty);
+    expect(store.tasks, hasLength(overCapTasks));
+  });
+
+  test('RF04 over-cap boards and subtasks are refused on the whole library', () async {
+    // 501 boards with one sizeable task each is about 5.2 MiB, so the library
+    // splits into two volumes carrying roughly 250 boards each: well inside the
+    // 500 board cap, and only the cumulative count is over it.
+    final boards = await open();
+    _addBoardTasks(boards, ImportPreflight.maxBoards);
+    expect(boards.boards, hasLength(ImportPreflight.maxBoards + 1));
+    expect(
+      utf8.encode(boards.exportJson()).length,
+      greaterThan(ImportPreflight.maxBytes),
+    );
+    final boardBundle = await boards.exportBackup();
+    expect(boardBundle.status, BackupStatus.libraryTooLarge);
+    expect(boardBundle.recoverable, isFalse);
+    expect(boardBundle.parts, isEmpty);
+    expect(boards.boards, hasLength(ImportPreflight.maxBoards + 1));
+    expect(boards.tasks, hasLength(ImportPreflight.maxBoards));
+
+    // 9,000 tasks with 6 children each: 54,000 subtasks against the 50,000 cap,
+    // split so that every volume carries about half of them. Under the task cap
+    // and over the subtask cap, refused for the same reason.
+    const crowdedTasks = 9000;
+    const perTask = 6;
+    final crowded = await open();
+    crowded.addTasks([
+      for (var i = 0; i < crowdedTasks; i++)
+        Task(
+          id: 'c$i',
+          boardId: crowded.boards.first.id,
+          title: 'C$i',
+          quadrant: 1,
+          createdAt: 1,
+          notesMarkdown: _cjk * 100,
+          subtasks: [
+            for (var s = 0; s < perTask; s++)
+              SubTask(id: 'cs$i-$s', title: 'S$s'),
+          ],
+        ),
+    ]);
+    expect(
+      crowded.tasks.fold(0, (sum, task) => sum + task.subtasks.length),
+      ImportPreflight.maxSubtasks + 4000,
+    );
+    expect(
+      utf8.encode(crowded.exportJson()).length,
+      greaterThan(ImportPreflight.maxBytes),
+    );
+    final crowdedBundle = await crowded.exportBackup();
+    expect(crowdedBundle.status, BackupStatus.libraryTooLarge);
+    expect(crowdedBundle.recoverable, isFalse);
+    expect(crowdedBundle.parts, isEmpty);
+    expect(crowded.tasks, hasLength(crowdedTasks));
+
+    // Under the caps the very same shape is refused by nothing: the same
+    // 9,000 tasks, 4 children each and the same 5.7 MiB of text, so the
+    // refusal above is the cumulative count and not the size. 36,000 subtasks
+    // and 9,000 tasks are both inside the caps, so this stays exportable.
+    final supported = await open();
+    supported.addTasks([
+      for (var i = 0; i < crowdedTasks; i++)
+        Task(
+          id: 's$i',
+          boardId: supported.boards.first.id,
+          title: 'S$i',
+          quadrant: 1,
+          createdAt: 1,
+          notesMarkdown: _cjk * 100,
+          subtasks: [
+            for (var s = 0; s < ImportPreflight.maxSubtasks ~/ crowdedTasks - 1;
+                s++)
+              SubTask(id: 'ss$i-$s', title: 'S$s'),
+          ],
+        ),
+    ]);
+    final supportedBundle = await supported.exportBackup();
+    expect(supportedBundle.recoverable, isTrue);
+    expect(supportedBundle.status, BackupStatus.single);
+  });
+
+  test('RF04 a library at every cap still exports as volumes and restores whole', () async {
+    // 1 board, 10,000 tasks and 50,000 subtasks: the largest library the app
+    // supports, and about 9.3 MiB of text, so it needs three volumes.
+    const perTask = ImportPreflight.maxSubtasks ~/ ImportPreflight.maxTasks;
+    final store = await open();
+    final boardId = store.boards.first.id;
+    store.addTasks([
+      for (var i = 0; i < ImportPreflight.maxTasks; i++)
+        Task(
+          id: 't$i',
+          boardId: boardId,
+          title: 'T$i',
+          quadrant: 1,
+          createdAt: 1,
+          notesMarkdown: _cjk * 200,
+          subtasks: [
+            for (var s = 0; s < perTask; s++)
+              SubTask(id: 's$i-$s', title: 'S$s'),
+          ],
+        ),
+    ]);
+    expect(store.tasks, hasLength(ImportPreflight.maxTasks));
+    expect(
+      utf8.encode(store.exportJson()).length,
+      greaterThan(ImportPreflight.maxFileBytes),
+    );
+
+    final bundle = await store.exportBackup();
+    expect(bundle.status, BackupStatus.split);
+    expect(bundle.recoverable, isTrue);
+    expect(bundle.parts.length, greaterThan(1));
+    for (final part in bundle.parts) {
+      expect(part.bytes, lessThanOrEqualTo(ImportPreflight.maxFileBytes));
+    }
+
+    // Restoring every volume in order, the way the screen tells the user to,
+    // keeps the result library inside the caps at every step and ends with the
+    // whole library back.
+    final target = fresh();
+    await target.init();
+    var children = 0;
+    for (final part in bundle.parts) {
+      final plan = target.previewImport(
+        _payload(part.json),
+        part.index == 1 ? 'overwrite' : 'merge',
+      );
+      expect(plan.conflicts, 0, reason: 'volume ${part.index}');
+      expect(
+        (await target.applyImport(plan)).success,
+        isTrue,
+        reason: 'volume ${part.index}',
+      );
+      expect(target.tasks.length, lessThanOrEqualTo(ImportPreflight.maxTasks));
+      children = target.tasks.fold(0, (sum, task) => sum + task.subtasks.length);
+      expect(children, lessThanOrEqualTo(ImportPreflight.maxSubtasks));
+    }
+    expect(target.tasks, hasLength(ImportPreflight.maxTasks));
+    expect(children, ImportPreflight.maxSubtasks);
+    expect(
+      target.tasks.firstWhere((task) => task.id == 't0').notesMarkdown,
+      _cjk * 200,
+    );
+    expect(
+      target.tasks.firstWhere((task) => task.id == 't7').subtasks,
+      hasLength(perTask),
+    );
   });
 
   testWidgets('RF04 export writes one file per part', (tester) async {
