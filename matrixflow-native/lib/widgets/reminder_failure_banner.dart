@@ -9,6 +9,11 @@ import '../storage.dart';
 /// instead of being reported as granted. A retry ledger that could not be
 /// read, written or extended is reported the same way: without a row the
 /// storage problem would look like "nothing is pending".
+///
+/// Every ledger row mirrors the service's current state: the banner holds no
+/// "already reported" flag and no timer, so a state disappears exactly when its
+/// recovery condition is met — a read or write that worked, refused work that
+/// is tracked again, or the explicit repair that gives up unreadable records.
 class ReminderFailureBanner extends StatefulWidget {
   const ReminderFailureBanner({super.key});
 
@@ -125,7 +130,11 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
                             _row(
                               context,
                               bannerKey: _ledgerKey(ledgerIssue.kind),
-                              buttonKey: const ValueKey('retry-reminder-ledger'),
+                              buttonKey: _ledgerButtonKey(ledgerIssue.kind),
+                              actionLabel: _ledgerActionLabel(
+                                store,
+                                ledgerIssue.kind,
+                              ),
                               message: _ledgerMessage(store, ledgerIssue),
                               busy: _retryingLedger,
                               onRetry: _ledgerRetry(ledgerIssue.kind),
@@ -184,16 +193,32 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
             .replaceAll('{count}', '${issue.count}'),
       };
 
-  /// The action that actually fits the reported problem. A full ledger and
-  /// records that were already skipped are facts about what is stored, so they
-  /// are reported without a button that could not change them.
+  /// The action that actually fits the reported problem. A read failure is
+  /// answered by reading again; a write failure by re-serializing the records;
+  /// skipped records by the explicit repair that gives them up and rewrites the
+  /// list. A full ledger is a capacity fact the service clears by itself once a
+  /// slot is free, so it gets no button that could not change it.
   Future<void> Function()? _ledgerRetry(ReminderLedgerIssueKind kind) =>
       switch (kind) {
         ReminderLedgerIssueKind.read => _rereadLedger,
         ReminderLedgerIssueKind.write => _rewriteLedger,
-        ReminderLedgerIssueKind.overflow ||
-        ReminderLedgerIssueKind.damaged => null,
+        ReminderLedgerIssueKind.damaged => _rewriteLedger,
+        ReminderLedgerIssueKind.overflow => null,
       };
+
+  /// Key of the button a state really has, so a test can see that the repair is
+  /// not the plain retry and that the full ledger has no button at all.
+  Key? _ledgerButtonKey(ReminderLedgerIssueKind kind) => switch (kind) {
+    ReminderLedgerIssueKind.read ||
+    ReminderLedgerIssueKind.write => const ValueKey('retry-reminder-ledger'),
+    ReminderLedgerIssueKind.damaged => const ValueKey('repair-reminder-ledger'),
+    ReminderLedgerIssueKind.overflow => null,
+  };
+
+  String? _ledgerActionLabel(Store store, ReminderLedgerIssueKind kind) =>
+      kind == ReminderLedgerIssueKind.damaged
+      ? store.t['reminderLedgerRepair']
+      : store.t['retry'];
 
   Future<void> _rereadLedger() async {
     final service = context.read<Store>().reminderService;
@@ -221,6 +246,7 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
     required String message,
     String names = '',
     Key? buttonKey,
+    String? actionLabel,
     required bool busy,
     Future<void> Function()? onRetry,
   }) {
@@ -244,7 +270,7 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
             TextButton(
               key: buttonKey,
               onPressed: busy ? null : onRetry,
-              child: Text(store.t['retry']!),
+              child: Text(actionLabel ?? store.t['retry']!),
             ),
         ],
       ),

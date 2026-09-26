@@ -555,6 +555,21 @@ abstract class ReminderService {
   /// Retry records the full ledger refused during this process.
   int refusedRecords = 0;
 
+  /// Work a full ledger refused, kept with the identity it was refused with so
+  /// releasing a slot can put it back into the ledger instead of forgetting it.
+  /// A refusal the task data no longer backs is dropped by the next reconcile.
+  /// The overflow row reports this length, so it disappears only once every
+  /// refused reminder is tracked again or has left with its reminder.
+  final Map<String, ReminderPendingJob> _refusedJobs = {};
+
+  /// Records the last read had to skip as unreadable. An explicit ledger retry
+  /// or a later read that finds the bytes clean is what clears it; an incidental
+  /// background write must not, or the notice could vanish before it was seen.
+  int _damagedRecords = 0;
+
+  /// Kind of the last read failure, null once a read has succeeded.
+  String? _readErrorKind;
+
   /// Bumped by a full clear, so an older in-flight read cannot repopulate it.
   int _clearEpoch = 0;
 
@@ -605,24 +620,26 @@ abstract class ReminderService {
     } catch (e) {
       // An unreadable ledger is not an empty ledger: keep trying later and say
       // so, instead of pretending no reminder work is pending.
-      _publishLedgerIssue(
-        ReminderLedgerIssue(
-          kind: ReminderLedgerIssueKind.read,
-          errorKind: reminderErrorKind(e),
-        ),
-      );
-      debugPrint('Reminder ledger read failed: ${reminderErrorKind(e)}');
+      _readErrorKind = reminderErrorKind(e);
+      _refreshLedgerIssue();
+      debugPrint('Reminder ledger read failed: $_readErrorKind');
       return;
     }
     _pendingLoaded = true;
-    if (ledgerIssue.value?.kind == ReminderLedgerIssueKind.read) {
-      ledgerIssue.value = null;
+    // A read that succeeded answers the read failure, so its clear condition is
+    // simply "the next read worked".
+    _readErrorKind = null;
+    if (raw == null || raw.trim().isEmpty) {
+      // A readable, empty ledger holds no unreadable record either.
+      _damagedRecords = 0;
+      _refreshLedgerIssue();
+      return;
     }
-    if (raw == null || raw.trim().isEmpty) return;
     if (_clearEpoch != epochAtStart) {
       // A full clear landed while this read was in flight and owns the ledger.
       _clearedWhileLoading.clear();
       _clearedSuffixesWhileLoading.clear();
+      _refreshLedgerIssue();
       return;
     }
     final stored = <ReminderPendingJob>[];
@@ -646,25 +663,24 @@ abstract class ReminderService {
       damaged++;
       debugPrint('Ignored unreadable reminder ledger: ${e.runtimeType}');
     }
-    if (damaged > 0) {
-      _publishLedgerIssue(
-        ReminderLedgerIssue(
-          kind: ReminderLedgerIssueKind.damaged,
-          count: damaged,
-        ),
-      );
-    }
+    // This read answers for the stored bytes: a later read replaces this count,
+    // and an explicit ledger retry clears it once the clean records are written.
+    _damagedRecords = damaged;
     // A ledger written by an older build can be larger than the current cap:
-    // keep the newest records and report the rest instead of dropping quietly.
+    // keep the newest records and hold the rest as refused work instead of
+    // dropping them quietly, so a freed slot can put them back.
     if (stored.length > maxPendingJobs) {
       stored.sort(
         (a, b) => (b.firstFailedAtMs ?? b.updatedAtMs).compareTo(
           a.firstFailedAtMs ?? a.updatedAtMs,
         ),
       );
-      final overflow = stored.length - maxPendingJobs;
+      final overCap = stored.sublist(maxPendingJobs);
       stored.removeRange(maxPendingJobs, stored.length);
-      _noteRefused(overflow);
+      for (final job in overCap) {
+        _refusedJobs[job.key] = job;
+      }
+      refusedRecords += overCap.length;
     }
     var merged = false;
     for (final job in stored) {
@@ -678,6 +694,7 @@ abstract class ReminderService {
     }
     if (_applyClearsRequestedDuringLoad()) merged = true;
     if (merged) _publishPendingJobs();
+    _refreshLedgerIssue();
   }
 
   /// Re-applies clears that were requested while the read was still running.
@@ -699,23 +716,95 @@ abstract class ReminderService {
     return changed;
   }
 
-  void _publishLedgerIssue(ReminderLedgerIssue issue) {
+  /// Derives the reported ledger problem from the state the service is actually
+  /// in, so every state has one clear condition instead of being published once
+  /// and staying on screen:
+  ///
+  /// * a read failure clears on the next successful read;
+  /// * a write failure clears once a write lands;
+  /// * refusals clear when the refused work is tracked again or the reminder it
+  ///   belonged to is gone;
+  /// * skipped (damaged) records clear on an explicit repair or on a read that
+  ///   finds the stored bytes clean, never on an incidental write.
+  ///
+  /// Transient storage faults outrank the persistent facts, and the facts are
+  /// re-derived when a fault clears, so a lower-priority problem can never be
+  /// lost behind a higher-priority one.
+  void _refreshLedgerIssue() {
+    final ReminderLedgerIssue? next;
+    if (_readErrorKind != null) {
+      next = ReminderLedgerIssue(
+        kind: ReminderLedgerIssueKind.read,
+        errorKind: _readErrorKind,
+      );
+    } else if (_lastWriteError != null) {
+      next = ReminderLedgerIssue(
+        kind: ReminderLedgerIssueKind.write,
+        errorKind: _lastWriteError,
+      );
+    } else if (_refusedJobs.isNotEmpty) {
+      next = ReminderLedgerIssue(
+        kind: ReminderLedgerIssueKind.overflow,
+        count: _refusedJobs.length,
+      );
+    } else if (_damagedRecords > 0) {
+      next = ReminderLedgerIssue(
+        kind: ReminderLedgerIssueKind.damaged,
+        count: _damagedRecords,
+      );
+    } else {
+      next = null;
+    }
     final current = ledgerIssue.value;
-    if (current?.kind != issue.kind ||
-        current?.errorKind != issue.errorKind ||
-        current?.count != issue.count) {
-      ledgerIssue.value = issue;
+    if (current?.kind != next?.kind ||
+        current?.errorKind != next?.errorKind ||
+        current?.count != next?.count) {
+      ledgerIssue.value = next;
     }
   }
 
-  void _noteRefused(int count) {
-    refusedRecords += count;
-    _publishLedgerIssue(
-      ReminderLedgerIssue(
-        kind: ReminderLedgerIssueKind.overflow,
-        count: refusedRecords,
-      ),
-    );
+  /// Keeps a refused job so a later free slot can put it back. The refusal is
+  /// never just a number: the identity is what makes the recovery possible.
+  void _rememberRefused(ReminderPendingJob job) {
+    refusedRecords++;
+    _refusedJobs[job.key] = job;
+  }
+
+  /// Moves refused work back into the ledger while slots are free, so clearing
+  /// the refusal row never forgets a reminder the user still expects. Reports
+  /// whether the ledger grew; the caller republishes and persists.
+  bool _drainRefusedJobs() {
+    var changed = false;
+    if (_refusedJobs.isNotEmpty && _pendingJobs.length < maxPendingJobs) {
+      for (final key in _refusedJobs.keys.toList()) {
+        if (_pendingJobs.length >= maxPendingJobs) break;
+        _pendingJobs[key] = _refusedJobs.remove(key)!;
+        changed = true;
+      }
+    }
+    // Always re-derive: a refusal that left with its reminder also reduces the
+    // count the row reports, even when no slot had to be handed back.
+    _refreshLedgerIssue();
+    return changed;
+  }
+
+  /// True when reconciling would drop [job] because the current task data no
+  /// longer asks for that reminder.
+  bool _noLongerBacks(
+    List<Task> allTasks,
+    ReminderPendingJob job,
+    int nowMs,
+  ) {
+    final source = _reminderSource(allTasks, job);
+    if (job.kind == ReminderPendingKind.reschedule) {
+      // Same rule as an outdated pending schedule: removed, completed, re-dated
+      // or already past.
+      return source.triggerAtMs == null ||
+          source.triggerAtMs != job.triggerAtMs ||
+          source.triggerAtMs! <= nowMs;
+    }
+    // A refused cancellation is only obsolete once its id was re-armed.
+    return source.triggerAtMs != null && source.triggerAtMs! > nowMs;
   }
 
   void _publishPendingJobs() {
@@ -756,6 +845,7 @@ abstract class ReminderService {
         // Preserve the old ledger until it can be read and merged. Writing the
         // new in-memory jobs alone would erase retry work from a prior run.
         _lastWriteError = 'read';
+        _refreshLedgerIssue();
         return;
       }
       final coveredWrite = _writesQueued;
@@ -767,9 +857,11 @@ abstract class ReminderService {
       _writesCompleted = coveredWrite;
       _writeSuccesses++;
       _lastWriteError = null;
-      if (ledgerIssue.value?.kind == ReminderLedgerIssueKind.write) {
-        ledgerIssue.value = null;
-      }
+      // A rewrite does clean the stored bytes, but it must not clear the skip
+      // notice: an incidental write during startup would remove it before the
+      // user ever saw it. Only an explicit repair, or a later read that finds no
+      // damage, may clear that state.
+      _refreshLedgerIssue();
     } catch (error) {
       _recordWriteFailure(error);
       rethrow;
@@ -778,12 +870,7 @@ abstract class ReminderService {
 
   void _recordWriteFailure(Object error) {
     _lastWriteError = reminderErrorKind(error);
-    _publishLedgerIssue(
-      ReminderLedgerIssue(
-        kind: ReminderLedgerIssueKind.write,
-        errorKind: _lastWriteError,
-      ),
-    );
+    _refreshLedgerIssue();
     debugPrint('Reminder ledger write failed: $_lastWriteError');
   }
 
@@ -803,12 +890,22 @@ abstract class ReminderService {
     );
   }
 
-  /// Re-serializes the in-memory records after a refused or failed write.
+  /// Re-serializes the in-memory records after a refused or failed write. This
+  /// is the explicit retry of the stored list, so a retry that lands also
+  /// confirms the records this process could not read are given up — which is
+  /// what clears the damaged notice. An incidental background write does not:
+  /// otherwise a rewrite during startup could remove the notice before the user
+  /// ever saw it. A later read that finds the bytes clean clears it as well.
   Future<bool> retryPendingLedger() async {
     await loadPendingJobs();
     if (!_pendingLoaded) return false;
     await _persistPendingJobs();
-    return !(await flushPendingLedger()).failed;
+    final landed = !(await flushPendingLedger()).failed;
+    if (landed && _damagedRecords != 0) {
+      _damagedRecords = 0;
+      _refreshLedgerIssue();
+    }
+    return landed;
   }
 
   /// Records retry work and reports whether the ledger now owns it. A full
@@ -817,7 +914,10 @@ abstract class ReminderService {
     final existing = _pendingJobs[job.key];
     if (existing == null && _pendingJobs.length >= maxPendingJobs) {
       if (!_evictExhaustedRecord()) {
-        _noteRefused(1);
+        // Remember the refusal, not just its count: the row may only disappear
+        // once this reminder is tracked again or the data stops backing it.
+        _rememberRefused(job);
+        _refreshLedgerIssue();
         debugPrint('Reminder ledger is full: refused ${job.key}');
         return ReminderLedgerUpdate.rejected;
       }
@@ -853,7 +953,10 @@ abstract class ReminderService {
   Future<void> clearPendingJob(String key) async {
     final loading = _pendingLoadFuture;
     if (loading != null) _clearedWhileLoading.add(key);
-    if (_pendingJobs.remove(key) == null && loading == null) return;
+    final removed = _pendingJobs.remove(key) != null;
+    if (!removed && loading == null) return;
+    // A freed slot is the recovery condition for refused work.
+    _drainRefusedJobs();
     _publishPendingJobs();
     unawaited(_persistPendingJobs());
   }
@@ -867,7 +970,8 @@ abstract class ReminderService {
     for (final key in keys) {
       _pendingJobs.remove(key);
     }
-    if (keys.isNotEmpty) _publishPendingJobs();
+    _drainRefusedJobs();
+    _publishPendingJobs();
     unawaited(_persistPendingJobs());
   }
 
@@ -886,7 +990,10 @@ abstract class ReminderService {
     }
     _pendingLoaded = true;
     _pendingJobs.clear();
+    // A deliberate wipe owns refused work too: there is nothing left to expect.
+    _refusedJobs.clear();
     _publishPendingJobs();
+    _refreshLedgerIssue();
     unawaited(_persistPendingJobs());
   }
 
@@ -997,6 +1104,13 @@ abstract class ReminderService {
     final attemptedInFreshPass = _attemptedInFreshPass.toSet();
     _attemptedInFreshPass.clear();
     _rebuildPass = false;
+    // Refused work the task data no longer backs leaves with the reminder, and
+    // everything else gets a free slot back, so the refusal row can only clear
+    // once the refused reminders are tracked again.
+    _refusedJobs.removeWhere(
+      (key, job) => _noLongerBacks(allTasks, job, nowMs),
+    );
+    _drainRefusedJobs();
     for (final key in _pendingJobs.keys.toList()) {
       final job = _pendingJobs[key];
       if (job == null) continue;
@@ -1008,25 +1122,16 @@ abstract class ReminderService {
         dropped++;
         continue;
       }
-      final source = _reminderSource(allTasks, job);
       // The live edit path owns the notification now: a reminder that was
       // removed, completed or re-dated must not be resurrected, and a ghost
       // cancel whose id was re-armed is replaced instead of cancelled. A spent
       // budget may not keep either record alive.
-      final outdatedSchedule =
-          job.kind == ReminderPendingKind.reschedule &&
-          (source.triggerAtMs != job.triggerAtMs ||
-              source.triggerAtMs == null ||
-              source.triggerAtMs! <= nowMs);
-      final replacedGhost =
-          job.kind == ReminderPendingKind.cancel &&
-          source.triggerAtMs != null &&
-          source.triggerAtMs! > nowMs;
-      if (outdatedSchedule || replacedGhost) {
+      if (_noLongerBacks(allTasks, job, nowMs)) {
         await clearPendingJob(key);
         dropped++;
         continue;
       }
+      final source = _reminderSource(allTasks, job);
       if (job.exhausted || job.attempts >= maxAutomaticRetries) {
         if (!job.exhausted) {
           await trackPendingJob(job.markExhausted());
@@ -1099,6 +1204,9 @@ abstract class ReminderService {
         dropped++;
       }
     }
+    // A pass that dropped records freed slots: hand them to refused work so the
+    // next pass can retry it instead of leaving the refusal unexplained.
+    _drainRefusedJobs();
     return ReminderReconcileReport(
       recovered: recovered,
       retried: retried,

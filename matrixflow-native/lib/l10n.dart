@@ -525,6 +525,7 @@ const Map<Language, Map<String, String>> _dicts = {
         'The reminder retry list keeps at most {cap} records and is full, so {count} reminder(s) could not be queued for another attempt.',
     'reminderLedgerDamaged':
         '{count} unreadable reminder retry record(s) were skipped. The other records were kept.',
+    'reminderLedgerRepair': 'Repair list',
     'taskNotFound': 'Task no longer exists or has been deleted',
     'completedAtTime': 'Completed: {time}',
     'timeUnknown': 'Time unknown',
@@ -1018,6 +1019,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'reminderLedgerFull':
         '提醒重试列表最多保留 {cap} 条，目前已满，因此有 {count} 条提醒未能加入重试。',
     'reminderLedgerDamaged': '有 {count} 条提醒重试记录已损坏并被跳过，其余记录仍然保留。',
+    'reminderLedgerRepair': '修复列表',
     'taskNotFound': '该任务不存在或已被删除',
     'completedAtTime': '完成时间: {time}',
     'timeUnknown': '时间未知',
@@ -1519,6 +1521,7 @@ const Map<Language, Map<String, String>> _dicts = {
         '通知リトライ一覧は最大 {cap} 件までで、現在は満杯です。そのため {count} 件の通知を再試行に登録できませんでした。',
     'reminderLedgerDamaged':
         '{count} 件の通知リトライ記録が読み取れず読み飛ばしました。残りの記録は保持されています。',
+    'reminderLedgerRepair': '一覧を修復',
     'taskNotFound': 'タスクが見つからないか、既に削除されています',
     'completedAtTime': '完了日時: {time}',
     'timeUnknown': '日時不明',
