@@ -1,5 +1,7 @@
 # RF10 平台定向验收记录（第一阶段：已集成的 RF02–RF07）
 
+> 后续复核：本记录 A6 的 Android SAF “未测”已由 [Android SAF 单文件实测](RF10_ANDROID_SAF_NOTES.md)补齐。原机与模拟器均成功打开选择器、保存文件并导入；当时无可见反应主要由坐标未命中解释。本记录保留第一阶段原始观察，其他未测项仍以新记录和 HANDOFF 为准。
+
 日期：2026-09-26。基线：`main / ac732b13b4488fd8751ebcf5bcb8c4736f882340`。
 分支 `codex/rf10-platform-evidence`，工作树 `D:\Dev_project\martix-rf10-platform`。
 范围：**只验收已集成的 RF02、RF03、RF04、RF05、RF06、RF07**。RF08（提醒重试边界）与 RF09（保存成本）尚未收口，本包不做其平台验收，最终 RF10 收口另行执行。

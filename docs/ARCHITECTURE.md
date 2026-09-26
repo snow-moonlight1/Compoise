@@ -66,7 +66,7 @@ RF02 后，普通保存与 `applyImport` 共用 Store 的串行提交链；导�
 
 ## 当前 Flutter 提醒重试（OS17）
 
-`ReminderService` 将权限 `unknown` 与 `unsupported` 分开，排程和取消返回可区分结果。失败记录在本地 `matrixflow-reminder-pending`，仅含必要 ID、时刻、次数和错误类别，不进入普通 JSON 备份。RF08 后，`Store.reconcileReminders()` 先读账本，再按当前任务重排和补偿；同一提醒世代保留首次失败时间与次数，耗尽后停止自动调用平台并保留失败记录，删除、完成或改期后清掉无效记录。账本读取、写入、满额与损坏有可查询的错误状态及三语横幅，退出屏障可等待未落盘写入；满额/损坏提示仍需服务端明确清除时机。首次读取与并发写入共用 Future，读失败期间不以新记录覆盖磁盘旧账本。Windows 隔离 smoke 已验证即时通知显示与取消；未来时刻排程、系统重启补偿及 Android 真机通知未验收。SharedPreferences 返回成功不保证掉电持久化。
+`ReminderService` 将权限 `unknown` 与 `unsupported` 分开，排程和取消返回可区分结果。失败记录在本地 `matrixflow-reminder-pending`，仅含必要 ID、时刻、次数和错误类别，不进入普通 JSON 备份。RF08 后，`Store.reconcileReminders()` 先读账本，再按当前任务重排和补偿；同一提醒世代保留首次失败时间与次数，耗尽后停止自动调用平台并保留失败记录，删除、完成或改期后清掉无效记录。账本读取、写入、满额与损坏有可查询的错误状态及三语横幅，退出屏障可等待未落盘写入；满额时保留拒绝记录身份并在容量释放后重纳，损坏提示经显式修复或后续干净读取清除。首次读取与并发写入共用 Future，读失败期间不以新记录覆盖磁盘旧账本。Windows 隔离 smoke 已验证即时通知显示与取消；未来时刻排程、系统重启补偿及 Android 真机通知未验收。SharedPreferences 返回成功不保证掉电持久化。
 
 ## 当前 PR 检查（OS25）
 

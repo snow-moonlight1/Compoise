@@ -1,5 +1,13 @@
 # 项目交接文档（HANDOFF.md）
 
+## 当前状态：RF08 问题生命周期与 RF10 Android SAF 验证集成（2026-09-26）
+
+- 从干净的 `main / 76a8201` 合入 RF08 `038a818` 与 RF10 `84f4716`；前者修改提醒账本、横幅和三语按钮，后者只新增 [Android SAF 实测记录](RF10_ANDROID_SAF_NOTES.md)。原工作树/分支未改，未 push，冻结端未改。
+- RF08 的 `ledgerIssue` 改为按当前 read > write > overflow > damaged 状态推导；满额时保留被拒提醒身份，容量释放及协调轮将仍有效的提醒交回 64 项账本；损坏提示经用户明确“修复列表”重写成功或后续读到干净账本后清除。默认新增 11 项回归。合成测试不代表平台提醒必达；三语长文案在设备上的截断仍未验收。
+- 固定 Flutter 3.32.8 集成态 `flutter test --no-pub` **787/787**、共享 RF-R01–07 与 RF08 探针 **9/9**、`flutter analyze --no-pub` **0 issues**。单包旧基线数字保留在各自记录中，不替代集成态结论。
+- RF10 在 Android 16 原机与 Android 15 模拟器均验证隔离 Release 包的**单文件** SAF 保存、真实字节落盘与导入。原机导入两条合成任务后强停重启读回成功。此前 A6 “点按无反应”主要是坐标未命中，也可由凭据模态框的屏障点按取消复现；并非已证实的源码缺陷。原机用户应用 `com.matrixflow.app` 未被覆盖，测试包 `com.matrixflow.rf10saf` 已卸载，相关合成文件已删除。Android 多卷 SAF、真实 IME、凭据跨重启及 Windows 原生文件对话框仍未测。设备的 `wm size 1080x2400` / `wm density 420` 覆盖为更早阶段遗留，本轮未重置。
+- 下一步从集成主线构建独立应用 ID 的 Android Release 测试包供用户手工验收；该包使用开发签名，不能当作 OS26 正式发行。设备测试结果、APK 哈希和安装状态在构建后补记。
+
 ## 当前状态：RF04 超计数、RF08 提示、RF09 C1/C2、RF10 退出防护集成（2026-09-26）
 
 - 从干净的 `main / 22aa43d` 依次合入 RF04 `ca4472a`、RF09 两笔 `43b16cb`/`970e3c7`、RF08 提示 `78aeaf9`、RF10 Windows 退出防护 `b7ca5ee`。产品文件互不冲突；独立 worktree/分支未改，未 push，冻结端未改。各包原始实施与局限见 [RF04](RF04_OVERCOUNT_NOTES.md)、[RF09](RF09_SERIALIZATION_NOTES.md)、[RF08 提示](RF08_LEDGER_UI_NOTES.md)、[RF10 退出](RF10_EXIT_GUARD_NOTES.md)。
