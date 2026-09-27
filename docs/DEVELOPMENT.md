@@ -54,4 +54,4 @@ powershell -File scripts/build_release.ps1 -ValidateOnly -ExpectedTag v1.0.0+1
 
 普通任务数据保存在本机。AI 密钥保存在系统安全凭据存储；用户主动调用 AI 时，相关任务文本会发送到其设置的模型端点。默认 JSON 备份不含密钥；显式选择加入时，备份内的密钥是明文。请勿提交真实任务备份、API 密钥、签名材料、日志或本机配置。
 
-更多背景见 [架构说明](ARCHITECTURE.md)、[备份格式](BACKUP_FORMAT.md)、[隐私说明](PRIVACY_POLICY.md) 和 [AI 服务商预设](AI_PROVIDER_PRESETS.md)。
+按任务查找其他说明见 [文档导航](README.md)。

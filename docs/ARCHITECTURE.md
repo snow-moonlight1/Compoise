@@ -15,7 +15,7 @@
 
 任务板、任务、子任务和普通设置保存在设备本地的 SharedPreferences。API 密钥通过 flutter_secure_storage 存入平台提供的安全凭据存储。应用没有账号或自动云同步。
 
-备份服务把任务数据序列化为 JSON，导入前先进行格式、体积、数量和兼容性校验，再通过 Store 的提交流程写入。默认备份省略 API 密钥；用户明确选择包含时，文件内密钥是明文。格式和恢复边界见 [备份格式](BACKUP_FORMAT.md) 与 [数据兼容性](DATA_COMPATIBILITY.md)。
+文件备份的导出、预检与恢复分别由 `backup_export.dart`、`import_preflight.dart` 和 Store 承接。文件契约见 [备份格式](BACKUP_FORMAT.md)；设备内的提交槽见 [本地数据与兼容性](DATA_COMPATIBILITY.md)。
 
 AI 层由预设、模型能力判断、模型发现和请求协议适配组成。支持 OpenAI Compatible、OpenAI Responses 和 Anthropic Messages。密钥由用户提供；调用时相关任务文本会发送到用户配置的服务端点。普通任务管理不依赖 AI。
 
@@ -25,13 +25,4 @@ AI 层由预设、模型能力判断、模型发现和请求协议适配组成�
 - Windows runner 承接托盘、单实例、全局快捷键、关闭到托盘和窗口生命周期。用户可见窗口标题与当前应用语言同步。
 - 提醒逻辑统一在 Flutter 服务中，平台插件负责通知投递、权限和系统调度。提醒送达受系统权限和设备策略影响。
 
-## 验证
-
-常规回归测试位于 test/，集成测试位于 integration_test/。在仓库根目录运行：
-
-```sh
-flutter analyze --no-pub
-flutter test --no-pub
-```
-
-设备上的安装升级、通知授权和系统后台行为仍需按目标平台人工检查。测试通过不能替代真实设备验收。
+常规回归测试位于 `test/`，集成测试位于 `integration_test/`；命令和构建步骤见 [开发指南](DEVELOPMENT.md)。安装升级、通知授权和系统后台行为仍需在目标设备检查。

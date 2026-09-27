@@ -10,6 +10,8 @@
 4. 提交前运行 `flutter analyze --no-pub` 与 `flutter test --no-pub`；涉及平台工程时，也请构建并手动验证对应平台。
 5. Pull Request 请说明问题、行为变化、验证结果和未覆盖的平台情况。
 
+行为变更时更新 [文档导航](../docs/README.md) 中对应的一份说明，避免在多页复制同一契约；新增文档时在导航中注明它解决什么问题。
+
 ## 安全与隐私
 
 API 密钥、Android 发布签名、keystore、带密钥备份和真实用户任务数据都不得提交。测试使用合成数据。Android 签名配置可参考 `android/key.properties.example`；真实配置应保存在被 Git 忽略的本机文件或 CI secret 中。

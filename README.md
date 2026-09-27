@@ -40,7 +40,7 @@ AI 功能采用 **BYOK（自备 API 密钥）**。你可以选择服务商预设
 
 AI 请求直接发送到你配置的服务商，费用由该服务商收取。执行分类、分组或拆解时，相关任务标题会发送给该服务；方寸不提供托管 AI 中转。普通待办无需账号、无需配置 AI，也可以离线使用。
 
-任务、任务板和常规设置保存在设备本地，目前没有账号系统或自动云同步。API 密钥通过系统安全存储保存。备份默认不包含密钥；如果明确选择将密钥加入备份，文件中的密钥为明文，请妥善保管。详见 [AI 服务商说明](docs/AI_PROVIDER_PRESETS.md) 和 [备份格式说明](docs/BACKUP_FORMAT.md)。
+任务、任务板和常规设置保存在设备本地，目前没有账号系统或自动云同步。API 密钥通过系统安全存储保存。备份默认不包含密钥；如果明确选择将密钥加入备份，文件中的密钥为明文，请妥善保管。
 
 ## 获取与运行
 
@@ -66,20 +66,7 @@ flutter run -d <device-id>
 flutter run -d windows
 ```
 
-### 检查与构建
-
-```sh
-flutter analyze --no-pub
-flutter test --no-pub
-
-# Android Release 构建
-flutter build apk --release --no-tree-shake-icons
-
-# Windows Release 构建
-flutter build windows --release
-```
-
-Release 构建适合检查真实动画和交互性能。Android 构建中的 `--no-tree-shake-icons` 用于保留应用所需的 Material 图标字形。正式分发还需要正确配置 Android 签名；Windows 构建目前不提供 Authenticode 签名。详细步骤见 [开发指南](docs/DEVELOPMENT.md)。
+检查、Release 构建和签名步骤见 [开发指南](docs/DEVELOPMENT.md)。
 
 ## 项目结构
 
@@ -101,8 +88,7 @@ legacy/web/          冻结的早期 Web 与桌面原型
 欢迎提交问题、分享使用反馈、改进翻译或贡献代码。提交问题时请说明平台、复现步骤和预期行为；请勿附上 API 密钥、真实备份或其他私人数据。
 
 - [贡献指南](.github/CONTRIBUTING.md)
-- [开发指南](docs/DEVELOPMENT.md)
-- [文档索引](docs/README.md)
+- [文档导航](docs/README.md)
 
 未来计划探索日计划功能，将已整理优先级的任务进一步安排到一天之中；当前版本尚未提供该功能。
 

@@ -6,7 +6,7 @@
 
 方寸当前提供 Flutter Android 与 Windows 客户端。任务、看板、备注和普通设置保存在设备的应用数据中；任务库没有应用层加密，也没有账号或自动云同步。普通待办可离线使用。应用代码没有集成广告或行为分析 SDK。
 
-用户填写的 AI API 密钥通过系统保护存储保存。Android 使用 Keystore，Windows 使用系统凭据保护与应用目录中的加密文件。旧版本的明文配置在新存储写入并读回成功后才迁移清理；这不保证物理介质上已安全擦除。系统备份与设备迁移不保证凭据可用，详见 [架构](ARCHITECTURE.md) 和 [备份格式](BACKUP_FORMAT.md)。
+用户填写的 AI API 密钥通过系统保护存储保存。Android 使用 Keystore，Windows 使用系统凭据保护与应用目录中的加密文件。旧版本的明文配置在新存储写入并读回成功后才迁移清理；这不保证物理介质上已安全擦除。系统备份与设备迁移不保证凭据可用。
 
 用户主动使用 AI 分类、分组或拆解时，应用把相关任务文本和提示词从本机发送到设置中的模型端点，并用密钥鉴权。预设端点使用 HTTPS；自定义端点可以是第三方代理或 HTTP，接收方和传输保护取决于用户配置。模型列表查询携带密钥，但不携带任务正文。应用当前没有自营的 AI 中转服务器。第三方端点的数据处理由其运营者决定。
 
@@ -18,7 +18,7 @@ Android 提醒可能使用通知、精确闹钟、开机恢复和震动权限；
 
 Compoise currently provides Flutter clients for Android and Windows. Tasks, boards, notes, and ordinary settings are stored in the app's local data. The task library has no application-level encryption, account, or automatic cloud sync. Ordinary task management works offline. The current app does not include advertising or behavioral analytics SDKs.
 
-Your AI API key is kept in system-protected storage. Android uses Keystore; Windows uses system credential protection together with an encrypted file in the app directory. Older plaintext configuration is removed only after the new store has written and read the key successfully. This does not promise secure erasure of physical media. System backup or device migration may not restore the credential; see [architecture](ARCHITECTURE.md) and [backup format](BACKUP_FORMAT.md).
+Your AI API key is kept in system-protected storage. Android uses Keystore; Windows uses system credential protection together with an encrypted file in the app directory. Older plaintext configuration is removed only after the new store has written and read the key successfully. This does not promise secure erasure of physical media. System backup or device migration may not restore the credential.
 
 When you initiate AI classification, grouping, or decomposition, the app sends the relevant task text and prompt from your device to the model endpoint configured in Settings, using your key for authentication. Presets use HTTPS. A custom endpoint may be a third-party proxy or use HTTP, so its operator and your configuration determine the recipient and transport protection. Model discovery sends the key but no task body. The app currently operates no AI relay server. The endpoint operator controls its own data handling.
 
