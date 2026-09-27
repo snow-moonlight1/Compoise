@@ -63,8 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version --machine > flutter-version.json
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
+          flutter --version --machine | node scripts/verify_flutter_version.js
 
       - name: Require release signing credentials
         shell: bash
@@ -93,6 +92,17 @@ jobs:
           } > android/key.properties
           chmod 600 android/key.properties
           echo "Release keystore configured from repository secrets. Values are not printed."
+
+      - name: Accept Android SDK licenses
+        shell: bash
+        run: |
+          sdkmanager="$(command -v sdkmanager || true)"
+          if [ -z "$sdkmanager" ]; then
+            sdkmanager="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          test -x "$sdkmanager"
+          set +o pipefail
+          yes | "$sdkmanager" --licenses
 
       - name: Install dependencies & verify
         run: |
@@ -184,8 +194,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version --machine > flutter-version.json
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
+          flutter --version --machine | node scripts/verify_flutter_version.js
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
