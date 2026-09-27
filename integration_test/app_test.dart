@@ -105,7 +105,7 @@ Future<void> main() async {
       );
       await tester.tap(find.byKey(const ValueKey('submit-tasks')));
       await _waitFor(tester, find.text('Manual Flutter Task'));
-      expect(find.byKey(const ValueKey('task-input')), findsNothing);
+      await _waitUntilGone(tester, find.byKey(const ValueKey('task-input')));
 
       await tester.tap(find.byKey(const ValueKey('add-task-btn')));
       await _waitFor(tester, find.text('AI Sort'));
@@ -257,6 +257,19 @@ Future<void> _waitFor(WidgetTester tester, Finder finder) async {
     }
   }
   fail('Timed out waiting for $finder');
+}
+
+Future<void> _waitUntilGone(WidgetTester tester, Finder finder) async {
+  for (var attempt = 0; attempt < 80; attempt++) {
+    await tester.pump(const Duration(milliseconds: 50));
+    if (finder.evaluate().isEmpty) return;
+    if (attempt.isOdd) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+    }
+  }
+  fail('Timed out waiting for $finder to disappear');
 }
 
 class _MemoryCredentialStore implements CredentialStore {
