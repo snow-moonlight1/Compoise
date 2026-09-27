@@ -1,10 +1,10 @@
-# MatrixFlow AI 隐私说明 / Privacy Notice
+# 方寸 · Compoise 隐私说明 / Privacy Notice
 
-状态：2026-09-25 源码候选说明；公开托管、维护者联系方式和稳定二进制发行尚未配置。上架前须由持有人复核并公布正式生效日期。
+本文说明当前开源客户端的数据处理行为；应用商店发行时仍需根据目标地区和商店要求复核。
 
 ## 中文
 
-MatrixFlow AI 当前维护 Flutter Android 与 Windows 客户端。任务、看板、备注和普通设置保存在设备的应用数据中；任务库没有应用层加密，也没有账号或自动云同步。普通待办可离线使用。应用代码没有集成广告或行为分析 SDK。
+方寸当前提供 Flutter Android 与 Windows 客户端。任务、看板、备注和普通设置保存在设备的应用数据中；任务库没有应用层加密，也没有账号或自动云同步。普通待办可离线使用。应用代码没有集成广告或行为分析 SDK。
 
 用户填写的 AI API 密钥通过系统保护存储保存。Android 使用 Keystore，Windows 使用系统凭据保护与应用目录中的加密文件。旧版本的明文配置在新存储写入并读回成功后才迁移清理；这不保证物理介质上已安全擦除。系统备份与设备迁移不保证凭据可用，详见 [架构](ARCHITECTURE.md) 和 [备份格式](BACKUP_FORMAT.md)。
 
@@ -14,11 +14,9 @@ MatrixFlow AI 当前维护 Flutter Android 与 Windows 客户端。任务、看�
 
 Android 提醒可能使用通知、精确闹钟、开机恢复和震动权限；Windows 可使用本地通知、托盘和热键。权限、系统设置和设备行为会影响提醒是否送达。
 
-公开 Issue、Pull Request 和安全邮箱尚未配置。当前安全报告入口状态见 [SECURITY.md](../SECURITY.md)。
-
 ## English
 
-MatrixFlow AI currently maintains Flutter clients for Android and Windows. Tasks, boards, notes, and ordinary settings are stored in the app's local data. The task library has no application-level encryption, account, or automatic cloud sync. Ordinary task management works offline. The current app does not include advertising or behavioral analytics SDKs.
+Compoise currently provides Flutter clients for Android and Windows. Tasks, boards, notes, and ordinary settings are stored in the app's local data. The task library has no application-level encryption, account, or automatic cloud sync. Ordinary task management works offline. The current app does not include advertising or behavioral analytics SDKs.
 
 Your AI API key is kept in system-protected storage. Android uses Keystore; Windows uses system credential protection together with an encrypted file in the app directory. Older plaintext configuration is removed only after the new store has written and read the key successfully. This does not promise secure erasure of physical media. System backup or device migration may not restore the credential; see [architecture](ARCHITECTURE.md) and [backup format](BACKUP_FORMAT.md).
 
@@ -27,5 +25,3 @@ When you initiate AI classification, grouping, or decomposition, the app sends t
 The default v2 JSON backup is **plaintext** and includes tasks and configuration, but omits `customApiKey`. The key is included **in plaintext** only when you explicitly select that option and confirm its warning on each export. Older v1/v2 backups containing keys remain readable. Overwrite import keeps the device's current key by default; replacing it requires an explicit choice. Handle backups as sensitive files.
 
 Android reminders may use notification, exact alarm, boot recovery, and vibration permissions. Windows can use local notifications, a tray icon, and hotkeys. Delivery depends on permissions, system settings, and device behavior.
-
-Public issue tracking and a security contact are not yet configured. See [SECURITY.md](../SECURITY.md) for the current reporting status. This notice is a source candidate dated 2026-09-25; the owner must review it and set an effective date before publication.

@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter --version --machine > flutter-version.json
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
 
       - name: Require release signing credentials
         shell: bash
@@ -82,20 +82,19 @@ jobs:
               exit 1
             fi
           done
-          mkdir -p matrixflow-native/android/app
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > matrixflow-native/android/app/release.jks
-          chmod 600 matrixflow-native/android/app/release.jks
+          mkdir -p android/app
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+          chmod 600 android/app/release.jks
           {
             echo "storePassword=$ANDROID_STORE_PASSWORD"
             echo "keyPassword=$ANDROID_KEY_PASSWORD"
             echo "keyAlias=$ANDROID_KEY_ALIAS"
             echo "storeFile=release.jks"
-          } > matrixflow-native/android/key.properties
-          chmod 600 matrixflow-native/android/key.properties
+          } > android/key.properties
+          chmod 600 android/key.properties
           echo "Release keystore configured from repository secrets. Values are not printed."
 
       - name: Install dependencies & verify
-        working-directory: matrixflow-native
         run: |
           flutter pub get
           flutter analyze --no-pub
@@ -106,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          LINE=$(grep '^version:' matrixflow-native/pubspec.yaml | head -n 1 || true)
+          LINE=$(grep '^version:' pubspec.yaml | head -n 1 || true)
           VERSION=$(printf '%s' "$LINE" | sed -E 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+).*/\1/')
           BUILD=$(printf '%s' "$LINE" | sed -E 's/^version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\+([0-9]+).*/\1/')
           if [ -z "$VERSION" ] || [ -z "$BUILD" ]; then
@@ -117,16 +116,15 @@ jobs:
           echo "BUILD=$BUILD" >> "$GITHUB_OUTPUT"
 
       - name: Build Android Release APK
-        working-directory: matrixflow-native
         env:
           REQUIRE_RELEASE_SIGNING: 'true'
-        run: flutter build apk --release --no-pub
+        run: flutter build apk --release --no-pub --no-tree-shake-icons
 
       - name: Verify the APK is not debug-signed
         shell: bash
         run: |
           set -euo pipefail
-          APK=matrixflow-native/build/app/outputs/flutter-apk/app-release.apk
+          APK=build/app/outputs/flutter-apk/app-release.apk
           SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           if [ -z "$SDK_DIR" ]; then
             echo "The Android SDK location is unknown, so the release certificate cannot be checked."
@@ -149,15 +147,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release_artifacts
-          cp matrixflow-native/build/app/outputs/flutter-apk/app-release.apk \
-            "release_artifacts/matrixflow-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-android.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "release_artifacts/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-android.apk"
           ls -l release_artifacts
 
       - name: Remove release signing material
         if: always()
         shell: bash
         run: |
-          rm -f matrixflow-native/android/key.properties matrixflow-native/android/app/release.jks
+          rm -f android/key.properties android/app/release.jks
           echo "Temporary signing material removed from the runner workspace."
 
       - name: Upload Android APK artifact
@@ -182,19 +180,17 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Require the OS24 Flutter revision
+      - name: Check pinned Flutter SDK
         shell: bash
         run: |
           set -euo pipefail
           flutter --version --machine > flutter-version.json
-          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('matrixflow-native/toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
+          node -e "const fs=require('fs'); const pin=JSON.parse(fs.readFileSync('toolchain.json','utf8')).verified; const out=JSON.parse(fs.readFileSync('flutter-version.json','utf8')); const fields={frameworkVersion:pin.flutterVersion,dartSdkVersion:pin.dartVersion,frameworkRevision:pin.revision,engineRevision:pin.engineRevision,channel:pin.channel}; for (const [name,expected] of Object.entries(fields)) { if (out[name] !== expected) { console.error('Flutter pin mismatch: ' + name); process.exit(1); } } console.log(out.frameworkVersion + ' ' + out.frameworkRevision);"
 
       - name: Enable Windows desktop
-        working-directory: matrixflow-native
         run: flutter config --enable-windows-desktop
 
       - name: Install dependencies & verify
-        working-directory: matrixflow-native
         run: |
           flutter pub get
           flutter analyze --no-pub
@@ -204,7 +200,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $line = (Get-Content matrixflow-native/pubspec.yaml | Where-Object { $_ -match '^version:' } | Select-Object -First 1)
+          $line = (Get-Content pubspec.yaml | Where-Object { $_ -match '^version:' } | Select-Object -First 1)
           if ($line -notmatch '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$') {
             Write-Error 'pubspec.yaml must declare version X.Y.Z+N before a release can be staged.'
             exit 1
@@ -213,20 +209,22 @@ jobs:
           "BUILD=$($Matches[2])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Build Windows Release
-        working-directory: matrixflow-native
         run: flutter build windows --release --no-pub
 
       - name: Verify Windows file version and signature state
         shell: pwsh
         run: |
-          $exe = 'matrixflow-native/build/windows/x64/runner/Release/matrixflow_native.exe'
+          $exe = 'build/windows/x64/runner/Release/compoise.exe'
           if (-not (Test-Path $exe)) { throw "Missing release executable: $exe" }
           $info = (Get-Item $exe).VersionInfo
           $expected = "${{ steps.version.outputs.VERSION }}.${{ steps.version.outputs.BUILD }}"
+          $expectedLabel = "${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}"
           Write-Host "ProductName=$($info.ProductName) FileVersion=$($info.FileVersion) ProductVersion=$($info.ProductVersion)"
           Write-Host "CompanyName=$($info.CompanyName) LegalCopyright=$($info.LegalCopyright)"
-          if ($info.ProductName -ne 'MatrixFlow AI') { throw "Unexpected ProductName: $($info.ProductName)" }
-          if ($info.FileVersion -ne $expected) { throw "FileVersion $($info.FileVersion) does not match pubspec $expected" }
+          if ($info.ProductName -ne 'Compoise') { throw "Unexpected ProductName: $($info.ProductName)" }
+          $numericVersion = "$($info.FileMajorPart).$($info.FileMinorPart).$($info.FileBuildPart).$($info.FilePrivatePart)"
+          if ($numericVersion -ne $expected) { throw "Numeric FileVersion $numericVersion does not match pubspec $expected" }
+          if (@($expected, $expectedLabel) -notcontains $info.FileVersion) { throw "FileVersion $($info.FileVersion) does not match pubspec $expectedLabel" }
           $signature = Get-AuthenticodeSignature -FilePath $exe
           Write-Host "Authenticode=$($signature.Status)"
           if ($signature.Status -ne 'NotSigned') {
@@ -238,13 +236,13 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path release_artifacts -Force | Out-Null
-          $zipPath = "release_artifacts/matrixflow-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-windows-portable.zip"
+          $zipPath = "release_artifacts/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-windows-portable.zip"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-          Compress-Archive -Path "matrixflow-native/build/windows/x64/runner/Release/*" -DestinationPath $zipPath -CompressionLevel Optimal
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath $zipPath -CompressionLevel Optimal
           $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zipPath))
           try {
             $names = $archive.Entries | ForEach-Object { $_.FullName -replace '/', '\' }
-            if ($names -notcontains 'matrixflow_native.exe') { throw 'The ZIP does not contain matrixflow_native.exe.' }
+            if ($names -notcontains 'compoise.exe') { throw 'The ZIP does not contain compoise.exe.' }
             if ($names -notcontains 'data\app.so') { throw 'The ZIP does not contain data\app.so.' }
             Write-Host "ZIP entries: $($names.Count)"
           } finally {
@@ -283,7 +281,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > release_artifacts/RELEASE_NOTES.md <<EOF
-          Draft build prepared by the MatrixFlow release workflow.
+          Draft build prepared by the Compoise release workflow.
 
           - Tag: ${RELEASE_TAG}
           - Android APK: signed with the repository release keystore. The workflow refuses a debug-signed APK.
@@ -300,7 +298,7 @@ jobs:
         run: |
           set -euo pipefail
           ls -l
-          pattern='^matrixflow-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+-(android\.apk|windows-portable\.zip)$'
+          pattern='^compoise-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+-(android\.apk|windows-portable\.zip)$'
           artifacts=$(ls -1 | grep -E "$pattern" | sort || true)
           count=$(printf '%s\n' "$artifacts" | grep -c . || true)
           unexpected=$(ls -1 | grep -E -v "$pattern" | grep -E -v '^(RELEASE_NOTES\.md|SHA256SUMS\.txt)$' | wc -l || true)

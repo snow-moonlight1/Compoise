@@ -1,5 +1,0 @@
-model,input_cny_per_million,output_cny_per_million,input_tokens_per_request,output_tokens_per_request,retry_factor,cny_per_request,cny_50_requests,cny_300_requests,cny_1000_requests
-DeepSeek V4 Flash 高峰,3,9,2000,800,1.2,0.01584,0.792,4.752,15.840
-DeepSeek V4 Flash 空闲,1.5,4.5,2000,800,1.2,0.00792,0.396,2.376,7.920
-MiMo V2.5,1,2,2000,800,1.2,0.00432,0.216,1.296,4.320
-MiMo V2.5 Pro,3,6,2000,800,1.2,0.01296,0.648,3.888,12.960

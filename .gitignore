@@ -1,38 +1,80 @@
-# Logs
-logs
+# Logs and temporary files
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
 
-# Editor directories and files
+# Node / legacy web build output
+node_modules/
+dist/
+dist-ssr/
+
+# Editor and OS files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.iml
+*.ipr
+*.iws
 
-# Packaging shells — build outputs & machine-specific files
-src-tauri/target/
-src-tauri/gen/
-android/.gradle/
-android/build/
-android/app/build/
-android/capacitor-cordova-android-plugins/
-android/local.properties
+# Flutter / Dart generated state and build output
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+/build/
+/windows/flutter/ephemeral/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+*.class
+*.pyc
+*.swp
+app.*.symbols
+app.*.map.json
 
-# MatrixFlow Release distribution artifacts
+# Android machine-specific files and generated output
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+**/local.properties
+
+# Frozen Tauri / Capacitor shell outputs
+legacy/web/src-tauri/target/
+legacy/web/src-tauri/gen/
+legacy/web/android/.gradle/
+legacy/web/android/build/
+legacy/web/android/app/build/
+legacy/web/android/capacitor-cordova-android-plugins/
+
+# Signing credentials and keystores
+key.properties
+keystore.properties
+*.jks
+*.keystore
+*.pfx
+*.p12
+
+# Release distribution artifacts
 release_dist/
 *.apk
 *.zip

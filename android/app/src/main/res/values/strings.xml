@@ -1,7 +1,3 @@
-<?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">MatrixFlow AI</string>
-    <string name="title_activity_main">MatrixFlow AI</string>
-    <string name="package_name">com.matrixflow.app</string>
-    <string name="custom_url_scheme">com.matrixflow.app</string>
+    <string name="app_name">方寸</string>
 </resources>

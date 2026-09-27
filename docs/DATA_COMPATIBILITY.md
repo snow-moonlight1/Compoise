@@ -1,12 +1,12 @@
-# MatrixFlow AI: 数据兼容性与版本演进契约规范 (DATA_COMPATIBILITY.md)
+# 方寸 · Compoise: 数据兼容性与版本演进契约规范 (DATA_COMPATIBILITY.md)
 
-本文档规范 MatrixFlow AI 的本地存储 Schema、备份导出载荷版本契约（ExportData Versioning）、数据迁移机制以及跨平台/跨版本互通规则。
+本文档规范 方寸 · Compoise 的本地存储 Schema、备份导出载荷版本契约（ExportData Versioning）、数据迁移机制以及跨平台/跨版本互通规则。
 
 ---
 
 ## 1. 架构总览与核心设计原则
 
-MatrixFlow AI 是以“本地优先”（Local-First）为核心原则构建的艾森豪威尔四象限待办应用。
+方寸 · Compoise 是以“本地优先”（Local-First）为核心原则构建的艾森豪威尔四象限待办应用。
 
 - **本地存储持久化**：应用直接将状态保存于设备本地持久化存储（Android / Windows 统一基于 `SharedPreferences`）。
 - **零强制后端**：待办数据不依赖云端账户或中央服务器，支持离线运行，用户隐私与数据完全归属本地。
@@ -17,7 +17,7 @@ MatrixFlow AI 是以“本地优先”（Local-First）为核心原则构建的�
 
 ## 2. 本地持久化 Schema（核心四键不可变契约）
 
-无论外部导出格式或应用版本如何演进，MatrixFlow 本地存储的**核心存储键名（Key）保持严格恒定**，不引入重命名：
+无论外部导出格式或应用版本如何演进，方寸 本地存储的**核心存储键名（Key）保持严格恒定**，不引入重命名：
 
 | 本地存储键名 (`key`) | 数据结构 | 对应模型 | 说明与兜底策略 |
 |---|---|---|---|
@@ -71,7 +71,7 @@ MatrixFlow AI 是以“本地优先”（Local-First）为核心原则构建的�
 | **Flutter v2** (Android / Windows) | **ExportData v1** (旧 Native 客户端) | **拒绝导入 (Strict Reject)** | 旧 Native 客户端校验 `version == 1`，遇到 v2 会抛出 `bad export shape` 拦截，防止旧版本错误覆写。 |
 | **Flutter v2** (Android / Windows) | **旧 React Web** (冻结保留端) | **不承诺无损 (Lossy / Unsupported)** | 冻结的 React Web 缺少严格版本拒绝门禁，直接载入会丢弃 v2 特有设置。**路线明确不为此继续修改旧 Web**。 |
 | **Flutter v2 (降级导出 v1)** | **旧 React Web / 旧 Native** | **降级支持 (Downgrade Export)** | 客户端提供 `exportJson(version: 1)` 降级导出能力，显式剔除 v2 独有配置，使旧版能合规解析。 |
-| **未知未来版本 (v > 2)** | **Flutter v2** (Android / Windows) | **严格拒收 (Safety Gate)** | 抛出 `UnsupportedDataVersionException`，弹窗提示用户升级 MatrixFlow，现有本地数据保持 100% 完好不变。 |
+| **未知未来版本 (v > 2)** | **Flutter v2** (Android / Windows) | **严格拒收 (Safety Gate)** | 抛出 `UnsupportedDataVersionException`，弹窗提示用户升级 方寸，现有本地数据保持 100% 完好不变。 |
 
 ---
 

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    MatrixFlow AI - release build, clean per-version staging and checksum manifest.
+    Compoise - release build, clean per-version staging and checksum manifest.
 .DESCRIPTION
     Builds the Flutter Android release APK and/or the Windows portable ZIP for a
     single version, stages the artifacts in a clean per-version directory, and
@@ -17,17 +17,15 @@
         package id, versionCode and signing certificate DN are checked against
         pubspec.yaml.
 
-    Toolchain: the OS24 pin (Flutter 3.32.8) is used when available; the
-    untouched fallback D:\Dev_SDKs\Flutter_SDK stays in place. Pass
-    -AllowUnpinnedSdk only to build from the fallback SDK on purpose.
+    Toolchain: the Flutter version in toolchain.json is required unless
+    -AllowUnpinnedSdk is explicitly supplied.
 .PARAMETER Platform
     Build target: 'All' (default), 'Android' or 'Windows'.
 .PARAMETER OutputDir
     Parent directory for the per-version staging directory
     (default: <repo root>\release_dist).
 .PARAMETER FlutterSdk
-    Flutter SDK directory. Default is D:\Dev_SDKs\Flutter_3.32.8 when that
-    install exists; otherwise the untouched fallback D:\Dev_SDKs\Flutter_SDK.
+    Optional Flutter SDK directory. By default, flutter is located on PATH.
 .PARAMETER ExpectedTag
     Release tag to compare with pubspec.yaml, for example 'v1.0.0' or 'v1.0.0+1'.
 .PARAMETER ValidateOnly
@@ -36,7 +34,7 @@
     run as a preflight before credentials are installed.
 .PARAMETER AllowUnpinnedSdk
     Continue when the active Flutter SDK does not match the OS24 pin recorded in
-    matrixflow-native/toolchain.json.
+    toolchain.json.
 .EXAMPLE
     powershell -File scripts\build_release.ps1 -Platform Windows -ExpectedTag v1.0.0
 .EXAMPLE
@@ -69,10 +67,10 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
-$NativeDir = Join-Path $ProjectRoot 'matrixflow-native'
+$FlutterDir = $ProjectRoot
 
-if (-not (Test-Path $NativeDir)) {
-    throw "Cannot find matrixflow-native directory: $NativeDir"
+if (-not (Test-Path $FlutterDir)) {
+    throw "Cannot find Flutter project root: $FlutterDir"
 }
 
 # Only the storeFile path is read back out of a keystore properties file.
@@ -108,7 +106,7 @@ function Get-LocalPropertiesValue([string]$Path, [string]$Key) {
 
 function Find-BuildToolsExe([string]$Name) {
     $candidates = @()
-    $sdkFromLocal = Get-LocalPropertiesValue (Join-Path $NativeDir 'android\local.properties') 'sdk.dir'
+    $sdkFromLocal = Get-LocalPropertiesValue (Join-Path $FlutterDir 'android\local.properties') 'sdk.dir'
     if ($sdkFromLocal) { $candidates += (Join-Path $sdkFromLocal 'build-tools') }
     foreach ($variable in @('ANDROID_HOME', 'ANDROID_SDK_ROOT')) {
         $value = [System.Environment]::GetEnvironmentVariable($variable)
@@ -128,7 +126,7 @@ function Find-BuildToolsExe([string]$Name) {
 
 # ---------------------------------------------------------------- version ----
 
-$PubspecPath = Join-Path $NativeDir 'pubspec.yaml'
+$PubspecPath = Join-Path $FlutterDir 'pubspec.yaml'
 $VersionLine = (Get-Content $PubspecPath | Where-Object { $_ -match '^version:' } | Select-Object -First 1)
 if (-not $VersionLine) {
     throw "pubspec.yaml does not declare a version line."
@@ -158,46 +156,40 @@ if ($OutputDirFull -match '^[A-Za-z]:\\?$') {
     throw "Refusing to use the drive root $OutputDirFull as the release output directory."
 }
 
-$StagingDirName = "matrixflow-v$VersionLabel"
+$StagingDirName = "compoise-v$VersionLabel"
 $StagingDir = [System.IO.Path]::GetFullPath((Join-Path $OutputDirFull $StagingDirName))
 $OutputPrefix = $OutputDirFull.TrimEnd('\') + '\'
 if (-not $StagingDir.StartsWith($OutputPrefix)) {
     throw "Refusing to stage outside the output directory: $StagingDir"
 }
-if ((Split-Path -Leaf $StagingDir) -notmatch '^matrixflow-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$') {
+if ((Split-Path -Leaf $StagingDir) -notmatch '^compoise-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$') {
     throw "Unexpected staging directory name: $StagingDir"
 }
 
-$AndroidArtifactName = "matrixflow-v$VersionLabel-android.apk"
-$WindowsArtifactName = "matrixflow-v$VersionLabel-windows-portable.zip"
+$AndroidArtifactName = "compoise-v$VersionLabel-android.apk"
+$WindowsArtifactName = "compoise-v$VersionLabel-windows-portable.zip"
 
 # --------------------------------------------------------------- toolchain ---
 
-if ([string]::IsNullOrWhiteSpace($FlutterSdk)) {
-    $PinnedSdk = 'D:\Dev_SDKs\Flutter_3.32.8'
-    $FallbackSdk = 'D:\Dev_SDKs\Flutter_SDK'
-    if (Test-Path (Join-Path $PinnedSdk 'bin\flutter.bat')) {
-        $FlutterSdk = $PinnedSdk
-    } else {
-        Write-Host "Pinned Flutter 3.32.8 was not found at $PinnedSdk. Using fallback $FallbackSdk."
-        $FlutterSdk = $FallbackSdk
+$FlutterBin = $null
+if (-not [string]::IsNullOrWhiteSpace($FlutterSdk)) {
+    $FlutterBin = Join-Path $FlutterSdk 'bin\flutter.bat'
+    if (-not (Test-Path $FlutterBin)) {
+        throw "Flutter was not found under the supplied SDK directory: $FlutterSdk"
     }
-}
-
-$FlutterBin = Join-Path $FlutterSdk 'bin\flutter.bat'
-if (-not (Test-Path $FlutterBin)) {
+} else {
     $FlutterCmd = Get-Command 'flutter' -ErrorAction SilentlyContinue
     if ($FlutterCmd) {
         $FlutterBin = $FlutterCmd.Source
+        $FlutterSdk = Split-Path -Parent (Split-Path -Parent $FlutterBin)
     } elseif ($ValidateOnly) {
         Write-Host 'Flutter SDK was not found; the validate-only run continues without a toolchain probe.'
-        $FlutterBin = $null
     } else {
         throw 'Flutter SDK not found. Pass -FlutterSdk or add flutter to PATH.'
     }
 }
 
-$ToolchainPath = Join-Path $NativeDir 'toolchain.json'
+$ToolchainPath = Join-Path $FlutterDir 'toolchain.json'
 $Toolchain = $null
 if (Test-Path $ToolchainPath) {
     $Toolchain = (Get-Content $ToolchainPath -Raw | ConvertFrom-Json).verified
@@ -235,10 +227,10 @@ if ($Toolchain -and $FlutterBin -and -not $FlutterInfo) { $ToolchainMatch = $fal
 # --------------------------------------------------------------- signing ----
 
 $KeyPropertiesCandidates = @(
-    (Join-Path $NativeDir 'android\key.properties'),
-    (Join-Path $NativeDir 'android\keystore.properties'),
-    (Join-Path $NativeDir 'android\app\key.properties'),
-    (Join-Path $NativeDir 'android\app\keystore.properties')
+    (Join-Path $FlutterDir 'android\key.properties'),
+    (Join-Path $FlutterDir 'android\keystore.properties'),
+    (Join-Path $FlutterDir 'android\app\key.properties'),
+    (Join-Path $FlutterDir 'android\app\keystore.properties')
 )
 $KeyPropertiesPath = $KeyPropertiesCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 $KeystorePath = $null
@@ -281,7 +273,7 @@ if (-not $SigningReady) {
 # ------------------------------------------------------------------- plan ---
 
 Write-Host '=================================================' -ForegroundColor Cyan
-Write-Host ' MatrixFlow AI Release Build and Packaging' -ForegroundColor Cyan
+Write-Host ' Compoise Release Build and Packaging' -ForegroundColor Cyan
 Write-Host '=================================================' -ForegroundColor Cyan
 Write-Host "Version:        v$AppVersion (build $BuildNumber)"
 if ($ExpectedTag) {
@@ -291,13 +283,13 @@ Write-Host "Platform:       $Platform"
 Write-Host "Flutter SDK:    $FlutterSdk"
 Write-Host "Flutter:        $FlutterVersionText"
 Write-Host "Dart:           $DartVersionText"
-Write-Host "Toolchain pin:  $(if ($ToolchainMatch) { 'matches matrixflow-native/toolchain.json' } else { 'differs from matrixflow-native/toolchain.json' })"
+Write-Host "Toolchain pin:  $(if ($ToolchainMatch) { 'matches toolchain.json' } else { 'differs from toolchain.json' })"
 Write-Host "Staging dir:    $StagingDir"
 Write-Host "Signing source: $SigningSource"
 Write-Host '-------------------------------------------------'
 
 if (-not $AllowUnpinnedSdk -and $Toolchain -and -not $ToolchainMatch) {
-    throw "The active Flutter SDK does not match the OS24 pin in toolchain.json. Install D:\Dev_SDKs\Flutter_3.32.8 or pass -AllowUnpinnedSdk to override deliberately."
+    throw "The active Flutter SDK does not match the version recorded in toolchain.json. Install the pinned version or pass -AllowUnpinnedSdk to override deliberately."
 }
 
 $BuildsAndroid = ($Platform -eq 'All' -or $Platform -eq 'Android')
@@ -321,7 +313,7 @@ if ($ValidateOnly) {
 }
 
 if ($BuildsAndroid -and -not $SigningReady) {
-    throw "Formal release signing credentials are required. $SigningProblem. Refusing to build a debug-signed release APK. See matrixflow-native/android/key.properties.example."
+    throw "Formal release signing credentials are required. $SigningProblem. Refusing to build a debug-signed release APK. See android/key.properties.example."
 }
 
 if (Test-Path $StagingDir) {
@@ -340,7 +332,7 @@ if ($BuildsAndroid) {
     $PreviousRequireSigning = $env:REQUIRE_RELEASE_SIGNING
     $env:REQUIRE_RELEASE_SIGNING = 'true'
     try {
-        Push-Location $NativeDir
+        Push-Location $FlutterDir
         try {
             # Keep the complete Material glyph font in release builds. The
             # screenshot-backed Android smoke showed that tree shaking dropped
@@ -360,7 +352,7 @@ if ($BuildsAndroid) {
         }
     }
 
-    $ApkSource = Join-Path $NativeDir 'build\app\outputs\flutter-apk\app-release.apk'
+    $ApkSource = Join-Path $FlutterDir 'build\app\outputs\flutter-apk\app-release.apk'
     if (-not (Test-Path $ApkSource)) {
         throw "Built APK not found at: $ApkSource"
     }
@@ -369,7 +361,7 @@ if ($BuildsAndroid) {
     Copy-Item -Path $ApkSource -Destination $ApkTarget -Force
     $ExpectedArtifacts += $ApkTarget
 
-    $GradlePath = Join-Path $NativeDir 'android\app\build.gradle.kts'
+    $GradlePath = Join-Path $FlutterDir 'android\app\build.gradle.kts'
     $GradleText = Get-Content $GradlePath -Raw
     $ApplicationId = [regex]::Match($GradleText, 'applicationId\s*=\s*"([^"]+)"').Groups[1].Value
     $Namespace = [regex]::Match($GradleText, 'namespace\s*=\s*"([^"]+)"').Groups[1].Value
@@ -428,7 +420,7 @@ if ($BuildsAndroid) {
 
 if ($BuildsWindows) {
     Write-Host "`n[2/2] Building Windows release desktop application..." -ForegroundColor Yellow
-    Push-Location $NativeDir
+    Push-Location $FlutterDir
     try {
         & $FlutterBin build windows --release --no-pub
         if ($LASTEXITCODE -ne 0) {
@@ -438,11 +430,11 @@ if ($BuildsWindows) {
         Pop-Location
     }
 
-    $WindowsReleaseDir = Join-Path $NativeDir 'build\windows\x64\runner\Release'
+    $WindowsReleaseDir = Join-Path $FlutterDir 'build\windows\x64\runner\Release'
     if (-not (Test-Path $WindowsReleaseDir)) {
         throw "Windows Release output dir not found: $WindowsReleaseDir"
     }
-    $ExePath = Join-Path $WindowsReleaseDir 'matrixflow_native.exe'
+    $ExePath = Join-Path $WindowsReleaseDir 'compoise.exe'
     if (-not (Test-Path $ExePath)) {
         throw "Windows executable not found: $ExePath"
     }
@@ -454,8 +446,8 @@ if ($BuildsWindows) {
     if (($NumericActual -join '.') -ne ($NumericExpected -join '.')) {
         throw "The built executable carries numeric file version $($NumericActual -join '.') but pubspec.yaml implies $($NumericExpected -join '.')."
     }
-    if ($ExeInfo.ProductName -ne 'MatrixFlow AI') {
-        throw "The built executable reports ProductName '$($ExeInfo.ProductName)'; expected 'MatrixFlow AI'."
+    if ($ExeInfo.ProductName -ne 'Compoise') {
+        throw "The built executable reports ProductName '$($ExeInfo.ProductName)'; expected 'Compoise'."
     }
     # Flutter's Windows template writes FLUTTER_VERSION (for example 1.0.0+1) as
     # the version string while the numeric fields carry version plus build.
@@ -487,8 +479,8 @@ if ($BuildsWindows) {
     } finally {
         $Archive.Dispose()
     }
-    if ($EntryNames -notcontains 'matrixflow_native.exe') {
-        throw 'The staged ZIP does not contain matrixflow_native.exe.'
+    if ($EntryNames -notcontains 'compoise.exe') {
+        throw 'The staged ZIP does not contain compoise.exe.'
     }
     if ($EntryNames -notcontains 'data\app.so') {
         throw 'The staged ZIP does not contain data\app.so.'
@@ -526,7 +518,7 @@ $GitDirty = @(& git -C $ProjectRoot status --porcelain 2>$null).Count -gt 0
 $TagRecord = if ($ExpectedTag) { $ExpectedTag } else { 'not-provided' }
 
 $ManifestLines = @(
-    'MatrixFlow AI release manifest (OS26)',
+    'Compoise release manifest',
     "version=$AppVersion",
     "buildNumber=$BuildNumber",
     "tag=$TagRecord",
@@ -540,7 +532,7 @@ $ManifestLines = @(
     "dartVersion=$DartVersionText",
     "toolchainPinMatches=$ToolchainMatch",
     "signingSource=$SigningSource",
-    'windowsCodeSigning=unsigned (Authenticode not configured, see docs/OS26_NOTES.md)',
+    'windowsCodeSigning=unsigned (Authenticode is not configured)',
     ''
 )
 if ($AndroidProof.Count -gt 0) {
@@ -563,7 +555,7 @@ $ManifestLines | Out-File -FilePath $ManifestPath -Encoding UTF8 -Force
 
 Write-Host ''
 Write-Host '=================================================' -ForegroundColor Green
-Write-Host ' MatrixFlow AI packaging completed' -ForegroundColor Green
+Write-Host ' Compoise packaging completed' -ForegroundColor Green
 Write-Host '=================================================' -ForegroundColor Green
 Write-Host "Staging dir: $StagingDir"
 Write-Host 'Manifest:    RELEASE_MANIFEST.txt'
