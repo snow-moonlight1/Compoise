@@ -108,4 +108,4 @@ legacy/web/          冻结的早期 Web 与桌面原型
 
 ## 许可
 
-本项目按 [GNU General Public License v3.0 only](LICENSE) 发布。第三方依赖和素材遵循各自的许可。Flutter 3.32.8 随带的 Material Icons 字体许可文件为 CC BY 4.0；该许可允许商业使用，但要求保留署名和许可信息。Google 的 [Material Icons 指南](https://developers.google.com/fonts/docs/material_icons)目前标注 Apache 2.0。为覆盖随 Flutter SDK 提供的具体字体文件，本项目按 CC BY 4.0 保留署名及许可证，见 [第三方声明](assets/licenses/THIRD_PARTY_NOTICES.txt)和 [许可证全文](assets/licenses/MaterialIcons_LICENSE.txt)；两份文件也随应用资源分发。
+© 2026 Compoise contributors。本项目按 [GNU General Public License v3.0 only](LICENSE) 发布。第三方依赖和素材遵循各自的许可。Flutter 3.32.8 随带的 Material Icons 字体许可文件为 CC BY 4.0；该许可允许商业使用，但要求保留署名和许可信息。Google 的 [Material Icons 指南](https://developers.google.com/fonts/docs/material_icons)目前标注 Apache 2.0。为覆盖随 Flutter SDK 提供的具体字体文件，本项目按 CC BY 4.0 保留署名及许可证，见 [第三方声明](assets/licenses/THIRD_PARTY_NOTICES.txt)和 [许可证全文](assets/licenses/MaterialIcons_LICENSE.txt)；两份文件也随应用资源分发。
