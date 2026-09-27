@@ -39,13 +39,22 @@ void main() {
     expect(workflow.contains('contents: read'), isTrue);
     expect(workflow.contains('contents: write'), isFalse);
     expect(setup.allMatches(workflow).length, 4);
-    expect(workflow.contains('toolchain.json'), isTrue);
-    expect('flutter --version --machine'.allMatches(workflow).length, 4);
-    expect(workflow.contains('pin.flutterVersion'), isTrue);
-    expect(workflow.contains('pin.dartVersion'), isTrue);
-    expect(workflow.contains('pin.revision'), isTrue);
-    expect(workflow.contains('frameworkRevision:pin.revision'), isTrue);
-    expect(workflow.contains('engineRevision:pin.engineRevision'), isTrue);
+    expect(
+      'flutter --version --machine | node scripts/verify_flutter_version.js'
+          .allMatches(workflow)
+          .length,
+      4,
+    );
+    final verifier = text('scripts/verify_flutter_version.js');
+    expect(
+      verifier.contains("fs.readFileSync('toolchain.json', 'utf8')"),
+      isTrue,
+    );
+    expect(verifier.contains('frameworkVersion: pin.flutterVersion'), isTrue);
+    expect(verifier.contains('dartSdkVersion: pin.dartVersion'), isTrue);
+    expect(verifier.contains('frameworkRevision: pin.revision'), isTrue);
+    expect(verifier.contains('engineRevision: pin.engineRevision'), isTrue);
+    expect(verifier.contains('channel: pin.channel'), isTrue);
     expect(verified()['flutterVersion'], '3.32.8');
     expect(verified()['revision'], 'edada7c56edf4a183c1735310e123c7f923584f1');
     expect(workflow.contains('flutter analyze --no-pub'), isTrue);

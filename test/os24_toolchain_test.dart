@@ -71,11 +71,21 @@ void main() {
     final workflow = text('.github/workflows/release.yml');
     expect('flutter-version: \'3.32.8\''.allMatches(workflow).length, 2);
     expect(
-      workflow.contains(
-        "const pin=JSON.parse(fs.readFileSync('toolchain.json','utf8')).verified",
-      ),
+      'flutter --version --machine | node scripts/verify_flutter_version.js'
+          .allMatches(workflow)
+          .length,
+      2,
+    );
+    final verifier = text('scripts/verify_flutter_version.js');
+    expect(
+      verifier.contains("fs.readFileSync('toolchain.json', 'utf8')"),
       isTrue,
     );
+    expect(verifier.contains('frameworkVersion: pin.flutterVersion'), isTrue);
+    expect(verifier.contains('dartSdkVersion: pin.dartVersion'), isTrue);
+    expect(verifier.contains('frameworkRevision: pin.revision'), isTrue);
+    expect(verifier.contains('engineRevision: pin.engineRevision'), isTrue);
+    expect(verifier.contains('channel: pin.channel'), isTrue);
 
     for (final path in [
       'README.md',

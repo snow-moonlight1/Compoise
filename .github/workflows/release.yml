@@ -96,8 +96,9 @@ jobs:
       - name: Accept Android SDK licenses
         shell: bash
         run: |
-          sdkmanager="$(command -v sdkmanager || true)"
-          if [ -z "$sdkmanager" ]; then
+          if command -v sdkmanager >/dev/null 2>&1; then
+            sdkmanager="$(command -v sdkmanager)"
+          else
             sdkmanager="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/cmdline-tools/latest/bin/sdkmanager"
           fi
           test -x "$sdkmanager"
@@ -178,7 +179,7 @@ jobs:
   build-windows:
     name: Build Windows Portable Release
     needs: preflight
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

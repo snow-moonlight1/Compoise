@@ -87,8 +87,9 @@ jobs:
       - name: Accept Android SDK licenses
         shell: bash
         run: |
-          sdkmanager="$(command -v sdkmanager || true)"
-          if [ -z "$sdkmanager" ]; then
+          if command -v sdkmanager >/dev/null 2>&1; then
+            sdkmanager="$(command -v sdkmanager)"
+          else
             sdkmanager="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/cmdline-tools/latest/bin/sdkmanager"
           fi
           test -x "$sdkmanager"
@@ -105,7 +106,7 @@ jobs:
 
   windows-debug:
     name: Windows debug build
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -138,7 +139,7 @@ jobs:
   platform-smoke:
     name: Real Windows notification and tray smoke
     if: github.event_name == 'workflow_dispatch' && inputs.run_platform_smoke
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
