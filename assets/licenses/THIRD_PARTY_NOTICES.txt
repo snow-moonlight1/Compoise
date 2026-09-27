@@ -1,0 +1,17 @@
+Third-party font notice
+=======================
+
+Material Icons
+Copyright Google LLC.
+
+The Material Icons font is supplied by Flutter SDK 3.32.8 and used for UI
+icons. Flutter may subset the font to include only glyphs used by the app.
+The accompanying license file in that SDK artifact is CC BY 4.0. This
+project preserves attribution and includes the full license text in
+MaterialIcons_LICENSE.txt.
+
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+The Google Material Icons guide currently lists Apache License 2.0 for the
+icon set: https://developers.google.com/fonts/docs/material_icons

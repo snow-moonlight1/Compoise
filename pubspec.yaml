@@ -36,3 +36,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/tray_icon.ico
+    - assets/licenses/MaterialIcons_LICENSE.txt
+    - assets/licenses/THIRD_PARTY_NOTICES.txt
