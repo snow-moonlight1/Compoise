@@ -38,12 +38,12 @@ void main() {
     expect(workflow.contains("tags:"), isFalse);
     expect(workflow.contains('contents: read'), isTrue);
     expect(workflow.contains('contents: write'), isFalse);
-    expect(setup.allMatches(workflow).length, 4);
+    expect(setup.allMatches(workflow).length, 5);
     expect(
       'flutter --version --machine | node scripts/verify_flutter_version.js'
           .allMatches(workflow)
           .length,
-      4,
+      5,
     );
     final verifier = text('scripts/verify_flutter_version.js');
     expect(
@@ -67,6 +67,9 @@ void main() {
     expect(workflow.contains('|| true'), isFalse);
     expect(workflow.contains('flutter build apk --debug'), isTrue);
     expect(workflow.contains('flutter build windows --debug'), isTrue);
+    expect(workflow.contains('linux-desktop:'), isTrue);
+    expect(workflow.contains('xvfb-run -a'), isTrue);
+    expect(workflow.contains('flutter build linux --release --no-pub'), isTrue);
     expect(workflow.contains('flutter build apk --release'), isFalse);
     expect(workflow.contains('ANDROID_KEYSTORE'), isFalse);
     expect(workflow.contains('REQUIRE_RELEASE_SIGNING: \'true\''), isFalse);

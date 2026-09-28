@@ -74,7 +74,9 @@ void main() {
     expect(release.contains('group: release-\${{ github.ref }}'), isTrue);
 
     expect(release.contains('needs: preflight'), isTrue);
-    expect('needs: preflight'.allMatches(release).length, 2);
+    expect('needs: preflight'.allMatches(release).length, 3);
+    expect(release.contains('build-linux:'), isTrue);
+    expect(release.contains('needs: [preflight, build-android, build-windows, build-linux]'), isTrue);
     expect(release.contains('Verify tag against pubspec.yaml'), isTrue);
     expect(release.contains('-ValidateOnly'), isTrue);
     expect(release.contains('-ExpectedTag'), isTrue);

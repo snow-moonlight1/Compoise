@@ -69,12 +69,12 @@ void main() {
 
   test('CI, docs, and release tooling share the Flutter version pin', () {
     final workflow = text('.github/workflows/release.yml');
-    expect('flutter-version: \'3.32.8\''.allMatches(workflow).length, 2);
+    expect('flutter-version: \'3.32.8\''.allMatches(workflow).length, 3);
     expect(
       'flutter --version --machine | node scripts/verify_flutter_version.js'
           .allMatches(workflow)
           .length,
-      2,
+      3,
     );
     final verifier = text('scripts/verify_flutter_version.js');
     expect(
