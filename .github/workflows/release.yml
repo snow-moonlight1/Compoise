@@ -266,9 +266,44 @@ jobs:
           path: release_artifacts/*.zip
           if-no-files-found: error
 
+  build-linux:
+    name: Validate Linux desktop release build
+    needs: preflight
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev libayatana-appindicator3-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Require the OS24 Flutter revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version --machine | node scripts/verify_flutter_version.js
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux release bundle
+        run: flutter build linux --release --no-pub
+
   publish-release:
     name: Publish GitHub Release draft
-    needs: [preflight, build-android, build-windows]
+    needs: [preflight, build-android, build-windows, build-linux]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     # The only job that may write to the repository.

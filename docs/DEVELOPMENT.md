@@ -7,7 +7,7 @@
 - Flutter 3.32.8 stable（Dart 3.8.1）
 - Android：Android SDK、JDK
 - Windows：Windows 主机和 Visual Studio 的“使用 C++ 的桌面开发”工作负载
-- Linux：clang、CMake、Ninja、pkg-config、GTK 3 与 libsecret 开发包；图形桌面或 WSLg
+- Linux：clang、CMake、Ninja、pkg-config、GTK 3、libsecret 与 Ayatana AppIndicator 开发包；图形桌面或 WSLg
 
 Flutter 版本记录在 `.flutter-version` 与 `toolchain.json`。可使用版本管理器安装 SDK，并确保 `flutter`、`dart` 命令可从终端调用。
 
@@ -34,7 +34,7 @@ Linux 桌面预览版（在 Ubuntu 24.04 / WSL2 + WSLg 验证）：
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev
+sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev libayatana-appindicator3-dev
 flutter config --enable-linux-desktop
 flutter pub get
 flutter run -d linux

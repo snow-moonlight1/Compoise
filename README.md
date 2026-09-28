@@ -52,7 +52,7 @@ AI 请求直接发送到你配置的服务商，费用由该服务商收取。�
 - Flutter **3.32.8**、Dart **3.8.1**
 - Android：Android SDK 和 JDK
 - Windows：Windows 主机以及 Visual Studio 的“使用 C++ 的桌面开发”工作负载
-- Linux：clang、CMake、Ninja、GTK 3 和 libsecret 开发包；AI 密钥保存需要已解锁的 Secret Service 密钥环
+- Linux：clang、CMake、Ninja、GTK 3、libsecret 和 Ayatana AppIndicator 开发包；AI 密钥保存需要已解锁的 Secret Service 密钥环
 
 在仓库根目录运行：
 
