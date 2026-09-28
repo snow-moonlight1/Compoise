@@ -99,7 +99,7 @@ legacy/web/          冻结的早期 Web 与桌面原型
 - [贡献指南](.github/CONTRIBUTING.md)
 - [文档导航](docs/README.md)
 
-未来计划探索日计划功能，将已整理优先级的任务进一步安排到一天之中；当前版本尚未提供该功能。
+后续功能、发行进度与 UI 实验见 [工作包状态](docs/ROADMAP.md)。
 
 ## 许可
 
