@@ -742,6 +742,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     to.reminderAt = from.reminderAt;
     to.reminderTimezone = from.reminderTimezone;
     to.completedAt = from.completedAt;
+    // Copied, unlike the fields above: a caller's draft list must not stay
+    // wired to the stored task after the update returns.
+    to.tags = List<String>.from(from.tags);
     to.recoveryPending = from.recoveryPending;
   }
 

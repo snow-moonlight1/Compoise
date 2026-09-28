@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:ui' show Locale;
 import 'ai_presets.dart';
 import 'quadrant.dart';
+import 'task_tags.dart';
 
 export 'dart:ui' show Locale;
 export 'quadrant.dart';
@@ -179,6 +180,7 @@ class Task {
   int? reminderAt;
   String? reminderTimezone;
   int? completedAt;
+  List<String> tags;
   Map<String, dynamic>? recoveryPending;
 
   Task({
@@ -197,8 +199,10 @@ class Task {
     this.reminderAt,
     this.reminderTimezone,
     this.completedAt,
+    List<String>? tags,
     this.recoveryPending,
-  }) : subtasks = subtasks ?? [];
+  }) : subtasks = subtasks ?? [],
+       tags = tags ?? [];
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
     id: _requiredId(j['id']),
@@ -221,6 +225,7 @@ class Task {
     reminderAt: _timestamp(j['reminderAt']),
     reminderTimezone: j['reminderTimezone'] as String?,
     completedAt: _timestamp(j['completedAt']),
+    tags: normalizeTags(j['tags']),
     recoveryPending: _recoveryPending(
       j['recoveryPending'],
       _taskRecoveryFields,
@@ -249,6 +254,7 @@ class Task {
       if (!isV1 && reminderTimezone != null && reminderTimezone!.isNotEmpty)
         'reminderTimezone': reminderTimezone,
       if (!isV1 && completedAt != null) 'completedAt': completedAt,
+      if (!isV1 && tags.isNotEmpty) 'tags': tags,
       if (!isV1 && recoveryPending != null) 'recoveryPending': recoveryPending,
     };
   }

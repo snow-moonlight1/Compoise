@@ -369,6 +369,7 @@ class ImportPreflight {
         'reminderAt',
         'reminderTimezone',
         'completedAt',
+        'tags',
         'recoveryPending',
       }, 'Task $taskIndex');
       final childRaw = raw['subtasks'];

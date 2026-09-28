@@ -1,5 +1,6 @@
 import 'models.dart';
 import 'task_query.dart';
+import 'task_tags.dart';
 
 /// Whether a filter editor shows the full search dimensions or archive scope only.
 enum TaskFilterKind { search, archive }
@@ -11,11 +12,16 @@ class TaskFilterCriteria {
   final TaskStatusFilter status;
   final TaskDateFilter date;
 
+  /// Parent-task tags that must all be present. Stored as the display
+  /// spellings; [queryTasks] compares them case-insensitively.
+  final List<String> tags;
+
   const TaskFilterCriteria({
     this.scope = TaskScopeFilter.currentBoard,
     this.quadrant,
     this.status = TaskStatusFilter.all,
     this.date = TaskDateFilter.all,
+    this.tags = const [],
   });
 
   static const defaults = TaskFilterCriteria();
@@ -24,7 +30,8 @@ class TaskFilterCriteria {
       scope == TaskScopeFilter.currentBoard &&
       quadrant == null &&
       status == TaskStatusFilter.all &&
-      date == TaskDateFilter.all;
+      date == TaskDateFilter.all &&
+      tags.isEmpty;
 
   /// Non-default dimensions. All-boards counts as one; chips are not counted.
   int get searchDimensionCount {
@@ -33,6 +40,7 @@ class TaskFilterCriteria {
     if (quadrant != null) n++;
     if (status != TaskStatusFilter.all) n++;
     if (date != TaskDateFilter.all) n++;
+    if (tags.isNotEmpty) n++;
     return n;
   }
 
@@ -49,12 +57,14 @@ class TaskFilterCriteria {
     int? Function()? quadrant,
     TaskStatusFilter? status,
     TaskDateFilter? date,
+    List<String>? Function()? tags,
   }) {
     return TaskFilterCriteria(
       scope: scope ?? this.scope,
       quadrant: quadrant != null ? quadrant() : this.quadrant,
       status: status ?? this.status,
       date: date ?? this.date,
+      tags: tags != null ? tags() ?? const <String>[] : this.tags,
     );
   }
 
@@ -64,10 +74,12 @@ class TaskFilterCriteria {
       other.scope == scope &&
       other.quadrant == quadrant &&
       other.status == status &&
-      other.date == date;
+      other.date == date &&
+      sameTagList(other.tags, tags);
 
   @override
-  int get hashCode => Object.hash(scope, quadrant, status, date);
+  int get hashCode =>
+      Object.hash(scope, quadrant, status, date, Object.hashAll(tags));
 }
 
 String resolveBoardName({

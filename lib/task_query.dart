@@ -1,6 +1,7 @@
 import 'calendar_dates.dart';
 import 'deadline_policy.dart';
 import 'models.dart';
+import 'task_tags.dart';
 
 export 'deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 
@@ -97,6 +98,10 @@ bool matchesDateFilter(
 }
 
 /// Performs a local in-memory search and multi-dimensional filter across tasks.
+///
+/// [tags] is an AND match against the parent task's tags, so it also decides
+/// which subtask hits of that parent are offered. Nothing here writes to the
+/// tasks it reads.
 List<TaskSearchResult> queryTasks({
   required List<Task> tasks,
   required List<Board> boards,
@@ -106,10 +111,12 @@ List<TaskSearchResult> queryTasks({
   int? quadrant,
   TaskStatusFilter status = TaskStatusFilter.all,
   TaskDateFilter dateFilter = TaskDateFilter.all,
+  List<String> tags = const [],
   DateTime? now,
 }) {
   final boardMap = {for (final b in boards) b.id: b};
   final trimmed = query.trim().toLowerCase();
+  final requiredTags = tagKeys(tags);
   final results = <TaskSearchResult>[];
   final seenKeys = <String>{};
 
@@ -122,6 +129,11 @@ List<TaskSearchResult> queryTasks({
 
     // Quadrant filter
     if (quadrant != null && task.quadrant != quadrant) {
+      continue;
+    }
+
+    // Tag filter, on the parent only
+    if (!taskHasAllTags(task.tags, requiredTags)) {
       continue;
     }
 

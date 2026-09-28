@@ -5,6 +5,7 @@ import '../models.dart';
 import '../storage.dart';
 import '../task_filter.dart';
 import '../task_query.dart';
+import '../task_tags.dart';
 import '../ui/platform_ui_policy.dart';
 
 export '../task_filter.dart';
@@ -62,6 +63,7 @@ List<String> appliedFilterSummaryLabels({
       TaskDateFilter.all => t['all'] ?? 'All',
     });
   }
+  labels.addAll(criteria.tags);
   return labels;
 }
 
@@ -356,6 +358,13 @@ class _TaskFilterPanelState extends State<TaskFilterPanel> {
     setState(() => _draft = const TaskFilterCriteria());
   }
 
+  /// Every tag in the library, plus the ones the draft already selects so a
+  /// chosen tag never disappears from the editor while it is being used.
+  List<String> _availableTags(Store store) => normalizeTags([
+    for (final task in store.tasks) ...task.tags,
+    ..._draft.tags,
+  ]);
+
   Key _scopeKey(TaskScopeFilter scope) {
     if (widget.kind == TaskFilterKind.archive) {
       return ValueKey(
@@ -373,9 +382,11 @@ class _TaskFilterPanelState extends State<TaskFilterPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.watch<Store>().t;
+    final store = context.watch<Store>();
+    final t = store.t;
     final theme = Theme.of(context);
     final policy = PlatformUiPolicy.of(context);
+    final availableTags = _availableTags(store);
     return Material(
       key: const ValueKey('filter-panel'),
       color: theme.colorScheme.surface,
@@ -563,6 +574,32 @@ class _TaskFilterPanelState extends State<TaskFilterPanel> {
                         ),
                       ),
                     ),
+                    if (availableTags.isNotEmpty) ...[
+                      _sectionTitle(theme, t['filterTags'] ?? 'Tags'),
+                      _optionTile(
+                        key: const ValueKey('filter-tag-all'),
+                        title: t['all'] ?? 'All',
+                        selected: _draft.tags.isEmpty,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            tags: () => const [],
+                          ),
+                        ),
+                      ),
+                      for (final tag in availableTags)
+                        _optionTile(
+                          key: ValueKey('filter-tag-$tag'),
+                          title: tag,
+                          selected: _draft.tags.contains(tag),
+                          onTap: () => setState(() {
+                            final next = List<String>.from(_draft.tags);
+                            if (!next.remove(tag)) next.add(tag);
+                            _draft = _draft.copyWith(
+                              tags: () => normalizeTags(next),
+                            );
+                          }),
+                        ),
+                    ],
                   ],
                 ],
                 ),
