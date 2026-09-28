@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../models.dart';
+import '../task_tags.dart';
 import 'date_edit_fields.dart';
 
 /// True while an IME composition is still open: the visible text is not yet the
@@ -51,6 +52,7 @@ class TaskEditDraft {
   bool isLongTerm = false;
   UrgencyMode urgencyMode = UrgencyMode.auto;
   List<SubTask> subtasks = [];
+  List<String> tags = [];
 
   String _initialTitle = '';
   String _initialNotes = '';
@@ -61,6 +63,7 @@ class TaskEditDraft {
   UrgencyMode _initialUrgencyMode = UrgencyMode.auto;
   String _initialSubtasksJson = '[]';
   List<SubTask> _openedSubtasks = [];
+  List<String> _initialTags = [];
   bool _discarding = false;
   bool _loading = false;
 
@@ -97,6 +100,7 @@ class TaskEditDraft {
     if (isLongTerm != _initialIsLongTerm) return true;
     if (urgencyMode != _initialUrgencyMode) return true;
     if (_subtasksJson(subtasks) != _initialSubtasksJson) return true;
+    if (!sameTagList(tags, _initialTags)) return true;
     if (hasPendingSubtask) return true;
     return false;
   }
@@ -111,14 +115,14 @@ class TaskEditDraft {
     // [task]: clearing here is what keeps it from landing on the wrong parent.
     newSubtaskController.clear();
     quadrant = task.quadrant;
-    deadline =
-        task.deadline == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(task.deadline!);
+    deadline = task.deadline == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(task.deadline!);
     reminderAt = task.reminderAt;
     isLongTerm = task.isLongTerm;
     urgencyMode = task.urgencyMode;
     subtasks = _copy(task.subtasks);
+    tags = normalizeTags(task.tags);
     _openedSubtasks = _copy(task.subtasks);
     _initialTitle = task.title;
     _initialNotes = task.notesMarkdown ?? '';
@@ -128,6 +132,7 @@ class TaskEditDraft {
     _initialIsLongTerm = task.isLongTerm;
     _initialUrgencyMode = task.urgencyMode;
     _initialSubtasksJson = _subtasksJson(task.subtasks);
+    _initialTags = normalizeTags(task.tags);
     _discarding = false;
     _loading = false;
   }
@@ -152,23 +157,41 @@ class TaskEditDraft {
     final notesChanged = (draftNotes ?? '').trim() != _initialNotes.trim();
     return Task.fromJson(current.toJson())
       ..title = titleChanged ? draftTitle : current.title
-      ..notesMarkdown =
-          notesChanged ? draftNotes : current.notesMarkdown
-      ..quadrant =
-          quadrant != _initialQuadrant ? quadrant : current.quadrant
-      ..deadline =
-          !_sameDayMs(deadlineMs, _initialDeadlineMs)
-              ? deadlineMs
-              : current.deadline
-      ..reminderAt =
-          reminderAt != _initialReminderAt ? reminderAt : current.reminderAt
-      ..isLongTerm =
-          isLongTerm != _initialIsLongTerm ? isLongTerm : current.isLongTerm
-      ..urgencyMode =
-          urgencyMode != _initialUrgencyMode
-              ? urgencyMode
-              : current.urgencyMode
-      ..subtasks = _mergedSubtasks(current.subtasks);
+      ..notesMarkdown = notesChanged ? draftNotes : current.notesMarkdown
+      ..quadrant = quadrant != _initialQuadrant ? quadrant : current.quadrant
+      ..deadline = !_sameDayMs(deadlineMs, _initialDeadlineMs)
+          ? deadlineMs
+          : current.deadline
+      ..reminderAt = reminderAt != _initialReminderAt
+          ? reminderAt
+          : current.reminderAt
+      ..isLongTerm = isLongTerm != _initialIsLongTerm
+          ? isLongTerm
+          : current.isLongTerm
+      ..urgencyMode = urgencyMode != _initialUrgencyMode
+          ? urgencyMode
+          : current.urgencyMode
+      ..subtasks = _mergedSubtasks(current.subtasks)
+      ..tags = _mergedTags(current.tags);
+  }
+
+  /// Apply only tag additions and removals made in this draft. A tag added to
+  /// the live task while this editor was open survives a save of other fields.
+  List<String> _mergedTags(List<String> current) {
+    if (sameTagList(tags, _initialTags)) return normalizeTags(current);
+    final initialKeys = tagKeys(_initialTags);
+    final draftKeys = tagKeys(tags);
+    final removed = initialKeys.difference(draftKeys);
+    final result = <String>[
+      for (final tag in normalizeTags(current))
+        if (!removed.contains(tagKey(tag))) tag,
+    ];
+    final resultKeys = tagKeys(result);
+    for (final tag in normalizeTags(tags)) {
+      final key = tagKey(tag);
+      if (!initialKeys.contains(key) && resultKeys.add(key)) result.add(tag);
+    }
+    return result;
   }
 
   /// Untouched rows follow the live task; edited rows keep the edit and pick up

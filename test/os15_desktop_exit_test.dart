@@ -189,10 +189,13 @@ void main() {
         find.byKey(const ValueKey('task-step-0')),
       );
       const draft = '输入中';
-      input.controller!.value = const TextEditingValue(
-        text: draft,
-        selection: TextSelection.collapsed(offset: draft.length),
-        composing: TextRange(start: 0, end: draft.length),
+      await tester.showKeyboard(find.byKey(const ValueKey('task-step-0')));
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: draft,
+          selection: TextSelection.collapsed(offset: draft.length),
+          composing: TextRange(start: 0, end: draft.length),
+        ),
       );
       expect(input.controller!.value.composing.isValid, isTrue);
       await tester.pump();

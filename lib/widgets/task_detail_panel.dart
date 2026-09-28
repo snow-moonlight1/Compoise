@@ -11,6 +11,7 @@ import 'date_edit_fields.dart';
 import 'subtask_edit_dialog.dart';
 import 'task_edit_draft.dart';
 import 'task_hierarchy_checkbox.dart';
+import 'task_tags_editor.dart';
 
 /// Confirms discarding an unsaved detail draft. Returns true when the user
 /// chooses to discard, false when they keep editing or dismiss the dialog.
@@ -598,15 +599,11 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           const SizedBox(height: 16),
 
                           // Subtasks Section
-                          Row(
-                            children: [
-                              Text(
-                                '${t['subtasks'] ?? 'Subtasks'} (${_draft.subtasks.where((s) => s.completed).length}/${_draft.subtasks.length})',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            '${t['subtasks'] ?? 'Subtasks'} (${_draft.subtasks.where((s) => s.completed).length}/${_draft.subtasks.length})',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 8),
 
@@ -856,7 +853,8 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                 ],
                               ),
                             ),
-                          if (_draft.quadrant != qDo || _draft.isLongTerm ||
+                          if (_draft.quadrant != qDo ||
+                              _draft.isLongTerm ||
                               _draft.urgencyMode == UrgencyMode.manual)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
@@ -866,12 +864,31 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                   ActionChip(
                                     key: const ValueKey('quadrant-summary'),
                                     label: Text(t['q${_draft.quadrant}']!),
-                                    onPressed: () => setState(() => _showMore = true),
+                                    onPressed: () =>
+                                        setState(() => _showMore = true),
                                   ),
                                   if (_draft.isLongTerm)
                                     ActionChip(
                                       label: Text(t['longTermTask']!),
-                                      onPressed: () => setState(() => _showMore = true),
+                                      onPressed: () =>
+                                          setState(() => _showMore = true),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          if (_draft.tags.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Wrap(
+                                key: const ValueKey('task-tags-summary'),
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  for (final tag in _draft.tags)
+                                    ActionChip(
+                                      label: Text(tag),
+                                      onPressed: () =>
+                                          setState(() => _showMore = true),
                                     ),
                                 ],
                               ),
@@ -887,6 +904,20 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             label: Text(t['moreProperties']!),
                           ),
                           if (_showMore) ...[
+                            Text(
+                              t['filterTags']!,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TaskTagsEditor(
+                              value: _draft.tags,
+                              onChanged: (tags) =>
+                                  setState(() => _draft.tags = tags),
+                              t: t,
+                            ),
+                            const SizedBox(height: 16),
                             // Quadrant selection chips
                             Text(
                               t['quadrant']!,

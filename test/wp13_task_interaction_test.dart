@@ -8,6 +8,8 @@ import 'package:matrixflow_native/models.dart';
 import 'package:matrixflow_native/storage.dart';
 import 'package:matrixflow_native/widgets/input_sheet.dart';
 import 'package:matrixflow_native/widgets/task_detail_panel.dart';
+import 'package:matrixflow_native/widgets/task_edit_draft.dart';
+import 'package:matrixflow_native/widgets/task_tags_editor.dart';
 
 Future<Store> _store() async {
   SharedPreferences.setMockInitialValues({
@@ -30,6 +32,111 @@ Future<void> _finish(WidgetTester tester, Store store) async {
 }
 
 void main() {
+  test('tag draft keeps concurrent additions and restores on cancel', () {
+    final opened = Task(
+      id: 'tagged',
+      boardId: '',
+      title: 'Plan',
+      quadrant: qDo,
+      createdAt: 0,
+      tags: ['original'],
+    );
+    final draft = TaskEditDraft(opened, onChanged: () {});
+    draft.tags = ['local'];
+    expect(draft.isDirty, isTrue);
+    final concurrent = Task.fromJson(opened.toJson())
+      ..tags = ['original', 'remote']
+      ..notesMarkdown = 'saved elsewhere';
+    final merged = draft.applyTo(concurrent);
+    expect(merged.tags, ['remote', 'local']);
+    expect(merged.notesMarkdown, 'saved elsewhere');
+    draft.load(opened);
+    expect(draft.tags, ['original']);
+    expect(draft.isDirty, isFalse);
+    draft.dispose();
+  });
+
+  testWidgets('detail uses the real tag editor and shows saved tags', (
+    tester,
+  ) async {
+    final store = await _store();
+    final task = store.newTask('Tagged work')..tags = ['planning'];
+    store.addTasks([task]);
+    await tester.pumpWidget(_host(store, TaskDetailPanel(task: task)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task-tags-summary')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskTagsEditor), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('task-tag-input')));
+    await tester.enterText(
+      find.byKey(const ValueKey('task-tag-input')),
+      'release',
+    );
+    await tester.tap(find.byKey(const ValueKey('task-tag-add')));
+    await tester.pump();
+    expect(find.text('release'), findsWidgets);
+    expect(store.tasks.single.tags, ['planning']);
+    await tester.tap(find.byKey(const ValueKey('save-task')));
+    await tester.runAsync(() => store.flush(waitForReminders: false));
+    await tester.pump();
+    expect(store.tasks.single.tags, ['planning', 'release']);
+    await _finish(tester, store);
+  });
+
+  testWidgets('failed write keeps the input draft and retry saves once', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'matrixflow-has-seen-onboarding': true,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    var rejectPointer = false;
+    final store = Store(
+      reminders: InMemoryReminderService(),
+      saveWriter: (key, value) async {
+        if (rejectPointer && key == SaveProtocol.pointerKey) return false;
+        return prefs.setString(key, value);
+      },
+    );
+    await store.init();
+    await store.flush();
+    await tester.pumpWidget(
+      _host(
+        store,
+        const InputSheet(initialMode: InputModePref.single, embedded: true),
+      ),
+    );
+    rejectPointer = true;
+    final row = find.byKey(const ValueKey('task-step-0'));
+    await tester.enterText(row, 'retry this task');
+    await tester.tap(find.byKey(const ValueKey('submit-tasks')));
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.text(store.t['storageWriteError']!).evaluate().isNotEmpty) break;
+    }
+    expect(find.text(store.t['storageWriteError']!), findsWidgets);
+    expect(tester.widget<TextField>(row).controller!.text, 'retry this task');
+    expect(store.tasks, hasLength(1));
+
+    rejectPointer = false;
+    await tester.tap(find.byKey(const ValueKey('submit-tasks')));
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      if (tester.widget<TextField>(row).controller!.text.isEmpty) break;
+    }
+    expect(tester.widget<TextField>(row).controller!.text, isEmpty);
+    expect(store.tasks, hasLength(1));
+    expect(store.persistenceError, isNull);
+    await _finish(tester, store);
+  });
+
   testWidgets('one row saves a plain task without a parent title', (
     tester,
   ) async {
@@ -207,6 +314,51 @@ void main() {
     expect(store.tasks.single.deadline, isNull);
     expect(store.tasks.single.notesMarkdown, task.notesMarkdown);
     expect(store.tasks.single.title, '旧标题\n保留原样');
+    await _finish(tester, store);
+  });
+
+  testWidgets('412 dp dark layout at 200% text keeps task actions usable', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = await _store();
+    Widget scaled(Widget body) => ChangeNotifierProvider.value(
+      value: store,
+      child: MaterialApp(
+        theme: ThemeData.dark(),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: Scaffold(body: body),
+      ),
+    );
+    await tester.pumpWidget(
+      scaled(
+        const InputSheet(initialMode: InputModePref.single, embedded: true),
+      ),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('task-step-0')),
+      '第一步\n第二步',
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('submit-tasks')), findsOneWidget);
+
+    final task = store.newTask('父任务')
+      ..notesMarkdown = List.filled(20, '长备注').join('\n')
+      ..subtasks = [SubTask(id: 'one', title: '子步骤')]
+      ..tags = ['release'];
+    store.addTasks([task]);
+    await tester.pumpWidget(scaled(TaskDetailPanel(task: task)));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('save-task')), findsOneWidget);
+    expect(find.byKey(const ValueKey('subtask-item-one')), findsOneWidget);
     await _finish(tester, store);
   });
 }

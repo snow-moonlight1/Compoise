@@ -231,6 +231,26 @@ int strikeLineCountOf(WidgetTester tester, String taskId) {
   return (paint.foregroundPainter as StrikeThroughPainter).lineCount;
 }
 
+Future<void> waitForEditorSave(WidgetTester tester, Store store) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    final button =
+        find.byKey(const ValueKey('submit-tasks')).evaluate().isNotEmpty
+        ? find.byKey(const ValueKey('submit-tasks'))
+        : find.byKey(const ValueKey('save-task'));
+    if (button.evaluate().isEmpty ||
+        tester.widget<FilledButton>(button).onPressed != null) {
+      break;
+    }
+  }
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pumpAndSettle();
+  expect(store.persistenceError, isNull);
+}
+
 void main() {
   setUp(() => FilePicker.platform = TestPicker());
   testWidgets(
@@ -617,7 +637,7 @@ void main() {
       lessThanOrEqualTo(340),
     );
     await tester.tap(find.byKey(const ValueKey('submit-tasks')));
-    await tester.pumpAndSettle();
+    await waitForEditorSave(tester, store);
     expect(store.tasks, hasLength(1));
     expect(store.tasks.single.subtasks.map((s) => s.title), [
       'first',
@@ -1119,7 +1139,7 @@ void main() {
 
       expect(find.byKey(const ValueKey('edit-title')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       await tester.tap(find.text('second task'));
       await tester.pumpAndSettle();
@@ -1217,7 +1237,7 @@ void main() {
 
       // Save via button
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(find.byKey(const ValueKey('edit-title')), findsNothing);
       expect(task.title, text20);
@@ -1267,7 +1287,7 @@ void main() {
 
       // Save
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(store.tasks.first.completed, isTrue);
       expect(store.tasks.first.subtasks.length, 2);
@@ -1281,7 +1301,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(store.tasks.first.subtasks.length, 1);
       await tester.pumpWidget(const SizedBox());
@@ -1413,7 +1433,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('task-input')), input);
       await tester.tap(find.byKey(const ValueKey('submit-tasks')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(store.tasks.length, 3);
       expect(store.tasks.map((t) => t.title).toList(), [
@@ -1856,7 +1876,7 @@ void main() {
         'Buy milk\nFinish report',
       );
       await tester.tap(find.byKey(const ValueKey('submit-tasks')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(store.tasks.length, 2);
       final now = DateTime.now();
@@ -1891,7 +1911,7 @@ void main() {
         'No deadline task',
       );
       await tester.tap(find.byKey(const ValueKey('submit-tasks')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       final noDateTask = store.tasks.firstWhere(
         (t) => t.title == 'No deadline task',
@@ -2082,7 +2102,7 @@ void main() {
 
       // Save parent task
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       final savedSub = store.tasks.first.subtasks.first;
       expect(savedSub.title, 'Subtask Alpha Edited');
@@ -2113,7 +2133,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(store.tasks.first.subtasks.first.deadline, isNull);
 
@@ -2172,7 +2192,7 @@ void main() {
 
       // Save parent task
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       final updatedParent = store.tasks.first;
       final pDate = DateTime.fromMillisecondsSinceEpoch(
@@ -3620,7 +3640,7 @@ void main() {
 
       // Save parent task detail
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       // Verify task in store has notesMarkdown
       final savedTask = store.tasks.firstWhere((t) => t.id == task.id);
@@ -3687,7 +3707,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(
         store.tasks.firstWhere((t) => t.id == task.id).notesMarkdown,
@@ -3780,7 +3800,7 @@ void main() {
 
       // Save task
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       // Check task in store has reminderAt set to future
       final updatedTask = store.tasks.firstWhere((t) => t.id == task.id);
@@ -3803,7 +3823,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+      await waitForEditorSave(tester, store);
 
       expect(store.tasks.firstWhere((t) => t.id == task.id).reminderAt, isNull);
 
