@@ -4,7 +4,7 @@
 
 ## 本地保存
 
-Android 与 Windows 的任务库使用 SharedPreferences。`SaveProtocol` 把一个完整快照写入两个带 revision 和校验值的槽，再用提交指针指定有效槽；启动优先读取已提交槽。旧键继续作为兼容镜像，不能把单个镜像键当成最新提交。校验用于发现损坏，不保证设备掉电后的物理持久性。
+Android、Windows 与 Linux 预览版的任务库使用 SharedPreferences。`SaveProtocol` 把一个完整快照写入两个带 revision 和校验值的槽，再用提交指针指定有效槽；启动优先读取已提交槽。旧键继续作为兼容镜像，不能把单个镜像键当成最新提交。校验用于发现损坏，不保证设备掉电后的物理持久性。
 
 | 快照中的键 | 内容 |
 |---|---|

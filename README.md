@@ -12,11 +12,12 @@
   <img alt="Dart" src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white" />
   <img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" />
   <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" />
+  <img alt="Linux preview" src="https://img.shields.io/badge/Linux-preview-FCC624?style=for-the-badge&logo=linux&logoColor=black" />
 </p>
 
-方寸（Compoise）是一款面向 Android 和 Windows 的本地优先任务管理应用。它以艾森豪威尔四象限为核心，帮助你理清任务优先级、专注处理眼前事项，并在需要时使用 AI 整理和拆解任务。
+方寸（Compoise）是一款面向 Android 和 Windows 的本地优先任务管理应用，另提供 Linux 桌面预览版。它以艾森豪威尔四象限为核心，帮助你理清任务优先级、专注处理眼前事项，并在需要时使用 AI 整理和拆解任务。
 
-*Compoise is a local-first task manager for Android and Windows. Organize work with an Eisenhower matrix, focus on one quadrant, and optionally use your own AI provider to classify, group, and break down tasks.*
+*Compoise is a local-first task manager for Android and Windows, with a Linux desktop preview. Organize work with an Eisenhower matrix, focus on one quadrant, and optionally use your own AI provider to classify, group, and break down tasks.*
 
 ## 功能
 
@@ -30,7 +31,7 @@
 | 查找与回顾        | 搜索任务和笔记、筛选任务并查看已完成事项。                       |
 | 多语言与显示       | 支持简体中文、English、日本語，以及主题、字体大小和减少动画等设置。       |
 | Windows 桌面操作 | 支持键盘操作、系统托盘和全局快捷键。                          |
-| 手动备份         | 通过 JSON 文件导入和导出数据，在 Android 与 Windows 之间转移。 |
+| 手动备份         | 通过 JSON 文件导入和导出数据，在支持的平台之间转移。 |
 
 Android 桌面图标下方的应用名会按系统语言显示为「方寸」或「Compoise」。应用界面首次启动时采用设备语言，之后可在设置中修改并保存偏好。
 
@@ -44,13 +45,14 @@ AI 请求直接发送到你配置的服务商，费用由该服务商收取。�
 
 ## 获取与运行
 
-目前可从源码构建；应用商店和预编译安装包尚未发布。项目持续维护 Android 和 Windows 客户端，暂不支持 iOS、macOS、Linux 或 Flutter Web。
+目前可从源码构建；应用商店和预编译安装包尚未发布。Android 和 Windows 是持续维护的平台。Linux 桌面预览版已在 Ubuntu 24.04（WSL2/WSLg）完成构建、启动和核心流程测试；Linux 暂无系统提醒通知、托盘和全局快捷键。iOS、macOS 和 Flutter Web 尚未适配。
 
 ### 环境要求
 
 - Flutter **3.32.8**、Dart **3.8.1**
 - Android：Android SDK 和 JDK
 - Windows：Windows 主机以及 Visual Studio 的“使用 C++ 的桌面开发”工作负载
+- Linux：clang、CMake、Ninja、GTK 3 和 libsecret 开发包；AI 密钥保存需要已解锁的 Secret Service 密钥环
 
 在仓库根目录运行：
 
@@ -66,16 +68,23 @@ flutter run -d <device-id>
 flutter run -d windows
 ```
 
+在 Linux 上运行预览版：
+
+```sh
+flutter run -d linux
+```
+
 检查、Release 构建和签名步骤见 [开发指南](docs/DEVELOPMENT.md)。
 
 ## 项目结构
 
-持续开发的应用使用 Flutter；Android 和 Windows 共用界面、数据模型与业务逻辑。早期 React、Tauri 和 Capacitor 原型保留在 `legacy/web/`，仅供参考，不再主动维护。
+持续开发的应用使用 Flutter；Android、Windows 和 Linux 共用界面、数据模型与业务逻辑。早期 React、Tauri 和 Capacitor 原型保留在 `legacy/web/`，仅供参考，不再主动维护。
 
 ```text
 lib/                 Flutter 应用与共享业务逻辑
 android/             Android 平台工程
 windows/             Windows 平台工程
+linux/               Linux 桌面平台工程
 assets/branding/     应用品牌素材
 test/                单元测试与组件测试
 integration_test/    集成测试

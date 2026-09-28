@@ -16,7 +16,7 @@ English: Compoise is a local-first Eisenhower task manager that helps you priori
 - 按用户设置的阈值，根据截止日期调整任务紧急状态。
 - 搜索任务与笔记，筛选任务并回顾已完成事项。
 - 可选择配置自己的 AI 服务商，执行分类、分组和任务拆解。
-- 在 Android 与 Windows 之间通过 JSON 文件手动转移备份。
+- 在支持的平台之间通过 JSON 文件手动转移备份。
 
 ## 数据说明
 

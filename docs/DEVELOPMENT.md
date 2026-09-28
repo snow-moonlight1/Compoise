@@ -7,6 +7,7 @@
 - Flutter 3.32.8 stable（Dart 3.8.1）
 - Android：Android SDK、JDK
 - Windows：Windows 主机和 Visual Studio 的“使用 C++ 的桌面开发”工作负载
+- Linux：clang、CMake、Ninja、pkg-config、GTK 3 与 libsecret 开发包；图形桌面或 WSLg
 
 Flutter 版本记录在 `.flutter-version` 与 `toolchain.json`。可使用版本管理器安装 SDK，并确保 `flutter`、`dart` 命令可从终端调用。
 
@@ -28,6 +29,19 @@ Windows 桌面调试：
 flutter config --enable-windows-desktop
 flutter run -d windows
 ```
+
+Linux 桌面预览版（在 Ubuntu 24.04 / WSL2 + WSLg 验证）：
+
+```sh
+sudo apt-get update
+sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev
+flutter config --enable-linux-desktop
+flutter pub get
+flutter run -d linux
+flutter build linux --release
+```
+
+WSL 中须安装 Linux 版 Flutter SDK，并从 WSL 终端运行上述命令。若所在网络无法访问 pub.dev，可按 [Flutter 官方镜像说明](https://docs.flutter.dev/community/china)配置 `PUB_HOSTED_URL` 和 `FLUTTER_STORAGE_BASE_URL`。AI 密钥使用 Linux Secret Service（如 GNOME Keyring）；需要运行且解锁可持久保存的默认密钥环。新建 WSL 用户可能尚未配置默认密钥环，此时普通任务可用，但密钥保存会失败或等待密钥环响应。Linux 尚无系统提醒通知、托盘、全局快捷键和关闭到托盘；桌面设置中的 Windows 专属控件在 Linux 隐藏。
 
 ## 图标与构建
 

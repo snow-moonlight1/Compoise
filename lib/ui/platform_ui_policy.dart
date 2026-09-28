@@ -24,7 +24,8 @@ class PlatformUiPolicy {
 
   bool get showShortcutHints => isDesktop;
 
-  bool get showDesktopSettings => isDesktop;
+  // The tray, global hotkey and close-to-tray controls have a Windows host.
+  bool get showDesktopSettings => isWindows;
 
   static const double sideDetailWidth = 350;
   static const double sideDetailGap = 14;
