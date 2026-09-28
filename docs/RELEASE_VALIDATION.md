@@ -1,0 +1,138 @@
+# 发行验证清单
+
+WP28 的发行准备材料：门禁命令、平台交付事实、安装与升级验证步骤、仍缺少的凭据与证据。当前状态是**不具备正式发行条件**，原因见[剩余缺项](#剩余缺项)。
+
+正式安装包、原位升级验证和 GitHub Release 必须使用 **WP12 标签与 WP13 任务交互合入后的同一个提交**重新生成。版本号在该次集成后统一确定；本文所有 `vX.Y.Z+N` 都是占位，不代表 `1.0.0+1` 可以打 tag。
+
+## 门禁命令
+
+`scripts/build_release.ps1` 在 Windows PowerShell 和 Linux/macOS 的 `pwsh` 下都可运行预检：
+
+```powershell
+# 只做版本、tag、签名前置与产物计划检查，不构建、不写文件
+pwsh -File scripts/build_release.ps1 -Platform All -ExpectedTag vX.Y.Z+N -ValidateOnly
+```
+
+```powershell
+# 本机完整打 Windows 便携包：构建 + 身份校验 + ZIP 清单 + SHA256SUMS + RELEASE_MANIFEST
+powershell -File scripts/build_release.ps1 -Platform Windows -ExpectedTag vX.Y.Z+N -FlutterSdk <SDK 目录>
+```
+
+```powershell
+# Android 正式包：必须先有发布签名材料（见 android/key.properties.example）
+powershell -File scripts/build_release.ps1 -Platform Android -ExpectedTag vX.Y.Z+N
+```
+
+脚本自身的规则，验证时按这些现象判定，不要手工绕过：
+
+| 检查 | 失败现象 |
+|---|---|
+| `pubspec.yaml` 必须是 `X.Y.Z+N`，且与 `-ExpectedTag` 一致 | `Refusing to stage a release whose tag and version disagree.` |
+| Android 无发布签名材料时拒绝构建 | `Refusing to build a debug-signed release APK.` |
+| 暂存目录里出现非本次产物 | `The staging directory contains an unexpected file: ...` |
+| 工具链与 `toolchain.json` 不一致 | `The active Flutter SDK does not match or cannot be read ...`，只有显式 `-AllowUnpinnedSdk` 才继续 |
+| 可执行文件版本、身份字段、ZIP 清单不符 | 抛出对应 `The built executable ...` / `The staged ZIP does not contain ...` |
+
+产物校验和（Windows 上可用 `Get-FileHash`，其余平台用 `sha256sum`）：
+
+```sh
+sha256sum -c --strict SHA256SUMS.txt
+```
+
+CI 侧 `.github/workflows/release.yml` 在推送 `v*` tag 时按 `preflight → build-android / build-windows / build-linux → publish-release` 执行，只产出**草稿** Release，需人工复核后发布。权限默认 `contents: read`，只有 publish job 申请 `contents: write`。
+
+## 平台交付事实
+
+| 平台 | 交付物 | 签名事实 | 验证状态 |
+|---|---|---|---|
+| Android | `compoise-vX.Y.Z+N-android.apk` | 需用仓库 secret 中的发布 keystore 签名；CI 另要求 `ANDROID_RELEASE_CERT_SHA256` 给出期望证书指纹，调试签名或指纹不符即失败 | **未验证**：尚无发布 keystore，也没有真机安装证据 |
+| Windows | `compoise-vX.Y.Z+N-windows-portable.zip`（便携目录，非安装器） | **未做 Authenticode 签名**，SmartScreen 可能告警；脚本与 CI 都按“未签名”如实记录，签名状态异常（HashMismatch/NotTrusted）即拒绝暂存 | 打包门禁本机实测通过；原位升级见下节，**未验证** |
+| Linux | 无交付物 | 不适用 | 预览：CI 用固定工具链编译并检查 `build/linux/x64/release/bundle/`（可执行文件名仍是 `matrixflow_native`），不启动界面、不打包、不签名 |
+
+发布说明中这三条必须原样表达；`RELEASE_METADATA.txt` 与 `RELEASE_MANIFEST.txt` 会写入 tag、完整 commit、工具链、Android 证书 DN 与 SHA-256、Windows 签名状态和 `license=GPL-3.0-only`。项目许可为 GPL-3.0-only，第三方素材见 `assets/licenses/THIRD_PARTY_NOTICES.txt`。
+
+## Windows 应用数据目录契约（发行前必须处理）
+
+Windows 的任务库位置不是安装目录，而是 exe 版本信息派生出来的应用目录：`shared_preferences` 经 `path_provider_windows` 取 `%APPDATA%\<CompanyName>\<ProductName>`，`shared_preferences.json` 和 `flutter_secure_storage.dat` 都落在里面。因此 **`CompanyName` + `ProductName` 就是数据目录的身份**，改动等于换库。
+
+- 2026-09-16 起的构建：`%APPDATA%\com.matrixflow\MatrixFlow AI`。
+- `d9e3b56`（2026-09-27，开源准备）把两个字段改为 `Compoise` / `Compoise`，此后构建读取 `%APPDATA%\Compoise\Compoise`。
+
+后果：从改身份之前的版本原位升级到当前主线构建时，新构建看不到旧任务库，用户面对空列表（旧数据没有被删除，仍在原目录）。`test/os26_release_test.dart` 断言这两个字段与本文一致，改名必须先更新本文并作出下面的选择：
+
+1. 启动时检测旧目录并迁移（改动在存储层，需要单独一包）；
+2. 保持身份字段为历史值（与品牌更新冲突）；
+3. 首版只面向全新安装，发布说明要求老用户先用设置页导出 JSON、再在新版本导入。
+
+未选定并验证之前，Windows 的“原位升级保留任务”不能勾选。
+
+## 验证步骤
+
+统一要求：只使用合成任务数据；每台设备/每个环境记录应用版本（设置页或标题）、构建 commit（`RELEASE_METADATA.txt` 的 `commit=`）、平台与系统版本；失败保留可复现操作序列，不提交真实备份或密钥。
+
+### 1. 干净环境启动
+
+| 平台 | 步骤 | 期望 |
+|---|---|---|
+| Android | 全新设备或清除数据后安装 APK，首启 | 引导页出现、默认板与空矩阵正常，三语切换可用；无网络权限也不影响普通任务；日志中无未处理异常 |
+| Windows | 解压 ZIP 到新目录（或新虚拟机），双击 `compoise.exe` | 首次运行创建 `%APPDATA%\Compoise\Compoise`；单实例锁生效（二次启动只唤起已有窗口）；关闭窗口按桌面设置退出或进托盘 |
+| Linux 预览 | 解压/复制 CI 构建的 bundle，在图形会话中运行 `bundle/matrixflow_native` | 能启动并完成新建、勾选、切换任务板；密钥保存需已解锁的 Secret Service 默认密钥环，缺失时提示可理解且不崩溃；无系统通知、托盘、全局快捷键属已知限制 |
+
+### 2. 安装
+
+- Android：`adb install -r <apk>` 前后 `adb shell dumpsys package com.matrixflow.app | grep -E 'versionName|versionCode|signatures'`，确认 versionCode 与 `pubspec.yaml` 的 build 号一致、签名为发布证书；`adb shell pm list packages -f com.matrixflow.app` 确认安装身份仍是 `com.matrixflow.app`（包名变更会另起数据沙箱，见 [Android 应用身份](ANDROID_PACKAGE_MIGRATION.md)）。
+- Windows：校验 `SHA256SUMS.txt` 后解压到不含中文与只读限制的路径，启动、退出、再启动各一次。
+- 首启后 `git`-无关的界面截图仅用合成任务，正式发布截图须来自最终合并提交。
+
+### 3. 原位升级保留任务
+
+1. 在**旧版本**创建可辨识的合成数据：多任务板、父子任务、截止日期与提醒、长纯文本备注、已完成项、AI 配置（密钥留在本机）。
+2. 旧版本设置页导出 JSON 备份（默认不含密钥），另存为升级前对照。
+3. 安装新版本：Android 用 `adb install -r` 同一签名 APK；Windows 用新 ZIP 解压**覆盖**同一安装目录；Linux 覆盖 bundle 目录。
+4. 启动后逐项核对：板与任务数量、父子结构与顺序、日期/提醒时间、备注文本、完成状态、活动板与引导状态；再修改一条任务并重启，确认写入生效。
+5. 证据：升级前后任务数量与关键字段对照表；Windows 还要记录 `%APPDATA%` 下的实际目录名，确认与上一版一致（见上文契约）。
+
+Android 的“同签名”是硬前提：换发布证书即视为不同应用，原位升级会被拒绝。
+
+### 4. 备份往返
+
+1. 版本 A 导出 JSON（`ExportData` v2），记录文件数与卷号。
+2. 清除数据（Android 清除应用数据；Windows/Linux 移走应用目录）后在版本 A 导入：第 1 卷选“覆盖”，其余卷按文件名顺序“合并”，每卷选同一目标板。
+3. 与导出前对照：板、任务、子项、纯文本备注、日期与提醒、设置与 AI 配置（除密钥）逐字段一致。契约与上限见 [备份格式](BACKUP_FORMAT.md)。
+4. 跨版本往返：旧版本导出 → 新版本导入 → 新版本导出 → 旧版本导入，明确记录旧版是否读取成功；v1 导出的有损字段（备注、提醒、完成时间）按文档预期，不算回归。
+5. 升级到新版本后，再用步骤 2 的备份在**新版本**导入一次，验证升级路径与导入路径不冲突。
+6. 只有显式勾选“包含密钥”的备份才会写出明文密钥；这类文件不得进仓库、issue 或聊天工具。
+
+## 剩余缺项
+
+以下项目前**没有**，正式发行不能继续；补齐方式不包含放宽门禁：
+
+- **凭据**：Android 发布 keystore 及其 `storePassword`/`keyPassword`/`keyAlias`，以及 CI 用的 `ANDROID_KEYSTORE_BASE64` 与 `ANDROID_RELEASE_CERT_SHA256`（发布证书 SHA-256 指纹）。缺任一项，`build-android` 与本地 `-Platform Android` 都会拒绝。
+- **凭据**：Windows Authenticode 证书（或明确接受长期未签名发行，并在发布说明与商店文案中持续披露 SmartScreen 风险）。
+- **设备证据**：Android 真机的安装、同签名原位升级与提醒（minSdk 23 与当前 target 各一台）；Windows 从一个已发布构建到候选构建的原位升级（含上文数据目录判定）；Linux 桌面会话的启动与核心流程手动检查。CI 只覆盖编译与 mock 集成测试。
+- **渠道资料**：GitHub Release 的正式版本策略与 tag 约定、发行渠道选择（Direct APK / Google Play / F-Droid 等）及其账号、签名上传地址、隐私政策与支持的 URL、商店素材与截图。
+- **产品事实**：版本号、功能描述与截图以 WP12 + WP13 合并后的同一提交为准；[商店介绍草稿](STORE_LISTING.md) 需按最终界面复核。
+- **流程**：`.github/workflows/release.yml` 的 publish job 目前只在 tag 推送时运行；本包用沙箱输入验证过 job 内脚本逻辑，但完整工作流尚未在真实 GitHub Runner 上跑通，首个 tag 建议按草稿流程演练后再发布。
+
+## 验证记录（2026-09-28，WP28 准备轮，基线 `origin/main` `5b3b39e`）
+
+环境：Windows 主机 PowerShell 5.1；WSL Ubuntu 24.04 + 便携 PowerShell 7.5.11 + Flutter 3.32.8（revision `edada7c56e`、engine `ef0cd00091`、Dart 3.8.1，与 `toolchain.json` 一致）。
+
+| 项 | 结果 |
+|---|---|
+| Linux 预检 `-Platform Windows/All -ValidateOnly` | **修复前必失败**：`Refusing to stage outside the output directory`（暂存目录包含性检查写死 `\`），意味着 `release.yml` 的 preflight job 在任何 tag 上都无法通过；改用父目录比较后两侧均通过，退出码 0 |
+| 未安装 Flutter 时的工具链声明 | 修复前打印 `matches toolchain.json`（假合规），现如实输出 `not probed (Flutter SDK not found)` |
+| `-ExpectedTag v9.9.9+9`、`-OutputDir /` | 均按预期拒绝 |
+| keystore 布局解析（`android/key.properties` + `android/app/release.jks`，即 CI 与模板文档采用的布局） | 修复前误报“找不到 keystore”从而拒绝合法配置，现按 Gradle 顺序解析，Windows 与 Linux 两侧一致；keystore 缺失时仍如实报 MISSING |
+| `-FlutterSdk <Linux SDK>` | 修复前挑到 `bin/flutter.bat` 而无法执行，现按宿主选择启动器并成功探测固定版本 |
+| Windows 真实打包（`-Platform Windows`，构建 + 身份校验 + ZIP + 校验和 + manifest） | 通过：全新构建 255 s、增量重跑约 2 min；ZIP 13,405,301 字节、19 个条目，`SHA256SUMS.txt` 与 `RELEASE_MANIFEST.txt` 正常写出；manifest 记录 `gitCommit=5b3b39e6…`、`toolchainPinState=matches`、`windowsCodeSigning=unsigned (Authenticode is not configured)`、`license=GPL-3.0-only`、`appDataDir=…\Compoise\Compoise`、`authenticode=NotSigned` |
+| 身份字段断言 | 修复前脚本仍要求 `LegalCopyright` 含 `com.matrixflow`，而 `d9e3b56` 之后实际值是 `Copyright (C) 2026 Compoise contributors.` ⇒ 真实打包必然抛错。现断言当前身份，并新增 `CompanyName` 检查与应用目录记录 |
+| 脏树标记的可解释性 | manifest 的 `gitWorkingTreeDirty=True` 现在附带 `gitWorkingTreePaths=…`。注意 `flutter pub get` 会重新生成未被跟踪的 `linux/flutter/generated_*` 三个文件，因此**只做过 pub get 的干净检出也会显示为脏**；`windows/flutter/generated_*` 是已跟踪的。建议集成时决定提交或忽略这三个 Linux 文件，与仓库既有的 Windows/Android 约定保持一致 |
+| 数据目录漂移 | 读取自 2026-09-27 构建的 `compoise.exe`：`CompanyName=Compoise`、`ProductName=Compoise` → `%APPDATA%\Compoise\Compoise`（该目录不存在）；旧库仍在 `%APPDATA%\com.matrixflow\MatrixFlow AI\shared_preferences.json`（最后写入 2026-09-25） |
+| `release.yml` 全部 job 步骤 | YAML 解析通过；23 个 bash 块 `bash -n` 通过；4 个 PowerShell 块解析通过（表达式先替换）；publish job 的各步骤在 Linux 沙箱按伪产物实跑：产物装配、发布说明、metadata、产物集合门禁、`sha256sum -c --strict` 全部通过 |
+| 门禁反例 | 多余文件、metadata 缺完整 commit、缺一侧平台产物、缺 Android 签名证明 → 全部拒绝；发布后再篡改产物 → `sha256sum -c` 报失败 |
+| 期间发现并修正的自引入缺陷 | 产物计数用 `grep -v` 在“全部合规”时退出码 1，配合 `pipefail` 会让成功路径中止；已按预期路径修正并纳入反例复测 |
+| 签名门禁未被放宽 | `-Platform Android` 且无 keystore 时退出码 1，抛 `Formal release signing credentials are required. … Refusing to build a debug-signed release APK.`，在暂存与构建之前即中止；工具链缺失时同样早退 |
+| 可复现性 | 同一未修改树连续两次打包得到相同的 `compoise-v1.0.0+1-windows-portable.zip` SHA-256（`338a2c106856e223913d89aec10e5ba5452c3c02a9ad90d7f4ab52cf73d4df19`，13,405,301 字节）；正式版本需在合并提交上重新生成 |
+| 仓库门禁 | `flutter analyze --no-pub` 无问题；`flutter test --no-pub` 全绿（846 项；`test/os26_release_test.dart` 12 项，其中本包新增 6 项） |
+| 未执行 | Android 真机与签名构建（无凭据）、GitHub 上的真实 tag 演练、三平台手动安装/升级/备份往返（需候选提交与设备） |

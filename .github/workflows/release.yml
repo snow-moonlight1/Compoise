@@ -30,13 +30,14 @@ jobs:
           RELEASE_EVENT: ${{ github.event_name }}
         run: |
           if ($env:RELEASE_EVENT -eq 'push') {
-            ./scripts/build_release.ps1 -Platform Windows -ExpectedTag $env:RELEASE_TAG -ValidateOnly
+            ./scripts/build_release.ps1 -Platform All -ExpectedTag $env:RELEASE_TAG -ValidateOnly
           } else {
             Write-Host 'Manual run: no tag to compare, validating pubspec.yaml only.'
-            ./scripts/build_release.ps1 -Platform Windows -ValidateOnly
+            ./scripts/build_release.ps1 -Platform All -ValidateOnly
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Write-Host 'Release version, build number and tag are aligned; no artifact was written by this job.'
+          Write-Host 'The plan covers Android and Windows. Android signing is reported here and enforced by build-android.'
 
   build-android:
     name: Build Android Release APK
@@ -72,11 +73,12 @@ jobs:
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS; do
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS ANDROID_RELEASE_CERT_SHA256; do
             if [ -z "${!name:-}" ]; then
-              echo "Formal release builds must provide ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_PASSWORD, and ANDROID_KEY_ALIAS."
+              echo "Formal release builds must provide ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_RELEASE_CERT_SHA256."
               echo "Refusing to publish a debug-signed APK."
               exit 1
             fi
@@ -131,8 +133,10 @@ jobs:
           REQUIRE_RELEASE_SIGNING: 'true'
         run: flutter build apk --release --no-pub --no-tree-shake-icons
 
-      - name: Verify the APK is not debug-signed
+      - name: Verify the APK signing certificate
         shell: bash
+        env:
+          ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
           set -euo pipefail
           APK=build/app/outputs/flutter-apk/app-release.apk
@@ -147,11 +151,27 @@ jobs:
             exit 1
           fi
           "$APKSIGNER" verify --print-certs "$APK" > apk-certs.txt
-          grep -E 'Signer #1 certificate DN|Signer #1 certificate SHA-256 digest' apk-certs.txt
+          grep -E 'certificate DN|certificate SHA-256 digest' apk-certs.txt
           if grep -q 'CN=Android Debug' apk-certs.txt; then
             echo "The release APK is signed with the Android debug certificate. Refusing to stage it."
             exit 1
           fi
+          actual=$(grep -Eo 'certificate SHA-256 digest: [0-9a-fA-F]+' apk-certs.txt | head -n 1 | awk '{print $NF}' | tr 'A-Z' 'a-z')
+          expected=$(printf '%s' "$ANDROID_RELEASE_CERT_SHA256" | tr -d ':' | tr 'A-Z' 'a-z')
+          if [ -z "$actual" ] || [ -z "$expected" ]; then
+            echo "No certificate fingerprint was available, so the APK signing cannot be traced to a release key."
+            exit 1
+          fi
+          if [ "$actual" != "$expected" ]; then
+            echo "The APK is signed with certificate $actual but the pinned release certificate is $expected. Refusing to stage it."
+            exit 1
+          fi
+          {
+            echo "apkSignerCertSha256=$actual"
+            echo "apkSignerCheck=matches the pinned ANDROID_RELEASE_CERT_SHA256"
+            cat apk-certs.txt
+          } > android-signing-proof.txt
+          echo "The staged APK carries the pinned release certificate."
 
       - name: Stage Android artifact
         shell: bash
@@ -174,6 +194,13 @@ jobs:
         with:
           name: android-release-apk
           path: release_artifacts/*.apk
+          if-no-files-found: error
+
+      - name: Upload Android signing proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-proof
+          path: android-signing-proof.txt
           if-no-files-found: error
 
   build-windows:
@@ -232,6 +259,13 @@ jobs:
           Write-Host "ProductName=$($info.ProductName) FileVersion=$($info.FileVersion) ProductVersion=$($info.ProductVersion)"
           Write-Host "CompanyName=$($info.CompanyName) LegalCopyright=$($info.LegalCopyright)"
           if ($info.ProductName -ne 'Compoise') { throw "Unexpected ProductName: $($info.ProductName)" }
+          if ($info.CompanyName -ne 'Compoise') { throw "Unexpected CompanyName: $($info.CompanyName)" }
+          if ($info.LegalCopyright -notmatch 'Compoise contributors') { throw "Unexpected LegalCopyright: $($info.LegalCopyright)" }
+          # path_provider_windows builds the application-support directory from
+          # CompanyName and ProductName, so this pair decides which task library
+          # the build opens. Changing it between releases moves the library and
+          # an in-place upgrade starts empty: see docs/RELEASE_VALIDATION.md.
+          Write-Host "appDataDir=$env:APPDATA\$($info.CompanyName)\$($info.ProductName)"
           $numericVersion = "$($info.FileMajorPart).$($info.FileMinorPart).$($info.FileBuildPart).$($info.FilePrivatePart)"
           if ($numericVersion -ne $expected) { throw "Numeric FileVersion $numericVersion does not match pubspec $expected" }
           if (@($expected, $expectedLabel) -notcontains $info.FileVersion) { throw "FileVersion $($info.FileVersion) does not match pubspec $expectedLabel" }
@@ -249,11 +283,13 @@ jobs:
           $zipPath = "release_artifacts/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-windows-portable.zip"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath $zipPath -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zipPath))
           try {
-            $names = $archive.Entries | ForEach-Object { $_.FullName -replace '/', '\' }
+            # ZIP entries always use '/', independent of the host separator.
+            $names = $archive.Entries | ForEach-Object { $_.FullName -replace '\\', '/' }
             if ($names -notcontains 'compoise.exe') { throw 'The ZIP does not contain compoise.exe.' }
-            if ($names -notcontains 'data\app.so') { throw 'The ZIP does not contain data\app.so.' }
+            if ($names -notcontains 'data/app.so') { throw 'The ZIP does not contain data/app.so.' }
             Write-Host "ZIP entries: $($names.Count)"
           } finally {
             $archive.Dispose()
@@ -301,6 +337,18 @@ jobs:
       - name: Build Linux release bundle
         run: flutter build linux --release --no-pub
 
+      - name: Verify the Linux preview bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE=build/linux/x64/release/bundle
+          test -x "$BUNDLE/matrixflow_native" || { echo "Missing Linux executable: $BUNDLE/matrixflow_native"; exit 1; }
+          test -f "$BUNDLE/data/app.so" || { echo "Missing $BUNDLE/data/app.so"; exit 1; }
+          test -d "$BUNDLE/data/flutter_assets" || { echo "Missing $BUNDLE/data/flutter_assets"; exit 1; }
+          du -sh "$BUNDLE"
+          echo 'Linux stays a preview: this job proves the pinned toolchain still compiles the release bundle.'
+          echo 'No Linux installer, archive or checksum is published, and the app is not started headless here.'
+
   publish-release:
     name: Publish GitHub Release draft
     needs: [preflight, build-android, build-windows, build-linux]
@@ -313,29 +361,88 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download build outputs
         uses: actions/download-artifact@v4
         with:
-          path: release_artifacts
-          merge-multiple: true
+          path: build_outputs
+          merge-multiple: false
 
-      - name: Write release notes with the real signing state
+      - name: Assemble the release artifact set
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A job re-run keeps the runner workspace, so start from empty: a stale
+          # binary or proof from the previous attempt must not reach the release.
+          rm -rf release_artifacts build_proofs
+          mkdir -p release_artifacts build_proofs
+          find build_outputs -type f -name 'compoise-v*-android.apk' -exec cp {} release_artifacts/ \;
+          find build_outputs -type f -name 'compoise-v*-windows-portable.zip' -exec cp {} release_artifacts/ \;
+          find build_outputs -type f -name 'android-signing-proof.txt' -exec cp {} build_proofs/ \;
+          if [ ! -f build_proofs/android-signing-proof.txt ]; then
+            echo 'Refusing to publish: without the Android signing proof the binaries cannot be traced to a release key.'
+            exit 1
+          fi
+          ls -l release_artifacts build_proofs
+
+      - name: Write the release notes with the real platform state
         shell: bash
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          signer=$(grep -E '^apkSignerCertSha256=' build_proofs/android-signing-proof.txt | cut -d= -f2)
           cat > release_artifacts/RELEASE_NOTES.md <<EOF
-          Draft build prepared by the Compoise release workflow.
+          Draft prepared by the Compoise release workflow. Review it before publishing.
 
-          - Tag: ${RELEASE_TAG}
-          - Android APK: signed with the repository release keystore. The workflow refuses a debug-signed APK.
-          - Windows portable ZIP: not code-signed (no Authenticode certificate yet), so SmartScreen may warn.
-          - SHA256SUMS.txt lists exactly the artifacts built by this run.
+          Tag ${RELEASE_TAG}. The commit, toolchain and certificate are recorded in RELEASE_METADATA.txt.
 
-          Review the draft before publishing it.
+          | Platform | Delivered as | Signing state |
+          |---|---|---|
+          | Android | compoise-vX.Y.Z+N-android.apk | Signed with the repository release keystore; certificate SHA-256 $signer. A debug-signed APK or a certificate that does not match the pinned fingerprint fails the build. |
+          | Windows | compoise-vX.Y.Z+N-windows-portable.zip | Not code-signed: no Authenticode certificate is configured, so SmartScreen may warn. Extract the ZIP to any folder and run compoise.exe. |
+          | Linux | no artifact | Preview. CI compiles the release bundle with the pinned toolchain to prove it still builds; there is no installer, no signature and no package channel. |
+
+          - License: GPL-3.0-only. See LICENSE and assets/licenses/THIRD_PARTY_NOTICES.txt.
+          - SHA256SUMS.txt covers both binaries and RELEASE_METADATA.txt. Check it with: sha256sum -c SHA256SUMS.txt
+          - Tasks stay on the device. Export a JSON backup from Settings before upgrading. Install, in-place upgrade, backup round-trip and clean-start checks are listed in docs/RELEASE_VALIDATION.md; they are run against the merged product build, not this draft.
           EOF
           cat release_artifacts/RELEASE_NOTES.md
+
+      - name: Record what this release was built from
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          pin() { sed -nE 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' toolchain.json | head -n 1; }
+          signer_dn=$(grep -E 'certificate DN' build_proofs/android-signing-proof.txt | head -n 1 | sed -E 's/.*certificate DN:[[:space:]]*//')
+          signer_sha=$(grep -E '^apkSignerCertSha256=' build_proofs/android-signing-proof.txt | cut -d= -f2)
+          {
+            echo 'Compoise release metadata'
+            echo "tag=${RELEASE_TAG}"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "commitSubject=$(git log -1 --format=%s)"
+            echo "repository=${REPOSITORY}"
+            echo "workflowRun=https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}/attempt/${RUN_ATTEMPT}"
+            echo "toolchainFlutter=$(pin flutterVersion)"
+            echo "toolchainRevision=$(pin revision)"
+            echo "toolchainEngine=$(pin engineRevision)"
+            echo "toolchainDart=$(pin dartVersion)"
+            echo 'androidSigning=release keystore from repository secrets, certificate pinned by ANDROID_RELEASE_CERT_SHA256'
+            echo "androidSignerDn=${signer_dn}"
+            echo "androidSignerCertSha256=${signer_sha}"
+            echo 'windowsCodeSigning=unsigned (Authenticode is not configured)'
+            echo 'linuxDesktop=preview only; compiled by CI with the pinned toolchain, no artifact published'
+            echo 'license=GPL-3.0-only'
+            echo ''
+            echo '[artifacts]'
+            find release_artifacts -maxdepth 1 -type f \( -name 'compoise-v*-android.apk' -o -name 'compoise-v*-windows-portable.zip' \) \
+              -printf '%f\t%s bytes\n' | sort
+          } > release_artifacts/RELEASE_METADATA.txt
+          cat release_artifacts/RELEASE_METADATA.txt
 
       - name: Verify the artifact set and generate SHA256SUMS
         working-directory: release_artifacts
@@ -344,11 +451,16 @@ jobs:
           set -euo pipefail
           ls -l
           pattern='^compoise-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+-(android\.apk|windows-portable\.zip)$'
-          artifacts=$(ls -1 | grep -E "$pattern" | sort || true)
+          allowed='^(RELEASE_NOTES\.md|RELEASE_METADATA\.txt|SHA256SUMS\.txt)$'
+          all=$(find . -maxdepth 1 -type f -printf '%f\n' | sort)
+          # `|| true` keeps a clean set from tripping pipefail: grep exits 1 when
+          # it filters everything out, which is the expected success case here.
+          artifacts=$(printf '%s\n' "$all" | grep -E "$pattern" || true)
+          unexpected=$(printf '%s\n' "$all" | grep -Ev "$pattern" | grep -Ev "$allowed" || true)
           count=$(printf '%s\n' "$artifacts" | grep -c . || true)
-          unexpected=$(ls -1 | grep -E -v "$pattern" | grep -E -v '^(RELEASE_NOTES\.md|SHA256SUMS\.txt)$' | wc -l || true)
-          echo "Artifacts: $count; unexpected files: $unexpected"
-          if [ "$count" -ne 2 ] || [ "$unexpected" -ne 0 ]; then
+          unexpected_count=$(printf '%s\n' "$unexpected" | grep -c . || true)
+          echo "Artifacts: $count; unexpected files: $unexpected_count"
+          if [ "$count" -ne 2 ] || [ "$unexpected_count" -ne 0 ]; then
             echo "Refusing to publish: expected exactly one APK and one Windows ZIP, nothing else."
             exit 1
           fi
@@ -356,8 +468,13 @@ jobs:
             echo "Refusing to publish: both the Android APK and the Windows ZIP must be present."
             exit 1
           fi
+          if ! grep -q '^commit=[0-9a-f]\{40\}$' RELEASE_METADATA.txt; then
+            echo "Refusing to publish: RELEASE_METADATA.txt does not record a full commit hash."
+            exit 1
+          fi
           rm -f SHA256SUMS.txt
-          sha256sum $artifacts > SHA256SUMS.txt
+          printf '%s\n' "$artifacts" RELEASE_METADATA.txt | sort | xargs -d '\n' sha256sum > SHA256SUMS.txt
+          sha256sum -c --strict SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Create GitHub Release
@@ -365,6 +482,7 @@ jobs:
         with:
           files: |
             release_artifacts/SHA256SUMS.txt
+            release_artifacts/RELEASE_METADATA.txt
             release_artifacts/*.apk
             release_artifacts/*.zip
           body_path: release_artifacts/RELEASE_NOTES.md

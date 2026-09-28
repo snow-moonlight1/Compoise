@@ -19,6 +19,11 @@
 
     Toolchain: the Flutter version in toolchain.json is required unless
     -AllowUnpinnedSdk is explicitly supplied.
+
+    Platforms: this script stages Android and Windows artifacts only. The Linux
+    desktop build is a preview; CI compiles it to prove the release toolchain
+    still works, and no Linux installer or archive is published. See
+    docs/RELEASE_VALIDATION.md.
 .PARAMETER Platform
     Build target: 'All' (default), 'Android' or 'Windows'.
 .PARAMETER OutputDir
@@ -39,12 +44,17 @@
     powershell -File scripts\build_release.ps1 -Platform Windows -ExpectedTag v1.0.0
 .EXAMPLE
     powershell -File scripts\build_release.ps1 -Platform Android -ExpectedTag v1.0.0+1
+.EXAMPLE
+    # Release preflight, also runnable under pwsh on Linux:
+    pwsh -File scripts/build_release.ps1 -Platform All -ExpectedTag v1.0.0+1 -ValidateOnly
 .NOTES
     Android release credentials come from android/key.properties (or
     android/app/key.properties, see android/key.properties.example) or from the
     ANDROID_KEYSTORE_PATH / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD /
     ANDROID_STORE_PASSWORD environment variables. Password values are never read
-    back into the console output.
+    back into the console output. A relative storeFile is resolved the way
+    android/app/build.gradle.kts resolves it: the app module directory first,
+    then the directory that holds the properties file.
 #>
 
 [CmdletBinding()]
@@ -73,6 +83,12 @@ if (-not (Test-Path $FlutterDir)) {
     throw "Cannot find Flutter project root: $FlutterDir"
 }
 
+# Paths are combined with the host separator so the plan stage also runs under
+# pwsh on the Linux release preflight runner.
+function Join-RepoPath([string]$Base, [string[]]$Parts) {
+    return [System.IO.Path]::Combine([string[]](@($Base) + $Parts))
+}
+
 # Only the storeFile path is read back out of a keystore properties file.
 # Password values are never read into the output stream.
 function Resolve-StoreFileFromProperties([string]$Path) {
@@ -94,6 +110,26 @@ function Get-PropertiesKeyNames([string]$Path) {
     return $names
 }
 
+# Resolution order mirrors android/app/build.gradle.kts so this script never
+# refuses a layout Gradle accepts: an absolute path is used as declared,
+# otherwise the app module directory first and then the directory that holds
+# the properties file.
+function Resolve-KeystorePath([string]$Declared, [string]$PropertiesDir) {
+    if (-not $Declared) { return $null }
+    $candidates = @()
+    if ([System.IO.Path]::IsPathRooted($Declared)) {
+        $candidates += $Declared
+    } else {
+        $candidates += (Join-RepoPath $FlutterDir @('android', 'app', $Declared))
+        if ($PropertiesDir) { $candidates += (Join-Path $PropertiesDir $Declared) }
+        $candidates += $Declared
+    }
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) { return $candidate }
+    }
+    return $null
+}
+
 function Get-LocalPropertiesValue([string]$Path, [string]$Key) {
     if (-not (Test-Path $Path)) { return $null }
     foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
@@ -106,7 +142,7 @@ function Get-LocalPropertiesValue([string]$Path, [string]$Key) {
 
 function Find-BuildToolsExe([string]$Name) {
     $candidates = @()
-    $sdkFromLocal = Get-LocalPropertiesValue (Join-Path $FlutterDir 'android\local.properties') 'sdk.dir'
+    $sdkFromLocal = Get-LocalPropertiesValue (Join-RepoPath $FlutterDir @('android', 'local.properties')) 'sdk.dir'
     if ($sdkFromLocal) { $candidates += (Join-Path $sdkFromLocal 'build-tools') }
     foreach ($variable in @('ANDROID_HOME', 'ANDROID_SDK_ROOT')) {
         $value = [System.Environment]::GetEnvironmentVariable($variable)
@@ -152,14 +188,15 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $OutputDir = Join-Path $ProjectRoot 'release_dist'
 }
 $OutputDirFull = [System.IO.Path]::GetFullPath($OutputDir)
-if ($OutputDirFull -match '^[A-Za-z]:\\?$') {
-    throw "Refusing to use the drive root $OutputDirFull as the release output directory."
+if ($OutputDirFull -match '^[A-Za-z]:\\?$' -or $OutputDirFull -eq [System.IO.Path]::DirectorySeparatorChar) {
+    throw "Refusing to use the filesystem root $OutputDirFull as the release output directory."
 }
 
 $StagingDirName = "compoise-v$VersionLabel"
 $StagingDir = [System.IO.Path]::GetFullPath((Join-Path $OutputDirFull $StagingDirName))
-$OutputPrefix = $OutputDirFull.TrimEnd('\') + '\'
-if (-not $StagingDir.StartsWith($OutputPrefix)) {
+# Compare the parent directory instead of a separator-joined prefix so the check
+# behaves the same on Windows and on the Linux preflight runner.
+if ((Split-Path -Parent $StagingDir) -ne $OutputDirFull) {
     throw "Refusing to stage outside the output directory: $StagingDir"
 }
 if ((Split-Path -Leaf $StagingDir) -notmatch '^compoise-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$') {
@@ -173,8 +210,18 @@ $WindowsArtifactName = "compoise-v$VersionLabel-windows-portable.zip"
 
 $FlutterBin = $null
 if (-not [string]::IsNullOrWhiteSpace($FlutterSdk)) {
-    $FlutterBin = Join-Path $FlutterSdk 'bin\flutter.bat'
-    if (-not (Test-Path $FlutterBin)) {
+    # The SDK ships both launchers; pick the one the host can execute, because
+    # running flutter.bat under a POSIX shell fails with 'Cannot run a document'.
+    $LauncherNames = if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
+        @('flutter.bat', 'flutter')
+    } else {
+        @('flutter', 'flutter.bat')
+    }
+    foreach ($launcher in $LauncherNames) {
+        $candidate = Join-RepoPath $FlutterSdk @('bin', $launcher)
+        if (Test-Path $candidate) { $FlutterBin = $candidate; break }
+    }
+    if (-not $FlutterBin) {
         throw "Flutter was not found under the supplied SDK directory: $FlutterSdk"
     }
 } else {
@@ -211,26 +258,41 @@ if ($FlutterInfo) {
 }
 $DartVersionText = if ($FlutterInfo) { $FlutterInfo.dartSdkVersion } else { 'unknown' }
 
-$ToolchainMatch = $true
+# 'not-probed' is never reported as compliance: a validate-only run may continue
+# without a Flutter SDK, and must not claim the OS24 pin was satisfied.
+$ToolchainPinState = 'not-probed'
+$ToolchainPinDiff = @()
 if ($Toolchain -and $FlutterInfo) {
+    $ToolchainPinState = 'matches'
     foreach ($pair in @(
         @('frameworkVersion', $Toolchain.flutterVersion),
         @('frameworkRevision', $Toolchain.revision),
         @('engineRevision', $Toolchain.engineRevision),
         @('dartSdkVersion', $Toolchain.dartVersion)
     )) {
-        if ($FlutterInfo.($pair[0]) -ne $pair[1]) { $ToolchainMatch = $false }
+        if ($FlutterInfo.($pair[0]) -ne $pair[1]) {
+            $ToolchainPinState = 'differs'
+            $ToolchainPinDiff += "$($pair[0]) expected '$($pair[1])', actual '$($FlutterInfo.($pair[0]))'"
+        }
     }
+} elseif ($Toolchain -and $FlutterBin) {
+    $ToolchainPinState = 'unreadable'
 }
-if ($Toolchain -and $FlutterBin -and -not $FlutterInfo) { $ToolchainMatch = $false }
+
+$ToolchainPinText = switch ($ToolchainPinState) {
+    'matches' { 'matches toolchain.json' }
+    'differs' { "differs from toolchain.json ($($ToolchainPinDiff -join '; '))" }
+    'unreadable' { 'not verified (flutter --version --machine gave no readable output)' }
+    default { 'not probed (Flutter SDK not found)' }
+}
 
 # --------------------------------------------------------------- signing ----
 
 $KeyPropertiesCandidates = @(
-    (Join-Path $FlutterDir 'android\key.properties'),
-    (Join-Path $FlutterDir 'android\keystore.properties'),
-    (Join-Path $FlutterDir 'android\app\key.properties'),
-    (Join-Path $FlutterDir 'android\app\keystore.properties')
+    (Join-RepoPath $FlutterDir @('android', 'key.properties')),
+    (Join-RepoPath $FlutterDir @('android', 'keystore.properties')),
+    (Join-RepoPath $FlutterDir @('android', 'app', 'key.properties')),
+    (Join-RepoPath $FlutterDir @('android', 'app', 'keystore.properties'))
 )
 $KeyPropertiesPath = $KeyPropertiesCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 $KeystorePath = $null
@@ -244,15 +306,11 @@ if ($KeyPropertiesPath) {
         if ($PropertyKeys -notcontains $required) { $MissingSigningKeys += $required }
     }
     $StoreFileValue = Resolve-StoreFileFromProperties $KeyPropertiesPath
-    if ($StoreFileValue) {
-        $Candidate = Join-Path (Split-Path -Parent $KeyPropertiesPath) $StoreFileValue
-        if (-not (Test-Path $Candidate)) { $Candidate = $StoreFileValue }
-        if (Test-Path $Candidate) { $KeystorePath = $Candidate }
-    }
+    $KeystorePath = Resolve-KeystorePath $StoreFileValue (Split-Path -Parent $KeyPropertiesPath)
 } elseif ([System.Environment]::GetEnvironmentVariable('ANDROID_KEYSTORE_PATH')) {
     $SigningSource = 'ANDROID_KEYSTORE_PATH environment variable'
     $EnvStore = [System.Environment]::GetEnvironmentVariable('ANDROID_KEYSTORE_PATH')
-    if (Test-Path $EnvStore) { $KeystorePath = $EnvStore }
+    $KeystorePath = Resolve-KeystorePath $EnvStore $null
     foreach ($variable in @('ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD', 'ANDROID_STORE_PASSWORD')) {
         if (-not [System.Environment]::GetEnvironmentVariable($variable)) { $MissingSigningKeys += $variable }
     }
@@ -283,13 +341,13 @@ Write-Host "Platform:       $Platform"
 Write-Host "Flutter SDK:    $FlutterSdk"
 Write-Host "Flutter:        $FlutterVersionText"
 Write-Host "Dart:           $DartVersionText"
-Write-Host "Toolchain pin:  $(if ($ToolchainMatch) { 'matches toolchain.json' } else { 'differs from toolchain.json' })"
+Write-Host "Toolchain pin:  $ToolchainPinText"
 Write-Host "Staging dir:    $StagingDir"
 Write-Host "Signing source: $SigningSource"
 Write-Host '-------------------------------------------------'
 
-if (-not $AllowUnpinnedSdk -and $Toolchain -and -not $ToolchainMatch) {
-    throw "The active Flutter SDK does not match the version recorded in toolchain.json. Install the pinned version or pass -AllowUnpinnedSdk to override deliberately."
+if (-not $AllowUnpinnedSdk -and $Toolchain -and $FlutterBin -and $ToolchainPinState -ne 'matches') {
+    throw "The active Flutter SDK does not match or cannot be read against the version recorded in toolchain.json. Install the pinned version or pass -AllowUnpinnedSdk to override deliberately."
 }
 
 $BuildsAndroid = ($Platform -eq 'All' -or $Platform -eq 'Android')
@@ -300,7 +358,7 @@ if ($ValidateOnly) {
     if ($BuildsAndroid) {
         Write-Host "Android artifact would be: $AndroidArtifactName"
         if ($SigningReady) {
-            Write-Host "Android signing prerequisites: OK ($SigningSource)"
+            Write-Host "Android signing prerequisites: OK ($SigningSource; keystore $KeystorePath)"
         } else {
             Write-Host "Android signing prerequisites: MISSING - a real Android release would be refused. Reason: $SigningProblem" -ForegroundColor Yellow
         }
@@ -308,6 +366,7 @@ if ($ValidateOnly) {
     if ($BuildsWindows) {
         Write-Host "Windows artifact would be: $WindowsArtifactName (unsigned; Authenticode is not configured)"
     }
+    Write-Host 'Linux desktop: preview only. CI compiles the release bundle to prove the toolchain still builds; this script stages and publishes no Linux artifact.'
     Write-Host "SHA256SUMS.txt would list only the artifacts staged by that run."
     exit 0
 }
@@ -324,6 +383,7 @@ New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 $ExpectedArtifacts = @()
 $AndroidProof = @()
 $WindowsProof = @()
+$WindowsSigning = 'not staged by this run'
 
 # ---------------------------------------------------------------- Android ---
 
@@ -352,7 +412,7 @@ if ($BuildsAndroid) {
         }
     }
 
-    $ApkSource = Join-Path $FlutterDir 'build\app\outputs\flutter-apk\app-release.apk'
+    $ApkSource = Join-RepoPath $FlutterDir @('build', 'app', 'outputs', 'flutter-apk', 'app-release.apk')
     if (-not (Test-Path $ApkSource)) {
         throw "Built APK not found at: $ApkSource"
     }
@@ -361,7 +421,7 @@ if ($BuildsAndroid) {
     Copy-Item -Path $ApkSource -Destination $ApkTarget -Force
     $ExpectedArtifacts += $ApkTarget
 
-    $GradlePath = Join-Path $FlutterDir 'android\app\build.gradle.kts'
+    $GradlePath = Join-RepoPath $FlutterDir @('android', 'app', 'build.gradle.kts')
     $GradleText = Get-Content $GradlePath -Raw
     $ApplicationId = [regex]::Match($GradleText, 'applicationId\s*=\s*"([^"]+)"').Groups[1].Value
     $Namespace = [regex]::Match($GradleText, 'namespace\s*=\s*"([^"]+)"').Groups[1].Value
@@ -372,8 +432,10 @@ if ($BuildsAndroid) {
     if ($ApkSigner) {
         $SignerOutput = (& $ApkSigner verify --print-certs $ApkTarget 2>&1 | Out-String)
         $SignerExit = $LASTEXITCODE
-        $DnMatch = [regex]::Match($SignerOutput, 'Signer #1 certificate DN:\s*(.+)')
+        $DnMatch = [regex]::Match($SignerOutput, '(?m)^(?:Signer #1 certificate DN|V[0-9]+ Signer: certificate DN):\s*(.+)')
         $SignerDn = if ($DnMatch.Success) { $DnMatch.Groups[1].Value.Trim() } else { 'unknown' }
+        $DigestMatch = [regex]::Match($SignerOutput, '(?im)certificate SHA-256 digest:\s*([0-9a-f]{2,})')
+        $SignerDigest = if ($DigestMatch.Success) { $DigestMatch.Groups[1].Value.Trim().ToLower() } else { 'unknown' }
         if ($SignerExit -ne 0) {
             if ($SignerOutput -match '(?i)does not verify|not signed|unsigned|Missing') {
                 throw "apksigner reports that $AndroidArtifactName is not properly signed. Refusing to stage it as a formal release."
@@ -382,8 +444,12 @@ if ($BuildsAndroid) {
             $AndroidProof += 'apkSignature=unverified (apksigner could not run)'
         } elseif ($SignerDn -match 'CN=Android Debug') {
             throw "The staged APK is signed with the Android debug certificate (CN=Android Debug). Refusing to stage it as a formal release."
+        } elseif ($SignerDn -eq 'unknown') {
+            Write-Host '  WARNING: apksigner verified the APK but printed no signer certificate DN; the manifest records the signature as unparsed.' -ForegroundColor Yellow
+            $AndroidProof += 'apkSignature=unparsed (no signer certificate DN in apksigner output)'
         } else {
             $AndroidProof += "apkSignatureDN=$SignerDn"
+            $AndroidProof += "apkSignatureCertSha256=$SignerDigest"
         }
     } else {
         Write-Host '  WARNING: apksigner was not found in the Android build-tools; the staged APK signature stays unverified.' -ForegroundColor Yellow
@@ -430,7 +496,7 @@ if ($BuildsWindows) {
         Pop-Location
     }
 
-    $WindowsReleaseDir = Join-Path $FlutterDir 'build\windows\x64\runner\Release'
+    $WindowsReleaseDir = Join-RepoPath $FlutterDir @('build', 'windows', 'x64', 'runner', 'Release')
     if (-not (Test-Path $WindowsReleaseDir)) {
         throw "Windows Release output dir not found: $WindowsReleaseDir"
     }
@@ -454,12 +520,35 @@ if ($BuildsWindows) {
     if (@($VersionLabel, "$AppVersion.$BuildNumber") -notcontains $ExeInfo.FileVersion) {
         throw "The built executable reports FileVersion '$($ExeInfo.FileVersion)'; expected '$VersionLabel' or '$AppVersion.$BuildNumber'."
     }
-    if ($ExeInfo.LegalCopyright -notmatch 'com\.matrixflow') {
-        throw "The built executable reports an unexpected LegalCopyright: '$($ExeInfo.LegalCopyright)'."
+    if ($ExeInfo.LegalCopyright -notmatch 'Compoise contributors') {
+        throw "The built executable reports an unexpected LegalCopyright: '$($ExeInfo.LegalCopyright)'; expected the Compoise contributors notice."
+    }
+    if ($ExeInfo.CompanyName -ne 'Compoise') {
+        throw "The built executable reports CompanyName '$($ExeInfo.CompanyName)'; expected 'Compoise'."
     }
 
     $Authenticode = Get-AuthenticodeSignature -FilePath $ExePath
+    # A release is either cleanly unsigned (today) or carries a valid signature;
+    # a broken or untrusted signature must never reach the staging directory.
+    switch ($Authenticode.Status) {
+        'Valid' {
+            $WindowsSigning = "signed (Authenticode valid; signer $($Authenticode.SignerCertificate.Subject))"
+        }
+        'NotSigned' {
+            $WindowsSigning = 'unsigned (Authenticode is not configured)'
+        }
+        default {
+            throw "The Windows executable reports Authenticode status '$($Authenticode.Status)'. Refusing to stage a binary whose signature is broken or untrusted."
+        }
+    }
+    # path_provider_windows builds the application-support directory out of
+    # CompanyName and ProductName, so this pair decides which task library the
+    # build opens. Changing either value moves the library: see
+    # docs/RELEASE_VALIDATION.md before doing it.
+    $WindowsAppDataDir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) (Join-Path $ExeInfo.CompanyName $ExeInfo.ProductName)
     $WindowsProof += "productName=$($ExeInfo.ProductName)"
+    $WindowsProof += "companyName=$($ExeInfo.CompanyName)"
+    $WindowsProof += "appDataDir=$WindowsAppDataDir"
     $WindowsProof += "fileVersionString=$($ExeInfo.FileVersion)"
     $WindowsProof += "fileVersionNumeric=$(($NumericActual -join '.'))"
     $WindowsProof += "fileDescription=$($ExeInfo.FileDescription)"
@@ -475,15 +564,16 @@ if ($BuildsWindows) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $Archive = [System.IO.Compression.ZipFile]::OpenRead($WindowsZipPath)
     try {
-        $EntryNames = @($Archive.Entries | ForEach-Object { $_.FullName -replace '/', '\' })
+        # ZIP entries always use '/', independent of the host separator.
+        $EntryNames = @($Archive.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
     } finally {
         $Archive.Dispose()
     }
     if ($EntryNames -notcontains 'compoise.exe') {
         throw 'The staged ZIP does not contain compoise.exe.'
     }
-    if ($EntryNames -notcontains 'data\app.so') {
-        throw 'The staged ZIP does not contain data\app.so.'
+    if ($EntryNames -notcontains 'data/app.so') {
+        throw 'The staged ZIP does not contain data/app.so.'
     }
     $WindowsProof += "zipEntries=$($EntryNames.Count)"
 }
@@ -514,7 +604,12 @@ $ChecksumLines | Out-File -FilePath $ChecksumFilePath -Encoding ASCII -Force
 
 $GitCommit = (& git -C $ProjectRoot rev-parse HEAD 2>$null)
 $GitBranch = (& git -C $ProjectRoot rev-parse --abbrev-ref HEAD 2>$null)
-$GitDirty = @(& git -C $ProjectRoot status --porcelain 2>$null).Count -gt 0
+# Untracked noise counts as dirty: `flutter pub get` regenerates
+# linux/flutter/generated_*, which the repository does not track. The paths are
+# recorded so a reviewer can tell that apart from a real source change.
+$GitStatus = @(& git -C $ProjectRoot status --porcelain 2>$null)
+$GitDirty = $GitStatus.Count -gt 0
+$GitDirtyPaths = (($GitStatus | ForEach-Object { $_.Trim() }) -join ' | ')
 $TagRecord = if ($ExpectedTag) { $ExpectedTag } else { 'not-provided' }
 
 $ManifestLines = @(
@@ -527,12 +622,15 @@ $ManifestLines = @(
     "gitCommit=$GitCommit",
     "gitBranch=$GitBranch",
     "gitWorkingTreeDirty=$GitDirty",
+    "gitWorkingTreePaths=$GitDirtyPaths",
     "flutterSdk=$FlutterSdk",
     "flutterVersion=$FlutterVersionText",
     "dartVersion=$DartVersionText",
-    "toolchainPinMatches=$ToolchainMatch",
+    "toolchainPinState=$ToolchainPinState",
+    "toolchainPinMatches=$($ToolchainPinState -eq 'matches')",
     "signingSource=$SigningSource",
-    'windowsCodeSigning=unsigned (Authenticode is not configured)',
+    "windowsCodeSigning=$WindowsSigning",
+    'license=GPL-3.0-only',
     ''
 )
 if ($AndroidProof.Count -gt 0) {
