@@ -102,7 +102,16 @@ void main() {
       isTrue,
     );
 
-    expect(release.contains('sha256sum \$artifacts > SHA256SUMS.txt'), isTrue);
+    // Checksums are generated for the two binaries plus the metadata record,
+    // and re-verified inside the job before anything is uploaded.
+    expect(
+      release.contains(
+        "printf '%s\\n' \"\$artifacts\" RELEASE_METADATA.txt | sort | "
+        'xargs -d \'\\n\' sha256sum > SHA256SUMS.txt',
+      ),
+      isTrue,
+    );
+    expect(release.contains('sha256sum -c --strict SHA256SUMS.txt'), isTrue);
     expect(
       release.contains(
         'Refusing to publish: expected exactly one APK and one '
@@ -113,7 +122,7 @@ void main() {
     expect(release.contains('draft: true'), isTrue);
     expect(release.contains('prerelease: false'), isTrue);
     expect(release.contains('RELEASE_NOTES.md'), isTrue);
-    expect(release.contains('not code-signed'), isTrue);
+    expect(release.contains('Not code-signed'), isTrue);
   });
 
   test('packaging script stages one version and refuses unsigned releases', () {
@@ -280,5 +289,136 @@ void main() {
       ).contains('assets/branding/CompoiseLogo.png'),
       isTrue,
     );
+  });
+
+  test('release workflow traces the build and states each platform fact', () {
+    // The Android gate pins the certificate, not just "not the debug key".
+    expect('secrets.ANDROID_RELEASE_CERT_SHA256'.allMatches(release).length, 2);
+    expect(release.contains('Refusing to publish a debug-signed APK.'), isTrue);
+    expect(release.contains('apkSignerCheck=matches'), isTrue);
+    expect(release.contains('name: android-signing-proof'), isTrue);
+    expect(
+      release.contains('without the Android signing proof'),
+      isTrue,
+      reason: 'publish must refuse when the signer cannot be traced',
+    );
+
+    // Published provenance: full commit, pinned toolchain, verified checksums.
+    expect(release.contains('RELEASE_METADATA.txt'), isTrue);
+    expect(release.contains(r"^commit=[0-9a-f]\{40\}$"), isTrue);
+    expect(release.contains('pin flutterVersion'), isTrue);
+    expect(release.contains('rm -rf release_artifacts build_proofs'), isTrue);
+
+    expect(release.contains('Not code-signed'), isTrue);
+    expect(release.contains('linuxDesktop=preview only'), isTrue);
+    expect(release.contains('License: GPL-3.0-only'), isTrue);
+  });
+
+  test('Linux stays a CI-compiled preview with no published package', () {
+    final linuxJob = release
+        .split('build-linux:')
+        .last
+        .split('publish-release:')
+        .first;
+    expect(linuxJob.contains('flutter build linux --release --no-pub'), isTrue);
+    expect(linuxJob.contains('build/linux/x64/release/bundle'), isTrue);
+    expect(linuxJob.contains('matrixflow_native'), isTrue);
+    expect(
+      linuxJob.contains('No Linux installer, archive or checksum is published'),
+      isTrue,
+    );
+    // The Linux target keeps its historical binary name; renaming it there must
+    // not be confused with the Windows compoise.exe identity checked elsewhere.
+    expect(
+      text('linux/CMakeLists.txt').contains('set(BINARY_NAME "matrixflow_native")'),
+      isTrue,
+    );
+
+    final published = release.split('Create GitHub Release').last;
+    for (final package in ['.deb', '.AppImage', '.tar.', 'snapcraft', 'flatpak']) {
+      expect(published.contains(package), isFalse, reason: package);
+    }
+  });
+
+  test('packaging script stays runnable on the Linux preflight runner', () {
+    expect(script.contains('function Join-RepoPath'), isTrue);
+    expect(script.contains(r'[System.IO.Path]::Combine'), isTrue);
+    expect(script.contains(r'[System.IO.Path]::DirectorySeparatorChar'), isTrue);
+    expect(script.contains('[System.PlatformID]::Win32NT'), isTrue);
+
+    // A backslash baked into a joined path silently stops existing on POSIX,
+    // which is what made the release preflight unrunnable on ubuntu runners.
+    for (final windowsOnly in [
+      r"$StagingDir.StartsWith(",
+      r"Join-Path $FlutterDir 'android\",
+      r"Join-Path $FlutterDir 'build\",
+      r"Join-Path $FlutterSdk 'bin\",
+    ]) {
+      expect(script.contains(windowsOnly), isFalse, reason: windowsOnly);
+    }
+    expect(script.contains(r'Split-Path -Parent $StagingDir'), isTrue);
+
+    // storeFile resolves the way android/app/build.gradle.kts resolves it, so a
+    // documented layout is never refused by the packaging gate.
+    expect(
+      script.contains(r"@('android', 'app', $Declared)"),
+      isTrue,
+    );
+    expect(
+      script.contains(
+        r"Join-RepoPath $FlutterDir @('android', 'app', 'key.properties')",
+      ),
+      isTrue,
+    );
+    expect(script.contains("'data/app.so'"), isTrue);
+    expect(script.contains(r"'data\app.so'"), isFalse);
+  });
+
+  test('packaging script never claims an unprobed toolchain or platform', () {
+    expect(script.contains(r'$ToolchainMatch'), isFalse);
+    expect(
+      script.contains("'not probed (Flutter SDK not found)'"),
+      isTrue,
+      reason: 'a missing SDK must not read as pin compliance',
+    );
+    expect(script.contains(r"$ToolchainPinState -ne 'matches'"), isTrue);
+    expect(script.contains('toolchainPinState='), isTrue);
+    expect(script.contains('Linux desktop: preview only.'), isTrue);
+    expect(script.contains('license=GPL-3.0-only'), isTrue);
+  });
+
+  test('Windows identity fields are the library location and are documented', () {
+    // path_provider_windows builds %APPDATA%\<CompanyName>\<ProductName> from
+    // these fields, so changing either one moves the task library on upgrade.
+    expect(runnerRc.contains('"CompanyName", "Compoise"'), isTrue);
+    expect(runnerRc.contains('"ProductName", "Compoise"'), isTrue);
+    expect(script.contains(r"if ($ExeInfo.CompanyName -ne 'Compoise')"), isTrue);
+    expect(script.contains('appDataDir='), isTrue);
+    expect(release.contains('appDataDir='), isTrue);
+
+    final validation = text('docs/RELEASE_VALIDATION.md');
+    expect(validation.contains(r'%APPDATA%\Compoise\Compoise'), isTrue);
+    expect(validation.contains(r'%APPDATA%\com.matrixflow\MatrixFlow AI'), isTrue);
+    expect(validation.contains('d9e3b56'), isTrue);
+    expect(
+      text('docs/README.md').contains('RELEASE_VALIDATION.md'),
+      isTrue,
+      reason: 'the release checklist has to be reachable from the doc index',
+    );
+  });
+
+  test('GPL-3.0-only is the license every release surface states', () {
+    final license = text('LICENSE');
+    // The FSF boilerplate carries no SPDX identifier; "only" is declared by the
+    // surfaces below, and the file must stay the version 3 text itself.
+    expect(license.contains('GNU GENERAL PUBLIC LICENSE'), isTrue);
+    expect(license.contains('Version 3, 29 June 2007'), isTrue);
+    expect(license.contains('either version 3 of the License, or'), isTrue);
+    expect(text('.github/CONTRIBUTING.md').contains('GPL-3.0-only'), isTrue);
+    expect(text('README.md').contains('GPL--3.0--only'), isTrue);
+    expect(script.contains('license=GPL-3.0-only'), isTrue);
+    expect(release.contains('license=GPL-3.0-only'), isTrue);
+    expect(text('docs/RELEASE_VALIDATION.md').contains('GPL-3.0-only'), isTrue);
+    expect(pubspec.contains('license:'), isFalse);
   });
 }

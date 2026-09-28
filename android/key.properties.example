@@ -6,8 +6,11 @@ with the real release credentials, and keep it out of Git: `.gitignore` already
 ignores `key.properties`, `keystore.properties`, `*.jks`, `*.keystore`, `*.pfx`
 and `*.p12`.
 
-`storeFile` is resolved relative to this file when it is not an absolute path,
-so `release.jks` means `android/app/release.jks`.
+`storeFile` is resolved the way `android/app/build.gradle.kts` resolves it: an
+absolute path is used as declared, otherwise it is looked up under
+`android/app/` first and then in the directory holding this file. So
+`release.jks` means `android/app/release.jks`, which is also the layout the CI
+workflow writes together with `android/key.properties`.
 
 ```properties
 keyAlias=matrixflow-release

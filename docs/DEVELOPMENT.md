@@ -64,6 +64,8 @@ Android 正式发行需要发布签名。`android/key.properties.example` 是无
 powershell -File scripts/build_release.ps1 -ValidateOnly -ExpectedTag v1.0.0+1
 ```
 
+预检在 Linux 的 `pwsh` 下同样可运行。该脚本只暂存 Android 与 Windows 产物；Linux 桌面仍是预览版，CI 仅编译并检查 release bundle，不打包、不签名、不发布安装包。安装包核对、原位升级保留任务、备份往返与发行缺项见 [发行验证清单](RELEASE_VALIDATION.md)。
+
 ## 数据与隐私边界
 
 普通任务数据保存在本机。AI 密钥保存在系统安全凭据存储；用户主动调用 AI 时，相关任务文本会发送到其设置的模型端点。默认 JSON 备份不含密钥；显式选择加入时，备份内的密钥是明文。请勿提交真实任务备份、API 密钥、签名材料、日志或本机配置。
