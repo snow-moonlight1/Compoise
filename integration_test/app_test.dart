@@ -98,9 +98,9 @@ Future<void> main() async {
       requests.clear();
 
       await tester.tap(find.byKey(const ValueKey('add-task-btn')));
-      await _waitFor(tester, find.byKey(const ValueKey('task-input')));
+      await _waitFor(tester, find.byKey(const ValueKey('task-step-0')));
       await tester.enterText(
-        find.byKey(const ValueKey('task-input')),
+        find.byKey(const ValueKey('task-step-0')),
         'Manual Flutter Task',
       );
       await tester.tap(find.byKey(const ValueKey('submit-tasks')));
