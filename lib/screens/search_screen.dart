@@ -114,6 +114,7 @@ class _SearchScreenState extends State<SearchScreen> {
       quadrant: _applied.quadrant,
       status: _applied.status,
       dateFilter: _applied.date,
+      tags: _applied.tags,
     );
     final policy = PlatformUiPolicy.of(context);
     final boardName = _boardName(store, activeBoardId);
@@ -147,7 +148,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   'search-$activeBoardId#${store.boardEpoch(activeBoardId)}'
                   '#${_searchController.text}#${_applied.scope.name}'
                   '#${_applied.status.name}#${_applied.quadrant}'
-                  '#${_applied.date.name}',
+                  '#${_applied.date.name}#${_applied.tags.join(',')}',
               idOf: (hit) => hit.resultKey,
               keepIfMissing:
                   (hit) => store.tasks.any((task) => task.id == hit.task.id),

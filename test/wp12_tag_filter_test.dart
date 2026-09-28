@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/models.dart';
+import 'package:matrixflow_native/screens/search_screen.dart';
 import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/task_filter.dart';
 import 'package:matrixflow_native/task_query.dart';
 import 'package:matrixflow_native/widgets/task_filter_panel.dart';
 import 'package:provider/provider.dart';
@@ -440,6 +440,109 @@ void main() {
         tags: criteria.tags,
       );
       expect(hits.map((hit) => hit.task.id), ['t1']);
+    });
+  });
+
+  group('search screen wiring', () {
+    Future<Store> library() => makeStore(
+      boards: [Board(id: 'b-a', name: 'Work', createdAt: 1000)],
+      tasks: [
+        Task(
+          id: 't1',
+          boardId: 'b-a',
+          title: 'Alpha',
+          quadrant: qDo,
+          createdAt: 1000,
+          tags: ['Work', '家庭'],
+        ),
+        Task(
+          id: 't2',
+          boardId: 'b-a',
+          title: 'Beta',
+          quadrant: qDo,
+          createdAt: 1000,
+          tags: ['Work'],
+        ),
+        Task(
+          id: 't3',
+          boardId: 'b-a',
+          title: 'Gamma',
+          quadrant: qDo,
+          createdAt: 1000,
+        ),
+      ],
+    ).then((value) => value.$1);
+
+    Future<void> pumpSearch(WidgetTester tester, Store store) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: store,
+          child: MaterialApp(
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
+            home: SearchScreen(initialBoardId: 'b-a'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> pickTag(WidgetTester tester, String tag) async {
+      final finder = find.byKey(ValueKey('filter-tag-$tag'));
+      await tester.ensureVisible(finder);
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('one tag narrows the list, a second tag narrows it further', (
+      tester,
+    ) async {
+      final store = await library();
+      await pumpSearch(tester, store);
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.text('Beta'), findsOneWidget);
+      expect(find.text('Gamma'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('filter-open-btn')));
+      await tester.pumpAndSettle();
+      await pickTag(tester, 'Work');
+      await pickTag(tester, '家庭');
+      await tester.tap(find.byKey(const ValueKey('filter-apply-btn')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(
+        find.text('Beta'),
+        findsNothing,
+        reason: 'Beta misses the second tag, and tags are AND',
+      );
+      expect(find.text('Gamma'), findsNothing);
+      expect(find.text('Work'), findsWidgets);
+      expect(find.text('家庭'), findsWidgets);
+      store.dispose();
+    });
+
+    testWidgets('clearing the tag filter brings every task back', (
+      tester,
+    ) async {
+      final store = await library();
+      await pumpSearch(tester, store);
+      await tester.tap(find.byKey(const ValueKey('filter-open-btn')));
+      await tester.pumpAndSettle();
+      await pickTag(tester, '家庭');
+      await tester.tap(find.byKey(const ValueKey('filter-apply-btn')));
+      await tester.pumpAndSettle();
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.text('Beta'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('clear-filters-btn')));
+      await tester.pumpAndSettle();
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.text('Beta'), findsOneWidget);
+      expect(find.text('Gamma'), findsOneWidget);
+      store.dispose();
     });
   });
 }
