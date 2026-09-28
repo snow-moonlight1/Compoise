@@ -33,9 +33,8 @@ void main() {
       final draft = TaskEditDraft(loaded, onChanged: () {});
       draft.titleController.text = 'Renamed here';
 
-      final live = _task(
-        notesMarkdown: 'written from a list',
-      )..completed = true;
+      final live = _task(notesMarkdown: 'written from a list')
+        ..completed = true;
       final saved = draft.applyTo(live);
 
       expect(saved.title, 'Renamed here');
@@ -61,26 +60,37 @@ void main() {
       draft.dispose();
     });
 
-    test('a child completed elsewhere survives a draft that edited its sibling',
-        () {
-      final loaded = _task(subtasks: [
-        SubTask(id: 's1', title: 'Untouched'),
-        SubTask(id: 's2', title: 'Touched'),
-      ]);
-      final draft = TaskEditDraft(loaded, onChanged: () {});
-      draft.subtasks.firstWhere((sub) => sub.id == 's2').title = 'Renamed';
+    test(
+      'a child completed elsewhere survives a draft that edited its sibling',
+      () {
+        final loaded = _task(
+          subtasks: [
+            SubTask(id: 's1', title: 'Untouched'),
+            SubTask(id: 's2', title: 'Touched'),
+          ],
+        );
+        final draft = TaskEditDraft(loaded, onChanged: () {});
+        draft.subtasks.firstWhere((sub) => sub.id == 's2').title = 'Renamed';
 
-      final live = _task(subtasks: [
-        SubTask(id: 's1', title: 'Untouched', completed: true, completedAt: 7),
-        SubTask(id: 's2', title: 'Touched'),
-      ]);
-      final merged = draft.applyTo(live).subtasks;
+        final live = _task(
+          subtasks: [
+            SubTask(
+              id: 's1',
+              title: 'Untouched',
+              completed: true,
+              completedAt: 7,
+            ),
+            SubTask(id: 's2', title: 'Touched'),
+          ],
+        );
+        final merged = draft.applyTo(live).subtasks;
 
-      expect(merged.firstWhere((sub) => sub.id == 's1').completed, isTrue);
-      expect(merged.firstWhere((sub) => sub.id == 's1').completedAt, 7);
-      expect(merged.firstWhere((sub) => sub.id == 's2').title, 'Renamed');
-      draft.dispose();
-    });
+        expect(merged.firstWhere((sub) => sub.id == 's1').completed, isTrue);
+        expect(merged.firstWhere((sub) => sub.id == 's1').completedAt, 7);
+        expect(merged.firstWhere((sub) => sub.id == 's2').title, 'Renamed');
+        draft.dispose();
+      },
+    );
 
     test('a close that was already decided stops looking like a draft', () {
       final loaded = _task();
@@ -163,8 +173,7 @@ void main() {
       tester,
     ) async {
       final store = await _store([
-        _seed('Alpha')
-          ..subtasks = [SubTask(id: 'child-1', title: 'Child')],
+        _seed('Alpha')..subtasks = [SubTask(id: 'child-1', title: 'Child')],
       ]);
       await _surface(tester, const Size(1200, 1600));
       await tester.pumpWidget(
@@ -175,7 +184,12 @@ void main() {
       for (var round = 0; round < 3; round++) {
         await _openChildDialog(tester, 'child-1');
         final title = _controller(tester, 'subtask-edit-title');
+        await tester.tap(find.byKey(const ValueKey('subtask-notes-entry')));
+        await tester.pumpAndSettle();
         final notes = _controller(tester, 'subtask-edit-notes');
+        await tester.tap(find.text('Cancel').last);
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.tap(find.byKey(const ValueKey('subtask-cancel-btn')));
         await tester.pumpAndSettle();
 
@@ -206,8 +220,7 @@ void main() {
       tester,
     ) async {
       final store = await _store([
-        _seed('Alpha')
-          ..subtasks = [SubTask(id: 'child-1', title: 'Child')],
+        _seed('Alpha')..subtasks = [SubTask(id: 'child-1', title: 'Child')],
       ]);
       await _surface(tester, const Size(1200, 1600));
       await tester.pumpWidget(
@@ -357,19 +370,15 @@ void main() {
 }
 
 Widget _pushSettings() => Builder(
-  builder:
-      (context) => Scaffold(
-        body: TextButton(
-          onPressed:
-              () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const SettingsScreen(),
-                ),
-              ),
-          child: const Text('Open settings'),
-        ),
+  builder: (context) => Scaffold(
+    body: TextButton(
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
       ),
+      child: const Text('Open settings'),
+    ),
+  ),
 );
 
 Task _seed(String title) => Task(
@@ -424,10 +433,8 @@ Widget _host(Store store, Widget child) => ChangeNotifierProvider.value(
 );
 
 /// A bare editor needs a Scaffold ancestor, which the pages bring themselves.
-Widget _panelHost(Store store, Widget editor) => _host(
-  store,
-  Scaffold(body: editor),
-);
+Widget _panelHost(Store store, Widget editor) =>
+    _host(store, Scaffold(body: editor));
 
 Future<void> _surface(WidgetTester tester, Size size) async {
   await tester.binding.setSurfaceSize(size);

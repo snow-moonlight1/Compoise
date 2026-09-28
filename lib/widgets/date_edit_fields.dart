@@ -9,6 +9,160 @@ import 'package:flutter/material.dart';
 import '../calendar_dates.dart';
 import 'reminder_access.dart';
 
+class TaskTimeSelection {
+  const TaskTimeSelection(this.deadline, this.reminderAt);
+  final DateTime? deadline;
+  final int? reminderAt;
+}
+
+/// Edits both time properties in isolation. Closing or cancelling the dialog
+/// returns null, so the caller's larger task draft remains untouched.
+Future<TaskTimeSelection?> showTaskTimeEditor(
+  BuildContext context, {
+  required Map<String, String> t,
+  DateTime? deadline,
+  int? reminderAt,
+}) => showDialog<TaskTimeSelection>(
+  context: context,
+  builder: (_) =>
+      _TaskTimeDialog(t: t, deadline: deadline, reminderAt: reminderAt),
+);
+
+class _TaskTimeDialog extends StatefulWidget {
+  const _TaskTimeDialog({
+    required this.t,
+    required this.deadline,
+    required this.reminderAt,
+  });
+  final Map<String, String> t;
+  final DateTime? deadline;
+  final int? reminderAt;
+
+  @override
+  State<_TaskTimeDialog> createState() => _TaskTimeDialogState();
+}
+
+class _TaskTimeDialogState extends State<_TaskTimeDialog> {
+  late DateTime? _deadline = widget.deadline;
+  late int? _reminderAt = widget.reminderAt;
+
+  Future<void> _preset(DateTime moment) async {
+    await applyPresetReminderMoment(
+      context,
+      t: widget.t,
+      moment: moment,
+      onPicked: (value) {
+        if (mounted) setState(() => _reminderAt = value);
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final now = DateTime.now();
+    final tomorrow = addCivilDays(now, 1);
+    return AlertDialog(
+      title: Text(t['timePanel']!),
+      content: SizedBox(
+        width: 360,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t['deadline']!,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              DeadlineDayChips(
+                t: t,
+                keyPrefix: 'deadline',
+                selected: _deadline,
+                onChanged: (value) => setState(() => _deadline = value),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                t['reminder']!,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              if (_reminderAt != null) ...[
+                const SizedBox(height: 8),
+                Text(formatCivilDateTimeMs(_reminderAt!)),
+              ],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (_deadline != null)
+                    ActionChip(
+                      key: const ValueKey('reminder-quick-due-date'),
+                      label: Text(t['reminderOnDueDate']!),
+                      onPressed: () => _preset(
+                        DateTime(
+                          _deadline!.year,
+                          _deadline!.month,
+                          _deadline!.day,
+                          9,
+                        ),
+                      ),
+                    ),
+                  ActionChip(
+                    key: const ValueKey('reminder-quick-today-18'),
+                    label: Text(t['reminderToday18']!),
+                    onPressed: () =>
+                        _preset(DateTime(now.year, now.month, now.day, 18)),
+                  ),
+                  ActionChip(
+                    key: const ValueKey('reminder-quick-tomorrow-9'),
+                    label: Text(t['reminderTomorrow9']!),
+                    onPressed: () => _preset(
+                      DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 9),
+                    ),
+                  ),
+                  ActionChip(
+                    key: const ValueKey('reminder-quick-custom'),
+                    label: Text(t['customReminder']!),
+                    onPressed: () => pickReminderMoment(
+                      context,
+                      t: t,
+                      reminderAt: _reminderAt,
+                      deadline: _deadline,
+                      onPicked: (value) {
+                        if (mounted) setState(() => _reminderAt = value);
+                      },
+                    ),
+                  ),
+                  if (_reminderAt != null)
+                    ActionChip(
+                      key: const ValueKey('clear-reminder-btn'),
+                      label: Text(t['clearReminder']!),
+                      onPressed: () => setState(() => _reminderAt = null),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(t['cancel']!),
+        ),
+        FilledButton(
+          key: const ValueKey('time-confirm'),
+          onPressed: () =>
+              Navigator.pop(context, TaskTimeSelection(_deadline, _reminderAt)),
+          child: Text(t['confirm']!),
+        ),
+      ],
+    );
+  }
+}
+
 /// Two instants on the same local year/month/day. A reminder keeps its exact
 /// moment; a deadline is a civil day, so this is the comparison that counts.
 bool isSameCivilDay(DateTime? a, DateTime? b) {
@@ -20,11 +174,9 @@ bool isSameCivilDay(DateTime? a, DateTime? b) {
 DateTime civilToday() => civilDate(DateTime.now());
 
 /// Deadline instant for a chosen day: end of that civil day.
-int? endOfCivilDayMs(DateTime? day) =>
-    day == null
-        ? null
-        : DateTime(day.year, day.month, day.day, 23, 59, 59)
-              .millisecondsSinceEpoch;
+int? endOfCivilDayMs(DateTime? day) => day == null
+    ? null
+    : DateTime(day.year, day.month, day.day, 23, 59, 59).millisecondsSinceEpoch;
 
 /// Whether [candidate] is later than the end of the parent's [parentDeadline]
 /// day. Shared by every editor that shows the after-parent warning.
@@ -101,12 +253,11 @@ Future<void> pickReminderMoment(
 
   final pickedTime = await showTimePicker(
     context: context,
-    initialTime:
-        reminderAt == null
-            ? const TimeOfDay(hour: 9, minute: 0)
-            : TimeOfDay.fromDateTime(
-              DateTime.fromMillisecondsSinceEpoch(reminderAt),
-            ),
+    initialTime: reminderAt == null
+        ? const TimeOfDay(hour: 9, minute: 0)
+        : TimeOfDay.fromDateTime(
+            DateTime.fromMillisecondsSinceEpoch(reminderAt),
+          ),
   );
   if (pickedTime == null || !context.mounted) return;
 
@@ -194,32 +345,33 @@ class DeadlineDayChips extends StatelessWidget {
           avatar: const Icon(Icons.today, size: 16),
           label: Text(t['today']!),
           selected: isSameCivilDay(selected, today),
-          onSelected:
-              enabled ? (value) => onChanged(value ? today : null) : null,
+          onSelected: enabled
+              ? (value) => onChanged(value ? today : null)
+              : null,
         ),
         ChoiceChip(
           key: _key('tomorrow'),
           avatar: const Icon(Icons.event, size: 16),
           label: Text(t['tomorrow']!),
           selected: isSameCivilDay(selected, tomorrow),
-          onSelected:
-              enabled ? (value) => onChanged(value ? tomorrow : null) : null,
+          onSelected: enabled
+              ? (value) => onChanged(value ? tomorrow : null)
+              : null,
         ),
         ChoiceChip(
           key: _key('custom'),
           avatar: const Icon(Icons.calendar_month, size: 16),
           label: Text(isCustom ? formatCivilDate(selected!) : t['pickDate']!),
           selected: isCustom,
-          onSelected:
-              enabled
-                  ? (_) async {
-                    final picked = await pickDeadlineDay(
-                      context,
-                      selected: selected ?? today,
-                    );
-                    if (picked != null) onChanged(picked);
-                  }
-                  : null,
+          onSelected: enabled
+              ? (_) async {
+                  final picked = await pickDeadlineDay(
+                    context,
+                    selected: selected ?? today,
+                  );
+                  if (picked != null) onChanged(picked);
+                }
+              : null,
         ),
         if (selected != null)
           IconButton(

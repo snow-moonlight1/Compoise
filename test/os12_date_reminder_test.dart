@@ -292,8 +292,7 @@ void main() {
       );
       await _cancelPicker(tester);
 
-      await tester.ensureVisible(find.byKey(const ValueKey('edit-deadline-btn')));
-      await tester.tap(find.byKey(const ValueKey('edit-deadline-btn')));
+      await tester.tap(find.byKey(const ValueKey('deadline-custom')));
       await tester.pumpAndSettle();
       final deadlineDialog = tester.widget<DatePickerDialog>(
         find.byType(DatePickerDialog),
@@ -319,8 +318,9 @@ void main() {
       final (store, task) = await _task(deadline: stored);
 
       await _pumpPanel(tester, store, task);
-      await tester.ensureVisible(find.byKey(const ValueKey('edit-deadline-btn')));
-      await tester.tap(find.byKey(const ValueKey('edit-deadline-btn')));
+      await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('deadline-custom')));
       await tester.pumpAndSettle();
       final dialog = tester.widget<DatePickerDialog>(
         find.byType(DatePickerDialog),
@@ -384,7 +384,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(TimePickerDialog), findsOneWidget);
-        await tester.tap(find.text('Cancel'));
+        await tester.tap(find.descendant(
+          of: find.byType(TimePickerDialog),
+          matching: find.text('Cancel'),
+        ));
         await tester.pumpAndSettle();
         expect(store.tasks.single.deadline, stored.millisecondsSinceEpoch);
         expect(store.tasks.single.reminderAt, isNull);
@@ -419,7 +422,9 @@ void main() {
         _inset(tester);
         await tester.pump();
         expect(tester.takeException(), isNull);
-        await tester.tap(find.byKey(const ValueKey('subtask-reminder-btn')));
+        await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('reminder-quick-custom')));
         await tester.pumpAndSettle();
         final dialog = tester.widget<DatePickerDialog>(
           find.byType(DatePickerDialog),
@@ -427,6 +432,8 @@ void main() {
         expect(civilDate(dialog.initialDate!), isNot(DateTime(2190, 6, 15)));
         expect(dialog.initialDate!.isAfter(dialog.lastDate), isFalse);
         await _cancelPicker(tester);
+        await tester.tap(find.text('Cancel').last);
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('subtask-cancel-btn')));
         await tester.pumpAndSettle();
         expect(
@@ -441,10 +448,12 @@ void main() {
         final before = civilDate(DateTime.now());
         await tester.tap(find.byKey(const ValueKey('subtask-item-child-1')));
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('subtask-deadline-tomorrow')),
-        );
+        await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
         await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('time-confirm')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('save-task')));
@@ -482,20 +491,24 @@ void main() {
         );
         await tester.pumpAndSettle();
         final before = civilDate(DateTime.now());
-        await tester.showKeyboard(find.byKey(const ValueKey('task-input')));
+        await tester.showKeyboard(find.byKey(const ValueKey('task-step-0')));
         _inset(tester);
         await tester.enterText(
-          find.byKey(const ValueKey('task-input')),
+          find.byKey(const ValueKey('task-step-0')),
           'Tomorrow task',
         );
         await tester.pump();
         expect(tester.takeException(), isNull);
+        await tester.tap(find.byKey(const ValueKey('input-time-btn')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
         await tester.pump();
-        await tester.tap(find.byKey(const ValueKey('input-reminder-btn')));
+        await tester.tap(find.byKey(const ValueKey('reminder-quick-custom')));
         await tester.pumpAndSettle();
         expect(find.byType(DatePickerDialog), findsOneWidget);
         await _cancelPicker(tester);
+        await tester.tap(find.byKey(const ValueKey('time-confirm')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('submit-tasks')));
         await tester.pumpAndSettle();
         final after = civilDate(DateTime.now());
@@ -528,9 +541,11 @@ void main() {
         );
         await tester.pumpAndSettle();
         await tester.enterText(
-          find.byKey(const ValueKey('task-input')),
+          find.byKey(const ValueKey('task-step-0')),
           'Far deadline',
         );
+        await tester.tap(find.byKey(const ValueKey('input-time-btn')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('deadline-custom')));
         await tester.pumpAndSettle();
         await _switchToInput(tester);
@@ -545,7 +560,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('2190-06-15'), findsOneWidget);
 
-        await tester.tap(find.byKey(const ValueKey('input-reminder-btn')));
+        await tester.tap(find.byKey(const ValueKey('reminder-quick-custom')));
         await tester.pumpAndSettle();
         final dialog = tester.widget<DatePickerDialog>(
           find.byType(DatePickerDialog),
@@ -556,6 +571,8 @@ void main() {
           addCivilYears(civilDate(dialog.firstDate), reminderPickerYearSpan),
         );
         await _cancelPicker(tester);
+        await tester.tap(find.byKey(const ValueKey('time-confirm')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('submit-tasks')));
         await tester.pumpAndSettle();
         final saved = DateTime.fromMillisecondsSinceEpoch(
@@ -574,11 +591,15 @@ void main() {
         final (store, task) = await _task(deadline: stored);
 
         await _pumpPanel(tester, store, task);
+        await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+        await tester.pumpAndSettle();
         await tester.ensureVisible(
           find.byKey(const ValueKey('reminder-quick-due-date')),
         );
         await tester.tap(find.byKey(const ValueKey('reminder-quick-due-date')));
         await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('time-confirm')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('save-task')));
         await tester.pumpAndSettle();
         final saved = store.tasks.single;
@@ -591,18 +612,15 @@ void main() {
   });
 }
 
-DateTime _firstWeekCrossing(
-  int year,
-  int month, {
-  required bool crossYear,
-}) {
+DateTime _firstWeekCrossing(int year, int month, {required bool crossYear}) {
   for (var day = 1; day <= 31; day++) {
     final candidate = DateTime(year, month, day, 22, 40);
     if (candidate.month != month) continue;
     final monday = addCivilDays(candidate, 1 - candidate.weekday);
     final sunday = addCivilDays(monday, 6);
-    final crosses =
-        crossYear ? monday.year != sunday.year : monday.month != sunday.month;
+    final crosses = crossYear
+        ? monday.year != sunday.year
+        : monday.month != sunday.month;
     if (crosses) return candidate;
   }
   throw StateError('No crossing week in $year-$month');
@@ -615,22 +633,24 @@ Task _dated(String id, DateTime day, int hour, int minute, int second) {
     title: id,
     quadrant: qPlan,
     createdAt: 1,
-    deadline:
-        DateTime(
-          day.year,
-          day.month,
-          day.day,
-          hour,
-          minute,
-          second,
-        ).millisecondsSinceEpoch,
+    deadline: DateTime(
+      day.year,
+      day.month,
+      day.day,
+      hour,
+      minute,
+      second,
+    ).millisecondsSinceEpoch,
   );
 }
 
 Widget _host(Store store, Widget child) {
   return ChangeNotifierProvider.value(
     value: store,
-    child: MaterialApp(locale: const Locale('en'), home: Scaffold(body: child)),
+    child: MaterialApp(
+      locale: const Locale('en'),
+      home: Scaffold(body: child),
+    ),
   );
 }
 
@@ -673,8 +693,9 @@ Future<void> _pumpPanel(WidgetTester tester, Store store, Task task) async {
 
 Future<void> _openReminder(WidgetTester tester, Store store, Task task) async {
   await _pumpPanel(tester, store, task);
-  await tester.ensureVisible(find.byKey(const ValueKey('edit-reminder-btn')));
-  await tester.tap(find.byKey(const ValueKey('edit-reminder-btn')));
+  await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('reminder-quick-custom')));
   await tester.pumpAndSettle();
   expect(tester.takeException(), isNull);
   expect(find.byType(DatePickerDialog), findsOneWidget);

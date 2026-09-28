@@ -14,12 +14,11 @@ Future<SubTaskEditResult?> showSubtaskEditDialog(
   DateTime? parentDeadline,
 }) => showDialog<SubTaskEditResult>(
   context: context,
-  builder:
-      (dialogContext) => _SubtaskEditDialog(
-        t: t,
-        subtask: subtask,
-        parentDeadline: parentDeadline,
-      ),
+  builder: (dialogContext) => _SubtaskEditDialog(
+    t: t,
+    subtask: subtask,
+    parentDeadline: parentDeadline,
+  ),
 );
 
 /// What the user confirmed in [showSubtaskEditDialog].
@@ -78,8 +77,7 @@ class _SubtaskEditDialogState extends State<_SubtaskEditDialog> {
   }
 
   void _submit() {
-    if (hasPendingImeComposition(_title) ||
-        hasPendingImeComposition(_notes)) {
+    if (hasPendingImeComposition(_title) || hasPendingImeComposition(_notes)) {
       return;
     }
     final title = _title.text.trim();
@@ -94,6 +92,57 @@ class _SubtaskEditDialogState extends State<_SubtaskEditDialog> {
         reminderAt: _reminderAt,
       ),
     );
+  }
+
+  Future<void> _editTime() async {
+    final result = await showTaskTimeEditor(
+      context,
+      t: _t,
+      deadline: _deadline,
+      reminderAt: _reminderAt,
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _deadline = result.deadline;
+      _reminderAt = result.reminderAt;
+    });
+  }
+
+  Future<void> _editNotes() async {
+    final controller = TextEditingController(text: _notes.text);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_t['subtaskNotes']!),
+        content: SizedBox(
+          width: 420,
+          child: TextField(
+            key: const ValueKey('subtask-edit-notes'),
+            controller: controller,
+            autofocus: true,
+            minLines: 4,
+            maxLines: 12,
+            keyboardType: TextInputType.multiline,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(_t['cancel']!),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!hasPendingImeComposition(controller)) {
+                Navigator.pop(dialogContext, controller.text);
+              }
+            },
+            child: Text(_t['confirm']!),
+          ),
+        ],
+      ),
+    );
+    if (mounted && result != null) setState(() => _notes.text = result);
+    Future<void>.delayed(const Duration(milliseconds: 350), controller.dispose);
   }
 
   @override
@@ -118,19 +167,39 @@ class _SubtaskEditDialogState extends State<_SubtaskEditDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              _t['deadline'] ?? 'Deadline',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            TextButton.icon(
+              key: const ValueKey('subtask-notes-entry'),
+              onPressed: _editNotes,
+              icon: const Icon(Icons.notes_outlined),
+              label: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _notes.text.trim().isEmpty ? _t['notesHint']! : _notes.text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
-            const SizedBox(height: 6),
-            DeadlineDayChips(
-              t: _t,
-              keyPrefix: 'subtask-deadline',
-              selected: _deadline,
-              onChanged: (day) => setState(() => _deadline = day),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const ValueKey('subtask-time-btn'),
+              onPressed: _editTime,
+              icon: const Icon(Icons.schedule),
+              label: Text(_t['timePanel']!),
             ),
+            if (_deadline != null || _reminderAt != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  [
+                    if (_deadline != null)
+                      '${_t['deadline']}: ${formatCivilDate(_deadline!)}',
+                    if (_reminderAt != null)
+                      '${_t['reminder']}: ${formatCivilDateTimeMs(_reminderAt!)}',
+                  ].join(' · '),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
             if (isAfterParent)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -140,69 +209,6 @@ class _SubtaskEditDialogState extends State<_SubtaskEditDialog> {
                   style: TextStyle(color: Colors.amber.shade800, fontSize: 12),
                 ),
               ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const ValueKey('subtask-edit-notes'),
-              controller: _notes,
-              minLines: 2,
-              maxLines: 4,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                labelText: _t['subtaskNotes'] ?? _t['notes'] ?? 'Notes',
-                hintText: _t['notesHint'] ?? 'Add notes…',
-                alignLabelWithHint: true,
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _t['reminder'] ?? 'Reminder',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('subtask-reminder-btn'),
-                    icon: Icon(
-                      _reminderAt == null
-                          ? Icons.notifications_none
-                          : Icons.notifications_active,
-                      size: 16,
-                    ),
-                    label: Text(
-                      _reminderAt == null
-                          ? (_t['setReminder'] ?? 'Set Reminder')
-                          : formatCivilDateTimeMs(_reminderAt!),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    onPressed:
-                        () => pickReminderMoment(
-                          context,
-                          t: _t,
-                          reminderAt: _reminderAt,
-                          deadline: _deadline,
-                          onPicked:
-                              (moment) =>
-                                  setState(() => _reminderAt = moment),
-                        ),
-                  ),
-                ),
-                if (_reminderAt != null)
-                  IconButton(
-                    key: const ValueKey('subtask-reminder-clear'),
-                    tooltip: _t['clearReminder'] ?? 'Clear Reminder',
-                    icon: const Icon(Icons.close, size: 18),
-                    visualDensity: VisualDensity.compact,
-                    onPressed:
-                        () => setState(() => _reminderAt = null),
-                  ),
-              ],
-            ),
           ],
         ),
       ),

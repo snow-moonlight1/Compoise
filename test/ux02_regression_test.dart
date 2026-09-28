@@ -32,9 +32,7 @@ void main() {
   }) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      wrapPlatform(store, const MatrixHome(), platform),
-    );
+    await tester.pumpWidget(wrapPlatform(store, const MatrixHome(), platform));
     await tester.pumpAndSettle();
   }
 
@@ -68,10 +66,10 @@ void main() {
     expect(find.byKey(const ValueKey('search-btn')), findsOneWidget);
     expect(find.byKey(const ValueKey('add-task-btn')), findsOneWidget);
     expect(find.byKey(const ValueKey('more-btn')), findsOneWidget);
-    expect(find.byKey(const ValueKey('task-input')), findsNothing);
+    expect(find.byKey(const ValueKey('task-step-0')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('add-task-btn')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('task-input')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-step-0')), findsOneWidget);
     expect(find.textContaining('⌘'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     store.dispose();
@@ -113,43 +111,48 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('UX02: completion rate is opt-in, persisted, and home-more only', (
-    tester,
-  ) async {
-    final (store, _) = await makeStore();
-    expect(store.settings.showCompletionRate, isFalse);
-    store.addTasks([
-      store.newTask('Done')..completed = true,
-      store.newTask('Open', quadrant: 2),
-    ]);
-    await pumpHome(tester, store, platform: TargetPlatform.windows);
-    await tester.tap(find.byKey(const ValueKey('more-btn')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
-    Navigator.of(tester.element(find.byKey(const ValueKey('more-panel')))).pop();
-    await tester.pumpAndSettle();
+  testWidgets(
+    'UX02: completion rate is opt-in, persisted, and home-more only',
+    (tester) async {
+      final (store, _) = await makeStore();
+      expect(store.settings.showCompletionRate, isFalse);
+      store.addTasks([
+        store.newTask('Done')..completed = true,
+        store.newTask('Open', quadrant: 2),
+      ]);
+      await pumpHome(tester, store, platform: TargetPlatform.windows);
+      await tester.tap(find.byKey(const ValueKey('more-btn')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
+      Navigator.of(
+        tester.element(find.byKey(const ValueKey('more-panel'))),
+      ).pop();
+      await tester.pumpAndSettle();
 
-    store.updateSettings((s) => s..showCompletionRate = true);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-btn')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('completion-rate-text')), findsOneWidget);
-    expect(
-      find.textContaining('2'),
-      findsWidgets,
-    );
-    Navigator.of(tester.element(find.byKey(const ValueKey('more-panel')))).pop();
-    await tester.pumpAndSettle();
+      store.updateSettings((s) => s..showCompletionRate = true);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('more-btn')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('completion-rate-text')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('2'), findsWidgets);
+      Navigator.of(
+        tester.element(find.byKey(const ValueKey('more-panel'))),
+      ).pop();
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('more-btn')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('completed-btn')));
-    await tester.pumpAndSettle();
-    expect(find.byType(CompletedScreen), findsOneWidget);
-    expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
-    await tester.pumpWidget(const SizedBox());
-    store.dispose();
-  });
+      await tester.tap(find.byKey(const ValueKey('more-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('completed-btn')));
+      await tester.pumpAndSettle();
+      expect(find.byType(CompletedScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
 
   testWidgets('UX02: missing backup field stays off and settings can enable', (
     tester,
@@ -161,7 +164,9 @@ void main() {
       wrapPlatform(store, const SettingsScreen(), TargetPlatform.windows),
     );
     await tester.pumpAndSettle();
-    final rateToggle = find.byKey(const ValueKey('show-completion-rate-toggle'));
+    final rateToggle = find.byKey(
+      const ValueKey('show-completion-rate-toggle'),
+    );
     await tester.dragUntilVisible(
       rateToggle,
       find.descendant(
@@ -231,8 +236,14 @@ void main() {
   });
 
   test('UX02: shortcut help metadata uses Ctrl and not command palette', () {
-    expect(shortcutHelpItems.any((item) => item.keys.contains('Ctrl + N')), isTrue);
-    expect(shortcutHelpItems.any((item) => item.keys.contains('Ctrl + K')), isFalse);
+    expect(
+      shortcutHelpItems.any((item) => item.keys.contains('Ctrl + N')),
+      isTrue,
+    );
+    expect(
+      shortcutHelpItems.any((item) => item.keys.contains('Ctrl + K')),
+      isFalse,
+    );
     expect(shortcutHelpItems.any((item) => item.keys.contains('⌘')), isFalse);
     expect(
       shortcutHelpItems.any((item) => item.keys.contains('Ctrl + Shift + V')),

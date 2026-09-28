@@ -2068,22 +2068,32 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// a lost ledger cannot be reported as a clean shutdown; data flows such as a
   /// backup export keep the library-only contract. The ledger is awaited only
   /// when a write is actually outstanding.
-  Future<SaveResult> flush({bool includeReminderLedger = false}) async {
+  Future<SaveResult> flush({
+    bool includeReminderLedger = false,
+    bool waitForReminders = true,
+  }) async {
     while (true) {
       final commitBarrier = _commitGate;
       final credentialBarrier = _credentialWrites;
       final reminderBarrier = _reminderSync;
       final reminderEpoch = _reminderEpoch;
-      await Future.wait([commitBarrier, credentialBarrier, reminderBarrier]);
+      await Future.wait([
+        commitBarrier,
+        credentialBarrier,
+        if (waitForReminders) reminderBarrier,
+      ]);
       final ledger =
-          includeReminderLedger && reminderService.hasUnlandedLedgerWrites
+          waitForReminders &&
+                  includeReminderLedger &&
+                  reminderService.hasUnlandedLedgerWrites
           ? await reminderService.flushPendingLedger()
           : null;
       final stable =
           identical(commitBarrier, _commitGate) &&
           identical(credentialBarrier, _credentialWrites) &&
-          identical(reminderBarrier, _reminderSync) &&
-          reminderEpoch == _reminderEpoch;
+          (!waitForReminders ||
+              (identical(reminderBarrier, _reminderSync) &&
+                  reminderEpoch == _reminderEpoch));
       if (!stable) continue;
       if (credentialError != null ||
           _pendingCredentialRollback != null ||
@@ -2097,7 +2107,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<SaveResult> retrySave({bool includeReminderLedger = false}) async {
+  Future<SaveResult> retrySave({
+    bool includeReminderLedger = false,
+    bool waitForReminders = true,
+  }) async {
     if (!ready || hasStartupRecovery) return const SaveResult(false, 0);
     await _drainCommits();
     if (includeReminderLedger && reminderService.hasUnlandedLedgerWrites) {
@@ -2105,14 +2118,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (ledger.failed && !await reminderService.retryPendingLedger()) {
         // Retrying did not land the ledger, so the barrier still owes the
         // caller a failed result instead of the library-only answer.
-        return flush(includeReminderLedger: true);
+        return flush(includeReminderLedger: true, waitForReminders: waitForReminders);
       }
     }
     if (credentialError != null ||
         _pendingCredentialValue != null ||
         _pendingCredentialRollback != null ||
         _credentialMigrationPending) {
-      if (!await retryCredential()) return flush();
+      if (!await retryCredential()) {
+        return flush(waitForReminders: waitForReminders);
+      }
     }
     _savedRevision = _dirtyRevision;
     // Retry means "write the current state again", so it has to make the store
@@ -2120,7 +2135,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _markDirty();
     // A credential retry can queue reminder work, so the ledger barrier is
     // re-checked here instead of trusting the pass above.
-    return flush(includeReminderLedger: includeReminderLedger);
+    return flush(
+      includeReminderLedger: includeReminderLedger,
+      waitForReminders: waitForReminders,
+    );
   }
 
   Future<void> _drainCommits() async {

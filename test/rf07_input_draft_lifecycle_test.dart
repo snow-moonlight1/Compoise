@@ -31,10 +31,13 @@ void main() {
       return hasPendingImeComposition(controller);
     }
 
-    test('RF-R05 finished input leaves a collapsed range, not a composition', () {
-      expect(pending(const TextRange(start: 5, end: 5)), isFalse);
-      expect(pending(const TextRange(start: 0, end: 0)), isFalse);
-    });
+    test(
+      'RF-R05 finished input leaves a collapsed range, not a composition',
+      () {
+        expect(pending(const TextRange(start: 5, end: 5)), isFalse);
+        expect(pending(const TextRange(start: 0, end: 0)), isFalse);
+      },
+    );
 
     test('an absent composition never holds a commit back', () {
       expect(pending(TextRange.empty), isFalse);
@@ -133,11 +136,11 @@ void main() {
         reason: 'a field the draft never touched follows the Store',
       );
       expect(saved.subtasks, hasLength(2));
-      expect(saved.subtasks.firstWhere((sub) => sub.id == 's1').completed, isTrue);
       expect(
-        saved.subtasks.firstWhere((sub) => sub.id == 's1').completedAt,
-        7,
+        saved.subtasks.firstWhere((sub) => sub.id == 's1').completed,
+        isTrue,
       );
+      expect(saved.subtasks.firstWhere((sub) => sub.id == 's1').completedAt, 7);
       expect(
         saved.subtasks.firstWhere((sub) => sub.id != 's1').title,
         'A child',
@@ -172,7 +175,9 @@ void main() {
       await _finish(tester, store);
     });
 
-    testWidgets('an open composition still holds the save back', (tester) async {
+    testWidgets('an open composition still holds the save back', (
+      tester,
+    ) async {
       final store = await _store([_seed('Alpha')]);
       var closed = false;
       await _surface(tester, const Size(1200, 1600));
@@ -206,7 +211,9 @@ void main() {
       await _finish(tester, store);
     });
 
-    testWidgets('the composer adds a finished Japanese subtask', (tester) async {
+    testWidgets('the composer adds a finished Japanese subtask', (
+      tester,
+    ) async {
       final store = await _store([_seed('Alpha')]);
       await _surface(tester, const Size(1200, 1600));
       await _showEditor(tester, store);
@@ -307,6 +314,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(row);
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('subtask-notes-entry')));
+      await tester.pumpAndSettle();
 
       final notes = _controller(tester, 'subtask-edit-notes');
       await tester.showKeyboard(
@@ -318,7 +327,7 @@ void main() {
         composing: TextRange(start: 0, end: 7),
       );
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('subtask-edit-title')),
@@ -332,6 +341,8 @@ void main() {
         composing: TextRange(start: 5, end: 5),
       );
       await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('save-task')));
@@ -342,33 +353,34 @@ void main() {
   });
 
   group('closing with only a typed subtask never loses it silently', () {
-    testWidgets('close asks, and keeping the draft editing preserves the text', (
-      tester,
-    ) async {
-      final store = await _store([_seed('Alpha')]);
-      var closed = false;
-      await _surface(tester, const Size(1200, 1600));
-      await _showEditor(tester, store, onClose: () => closed = true);
+    testWidgets(
+      'close asks, and keeping the draft editing preserves the text',
+      (tester) async {
+        final store = await _store([_seed('Alpha')]);
+        var closed = false;
+        await _surface(tester, const Size(1200, 1600));
+        await _showEditor(tester, store, onClose: () => closed = true);
 
-      await tester.enterText(
-        find.byKey(const ValueKey('edit-new-subtask')),
-        '买牛奶',
-      );
-      await tester.pump();
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pumpAndSettle();
-      expect(find.text('Discard changes?'), findsOneWidget);
+        await tester.enterText(
+          find.byKey(const ValueKey('edit-new-subtask')),
+          '买牛奶',
+        );
+        await tester.pump();
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(TextButton, 'Keep Editing'));
-      await tester.pumpAndSettle();
-      expect(closed, isFalse);
-      expect(
-        _controller(tester, 'edit-new-subtask').text,
-        '买牛奶',
-        reason: 'a cancelled close must not eat what was typed',
-      );
-      await _finish(tester, store);
-    });
+        await tester.tap(find.widgetWithText(TextButton, 'Keep Editing'));
+        await tester.pumpAndSettle();
+        expect(closed, isFalse);
+        expect(
+          _controller(tester, 'edit-new-subtask').text,
+          '买牛奶',
+          reason: 'a cancelled close must not eat what was typed',
+        );
+        await _finish(tester, store);
+      },
+    );
 
     testWidgets('discarding writes nothing at all', (tester) async {
       final store = await _store([_seed('Alpha')]);
@@ -391,7 +403,9 @@ void main() {
       await _finish(tester, store);
     });
 
-    testWidgets('saving writes the typed subtask as a real row', (tester) async {
+    testWidgets('saving writes the typed subtask as a real row', (
+      tester,
+    ) async {
       final store = await _store([_seed('Alpha')]);
       var closed = false;
       await _surface(tester, const Size(1200, 1600));
@@ -424,7 +438,9 @@ void main() {
         '买牛奶',
       );
       await tester.pump();
-      await tester.tap(find.byTooltip('Delete Task'));
+      await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete Task'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
@@ -651,12 +667,12 @@ class _SessionPageState extends State<_SessionPage> {
             child: task == null
                 ? const SizedBox.shrink()
                 : TaskDetailPanel(
-                  key: _detailKey,
-                  task: task,
-                  isSidebar: true,
-                  onDirtyChanged: _detail.reportDraft,
-                  onClose: _detail.handleClose,
-                ),
+                    key: _detailKey,
+                    task: task,
+                    isSidebar: true,
+                    onDirtyChanged: _detail.reportDraft,
+                    onClose: _detail.handleClose,
+                  ),
           ),
         ],
       ),

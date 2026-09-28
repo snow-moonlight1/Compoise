@@ -369,9 +369,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Alpha').first);
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+      await tester.pumpAndSettle();
       final quick = find.byKey(const ValueKey('reminder-quick-tomorrow-9'));
       await tester.ensureVisible(quick);
       await tester.tap(quick);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('save-task')));
       await tester.pumpAndSettle();

@@ -9,6 +9,7 @@ import '../ui/platform_ui_policy.dart';
 import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
 import 'task_edit_draft.dart';
+import 'task_steps_composer.dart';
 
 class InputSheet extends StatefulWidget {
   final InputModePref initialMode;
@@ -27,16 +28,26 @@ class InputSheet extends StatefulWidget {
 class _InputSheetState extends State<InputSheet> {
   late InputModePref _mode = widget.initialMode;
   final _controller = TextEditingController();
+  final _parentTitle = TextEditingController();
+  final _inputFocus = FocusNode();
+  final _stepsKey = GlobalKey<TaskStepsComposerState>();
+  bool _batch = false;
+  bool _parentTitleExplicit = false;
   AICancellation? _request;
   bool _busy = false;
   bool _closed = false;
+  bool _pendingManualSave = false;
   bool _reportedDirty = false;
   String? _error;
   DateTime? _selectedDeadline;
   int? _selectedReminderAt;
 
   bool get _isDirty =>
-      _controller.text.isNotEmpty ||
+      (_mode == InputModePref.single && !_batch
+          ? (_stepsKey.currentState?.text.isNotEmpty ?? false)
+          : _controller.text.isNotEmpty) ||
+      _parentTitle.text.isNotEmpty ||
+      _batch ||
       _mode != widget.initialMode ||
       _selectedDeadline != null ||
       _selectedReminderAt != null;
@@ -45,6 +56,7 @@ class _InputSheetState extends State<InputSheet> {
   void initState() {
     super.initState();
     _controller.addListener(_reportDirty);
+    _parentTitle.addListener(_reportDirty);
   }
 
   void _reportDirty() {
@@ -59,6 +71,9 @@ class _InputSheetState extends State<InputSheet> {
     _request?.cancel();
     _controller.removeListener(_reportDirty);
     _controller.dispose();
+    _parentTitle.removeListener(_reportDirty);
+    _parentTitle.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
@@ -66,11 +81,21 @@ class _InputSheetState extends State<InputSheet> {
   Widget build(BuildContext context) {
     final t = context.watch<Store>().t;
     final policy = PlatformUiPolicy.of(context);
+    final steps = _stepsKey.currentState;
+    final showParentTitle =
+        _mode == InputModePref.single &&
+        !_batch &&
+        (steps?.hasMultipleRows == true || _parentTitleExplicit);
+    final firstStep = steps?.nonEmptySteps.firstOrNull ?? '';
+    final suggestedTitle = firstStep.length > 24
+        ? '${firstStep.substring(0, 24)}…'
+        : firstStep;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _reportDirty();
     });
-    final insets =
-        widget.embedded ? 0.0 : MediaQuery.viewInsetsOf(context).bottom;
+    final insets = widget.embedded
+        ? 0.0
+        : MediaQuery.viewInsetsOf(context).bottom;
     final fields = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -83,26 +108,88 @@ class _InputSheetState extends State<InputSheet> {
                 label: Text(
                   t[mode == InputModePref.single ? 'modeManual' : 'modeAI']!,
                 ),
-                selected: _mode == mode,
-                onSelected: _busy ? null : (_) => setState(() => _mode = mode),
+                selected: _mode == mode && !_batch,
+                onSelected: _busy || _pendingManualSave
+                    ? null
+                    : (_) => _switchMode(mode, false),
               ),
+            ChoiceChip(
+              key: const ValueKey('batch-mode'),
+              label: Text(t['batchIndependent']!),
+              selected: _batch,
+              onSelected: _busy || _pendingManualSave
+                  ? null
+                  : (_) => _switchMode(InputModePref.single, true),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        TextField(
-          key: const ValueKey('task-input'),
-          controller: _controller,
-          readOnly: _busy,
-          maxLines: 5,
-          minLines: 3,
-          autofocus: !widget.embedded,
-          decoration: InputDecoration(
-            hintText:
-                t[_mode == InputModePref.brainDump
-                    ? 'inputPlaceholderAI'
-                    : 'inputPlaceholderManual'],
+        if (_mode == InputModePref.single && !_batch) ...[
+          if (showParentTitle) ...[
+            TextField(
+              key: const ValueKey('parent-title'),
+              controller: _parentTitle,
+              enabled: !_busy && !_pendingManualSave,
+              decoration: InputDecoration(
+                labelText: t['parentTitle']!,
+                hintText: suggestedTitle,
+                helperText: t['parentTitleSuggested']!,
+              ),
+              onChanged: (_) => setState(() => _parentTitleExplicit = true),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Text(
+            t['stepsOneTask']!,
+            style: Theme.of(context).textTheme.labelMedium,
           ),
-        ),
+          TaskStepsComposer(
+            key: _stepsKey,
+            t: t,
+            enabled: !_busy && !_pendingManualSave,
+            onChanged: () {
+              if (mounted) setState(() {});
+              _reportDirty();
+            },
+          ),
+        ] else ...[
+          Text(
+            t[_batch ? 'batchIndependentHint' : 'aiInputHint']!,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+          TextField(
+            key: const ValueKey('task-input'),
+            controller: _controller,
+            focusNode: _inputFocus,
+            onChanged: (_) => setState(() {}),
+            readOnly: _busy || _pendingManualSave,
+            maxLines: 5,
+            minLines: 3,
+            autofocus: !widget.embedded,
+            decoration: InputDecoration(
+              hintText:
+                  t[_mode == InputModePref.brainDump
+                      ? 'inputPlaceholderAI'
+                      : 'inputPlaceholderManual'],
+            ),
+          ),
+        ],
+        if (_mode == InputModePref.single &&
+            !_batch &&
+            (steps?.nonEmptySteps.length ?? 0) > 1)
+          Text(
+            t['stepCountPreview']!.replaceFirst(
+              '{count}',
+              '${steps!.nonEmptySteps.length}',
+            ),
+          ),
+        if (_batch && _controller.text.trim().isNotEmpty)
+          Text(
+            t['batchCountPreview']!.replaceFirst(
+              '{count}',
+              '${_controller.text.split('\n').where((line) => line.trim().isNotEmpty).length}',
+            ),
+          ),
         const SizedBox(height: 6),
         if (_mode == InputModePref.brainDump)
           Text(
@@ -117,9 +204,21 @@ class _InputSheetState extends State<InputSheet> {
             textAlign: TextAlign.center,
           ),
         const SizedBox(height: 8),
-        _buildDeadlineRow(context, t),
-        const SizedBox(height: 6),
-        _buildReminderRow(context, t),
+        OutlinedButton.icon(
+          key: const ValueKey('input-time-btn'),
+          onPressed: _busy || _pendingManualSave ? null : _editTime,
+          icon: const Icon(Icons.schedule),
+          label: Text(
+            _selectedDeadline == null && _selectedReminderAt == null
+                ? t['timePanel']!
+                : [
+                    if (_selectedDeadline != null)
+                      '${t['deadline']}: ${formatCivilDate(_selectedDeadline!)}',
+                    if (_selectedReminderAt != null)
+                      '${t['reminder']}: ${formatCivilDateTimeMs(_selectedReminderAt!)}',
+                  ].join(' · '),
+          ),
+        ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -134,20 +233,21 @@ class _InputSheetState extends State<InputSheet> {
       key: const ValueKey('submit-tasks'),
       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
       onPressed: _busy ? null : _submit,
-      icon:
-          _busy
-              ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-              : Icon(
-                _mode == InputModePref.brainDump
-                    ? Icons.auto_awesome
-                    : Icons.add,
-              ),
+      icon: _busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              _mode == InputModePref.brainDump ? Icons.auto_awesome : Icons.add,
+            ),
       label: Text(
-        t[_mode == InputModePref.brainDump ? 'analyzeBtn' : 'addSingleBtn']!,
+        _pendingManualSave
+            ? t['retrySave']!
+            : t[_mode == InputModePref.brainDump
+                  ? 'analyzeBtn'
+                  : (_batch ? 'batchIndependent' : 'addSingleBtn')]!,
       ),
     );
     final maxHeight = MediaQuery.sizeOf(context).height - insets - 24;
@@ -159,32 +259,34 @@ class _InputSheetState extends State<InputSheet> {
               _submit,
           const SingleActivator(LogicalKeyboardKey.enter, meta: true): _submit,
         },
-        child:
-            widget.embedded
-                ? Column(
+        child: widget.embedded
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [fields, const SizedBox(height: 12), submit],
+              )
+            : ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: maxHeight > 200 ? maxHeight : 200,
+                ),
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [fields, const SizedBox(height: 12), submit],
-                )
-                : ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: maxHeight > 200 ? maxHeight : 200,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Flexible(child: SingleChildScrollView(child: fields)),
-                      const SizedBox(height: 12),
-                      submit,
-                    ],
-                  ),
+                  children: [
+                    Flexible(child: SingleChildScrollView(child: fields)),
+                    const SizedBox(height: 12),
+                    submit,
+                  ],
                 ),
+              ),
       ),
     );
     final content = SafeArea(
       top: false,
-      child: Padding(padding: EdgeInsets.only(bottom: insets), child: body),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: insets),
+        child: body,
+      ),
     );
     if (widget.embedded) return content;
     return PopScope(
@@ -198,125 +300,127 @@ class _InputSheetState extends State<InputSheet> {
     );
   }
 
-  Widget _buildDeadlineRow(BuildContext context, Map<String, String> t) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DeadlineDayChips(
-          t: t,
-          keyPrefix: 'deadline',
-          selected: _selectedDeadline,
-          enabled: !_busy,
-          onChanged:
-              (day) => setState(() {
-                _selectedDeadline = day;
-              }),
-        ),
-        if (_selectedDeadline != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4),
-            child: Text(
-              t['deadlineBatchScope']!,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-      ],
-    );
+  void _switchMode(InputModePref mode, bool batch) {
+    final returningToSteps =
+        (_mode != InputModePref.single || _batch) &&
+        mode == InputModePref.single &&
+        !batch;
+    if (_mode == InputModePref.single && !_batch) {
+      _controller.text = _stepsKey.currentState?.text ?? '';
+    }
+    setState(() {
+      _mode = mode;
+      _batch = batch;
+    });
+    if (returningToSteps) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _stepsKey.currentState?.setText(_controller.text);
+      });
+    }
+    _reportDirty();
   }
 
-  Widget _buildReminderRow(BuildContext context, Map<String, String> t) {
-    final hasReminder = _selectedReminderAt != null;
-    final formattedTime =
-        hasReminder ? formatCivilDateTimeMs(_selectedReminderAt!) : null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            ActionChip(
-              key: const ValueKey('input-reminder-btn'),
-              avatar: Icon(
-                hasReminder
-                    ? Icons.notifications_active
-                    : Icons.notifications_none,
-                size: 16,
-                color:
-                    hasReminder ? Theme.of(context).colorScheme.primary : null,
-              ),
-              label: Text(
-                hasReminder
-                    ? formattedTime!
-                    : (t['setReminder'] ?? 'Set Reminder'),
-              ),
-              onPressed: _busy ? null : _pickReminderDateTime,
-            ),
-            if (hasReminder)
-              IconButton(
-                key: const ValueKey('input-reminder-clear'),
-                tooltip: t['clearReminder'] ?? 'Clear Reminder',
-                icon: const Icon(Icons.close, size: 18),
-                visualDensity: VisualDensity.compact,
-                onPressed:
-                    _busy
-                        ? null
-                        : () => setState(() => _selectedReminderAt = null),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickReminderDateTime() async {
-    await pickReminderMoment(
+  Future<void> _editTime() async {
+    final result = await showTaskTimeEditor(
       context,
       t: context.read<Store>().t,
-      reminderAt: _selectedReminderAt,
       deadline: _selectedDeadline,
-      onPicked:
-          (moment) => setState(() {
-            _selectedReminderAt = moment;
-          }),
+      reminderAt: _selectedReminderAt,
     );
+    if (!mounted) return;
+    if (_mode == InputModePref.single && !_batch) {
+      _stepsKey.currentState?.restoreFocus();
+    } else {
+      _inputFocus.requestFocus();
+    }
+    if (result == null) return;
+    setState(() {
+      _selectedDeadline = result.deadline;
+      _selectedReminderAt = result.reminderAt;
+    });
   }
 
   Future<void> _submit() async {
-    if (hasPendingImeComposition(_controller)) return;
-    final text = _controller.text.trim();
+    if (_pendingManualSave) {
+      if (_busy || _closed) return;
+      final store = context.read<Store>();
+      setState(() => _busy = true);
+      final result = await store.retrySave(waitForReminders: false);
+      if (!mounted || _closed) return;
+      setState(() => _busy = false);
+      if (!result.success) {
+        setState(
+          () => _error = store.persistenceError ?? store.t['storageWriteError'],
+        );
+        return;
+      }
+      _finishManualSave();
+      return;
+    }
+    if (hasPendingImeComposition(_controller) ||
+        hasPendingImeComposition(_parentTitle) ||
+        (_stepsKey.currentState?.hasComposition ?? false)) {
+      return;
+    }
+    final text = _mode == InputModePref.single && !_batch
+        ? (_stepsKey.currentState?.text ?? '').trim()
+        : _controller.text.trim();
     if (text.isEmpty || _busy || _closed) return;
     final store = context.read<Store>();
     final boardId = store.activeBoardId;
     final config = AIConfig.fromJson(store.aiConfig.toJson());
     final settings = AppSettings.fromJson(store.settings.toJson());
-    final inputs =
-        text
-            .split('\n')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
+    final inputs = (_mode == InputModePref.single && !_batch
+        ? (_stepsKey.currentState?.nonEmptySteps ?? <String>[])
+        : text
+              .split('\n')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList());
 
     final deadlineSnapshot = endOfCivilDayMs(_selectedDeadline);
 
     if (_mode == InputModePref.single) {
-      store.addTasks([
-        for (final line in inputs)
-          store.newTask(line, deadline: deadlineSnapshot)
-            ..reminderAt = _selectedReminderAt,
-      ]);
-      _controller.clear();
       setState(() {
-        _selectedDeadline = null;
-        _selectedReminderAt = null;
+        _busy = true;
+        _error = null;
       });
-      if (!widget.embedded) Navigator.pop(context);
+      if (_batch) {
+        store.addTasks([
+          for (final line in inputs)
+            store.newTask(line, deadline: deadlineSnapshot)
+              ..reminderAt = _selectedReminderAt,
+        ]);
+      } else if (inputs.length == 1 && !_parentTitleExplicit) {
+        store.addTasks([
+          store.newTask(inputs.single, deadline: deadlineSnapshot)
+            ..reminderAt = _selectedReminderAt,
+        ]);
+      } else {
+        final title = _parentTitle.text.trim().isNotEmpty
+            ? _parentTitle.text.trim()
+            : (inputs.first.length > 24
+                  ? '${inputs.first.substring(0, 24)}…'
+                  : inputs.first);
+        store.addTasks([
+          store.newTask(title, deadline: deadlineSnapshot)
+            ..reminderAt = _selectedReminderAt
+            ..subtasks = [
+              for (final line in inputs) SubTask(id: newId(), title: line),
+            ],
+        ]);
+      }
+      final result = await store.flush(waitForReminders: false);
+      if (!mounted || _closed) return;
+      setState(() => _busy = false);
+      if (!result.success) {
+        setState(() {
+          _pendingManualSave = true;
+          _error = store.persistenceError ?? store.t['storageWriteError'];
+        });
+        return;
+      }
+      _finishManualSave();
       return;
     }
     setState(() {
@@ -377,10 +481,8 @@ class _InputSheetState extends State<InputSheet> {
       });
       final longTerm =
           !settings.autoDecomposeAI && !settings.suppressLongTermPrompt
-              ? tasks
-                  .where((task) => task.isLongTerm && !task.hasSubtasks)
-                  .toList()
-              : <Task>[];
+          ? tasks.where((task) => task.isLongTerm && !task.hasSubtasks).toList()
+          : <Task>[];
       if (!widget.embedded) {
         Navigator.pop(context, longTerm);
       } else if (longTerm.isNotEmpty) {
@@ -396,43 +498,53 @@ class _InputSheetState extends State<InputSheet> {
     }
   }
 
+  void _finishManualSave() {
+    _pendingManualSave = false;
+    _controller.clear();
+    _stepsKey.currentState?.clear();
+    _parentTitle.clear();
+    setState(() {
+      _parentTitleExplicit = false;
+      _selectedDeadline = null;
+      _selectedReminderAt = null;
+      _error = null;
+    });
+    if (!widget.embedded) Navigator.pop(context);
+  }
+
   Future<bool?> _askGroup(AIAnalysisResult group) {
     final t = context.read<Store>().t;
     return showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            scrollable: true,
-            title: Text(t['suggestedGroup']!),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t['suggestedGroupPrompt']!),
-                const SizedBox(height: 8),
-                Text(
-                  group.title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                ...group.subtasks.map(
-                  (s) => Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('• $s'),
-                  ),
-                ),
-              ],
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: Text(t['suggestedGroup']!),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t['suggestedGroupPrompt']!),
+            const SizedBox(height: 8),
+            Text(group.title, style: Theme.of(context).textTheme.titleMedium),
+            ...group.subtasks.map(
+              (s) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('• $s'),
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(t['skipGroup']!),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(t['confirmGroupBtn']!),
-              ),
-            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(t['skipGroup']!),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(t['confirmGroupBtn']!),
+          ),
+        ],
+      ),
     );
   }
 }

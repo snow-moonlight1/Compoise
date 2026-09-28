@@ -104,48 +104,59 @@ void main() {
   setUp(() => ReminderService.resetForTest(InMemoryReminderService()));
   tearDown(() => ReminderService.resetForTest());
 
-  testWidgets('F01/R01 switching desktop details must not overwrite task B with task A', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1400, 950));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final store = await seeded([sample('Alpha'), sample('Beta')]);
-    await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Alpha').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Beta').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('save-task')));
-    await tester.pumpAndSettle();
-    expect(store.tasks.firstWhere((t) => t.id == 'Beta').title, 'Beta');
-    expect(store.tasks.firstWhere((t) => t.id == 'Alpha').title, 'Alpha');
-    await settle(tester, store);
-  });
+  testWidgets(
+    'F01/R01 switching desktop details must not overwrite task B with task A',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 950));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = await seeded([sample('Alpha'), sample('Beta')]);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alpha').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Beta').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await tester.pumpAndSettle();
+      expect(store.tasks.firstWhere((t) => t.id == 'Beta').title, 'Beta');
+      expect(store.tasks.firstWhere((t) => t.id == 'Alpha').title, 'Alpha');
+      await settle(tester, store);
+    },
+  );
 
-  testWidgets('F01/F12 switching tasks with a dirty draft asks before replacing', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1400, 950));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final store = await seeded([sample('Alpha'), sample('Beta')]);
-    await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Alpha').first);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('edit-title')), 'Alpha draft');
-    await tester.pump();
-    await tester.tap(find.text('Beta').first);
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    await tester.tap(find.text('Keep Editing'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('edit-title')), findsOneWidget);
-    expect(tester.widget<TextField>(find.byKey(const ValueKey('edit-title'))).controller?.text, 'Alpha draft');
-    expect(store.tasks.firstWhere((t) => t.id == 'Alpha').title, 'Alpha');
-    expect(store.tasks.firstWhere((t) => t.id == 'Beta').title, 'Beta');
-    await settle(tester, store);
-  });
+  testWidgets(
+    'F01/F12 switching tasks with a dirty draft asks before replacing',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 950));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = await seeded([sample('Alpha'), sample('Beta')]);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alpha').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-title')),
+        'Alpha draft',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Beta').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text('Keep Editing'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('edit-title')), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('edit-title')))
+            .controller
+            ?.text,
+        'Alpha draft',
+      );
+      expect(store.tasks.firstWhere((t) => t.id == 'Alpha').title, 'Alpha');
+      expect(store.tasks.firstWhere((t) => t.id == 'Beta').title, 'Beta');
+      await settle(tester, store);
+    },
+  );
 
   testWidgets('F13/R02 editing quadrant in details must put moved task first', (
     tester,
@@ -166,6 +177,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+    await tester.pumpAndSettle();
     final chip = find.widgetWithText(ChoiceChip, store.t['q2']!);
     await tester.ensureVisible(chip);
     await tester.tap(chip);
@@ -173,39 +186,48 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('save-task')));
     await tester.pumpAndSettle();
     expect(store.tasksIn(2).first.id, 'Moving');
-    expect(store.tasks.firstWhere((t) => t.id == 'Moving').urgencyMode, UrgencyMode.manual);
+    expect(
+      store.tasks.firstWhere((t) => t.id == 'Moving').urgencyMode,
+      UrgencyMode.manual,
+    );
     await settle(tester, store);
   });
 
-  test('F02/R06 corrupt overwrite payload must not silently erase existing tasks', () async {
-    final store = await seeded([sample('Keep me')]);
-    expect(
-      () => store.importData({
-        'version': 2,
-        'boards': [store.boards.single.toJson()],
-        'tasks': [
-          {'title': 'Missing required id'},
-        ],
-      }, 'overwrite'),
-      throwsA(isA<CorruptDataPayloadException>()),
-    );
-    expect(store.tasks.map((t) => t.id), contains('Keep me'));
-  });
+  test(
+    'F02/R06 corrupt overwrite payload must not silently erase existing tasks',
+    () async {
+      final store = await seeded([sample('Keep me')]);
+      expect(
+        () => store.importData({
+          'version': 2,
+          'boards': [store.boards.single.toJson()],
+          'tasks': [
+            {'title': 'Missing required id'},
+          ],
+        }, 'overwrite'),
+        throwsA(isA<CorruptDataPayloadException>()),
+      );
+      expect(store.tasks.map((t) => t.id), contains('Keep me'));
+    },
+  );
 
-  test('F02 merge of a corrupt payload must also leave the live library intact', () async {
-    final store = await seeded([sample('Keep me')]);
-    expect(
-      () => store.importData({
-        'version': 2,
-        'boards': [store.boards.single.toJson()],
-        'tasks': [
-          {'boardId': 'b', 'title': 'Broken child', 'subtasks': 'not-a-list'},
-        ],
-      }, 'merge'),
-      throwsA(isA<FormatException>()),
-    );
-    expect(store.tasks.single.id, 'Keep me');
-  });
+  test(
+    'F02 merge of a corrupt payload must also leave the live library intact',
+    () async {
+      final store = await seeded([sample('Keep me')]);
+      expect(
+        () => store.importData({
+          'version': 2,
+          'boards': [store.boards.single.toJson()],
+          'tasks': [
+            {'boardId': 'b', 'title': 'Broken child', 'subtasks': 'not-a-list'},
+          ],
+        }, 'merge'),
+        throwsA(isA<FormatException>()),
+      );
+      expect(store.tasks.single.id, 'Keep me');
+    },
+  );
 
   testWidgets('F12/R10 system back must protect a text-only unsaved draft', (
     tester,
@@ -226,156 +248,199 @@ void main() {
     await settle(tester, store);
   });
 
-  testWidgets('F03/R11 saving notes must not reverse externally completed child', (
-    tester,
-  ) async {
-    final store = await seeded([
-      sample('Parent', subs: [SubTask(id: 's', title: 'Child')]),
-    ]);
-    await tester.pumpWidget(
-      app(
-        store,
-        Scaffold(
-          body: TaskDetailPanel(
-            task: store.tasks.single,
-            isSidebar: true,
-            onClose: () {},
+  testWidgets(
+    'F03/R11 saving notes must not reverse externally completed child',
+    (tester) async {
+      final store = await seeded([
+        sample(
+          'Parent',
+          subs: [SubTask(id: 's', title: 'Child')],
+        ),
+      ]);
+      await tester.pumpWidget(
+        app(
+          store,
+          Scaffold(
+            body: TaskDetailPanel(
+              task: store.tasks.single,
+              isSidebar: true,
+              onClose: () {},
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    store.setParentCompleted(store.tasks.single, true);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('save-task')));
-    await tester.pumpAndSettle();
-    expect(store.tasks.single.completed, isTrue);
-    expect(store.tasks.single.subtasks.single.completed, isTrue);
-    await settle(tester, store);
-  });
+      );
+      await tester.pumpAndSettle();
+      store.setParentCompleted(store.tasks.single, true);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await tester.pumpAndSettle();
+      expect(store.tasks.single.completed, isTrue);
+      expect(store.tasks.single.subtasks.single.completed, isTrue);
+      await settle(tester, store);
+    },
+  );
 
-  testWidgets('F03 saving a title must keep subtasks appended after the panel opened', (
-    tester,
-  ) async {
-    final store = await seeded([
-      sample('Parent', subs: [SubTask(id: 's', title: 'Child')]),
-    ]);
-    await tester.pumpWidget(
-      app(
-        store,
-        Scaffold(
-          body: TaskDetailPanel(
-            task: store.tasks.single,
-            isSidebar: true,
-            onClose: () {},
+  testWidgets(
+    'F03 saving a title must keep subtasks appended after the panel opened',
+    (tester) async {
+      final store = await seeded([
+        sample(
+          'Parent',
+          subs: [SubTask(id: 's', title: 'Child')],
+        ),
+      ]);
+      await tester.pumpWidget(
+        app(
+          store,
+          Scaffold(
+            body: TaskDetailPanel(
+              task: store.tasks.single,
+              isSidebar: true,
+              onClose: () {},
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('edit-title')), 'Renamed');
-    await tester.pump();
-    store.appendSubtasks('Parent', [SubTask(id: 'ai', title: 'AI child')]);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('save-task')));
-    await tester.pumpAndSettle();
-    expect(store.tasks.single.title, 'Renamed');
-    expect(store.tasks.single.subtasks.map((s) => s.id), ['s', 'ai']);
-    await settle(tester, store);
-  });
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-title')),
+        'Renamed',
+      );
+      await tester.pump();
+      store.appendSubtasks('Parent', [SubTask(id: 'ai', title: 'AI child')]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await tester.pumpAndSettle();
+      expect(store.tasks.single.title, 'Renamed');
+      expect(store.tasks.single.subtasks.map((s) => s.id), ['s', 'ai']);
+      await settle(tester, store);
+    },
+  );
 
-  test('F04 global hotkey must retain and invoke its trigger callback', () async {
-    DesktopShellService.debugIsDesktopOverride = true;
-    addTearDown(DesktopShellService.instance.resetForTest);
-    final service = DesktopShellService.instance;
-    await service.init();
-    var fired = 0;
-    final result = await service.registerGlobalHotkey('Ctrl+Alt+M', () => fired++);
-    expect(result.succeeded, isTrue);
-    service.debugInvokeRegisteredHotkey();
-    expect(fired, 1);
-    expect(
-      service.handleWindowCloseRequest(closeToTray: true),
-      isFalse,
-    );
-    await Future<void>.delayed(Duration.zero);
-    expect(service.isWindowVisible, isFalse);
-  });
+  test(
+    'F04 global hotkey must retain and invoke its trigger callback',
+    () async {
+      DesktopShellService.debugIsDesktopOverride = true;
+      addTearDown(DesktopShellService.instance.resetForTest);
+      final service = DesktopShellService.instance;
+      await service.init();
+      var fired = 0;
+      final result = await service.registerGlobalHotkey(
+        'Ctrl+Alt+M',
+        () => fired++,
+      );
+      expect(result.succeeded, isTrue);
+      service.debugInvokeRegisteredHotkey();
+      expect(fired, 1);
+      expect(service.handleWindowCloseRequest(closeToTray: true), isFalse);
+      await Future<void>.delayed(Duration.zero);
+      expect(service.isWindowVisible, isFalse);
+    },
+  );
 
-  test('F07/R04 removing a child must cancel its scheduled notification', () async {
-    final service = ReminderService.instance as InMemoryReminderService;
-    final store = await seeded([
-      sample(
-        'Parent',
+  test(
+    'F07/R04 removing a child must cancel its scheduled notification',
+    () async {
+      final service = ReminderService.instance as InMemoryReminderService;
+      final store = await seeded([
+        sample(
+          'Parent',
+          subs: [
+            SubTask(
+              id: 's',
+              title: 'Child',
+              reminderAt: DateTime.now().millisecondsSinceEpoch + 3600000,
+            ),
+          ],
+        ),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(service.scheduled, isNotEmpty);
+      store.updateTask(
+        Task.fromJson(store.tasks.single.toJson())..subtasks = [],
+      );
+      expect(service.scheduled, isEmpty);
+    },
+  );
+
+  test(
+    'F15/R05 undo must not overwrite a subsequent child completion command',
+    () async {
+      final store = await seeded([
+        sample(
+          'Parent',
+          subs: [
+            SubTask(id: 's1', title: 'One'),
+            SubTask(id: 's2', title: 'Two'),
+          ],
+        ),
+      ]);
+      final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
+      var task = Task.fromJson(store.tasks.single.toJson());
+      task.subtasks.first.completed = false;
+      store.updateTask(task);
+      task = Task.fromJson(store.tasks.single.toJson());
+      task.subtasks.first.completed = true;
+      store.updateTask(task);
+      expect(store.applyUndo(undo), isFalse);
+    },
+  );
+
+  test(
+    'F14/R07 grouping must preserve existing completion timestamps',
+    () async {
+      final completed = sample('Done')
+        ..completed = true
+        ..completedAt = 12345;
+      final store = await seeded([completed, sample('Pending')]);
+      final grouped = store.groupTasks(['Done', 'Pending'], 'Group');
+      expect(
+        grouped.subtasks.firstWhere((s) => s.title == 'Done').completedAt,
+        12345,
+      );
+    },
+  );
+
+  test(
+    'F14/R08 child completion history must not require completed parent',
+    () {
+      final now = DateTime.now();
+      final task = sample(
+        'Pending',
         subs: [
           SubTask(
             id: 's',
-            title: 'Child',
-            reminderAt: DateTime.now().millisecondsSinceEpoch + 3600000,
+            title: 'Done child',
+            completed: true,
+            completedAt: now.millisecondsSinceEpoch,
           ),
         ],
-      ),
-    ]);
-    await Future<void>.delayed(Duration.zero);
-    expect(service.scheduled, isNotEmpty);
-    store.updateTask(Task.fromJson(store.tasks.single.toJson())..subtasks = []);
-    expect(service.scheduled, isEmpty);
-  });
+      );
+      final history = computeCompletionHistoryStats(tasks: [task], now: now);
+      expect(
+        history.dailyBuckets.fold<int>(0, (n, b) => n + b.subtaskCount),
+        1,
+      );
+    },
+  );
 
-  test('F15/R05 undo must not overwrite a subsequent child completion command', () async {
-    final store = await seeded([
-      sample(
-        'Parent',
-        subs: [SubTask(id: 's1', title: 'One'), SubTask(id: 's2', title: 'Two')],
-      ),
-    ]);
-    final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
-    var task = Task.fromJson(store.tasks.single.toJson());
-    task.subtasks.first.completed = false;
-    store.updateTask(task);
-    task = Task.fromJson(store.tasks.single.toJson());
-    task.subtasks.first.completed = true;
-    store.updateTask(task);
-    expect(store.applyUndo(undo), isFalse);
-  });
-
-  test('F14/R07 grouping must preserve existing completion timestamps', () async {
-    final completed = sample('Done')
-      ..completed = true
-      ..completedAt = 12345;
-    final store = await seeded([completed, sample('Pending')]);
-    final grouped = store.groupTasks(['Done', 'Pending'], 'Group');
-    expect(grouped.subtasks.firstWhere((s) => s.title == 'Done').completedAt, 12345);
-  });
-
-  test('F14/R08 child completion history must not require completed parent', () {
-    final now = DateTime.now();
-    final task = sample(
-      'Pending',
-      subs: [
-        SubTask(
-          id: 's',
-          title: 'Done child',
-          completed: true,
-          completedAt: now.millisecondsSinceEpoch,
-        ),
-      ],
-    );
-    final history = computeCompletionHistoryStats(tasks: [task], now: now);
-    expect(history.dailyBuckets.fold<int>(0, (n, b) => n + b.subtaskCount), 1);
-  });
-
-  test('F14/R09 completed unknown-date task must not acquire invented completion date', () async {
-    final store = await seeded([sample('Legacy')..completed = true]);
-    store.setParentCompleted(store.tasks.single, true);
-    expect(store.tasks.single.completedAt, isNull);
-  });
+  test(
+    'F14/R09 completed unknown-date task must not acquire invented completion date',
+    () async {
+      final store = await seeded([sample('Legacy')..completed = true]);
+      store.setParentCompleted(store.tasks.single, true);
+      expect(store.tasks.single.completedAt, isNull);
+    },
+  );
 
   testWidgets('F14/R03 checking a child on its card must record completedAt', (
     tester,
   ) async {
     final store = await seeded([
-      sample('Parent', subs: [SubTask(id: 's', title: 'Child')]),
+      sample(
+        'Parent',
+        subs: [SubTask(id: 's', title: 'Child')],
+      ),
     ]);
     await tester.pumpWidget(app(store, const MatrixHome()));
     await tester.pumpAndSettle();
@@ -388,24 +453,25 @@ void main() {
     await settle(tester, store);
   });
 
-  testWidgets('F08/R12 slow notification init must not drop startup rescheduling', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    final plugin = RecordingPlugin();
-    final service = FlutterLocalNotificationsReminderService(plugin: plugin);
-    final init = service.init(onNotificationSelected: (_) {});
-    final task = sample('Future')
-      ..reminderAt = DateTime.now().millisecondsSinceEpoch + 3600000;
-    await service.rescheduleAllFuture([task]);
-    plugin.initialization.complete(true);
-    await init;
-    await tester.pump();
-    final count = plugin.calls.where((s) => s == #zonedSchedule).length;
-    await service.cancelAll();
-    debugDefaultTargetPlatformOverride = null;
-    expect(count, 1);
-  });
+  testWidgets(
+    'F08/R12 slow notification init must not drop startup rescheduling',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      final plugin = RecordingPlugin();
+      final service = FlutterLocalNotificationsReminderService(plugin: plugin);
+      final init = service.init(onNotificationSelected: (_) {});
+      final task = sample('Future')
+        ..reminderAt = DateTime.now().millisecondsSinceEpoch + 3600000;
+      await service.rescheduleAllFuture([task]);
+      plugin.initialization.complete(true);
+      await init;
+      await tester.pump();
+      final count = plugin.calls.where((s) => s == #zonedSchedule).length;
+      await service.cancelAll();
+      debugDefaultTargetPlatformOverride = null;
+      expect(count, 1);
+    },
+  );
 
   testWidgets('F10/R13 Windows scheduling must choose one delivery mechanism', (
     tester,
@@ -421,77 +487,88 @@ void main() {
       triggerAtMs: DateTime.now().millisecondsSinceEpoch + 1000,
     );
     await tester.pump(const Duration(seconds: 2));
-    final deliveries =
-        plugin.calls.where((s) => s == #zonedSchedule || s == #show).length;
+    final deliveries = plugin.calls
+        .where((s) => s == #zonedSchedule || s == #show)
+        .length;
     await service.cancelAll();
     debugDefaultTargetPlatformOverride = null;
     expect(deliveries, 1);
   });
 
-  testWidgets('F06/R14 cancelling while Android permission check awaits must win', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    const channel = MethodChannel('dexterous.com/flutter/local_notifications');
-    final pendingPermission = Completer<bool>();
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-      call,
-    ) async {
-      if (call.method == 'canScheduleExactNotifications') {
-        return pendingPermission.future;
-      }
-      return null;
-    });
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        channel,
-        null,
-      ),
-    );
-    final plugin = RecordingPlugin(android: AndroidFlutterLocalNotificationsPlugin());
-    final service = FlutterLocalNotificationsReminderService(plugin: plugin)
-      ..setInitializedForTest(true);
-    final pending = service.scheduleReminder(
-      boardId: 'b',
-      taskId: 't',
-      title: 'Synthetic',
-      triggerAtMs: DateTime.now().millisecondsSinceEpoch + 3600000,
-    );
-    await tester.pump();
-    final cancellation = service.cancelReminder('t');
-    pendingPermission.complete(true);
-    await Future.wait([pending, cancellation]);
-    debugDefaultTargetPlatformOverride = null;
-    expect(plugin.calls.where((m) => m == #zonedSchedule), isEmpty);
-  });
+  testWidgets(
+    'F06/R14 cancelling while Android permission check awaits must win',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      const channel = MethodChannel(
+        'dexterous.com/flutter/local_notifications',
+      );
+      final pendingPermission = Completer<bool>();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        if (call.method == 'canScheduleExactNotifications') {
+          return pendingPermission.future;
+        }
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      final plugin = RecordingPlugin(
+        android: AndroidFlutterLocalNotificationsPlugin(),
+      );
+      final service = FlutterLocalNotificationsReminderService(plugin: plugin)
+        ..setInitializedForTest(true);
+      final pending = service.scheduleReminder(
+        boardId: 'b',
+        taskId: 't',
+        title: 'Synthetic',
+        triggerAtMs: DateTime.now().millisecondsSinceEpoch + 3600000,
+      );
+      await tester.pump();
+      final cancellation = service.cancelReminder('t');
+      pendingPermission.complete(true);
+      await Future.wait([pending, cancellation]);
+      debugDefaultTargetPlatformOverride = null;
+      expect(plugin.calls.where((m) => m == #zonedSchedule), isEmpty);
+    },
+  );
 
-  testWidgets('F16/R15 switching provider during discovery must clear loading state', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 1800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    SharedPreferences.setMockInitialValues({
-      'matrixflow-has-seen-onboarding': true,
-    });
-    final ai = DiscoveryAI();
-    final store = Store(aiService: ai);
-    await store.init();
-    store.updateAIConfig(AIConfig(apiKey: 'synthetic-not-a-secret'));
-    await tester.pumpWidget(app(store, const SettingsScreen()));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('refresh-models-btn')));
-    await tester.tap(find.byKey(const ValueKey('refresh-models-btn')));
-    await tester.pump();
-    tester
-        .widget<DropdownButton<String>>(find.byKey(const ValueKey('provider-selector')))
-        .onChanged!('bailian');
-    await tester.pump();
-    ai.pending.complete(['old-provider-model']);
-    await tester.pump();
-    expect(find.byKey(const ValueKey('refresh-models-btn')), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
-    store.dispose();
-  });
+  testWidgets(
+    'F16/R15 switching provider during discovery must clear loading state',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      SharedPreferences.setMockInitialValues({
+        'matrixflow-has-seen-onboarding': true,
+      });
+      final ai = DiscoveryAI();
+      final store = Store(aiService: ai);
+      await store.init();
+      store.updateAIConfig(AIConfig(apiKey: 'synthetic-not-a-secret'));
+      await tester.pumpWidget(app(store, const SettingsScreen()));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('refresh-models-btn')),
+      );
+      await tester.tap(find.byKey(const ValueKey('refresh-models-btn')));
+      await tester.pump();
+      tester
+          .widget<DropdownButton<String>>(
+            find.byKey(const ValueKey('provider-selector')),
+          )
+          .onChanged!('bailian');
+      await tester.pump();
+      ai.pending.complete(['old-provider-model']);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('refresh-models-btn')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
 
   testWidgets('F17/R16 custom providers must retain the thinking control', (
     tester,
@@ -534,19 +611,21 @@ void main() {
     await settle(tester, store);
   });
 
-  testWidgets('F19/R18 checkbox must respond throughout its advertised 48dp target', (
-    tester,
-  ) async {
-    final store = await seeded([sample('Target')]);
-    await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.pumpAndSettle();
-    final center = tester.getCenter(find.byKey(const ValueKey('complete-Target')));
-    await tester.tapAt(center + const Offset(18, 0));
-    await tester.pumpAndSettle();
-    expect(store.tasks.single.completed, isTrue);
-    await settle(tester, store);
-  });
-
+  testWidgets(
+    'F19/R18 checkbox must respond throughout its advertised 48dp target',
+    (tester) async {
+      final store = await seeded([sample('Target')]);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+      final center = tester.getCenter(
+        find.byKey(const ValueKey('complete-Target')),
+      );
+      await tester.tapAt(center + const Offset(18, 0));
+      await tester.pumpAndSettle();
+      expect(store.tasks.single.completed, isTrue);
+      await settle(tester, store);
+    },
+  );
 
   testWidgets('F05/R20 first reminder must ask for notification permission', (
     tester,
@@ -569,9 +648,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+    await tester.pumpAndSettle();
     final quick = find.byKey(const ValueKey('reminder-quick-tomorrow-9'));
     await tester.ensureVisible(quick);
     await tester.tap(quick);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('time-confirm')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('save-task')));
     await tester.pumpAndSettle();
@@ -580,20 +663,21 @@ void main() {
     await settle(tester, store);
   });
 
-  testWidgets('F11/R21 failed scheduling must not show a future reminder immediately', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    final plugin = RecordingPlugin(failScheduling: true);
-    final service = FlutterLocalNotificationsReminderService(plugin: plugin)
-      ..setInitializedForTest(true);
-    await service.scheduleReminder(
-      boardId: 'b',
-      taskId: 't',
-      title: 'Future',
-      triggerAtMs: DateTime.now().millisecondsSinceEpoch + 86400000,
-    );
-    debugDefaultTargetPlatformOverride = null;
-    expect(plugin.calls.where((m) => m == #show), isEmpty);
-  });
+  testWidgets(
+    'F11/R21 failed scheduling must not show a future reminder immediately',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final plugin = RecordingPlugin(failScheduling: true);
+      final service = FlutterLocalNotificationsReminderService(plugin: plugin)
+        ..setInitializedForTest(true);
+      await service.scheduleReminder(
+        boardId: 'b',
+        taskId: 't',
+        title: 'Future',
+        triggerAtMs: DateTime.now().millisecondsSinceEpoch + 86400000,
+      );
+      debugDefaultTargetPlatformOverride = null;
+      expect(plugin.calls.where((m) => m == #show), isEmpty);
+    },
+  );
 }

@@ -186,7 +186,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('add-task-btn')));
       await tester.pumpAndSettle();
       final input = tester.widget<TextField>(
-        find.byKey(const ValueKey('task-input')),
+        find.byKey(const ValueKey('task-step-0')),
       );
       const draft = '输入中';
       input.controller!.value = const TextEditingValue(

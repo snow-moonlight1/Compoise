@@ -23,6 +23,7 @@ import 'package:matrixflow_native/widgets/input_sheet.dart';
 import 'package:matrixflow_native/widgets/quadrant_pane.dart';
 import 'package:matrixflow_native/widgets/task_card.dart';
 import 'package:matrixflow_native/widgets/task_detail_panel.dart';
+import 'package:matrixflow_native/widgets/task_hierarchy_checkbox.dart';
 import 'package:matrixflow_native/widgets/task_list_view.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,7 +35,8 @@ class ControlledAI extends AIService {
     required AIConfig config,
     bool forceRefresh,
     AICancellation? cancellation,
-  })? onFetchModels;
+  })?
+  onFetchModels;
 
   @override
   Future<List<String>> fetchModels({
@@ -112,12 +114,12 @@ class TestPicker extends FilePicker {
     return incoming == null
         ? null
         : FilePickerResult([
-          PlatformFile(
-            name: 'backup.json',
-            size: incoming!.length,
-            bytes: incoming,
-          ),
-        ]);
+            PlatformFile(
+              name: 'backup.json',
+              size: incoming!.length,
+              bytes: incoming,
+            ),
+          ]);
   }
 }
 
@@ -154,16 +156,15 @@ Widget app(Store store, Widget home, {double scale = 1}) =>
         locale: Locale(store.settings.language.name),
         supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        builder:
-            (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                textScaler: CombinedTextScaler(
-                  TextScaler.linear(scale),
-                  fontScaleFactor(store.settings.fontSize),
-                ),
-              ),
-              child: child!,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: CombinedTextScaler(
+              TextScaler.linear(scale),
+              fontScaleFactor(store.settings.fontSize),
             ),
+          ),
+          child: child!,
+        ),
         home: home,
       ),
     );
@@ -297,33 +298,50 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('explicit plaintext export requires choice; picker failure has no success', (tester) async {
-    final store = await setup(tester);
-    expect(await tester.runAsync(() => store.updateAIConfig(
-        AIConfig(apiKey: 'SYNTHETIC_EXPORT_INVALID'))), isTrue);
-    final picker = TestPicker();
-    FilePicker.platform = picker;
-    await tester.pumpWidget(app(store, const SettingsScreen()));
-    await tester.scrollUntilVisible(find.text('Export JSON'), 400,
-        scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.text('Export JSON'));
-    await tester.pumpAndSettle();
-    expect(find.text(store.t['exportCredentialWarning']!), findsOneWidget);
-    await tester.tap(find.text(store.t['exportWithCredential']!));
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-    await tester.pumpAndSettle();
-    expect(utf8.decode(picker.savedBytes!), contains('SYNTHETIC_EXPORT_INVALID'));
-    picker.failSave = true;
-    picker.savedBytes = null;
-    await tester.tap(find.text('Export JSON'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(store.t['exportWithoutCredential']!));
-    await tester.pumpAndSettle();
-    expect(picker.savedBytes, isNull);
-    expect(find.text(store.t['exportError']!), findsOneWidget);
-    expect(find.text(store.t['exportSuccess']!), findsNothing);
-    await tester.pumpWidget(const SizedBox());
-  });
+  testWidgets(
+    'explicit plaintext export requires choice; picker failure has no success',
+    (tester) async {
+      final store = await setup(tester);
+      expect(
+        await tester.runAsync(
+          () => store.updateAIConfig(
+            AIConfig(apiKey: 'SYNTHETIC_EXPORT_INVALID'),
+          ),
+        ),
+        isTrue,
+      );
+      final picker = TestPicker();
+      FilePicker.platform = picker;
+      await tester.pumpWidget(app(store, const SettingsScreen()));
+      await tester.scrollUntilVisible(
+        find.text('Export JSON'),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Export JSON'));
+      await tester.pumpAndSettle();
+      expect(find.text(store.t['exportCredentialWarning']!), findsOneWidget);
+      await tester.tap(find.text(store.t['exportWithCredential']!));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        utf8.decode(picker.savedBytes!),
+        contains('SYNTHETIC_EXPORT_INVALID'),
+      );
+      picker.failSave = true;
+      picker.savedBytes = null;
+      await tester.tap(find.text('Export JSON'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(store.t['exportWithoutCredential']!));
+      await tester.pumpAndSettle();
+      expect(picker.savedBytes, isNull);
+      expect(find.text(store.t['exportError']!), findsOneWidget);
+      expect(find.text(store.t['exportSuccess']!), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets('file picker exception is shown and import can be retried', (
     tester,
@@ -362,23 +380,22 @@ void main() {
     (tester) async {
       final store = await setup(tester);
       final original = FilePicker.platform;
-      final picker =
-          TestPicker()
-            ..incoming = Uint8List.fromList(
-              utf8.encode(
-                jsonEncode({
-                  'version': 1,
-                  'boards': [
-                    {'id': 'import', 'name': 'Imported'},
-                  ],
-                  'tasks': [],
-                  'aiConfig': {
-                    'customBaseUrl': 'https://new.example.test',
-                    'customModel': 'new-model',
-                  },
-                }),
-              ),
-            );
+      final picker = TestPicker()
+        ..incoming = Uint8List.fromList(
+          utf8.encode(
+            jsonEncode({
+              'version': 1,
+              'boards': [
+                {'id': 'import', 'name': 'Imported'},
+              ],
+              'tasks': [],
+              'aiConfig': {
+                'customBaseUrl': 'https://new.example.test',
+                'customModel': 'new-model',
+              },
+            }),
+          ),
+        );
       FilePicker.platform = picker;
       addTearDown(() => FilePicker.platform = original);
       await tester.pumpWidget(app(store, const SettingsScreen()));
@@ -394,7 +411,9 @@ void main() {
       expect(find.text('Review import'), findsOneWidget);
       await tester.tap(find.text('Confirm'));
       await tester.pumpAndSettle();
-      await tester.runAsync(() async { await Future<void>.delayed(const Duration(milliseconds: 20)); });
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
       await tester.pumpAndSettle();
       expect(store.aiConfig.baseUrl, 'https://new.example.test');
       await tester.scrollUntilVisible(
@@ -588,7 +607,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.enterText(
-      find.byKey(const ValueKey('task-input')),
+      find.byKey(const ValueKey('task-step-0')),
       'first\nsecond',
     );
     await tester.ensureVisible(find.byKey(const ValueKey('submit-tasks')));
@@ -599,7 +618,11 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('submit-tasks')));
     await tester.pumpAndSettle();
-    expect(store.tasks, hasLength(2));
+    expect(store.tasks, hasLength(1));
+    expect(store.tasks.single.subtasks.map((s) => s.title), [
+      'first',
+      'second',
+    ]);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -810,28 +833,27 @@ void main() {
     },
   );
 
-  testWidgets(
-    'multiline completed titles use per-line text decoration',
-    (tester) async {
-      final store = await setup(tester);
-      final task = store.newTask('first line\nsecond line\nthird line')
-        ..completed = true;
-      store.addTasks([task]);
-      await tester.pumpWidget(pumpTaskCard(store, task));
-      await tester.pumpAndSettle();
-      // UX06: one drawn segment per visible line instead of one decoration.
-      expect(strikeProgressOf(tester, task.id), 1.0);
-      expect(strikeLineCountOf(tester, task.id), 3);
-      expect(
-        find.descendant(
-          of: find.byType(AnimatedStrikeThroughText),
-          matching: find.byType(FractionallySizedBox),
-        ),
-        findsNothing,
-      );
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
+  testWidgets('multiline completed titles use per-line text decoration', (
+    tester,
+  ) async {
+    final store = await setup(tester);
+    final task = store.newTask('first line\nsecond line\nthird line')
+      ..completed = true;
+    store.addTasks([task]);
+    await tester.pumpWidget(pumpTaskCard(store, task));
+    await tester.pumpAndSettle();
+    // UX06: one drawn segment per visible line instead of one decoration.
+    expect(strikeProgressOf(tester, task.id), 1.0);
+    expect(strikeLineCountOf(tester, task.id), 3);
+    expect(
+      find.descendant(
+        of: find.byType(AnimatedStrikeThroughText),
+        matching: find.byType(FractionallySizedBox),
+      ),
+      findsNothing,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'subtasks stay collapsed by default and expand in browse and multi-select',
@@ -1002,7 +1024,9 @@ void main() {
       expect(tester.takeException(), isNull);
       tester.view.resetViewInsets();
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.calendar_month).last);
+      await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('deadline-custom')));
       await tester.pumpAndSettle();
       expect(find.byType(DatePickerDialog), findsOneWidget);
       final picker = tester.element(find.byType(DatePickerDialog));
@@ -1029,12 +1053,7 @@ void main() {
       ]);
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
-      for (final label in [
-        '紧急且重要',
-        '不紧急但重要',
-        '紧急但不重要',
-        '不紧急也不重要',
-      ]) {
+      for (final label in ['紧急且重要', '不紧急但重要', '紧急但不重要', '不紧急也不重要']) {
         expect(find.text(label), findsWidgets);
       }
       expect(find.text('马上做'), findsNothing);
@@ -1122,13 +1141,12 @@ void main() {
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
 
-      final checkbox =
-          find
-              .descendant(
-                of: find.byType(TaskCard),
-                matching: find.byType(Checkbox),
-              )
-              .first;
+      final checkbox = find
+          .descendant(
+            of: find.byType(TaskCard),
+            matching: find.byType(Checkbox),
+          )
+          .first;
       await tester.tap(checkbox);
       await tester.pumpAndSettle();
 
@@ -1175,7 +1193,10 @@ void main() {
       expect(find.byKey(const ValueKey('edit-title')), findsOneWidget);
 
       // 1 line
-      await tester.enterText(find.byKey(const ValueKey('edit-title')), 'line 1');
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-title')),
+        'line 1',
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -1186,7 +1207,10 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // 20 lines
-      final text20 = List.generate(20, (i) => 'Line ${i + 1} of long task').join('\n');
+      final text20 = List.generate(
+        20,
+        (i) => 'Line ${i + 1} of long task',
+      ).join('\n');
       await tester.enterText(find.byKey(const ValueKey('edit-title')), text20);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -1231,7 +1255,7 @@ void main() {
       // Complete both subtasks in details panel
       final subCheckboxes = find.descendant(
         of: find.byType(TaskDetailPanel),
-        matching: find.byType(Checkbox),
+        matching: find.byType(TaskHierarchyCheckbox),
       );
       expect(subCheckboxes, findsNWidgets(2));
       await tester.ensureVisible(subCheckboxes.first);
@@ -1287,7 +1311,10 @@ void main() {
       // Open detail again and make dirty change
       await tester.tap(find.text('clean task'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const ValueKey('edit-title')), 'modified dirty task');
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-title')),
+        'modified dirty task',
+      );
       await tester.pumpAndSettle();
 
       // Tap close -> discard dialog appears
@@ -1353,7 +1380,10 @@ void main() {
       await tester.tap(find.text('to delete'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Delete Task'));
+      await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Delete Task'));
+      await tester.tap(find.text('Delete Task'));
       await tester.pumpAndSettle();
       expect(find.text('Delete this task?'), findsOneWidget);
 
@@ -1379,12 +1409,18 @@ void main() {
       await tester.pumpAndSettle();
 
       const input = 'Task 1\n\nTask 2\n\n\nTask 3\n';
+      await tester.tap(find.byKey(const ValueKey('batch-mode')));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('task-input')), input);
       await tester.tap(find.byKey(const ValueKey('submit-tasks')));
       await tester.pumpAndSettle();
 
       expect(store.tasks.length, 3);
-      expect(store.tasks.map((t) => t.title).toList(), ['Task 1', 'Task 2', 'Task 3']);
+      expect(store.tasks.map((t) => t.title).toList(), [
+        'Task 1',
+        'Task 2',
+        'Task 3',
+      ]);
 
       await tester.pumpWidget(const SizedBox());
     },
@@ -1506,7 +1542,13 @@ void main() {
 
       // Empty Q4 card shows count 0
       expect(find.byKey(const ValueKey('focus-card-4')), findsOneWidget);
-      expect(find.descendant(of: find.byKey(const ValueKey('focus-card-4')), matching: find.text('0')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('focus-card-4')),
+          matching: find.text('0'),
+        ),
+        findsOneWidget,
+      );
 
       // Toggle hideCompleted: completed task is hidden
       await toggleShowCompleted(tester);
@@ -1517,36 +1559,35 @@ void main() {
     },
   );
 
-  testWidgets(
-    'WP23-N: board switching exits focus view and cleans cache',
-    (tester) async {
-      viewport(tester, const Size(390, 844));
-      final store = await setup(tester);
-      store.createBoard('Second Board');
-      // Switch back to first board
-      store.setActiveBoard(store.boards.first.id);
-      await tester.pumpWidget(app(store, const MatrixHome()));
-      await tester.pumpAndSettle();
+  testWidgets('WP23-N: board switching exits focus view and cleans cache', (
+    tester,
+  ) async {
+    viewport(tester, const Size(390, 844));
+    final store = await setup(tester);
+    store.createBoard('Second Board');
+    // Switch back to first board
+    store.setActiveBoard(store.boards.first.id);
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
 
-      // Enter Q1 focus on first board
-      await tester.tap(find.byKey(const ValueKey('quadrant-header-1')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('focus-view-active')), findsOneWidget);
+    // Enter Q1 focus on first board
+    await tester.tap(find.byKey(const ValueKey('quadrant-header-1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('focus-view-active')), findsOneWidget);
 
-      // Open board switcher and pick second board
-      await tester.tap(find.text(store.boards.first.name));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Second Board').last);
-      await tester.pumpAndSettle();
+    // Open board switcher and pick second board
+    await tester.tap(find.text(store.boards.first.name));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second Board').last);
+    await tester.pumpAndSettle();
 
-      // Focus view has exited, showing 4 quadrants of second board
-      expect(find.byKey(const ValueKey('focus-view-active')), findsNothing);
-      expect(find.text('Second Board'), findsOneWidget);
-      expect(find.byType(QuadrantPane), findsNWidgets(4));
+    // Focus view has exited, showing 4 quadrants of second board
+    expect(find.byKey(const ValueKey('focus-view-active')), findsNothing);
+    expect(find.text('Second Board'), findsOneWidget);
+    expect(find.byType(QuadrantPane), findsNWidgets(4));
 
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'WP12-S-N: tap search icon opens SearchScreen with current board default, filter chips and empty query list',
@@ -1607,7 +1648,11 @@ void main() {
       final store = await setup(tester);
       final parent = store.newTask('Major Feature', quadrant: qDo)
         ..subtasks = [
-          SubTask(id: 'sub-target', title: 'Special Unique Subtask', completed: false),
+          SubTask(
+            id: 'sub-target',
+            title: 'Special Unique Subtask',
+            completed: false,
+          ),
         ];
       store.addTasks([parent]);
 
@@ -1618,7 +1663,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Type subtask keyword
-      await tester.enterText(find.byKey(const ValueKey('search-input')), 'Special');
+      await tester.enterText(
+        find.byKey(const ValueKey('search-input')),
+        'Special',
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('1 results'), findsOneWidget);
@@ -1631,7 +1679,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TaskDetailPanel), findsOneWidget);
-      expect(find.byKey(const ValueKey('detail-subtask-sub-target')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('detail-subtask-sub-target')),
+        findsOneWidget,
+      );
 
       await tester.pumpWidget(const SizedBox());
     },
@@ -1646,11 +1697,22 @@ void main() {
 
       final tQ1 = store.newTask('Q1 Done Today', quadrant: qDo)
         ..completed = true
-        ..deadline = DateTime(now.year, now.month, now.day, 23, 59).millisecondsSinceEpoch;
+        ..deadline = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          23,
+          59,
+        ).millisecondsSinceEpoch;
 
       final tQ2 = store.newTask('Q2 Open Future', quadrant: qPlan)
         ..completed = false
-        ..deadline = DateTime(now.year, now.month, now.day + 10, 12).millisecondsSinceEpoch;
+        ..deadline = DateTime(
+          now.year,
+          now.month,
+          now.day + 10,
+          12,
+        ).millisecondsSinceEpoch;
 
       store.addTasks([tQ1, tQ2]);
 
@@ -1669,7 +1731,10 @@ void main() {
       expect(find.text('Q2 Open Future'), findsNothing);
 
       // Filter by Incomplete: Q1 is completed, so 0 results
-      await applyFilterOption(tester, const ValueKey('filter-status-incomplete'));
+      await applyFilterOption(
+        tester,
+        const ValueKey('filter-status-incomplete'),
+      );
       expect(find.text('0 results'), findsOneWidget);
       expect(find.byType(Icon), findsWidgets); // empty state
 
@@ -1683,7 +1748,10 @@ void main() {
       expect(tQ1.completed, isFalse);
 
       // Now filter by Incomplete -> Q1 now appears!
-      await applyFilterOption(tester, const ValueKey('filter-status-incomplete'));
+      await applyFilterOption(
+        tester,
+        const ValueKey('filter-status-incomplete'),
+      );
       expect(find.text('1 results'), findsOneWidget);
       expect(find.text('Q1 Done Today'), findsOneWidget);
 
@@ -1697,7 +1765,9 @@ void main() {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
       store.createBoard('Project Second');
-      final secondBoard = store.boards.firstWhere((b) => b.name == 'Project Second');
+      final secondBoard = store.boards.firstWhere(
+        (b) => b.name == 'Project Second',
+      );
       store.setActiveBoard(store.boards.first.id);
       final originalBoardId = store.activeBoardId;
 
@@ -1740,7 +1810,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select "Go to Board"
-      await tester.tap(find.byKey(const ValueKey('go-to-board-btn-task-board-2')));
+      await tester.tap(
+        find.byKey(const ValueKey('go-to-board-btn-task-board-2')),
+      );
       await tester.pumpAndSettle();
 
       // MatrixHome has switched to Project Second!
@@ -1759,10 +1831,7 @@ void main() {
         app(
           store,
           const Scaffold(
-            body: InputSheet(
-              initialMode: InputModePref.single,
-              embedded: true,
-            ),
+            body: InputSheet(initialMode: InputModePref.single, embedded: true),
           ),
         ),
       );
@@ -1771,10 +1840,15 @@ void main() {
       expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
 
       // Select Today
+      await tester.tap(find.byKey(const ValueKey('batch-mode')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('input-time-btn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('deadline-today')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
-      expect(find.text(store.t['deadlineBatchScope']!), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
+      await tester.pumpAndSettle();
 
       // Submit multiple manual tasks
       await tester.enterText(
@@ -1798,6 +1872,8 @@ void main() {
       expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
 
       // Now test Tomorrow and clear button
+      await tester.tap(find.byKey(const ValueKey('input-time-btn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
@@ -1806,6 +1882,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('deadline-clear')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
+      await tester.pumpAndSettle();
 
       // Enter task without date
       await tester.enterText(
@@ -1815,7 +1893,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('submit-tasks')));
       await tester.pumpAndSettle();
 
-      final noDateTask = store.tasks.firstWhere((t) => t.title == 'No deadline task');
+      final noDateTask = store.tasks.firstWhere(
+        (t) => t.title == 'No deadline task',
+      );
       expect(noDateTask.deadline, isNull);
 
       await tester.pumpWidget(const SizedBox());
@@ -1842,7 +1922,11 @@ void main() {
       );
 
       // Select Tomorrow
+      await tester.tap(find.byKey(const ValueKey('input-time-btn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
 
       await tester.enterText(
@@ -1905,7 +1989,11 @@ void main() {
       );
 
       // Select Today and enter draft
+      await tester.tap(find.byKey(const ValueKey('input-time-btn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('deadline-today')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('task-input')),
@@ -1923,9 +2011,11 @@ void main() {
       expect(find.text(store.t['aiNetworkError']!), findsOneWidget);
 
       // Input draft and deadline choice are both retained!
-      final textField = tester.widget<TextField>(find.byKey(const ValueKey('task-input')));
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('task-input')),
+      );
       expect(textField.controller!.text, 'Draft that will fail');
-      expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
+      expect(find.textContaining(store.t['deadline']!), findsWidgets);
 
       await tester.pumpWidget(const SizedBox());
     },
@@ -1954,13 +2044,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('subtask-edit-title')), findsOneWidget);
-      expect(find.byKey(const ValueKey('subtask-deadline-today')), findsOneWidget);
-      expect(find.byKey(const ValueKey('subtask-deadline-clear')), findsNothing);
+      expect(find.byKey(const ValueKey('subtask-time-btn')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('deadline-today')), findsOneWidget);
+      expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
 
       // Select Today deadline and edit title
-      await tester.tap(find.byKey(const ValueKey('subtask-deadline-today')));
+      await tester.tap(find.byKey(const ValueKey('deadline-today')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('subtask-deadline-clear')), findsOneWidget);
+      expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
+      await tester.pumpAndSettle();
 
       await tester.enterText(
         find.byKey(const ValueKey('subtask-edit-title')),
@@ -2006,9 +2101,13 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('subtask-item-s1')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('subtask-deadline-clear')));
+      await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('subtask-deadline-clear')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('deadline-clear')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
       await tester.pumpAndSettle();
@@ -2032,7 +2131,14 @@ void main() {
 
       // Parent task has deadline Today
       final parent = store.newTask('Independent Dates Task')
-        ..deadline = DateTime(today.year, today.month, today.day, 23, 59, 59).millisecondsSinceEpoch
+        ..deadline = DateTime(
+          today.year,
+          today.month,
+          today.day,
+          23,
+          59,
+          59,
+        ).millisecondsSinceEpoch
         ..subtasks = [SubTask(id: 's1', title: 'Child Task')];
       store.addTasks([parent]);
 
@@ -2047,11 +2153,18 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('subtask-item-s1')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('subtask-deadline-tomorrow')));
+      await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
 
       // Advisory warning is displayed, but doesn't prevent saving
-      expect(find.byKey(const ValueKey('subtask-after-parent-warning')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('subtask-after-parent-warning')),
+        findsOneWidget,
+      );
       expect(find.text(store.t['subtaskDeadlineAfterParent']!), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
@@ -2062,8 +2175,12 @@ void main() {
       await tester.pumpAndSettle();
 
       final updatedParent = store.tasks.first;
-      final pDate = DateTime.fromMillisecondsSinceEpoch(updatedParent.deadline!);
-      final sDate = DateTime.fromMillisecondsSinceEpoch(updatedParent.subtasks.first.deadline!);
+      final pDate = DateTime.fromMillisecondsSinceEpoch(
+        updatedParent.deadline!,
+      );
+      final sDate = DateTime.fromMillisecondsSinceEpoch(
+        updatedParent.subtasks.first.deadline!,
+      );
 
       expect(pDate.day, today.day);
       expect(sDate.day, tomorrow.day);
@@ -2088,7 +2205,14 @@ void main() {
           SubTask(
             id: 's1',
             title: 'Dated Subtask',
-            deadline: DateTime(today.year, today.month, today.day, 23, 59, 59).millisecondsSinceEpoch,
+            deadline: DateTime(
+              today.year,
+              today.month,
+              today.day,
+              23,
+              59,
+              59,
+            ).millisecondsSinceEpoch,
           ),
         ];
       store.addTasks([parent]);
@@ -2105,10 +2229,12 @@ void main() {
       expect(find.text(store.t['today']!), findsOneWidget);
 
       // Check subtask checkbox
-      final subCheck = find.descendant(
-        of: find.byType(TaskCard),
-        matching: find.byType(Checkbox),
-      ).last;
+      final subCheck = find
+          .descendant(
+            of: find.byType(TaskCard),
+            matching: find.byType(Checkbox),
+          )
+          .last;
       await tester.tap(subCheck);
       await tester.pumpAndSettle();
 
@@ -2150,7 +2276,11 @@ void main() {
       store.addTasks([p2]);
       store.addTasks([p1]);
 
-      expect(store.tasksIn(qDo).map((t) => t.title).toList(), ['A1', 'A2', 'A3']);
+      expect(store.tasksIn(qDo).map((t) => t.title).toList(), [
+        'A1',
+        'A2',
+        'A3',
+      ]);
       expect(store.tasksIn(qPlan).map((t) => t.title).toList(), ['P1', 'P2']);
 
       final originalCreatedAt = a2.createdAt;
@@ -2159,25 +2289,46 @@ void main() {
       store.moveTask(a2.id, qPlan);
 
       // A2 must be prepended to Q2, ahead of P1 and P2
-      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), ['A2', 'P1', 'P2']);
+      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), [
+        'A2',
+        'P1',
+        'P2',
+      ]);
       // Q1 keeps A1 and A3 in order
       expect(store.tasksIn(qDo).map((t) => t.title).toList(), ['A1', 'A3']);
       // createdAt is preserved
-      expect(store.tasks.firstWhere((t) => t.id == a2.id).createdAt, originalCreatedAt);
+      expect(
+        store.tasks.firstWhere((t) => t.id == a2.id).createdAt,
+        originalCreatedAt,
+      );
 
       // Same quadrant move must NOT reorder
       store.moveTask(a2.id, qPlan);
-      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), ['A2', 'P1', 'P2']);
+      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), [
+        'A2',
+        'P1',
+        'P2',
+      ]);
 
       // Board B tasks are completely unchanged
       store.setActiveBoard(boardB);
-      expect(store.tasksIn(qDo).map((t) => t.title).toList(), ['B1 Task', 'B2 Task']);
+      expect(store.tasksIn(qDo).map((t) => t.title).toList(), [
+        'B1 Task',
+        'B2 Task',
+      ]);
 
       // Re-switch to Board A and export/import roundtrip test
       store.setActiveBoard(boardA);
       final exportedJson = store.exportJson();
-      store.importData(jsonDecode(exportedJson) as Map<String, dynamic>, 'overwrite');
-      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), ['A2', 'P1', 'P2']);
+      store.importData(
+        jsonDecode(exportedJson) as Map<String, dynamic>,
+        'overwrite',
+      );
+      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), [
+        'A2',
+        'P1',
+        'P2',
+      ]);
       expect(store.tasksIn(qDo).map((t) => t.title).toList(), ['A1', 'A3']);
 
       await tester.pumpWidget(const SizedBox());
@@ -2197,7 +2348,10 @@ void main() {
       store.addTasks([p1]);
       store.addTasks([t1]);
 
-      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), ['Plan 1', 'Plan 2']);
+      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), [
+        'Plan 1',
+        'Plan 2',
+      ]);
 
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
@@ -2207,6 +2361,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select Q2 (Plan) ChoiceChip
+      await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ChoiceChip, store.t['q2']!));
       await tester.pumpAndSettle();
 
@@ -2215,7 +2371,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify Task Q1 is now at the top of Q2
-      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), ['Task Q1', 'Plan 1', 'Plan 2']);
+      expect(store.tasksIn(qPlan).map((t) => t.title).toList(), [
+        'Task Q1',
+        'Plan 1',
+        'Plan 2',
+      ]);
       expect(store.tasksIn(qDo), isEmpty);
 
       await tester.pumpWidget(const SizedBox());
@@ -2239,19 +2399,28 @@ void main() {
       // Secondary click (right click on Windows) on Task to Move
       final cardFinder = find.text('Task to Move');
       final center = tester.getCenter(cardFinder);
-      final gesture = await tester.startGesture(center, kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      final gesture = await tester.startGesture(
+        center,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
       await gesture.up();
       await tester.pumpAndSettle();
 
       // Menu should appear with option to move to Q3 (Delegate)
-      final moveToQ3Finder = find.byKey(ValueKey('move-to-q$qDelegate-${t1.id}'));
+      final moveToQ3Finder = find.byKey(
+        ValueKey('move-to-q$qDelegate-${t1.id}'),
+      );
       expect(moveToQ3Finder, findsOneWidget);
 
       await tester.tap(moveToQ3Finder);
       await tester.pumpAndSettle();
 
       // Verify task moved to top of Q3
-      expect(store.tasksIn(qDelegate).map((t) => t.title).toList(), ['Task to Move', 'Delegate 1']);
+      expect(store.tasksIn(qDelegate).map((t) => t.title).toList(), [
+        'Task to Move',
+        'Delegate 1',
+      ]);
       expect(store.tasksIn(qDo), isEmpty);
 
       // Verify confirmation SnackBar is displayed
@@ -2274,7 +2443,9 @@ void main() {
       final store = await setup(tester);
 
       // Fill Q2 with 15 tasks so it can scroll
-      final qPlanTasks = [for (var i = 0; i < 15; i++) store.newTask('Plan $i', quadrant: qPlan)];
+      final qPlanTasks = [
+        for (var i = 0; i < 15; i++) store.newTask('Plan $i', quadrant: qPlan),
+      ];
       final qDoTask = store.newTask('Moving Task', quadrant: qDo);
       for (final t in qPlanTasks.reversed) {
         store.addTasks([t]);
@@ -2285,7 +2456,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Scroll Q2 down
-      final q2ListFinder = find.byKey(PageStorageKey('${store.activeBoardId}-$qPlan'));
+      final q2ListFinder = find.byKey(
+        PageStorageKey('${store.activeBoardId}-$qPlan'),
+      );
       await tester.drag(q2ListFinder, const Offset(0, -300));
       await tester.pumpAndSettle();
 
@@ -2296,7 +2469,9 @@ void main() {
       expect(scrollableState.position.pixels, greaterThan(100));
 
       // Drag Moving Task from Q1 to Q2 with long press
-      final gesture = await tester.startGesture(tester.getCenter(find.text('Moving Task')));
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Moving Task')),
+      );
       await tester.pump(const Duration(milliseconds: 600));
 
       // Drag to Q2 list area
@@ -2390,8 +2565,12 @@ void main() {
         tester,
         deviceLocales: [const Locale('zh', 'CN')],
         initialPrefs: {
-          'matrixflow-settings': jsonEncode(AppSettings(language: Language.en).toJson()),
-          'matrixflow-boards': jsonEncode([Board(id: 'b1', name: 'Custom Board', createdAt: 1).toJson()]),
+          'matrixflow-settings': jsonEncode(
+            AppSettings(language: Language.en).toJson(),
+          ),
+          'matrixflow-boards': jsonEncode([
+            Board(id: 'b1', name: 'Custom Board', createdAt: 1).toJson(),
+          ]),
         },
       );
       expect(store.settings.language, Language.en);
@@ -2449,7 +2628,9 @@ void main() {
       await tester.runAsync(() async {
         store.importData({
           'version': 1,
-          'boards': [{'id': 'b1', 'name': 'Imported', 'createdAt': 1}],
+          'boards': [
+            {'id': 'b1', 'name': 'Imported', 'createdAt': 1},
+          ],
           'tasks': [],
           'settings': {'language': 'en'},
         }, 'overwrite');
@@ -2473,7 +2654,9 @@ void main() {
     'WP06-N: MatrixFlowApp widget entry point respects injected deviceLocales',
     (tester) async {
       viewport(tester, const Size(390, 844));
-      SharedPreferences.setMockInitialValues({'matrixflow-has-seen-onboarding': true});
+      SharedPreferences.setMockInitialValues({
+        'matrixflow-has-seen-onboarding': true,
+      });
 
       await tester.pumpWidget(
         const MatrixFlowApp(deviceLocales: [Locale('zh', 'CN')]),
@@ -2545,8 +2728,10 @@ void main() {
       // Add tasks across Q1-Q4 on Board 1, some completed
       final t1 = store.newTask('Task Q1', quadrant: qDo);
       final t2 = store.newTask('Task Q2', quadrant: qPlan);
-      final t3 = store.newTask('Task Q3', quadrant: qDelegate)..completed = true;
-      final t4 = store.newTask('Task Q4', quadrant: qEliminate)..completed = true;
+      final t3 = store.newTask('Task Q3', quadrant: qDelegate)
+        ..completed = true;
+      final t4 = store.newTask('Task Q4', quadrant: qEliminate)
+        ..completed = true;
       store.addTasks([t1, t2, t3, t4]);
 
       // Enable hide completed
@@ -2599,8 +2784,20 @@ void main() {
       // Create Board 2 with tasks
       store.createBoard('Board 2');
       final b2Id = store.boards.firstWhere((b) => b.name == 'Board 2').id;
-      final t2_1 = Task(id: 't2-1', boardId: b2Id, title: 'B2 Task 1', quadrant: qDo, createdAt: 1);
-      final t2_2 = Task(id: 't2-2', boardId: b2Id, title: 'B2 Task 2', quadrant: qPlan, createdAt: 2);
+      final t2_1 = Task(
+        id: 't2-1',
+        boardId: b2Id,
+        title: 'B2 Task 1',
+        quadrant: qDo,
+        createdAt: 1,
+      );
+      final t2_2 = Task(
+        id: 't2-2',
+        boardId: b2Id,
+        title: 'B2 Task 2',
+        quadrant: qPlan,
+        createdAt: 2,
+      );
       store.addTasks([t2_1, t2_2]);
 
       // Switch back to Board 1
@@ -2645,7 +2842,8 @@ void main() {
 
       // Export json has 0 tasks for Board 1 and 2 tasks for Board 2
       final exportMap = jsonDecode(store.exportJson()) as Map<String, dynamic>;
-      final exportedTasks = (exportMap['tasks'] as List).cast<Map<String, dynamic>>();
+      final exportedTasks = (exportMap['tasks'] as List)
+          .cast<Map<String, dynamic>>();
       expect(exportedTasks.where((t) => t['boardId'] == b1Id), isEmpty);
       expect(exportedTasks.where((t) => t['boardId'] == b2Id).length, 2);
 
@@ -2757,7 +2955,9 @@ void main() {
       // Key should be cleared to prevent cross-provider leakage
       expect(store.aiConfig.provider, 'volcengine');
       expect(store.aiConfig.apiKey, '');
-      final apiKeyField = tester.widget<TextField>(find.byKey(const ValueKey('api-key-input')));
+      final apiKeyField = tester.widget<TextField>(
+        find.byKey(const ValueKey('api-key-input')),
+      );
       expect(apiKeyField.controller?.text, '');
 
       // Thinking switch is not present for Volcengine (does not support proprietary thinking)
@@ -2788,10 +2988,11 @@ void main() {
       final ai = ControlledAI();
       final discoveryCompleter = Completer<List<String>>();
       int fetchCalls = 0;
-      ai.onFetchModels = ({required config, bool forceRefresh = false, cancellation}) {
-        fetchCalls++;
-        return discoveryCompleter.future;
-      };
+      ai.onFetchModels =
+          ({required config, bool forceRefresh = false, cancellation}) {
+            fetchCalls++;
+            return discoveryCompleter.future;
+          };
 
       final store = await setup(tester, ai: ai);
       await tester.pumpWidget(app(store, const SettingsScreen()));
@@ -2821,7 +3022,11 @@ void main() {
       expect(find.text(store.t['fetchingModels']!), findsOneWidget);
 
       // Complete model discovery
-      discoveryCompleter.complete(['deepseek-chat', 'deepseek-v4-flash', 'deepseek-reasoner']);
+      discoveryCompleter.complete([
+        'deepseek-chat',
+        'deepseek-v4-flash',
+        'deepseek-reasoner',
+      ]);
       await tester.pumpAndSettle();
 
       // Discovered models dropdown is now visible with preferred model auto-selected
@@ -2901,7 +3106,10 @@ void main() {
       expect(find.text(store.t['q$qPlan']!), findsOneWidget);
 
       // Switch back to current board
-      await applyFilterOption(tester, const ValueKey('completed-scope-current'));
+      await applyFilterOption(
+        tester,
+        const ValueKey('completed-scope-current'),
+      );
       expect(find.text(store.t['noCompletedTasks']!), findsOneWidget);
 
       // Back button pops back to MatrixHome
@@ -2924,7 +3132,8 @@ void main() {
       });
 
       final store = await setup(tester);
-      final tDone = store.newTask('Finished Task', quadrant: qDo)..completed = true;
+      final tDone = store.newTask('Finished Task', quadrant: qDo)
+        ..completed = true;
       store.addTasks([tDone]);
 
       // Hide completed on main matrix
@@ -2942,7 +3151,10 @@ void main() {
 
       // In CompletedScreen, task is visible despite hideCompleted
       expect(find.text('Finished Task'), findsOneWidget);
-      expect(find.byKey(ValueKey('completed-restore-${tDone.id}')), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('completed-restore-${tDone.id}')),
+        findsOneWidget,
+      );
 
       // Tap restore button
       await tester.tap(find.byKey(ValueKey('completed-restore-${tDone.id}')));
@@ -2995,10 +3207,22 @@ void main() {
       expect(store.settings.viewMode, ViewMode.list);
 
       // Check quadrant headers in list view
-      expect(find.byKey(const ValueKey('list-quadrant-header-1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('list-quadrant-header-2')), findsOneWidget);
-      expect(find.byKey(const ValueKey('list-quadrant-header-3')), findsOneWidget);
-      expect(find.byKey(const ValueKey('list-quadrant-header-4')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-2')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-3')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-4')),
+        findsOneWidget,
+      );
 
       // Tasks are visible in list view
       expect(find.text('Task Alpha'), findsOneWidget);
@@ -3096,7 +3320,9 @@ void main() {
       expect(store.settings.fontSize, FontSizePref.large);
 
       // Select 'serif' font family
-      await tester.ensureVisible(find.byKey(const ValueKey('font-family-serif')));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('font-family-serif')),
+      );
       await tester.tap(find.byKey(const ValueKey('font-family-serif')));
       await tester.pumpAndSettle();
       expect(store.settings.fontFamily, FontFamilyPref.serif);
@@ -3115,9 +3341,18 @@ void main() {
     'WP08-T-N: CombinedTextScaler respects both system scaling and app font scale without disabling TextScaler',
     (tester) async {
       final baseScaler = TextScaler.linear(1.3);
-      final smallCombined = CombinedTextScaler(baseScaler, fontScaleFactor(FontSizePref.small));
-      final stdCombined = CombinedTextScaler(baseScaler, fontScaleFactor(FontSizePref.standard));
-      final largeCombined = CombinedTextScaler(baseScaler, fontScaleFactor(FontSizePref.large));
+      final smallCombined = CombinedTextScaler(
+        baseScaler,
+        fontScaleFactor(FontSizePref.small),
+      );
+      final stdCombined = CombinedTextScaler(
+        baseScaler,
+        fontScaleFactor(FontSizePref.standard),
+      );
+      final largeCombined = CombinedTextScaler(
+        baseScaler,
+        fontScaleFactor(FontSizePref.large),
+      );
 
       // Font size 14 with system 1.3x and small (0.88x)
       expect(smallCombined.scale(14), closeTo(14 * 1.3 * 0.88, 0.001));
@@ -3127,8 +3362,21 @@ void main() {
       expect(largeCombined.scale(14), closeTo(14 * 1.3 * 1.16, 0.001));
 
       // Equality and hashcode
-      expect(smallCombined, equals(CombinedTextScaler(baseScaler, fontScaleFactor(FontSizePref.small))));
-      expect(smallCombined.hashCode, equals(CombinedTextScaler(baseScaler, fontScaleFactor(FontSizePref.small)).hashCode));
+      expect(
+        smallCombined,
+        equals(
+          CombinedTextScaler(baseScaler, fontScaleFactor(FontSizePref.small)),
+        ),
+      );
+      expect(
+        smallCombined.hashCode,
+        equals(
+          CombinedTextScaler(
+            baseScaler,
+            fontScaleFactor(FontSizePref.small),
+          ).hashCode,
+        ),
+      );
     },
   );
 
@@ -3179,10 +3427,16 @@ void main() {
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
 
-      expect(store.tasksIn(qDo).map((x) => x.title), contains('Task to Swipe Delete'));
+      expect(
+        store.tasksIn(qDo).map((x) => x.title),
+        contains('Task to Swipe Delete'),
+      );
 
       // Swipe left on the task card (endToStart)
-      await tester.drag(find.text('Task to Swipe Delete'), const Offset(-400, 0));
+      await tester.drag(
+        find.text('Task to Swipe Delete'),
+        const Offset(-400, 0),
+      );
       await tester.pumpAndSettle();
 
       // Task should be deleted
@@ -3198,41 +3452,45 @@ void main() {
       await tester.pumpAndSettle();
 
       // Task should be restored
-      expect(store.tasksIn(qDo).map((x) => x.title), contains('Task to Swipe Delete'));
+      expect(
+        store.tasksIn(qDo).map((x) => x.title),
+        contains('Task to Swipe Delete'),
+      );
       expect(find.text('Task to Swipe Delete'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
     },
   );
 
-  testWidgets(
-    'WP24-N: multi-select mode disables swipe dismissible',
-    (tester) async {
-      viewport(tester, const Size(800, 600));
-      final store = await setup(tester);
-      final t = store.newTask('MultiSelect Task', quadrant: qDo);
-      store.addTasks([t]);
+  testWidgets('WP24-N: multi-select mode disables swipe dismissible', (
+    tester,
+  ) async {
+    viewport(tester, const Size(800, 600));
+    final store = await setup(tester);
+    final t = store.newTask('MultiSelect Task', quadrant: qDo);
+    store.addTasks([t]);
 
-      await tester.pumpWidget(app(store, const MatrixHome()));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
 
-      // Enter multi-select mode
-      await enterSelectMode(tester);
-      await tester.pumpAndSettle();
+    // Enter multi-select mode
+    await enterSelectMode(tester);
+    await tester.pumpAndSettle();
 
-      // Check Dismissible has direction none
-      final dismissible = tester.widget<Dismissible>(find.byKey(ValueKey('dismiss-${t.id}')));
-      expect(dismissible.direction, DismissDirection.none);
+    // Check Dismissible has direction none
+    final dismissible = tester.widget<Dismissible>(
+      find.byKey(ValueKey('dismiss-${t.id}')),
+    );
+    expect(dismissible.direction, DismissDirection.none);
 
-      // Swipe should not delete or complete the task
-      await tester.drag(find.text('MultiSelect Task'), const Offset(-300, 0));
-      await tester.pumpAndSettle();
-      expect(store.tasksIn(qDo).length, 1);
-      expect(t.completed, isFalse);
+    // Swipe should not delete or complete the task
+    await tester.drag(find.text('MultiSelect Task'), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(store.tasksIn(qDo).length, 1);
+    expect(t.completed, isFalse);
 
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'WP24-N: context menu offers complete, delete, and undo operations',
@@ -3248,7 +3506,11 @@ void main() {
       // Right-click / secondary click on task
       final cardFinder = find.text('Context Menu Task');
       final center = tester.getCenter(cardFinder);
-      final gesture = await tester.startGesture(center, kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      final gesture = await tester.startGesture(
+        center,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
       await gesture.up();
       await tester.pumpAndSettle();
 
@@ -3270,7 +3532,11 @@ void main() {
       expect(t.completed, isFalse);
 
       // Right-click again and delete
-      final gesture2 = await tester.startGesture(center, kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      final gesture2 = await tester.startGesture(
+        center,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
       await gesture2.up();
       await tester.pumpAndSettle();
 
@@ -3306,21 +3572,43 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify edit-notes field is present and empty
+      expect(find.byKey(const ValueKey('edit-notes')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('edit-notes-entry')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('edit-notes')), findsOneWidget);
-      expect((tester.widget(find.byKey(const ValueKey('edit-notes'))) as TextField).controller!.text, isEmpty);
+      expect(
+        (tester.widget(find.byKey(const ValueKey('edit-notes'))) as TextField)
+            .controller!
+            .text,
+        isEmpty,
+      );
 
       // Enter notes for parent task
-      await tester.enterText(find.byKey(const ValueKey('edit-notes')), 'Parent note line 1\nline 2');
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-notes')),
+        'Parent note line 1\nline 2',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, store.t['confirm']!));
       await tester.pumpAndSettle();
 
       // Edit subtask to add subtask notes
-      await tester.ensureVisible(find.byKey(const ValueKey('subtask-item-sub-1')));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('subtask-item-sub-1')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('subtask-item-sub-1')));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byKey(const ValueKey('subtask-notes-entry')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('subtask-edit-notes')), findsOneWidget);
-      await tester.enterText(find.byKey(const ValueKey('subtask-edit-notes')), 'Subtask note details');
+      await tester.enterText(
+        find.byKey(const ValueKey('subtask-edit-notes')),
+        'Subtask note details',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, store.t['confirm']!));
       await tester.pumpAndSettle();
 
       // Save subtask dialog
@@ -3343,10 +3631,22 @@ void main() {
       await tester.tap(find.text('Task with notes'));
       await tester.pumpAndSettle();
 
-      expect((tester.widget(find.byKey(const ValueKey('edit-notes'))) as TextField).controller!.text, 'Parent note line 1\nline 2');
+      await tester.tap(find.byKey(const ValueKey('edit-notes-entry')));
+      await tester.pumpAndSettle();
+      expect(
+        (tester.widget(find.byKey(const ValueKey('edit-notes'))) as TextField)
+            .controller!
+            .text,
+        'Parent note line 1\nline 2',
+      );
 
       // Make a change to notes
-      await tester.enterText(find.byKey(const ValueKey('edit-notes')), 'Dirty uncommitted note');
+      await tester.enterText(
+        find.byKey(const ValueKey('edit-notes')),
+        'Dirty uncommitted note',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, store.t['confirm']!));
       await tester.pumpAndSettle();
 
       // Tap close button -> triggers discard confirmation
@@ -3360,7 +3660,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Detail panel is still open
-      expect(find.byKey(const ValueKey('edit-notes')), findsOneWidget);
+      expect(find.byKey(const ValueKey('edit-notes-entry')), findsOneWidget);
 
       // Tap close again and tap "Discard"
       await tester.tap(find.byTooltip('Close'));
@@ -3370,62 +3670,83 @@ void main() {
 
       // Panel closed, store notes remains unchanged
       expect(find.byKey(const ValueKey('edit-notes')), findsNothing);
-      expect(store.tasks.firstWhere((t) => t.id == task.id).notesMarkdown, 'Parent note line 1\nline 2');
+      expect(
+        store.tasks.firstWhere((t) => t.id == task.id).notesMarkdown,
+        'Parent note line 1\nline 2',
+      );
 
       // 3. Clear notes and save
       await tester.tap(find.text('Task with notes'));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byKey(const ValueKey('edit-notes-entry')));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('edit-notes')), '');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, store.t['confirm']!));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('save-task')));
       await tester.pumpAndSettle();
 
-      expect(store.tasks.firstWhere((t) => t.id == task.id).notesMarkdown, isNull);
+      expect(
+        store.tasks.firstWhere((t) => t.id == task.id).notesMarkdown,
+        isNull,
+      );
 
       await tester.pumpWidget(const SizedBox());
     },
   );
 
-  testWidgets(
-    'WP13-A-N: SearchScreen finds parent and subtask by notes',
-    (tester) async {
-      viewport(tester, const Size(390, 844));
-      final store = await setup(tester);
-      final t1 = store.newTask('Regular Header', quadrant: qDo);
-      t1.notesMarkdown = 'Contains UniqueSearchToken in parent note';
-      final t2 = store.newTask('Another Header', quadrant: qPlan);
-      t2.subtasks.add(SubTask(id: 's-t2', title: 'Normal Sub', notesMarkdown: 'SubtaskNoteToken here'));
-      store.addTasks([t1, t2]);
+  testWidgets('WP13-A-N: SearchScreen finds parent and subtask by notes', (
+    tester,
+  ) async {
+    viewport(tester, const Size(390, 844));
+    final store = await setup(tester);
+    final t1 = store.newTask('Regular Header', quadrant: qDo);
+    t1.notesMarkdown = 'Contains UniqueSearchToken in parent note';
+    final t2 = store.newTask('Another Header', quadrant: qPlan);
+    t2.subtasks.add(
+      SubTask(
+        id: 's-t2',
+        title: 'Normal Sub',
+        notesMarkdown: 'SubtaskNoteToken here',
+      ),
+    );
+    store.addTasks([t1, t2]);
 
-      await tester.pumpWidget(app(store, const MatrixHome()));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
 
-      // Open search screen
-      await tester.tap(find.byKey(const ValueKey('search-btn')));
-      await tester.pumpAndSettle();
+    // Open search screen
+    await tester.tap(find.byKey(const ValueKey('search-btn')));
+    await tester.pumpAndSettle();
 
-      // Search for UniqueSearchToken
-      await tester.enterText(find.byKey(const ValueKey('search-input')), 'UniqueSearchToken');
-      await tester.pumpAndSettle();
+    // Search for UniqueSearchToken
+    await tester.enterText(
+      find.byKey(const ValueKey('search-input')),
+      'UniqueSearchToken',
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('Regular Header'), findsOneWidget);
-      expect(find.text('Another Header'), findsNothing);
+    expect(find.text('Regular Header'), findsOneWidget);
+    expect(find.text('Another Header'), findsNothing);
 
-      // Clear and search for SubtaskNoteToken
-      await tester.enterText(find.byKey(const ValueKey('search-input')), 'SubtaskNoteToken');
-      await tester.pumpAndSettle();
+    // Clear and search for SubtaskNoteToken
+    await tester.enterText(
+      find.byKey(const ValueKey('search-input')),
+      'SubtaskNoteToken',
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('Normal Sub'), findsOneWidget);
+    expect(find.text('Normal Sub'), findsOneWidget);
 
-      // Gracefully exit search screen before teardown
-      await tester.tap(find.byKey(const ValueKey('search-back-btn')));
-      await tester.pumpAndSettle();
+    // Gracefully exit search screen before teardown
+    await tester.tap(find.byKey(const ValueKey('search-back-btn')));
+    await tester.pumpAndSettle();
 
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'WP25-N-Android: reminder picker in TaskDetailPanel sets reminder, displays quick chips, and saves to store',
@@ -3443,11 +3764,18 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify reminder button and quick chips are present
-      expect(find.byKey(const ValueKey('edit-reminder-btn')), findsOneWidget);
-      expect(find.byKey(const ValueKey('reminder-quick-tomorrow-9')), findsOneWidget);
+      expect(find.byKey(const ValueKey('edit-time-btn')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('reminder-quick-tomorrow-9')),
+        findsOneWidget,
+      );
 
       // Tap Tomorrow 09:00 quick chip
       await tester.tap(find.byKey(const ValueKey('reminder-quick-tomorrow-9')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
 
       // Save task
@@ -3457,14 +3785,21 @@ void main() {
       // Check task in store has reminderAt set to future
       final updatedTask = store.tasks.firstWhere((t) => t.id == task.id);
       expect(updatedTask.reminderAt, isNotNull);
-      expect(updatedTask.reminderAt!, greaterThan(DateTime.now().millisecondsSinceEpoch));
+      expect(
+        updatedTask.reminderAt!,
+        greaterThan(DateTime.now().millisecondsSinceEpoch),
+      );
 
       // Re-open and clear reminder
       await tester.tap(find.text('Task with reminder'));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('clear-reminder-btn')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('clear-reminder-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('save-task')));
@@ -3487,7 +3822,11 @@ void main() {
 
       // Verify Reminder Guide tile is present
       final guideTile = find.byKey(const ValueKey('reminder-guide-tile'));
-      await tester.scrollUntilVisible(guideTile, 200, scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        guideTile,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       expect(guideTile, findsOneWidget);
 
@@ -3513,7 +3852,11 @@ void main() {
 
       // Tap check permissions button
       final permBtn = find.byKey(const ValueKey('check-permissions-btn'));
-      await tester.scrollUntilVisible(permBtn, 200, scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        permBtn,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       expect(permBtn, findsOneWidget);
       await tester.tap(permBtn);
@@ -3564,8 +3907,14 @@ void main() {
         await tester.pumpAndSettle();
 
         // Windows guide tile should be visible
-        final guideTile = find.byKey(const ValueKey('windows-reminder-guide-tile'));
-        await tester.scrollUntilVisible(guideTile, 200, scrollable: find.byType(Scrollable).first);
+        final guideTile = find.byKey(
+          const ValueKey('windows-reminder-guide-tile'),
+        );
+        await tester.scrollUntilVisible(
+          guideTile,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pumpAndSettle();
         expect(guideTile, findsOneWidget);
 
@@ -3582,13 +3931,20 @@ void main() {
         await tester.pumpAndSettle();
 
         // Find and tap test notification button
-        final testNotifBtn = find.byKey(const ValueKey('test-windows-notif-btn'));
+        final testNotifBtn = find.byKey(
+          const ValueKey('test-windows-notif-btn'),
+        );
         expect(testNotifBtn, findsOneWidget);
         await tester.tap(testNotifBtn);
         await tester.pumpAndSettle();
 
         // Test notification was scheduled in ReminderService
-        expect(inMemoryService.scheduled.containsKey(generateNotificationId('test-win-notif')), isTrue);
+        expect(
+          inMemoryService.scheduled.containsKey(
+            generateNotificationId('test-win-notif'),
+          ),
+          isTrue,
+        );
 
         // SnackBar feedback was shown
         expect(find.byType(SnackBar), findsOneWidget);
@@ -3601,4 +3957,3 @@ void main() {
     },
   );
 }
-

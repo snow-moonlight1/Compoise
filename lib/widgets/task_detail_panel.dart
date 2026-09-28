@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../calendar_dates.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
@@ -19,27 +18,25 @@ Future<bool> confirmDiscardDraft(BuildContext context) async {
   final t = context.read<Store>().t;
   final res = await showDialog<bool>(
     context: context,
-    builder:
-        (ctx) => AlertDialog(
-          title: Text(t['discardChangesTitle'] ?? 'Discard changes?'),
-          content: Text(
-            t['discardChangesConfirm'] ??
-                'You have unsaved changes. Discard them?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(t['keepEditing'] ?? 'Keep Editing'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.error,
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(t['discard'] ?? 'Discard'),
-            ),
-          ],
+    builder: (ctx) => AlertDialog(
+      title: Text(t['discardChangesTitle'] ?? 'Discard changes?'),
+      content: Text(
+        t['discardChangesConfirm'] ?? 'You have unsaved changes. Discard them?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(t['keepEditing'] ?? 'Keep Editing'),
         ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(ctx).colorScheme.error,
+          ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(t['discard'] ?? 'Discard'),
+        ),
+      ],
+    ),
   );
   return res ?? false;
 }
@@ -58,21 +55,19 @@ Future<void> showTaskDetailSheet(
   shape: const RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
   ),
-  builder:
-      (_) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.4,
-        maxChildSize: 0.95,
-        expand: false,
-        builder:
-            (sheetContext, scrollController) => TaskDetailPanel(
-              key: ValueKey('task-detail-${task.id}'),
-              task: task,
-              scrollController: scrollController,
-              highlightSubtaskId: highlightSubtaskId,
-              onDirtyChanged: onDirtyChanged,
-            ),
-      ),
+  builder: (_) => DraggableScrollableSheet(
+    initialChildSize: 0.75,
+    minChildSize: 0.4,
+    maxChildSize: 0.95,
+    expand: false,
+    builder: (sheetContext, scrollController) => TaskDetailPanel(
+      key: ValueKey('task-detail-${task.id}'),
+      task: task,
+      scrollController: scrollController,
+      highlightSubtaskId: highlightSubtaskId,
+      onDirtyChanged: onDirtyChanged,
+    ),
+  ),
 );
 
 /// Opens the editor for an existing task from a list row without a host panel.
@@ -108,10 +103,9 @@ class TaskDetailSession {
   /// it and nothing rebuilds because of it.
   void reportDraft(bool dirty) => _dirty = dirty;
 
-  Task? taskIn(Store store) =>
-      _taskId == null
-          ? null
-          : store.tasks.where((task) => task.id == _taskId).firstOrNull;
+  Task? taskIn(Store store) => _taskId == null
+      ? null
+      : store.tasks.where((task) => task.id == _taskId).firstOrNull;
 
   /// Opens [task]. On a wide layout the hosted panel switches, asking first
   /// when another task still holds a draft; on a narrow layout the modal editor
@@ -203,10 +197,7 @@ class DetailSideBySide extends StatelessWidget {
       children: [
         Expanded(child: main),
         separator ?? const SizedBox(width: PlatformUiPolicy.sideDetailGap),
-        SizedBox(
-          width: PlatformUiPolicy.sideDetailWidth,
-          child: detail,
-        ),
+        SizedBox(width: PlatformUiPolicy.sideDetailWidth, child: detail),
       ],
     );
   }
@@ -239,6 +230,10 @@ class TaskDetailPanel extends StatefulWidget {
 class _TaskDetailPanelState extends State<TaskDetailPanel> {
   late final TaskEditDraft _draft;
   bool _notifyingDirty = false;
+  bool _showMore = false;
+  bool _saving = false;
+  bool _pendingSave = false;
+  String? _saveError;
 
   @override
   void initState() {
@@ -252,6 +247,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.task.id != widget.task.id) {
       _draft.load(widget.task);
+      _showMore = false;
+      _pendingSave = false;
+      _saveError = null;
       _emitDirty();
     }
   }
@@ -275,14 +273,14 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     _notifyingDirty = false;
   }
 
-  void _applyReminderMoment(int moment) =>
-      setState(() => _draft.reminderAt = moment);
-
   void _close() {
     if (widget.onClose != null) {
       widget.onClose!();
     } else if (Navigator.canPop(context)) {
-      Navigator.pop(context);
+      WidgetsBinding.instance.scheduleFrame();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      });
     }
   }
 
@@ -297,12 +295,34 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     final discard = await _confirmDiscard(context);
     if (discard && mounted) {
       _draft.markDiscarding();
+      setState(() {});
       widget.onDirtyChanged?.call(false);
       _close();
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
+    if (_pendingSave) {
+      setState(() => _saving = true);
+      final store = context.read<Store>();
+      final current = store.tasks
+          .where((t) => t.id == widget.task.id)
+          .firstOrNull;
+      if (current != null) store.updateTask(_draft.applyTo(current));
+      final result = await store.retrySave(waitForReminders: false);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (!result.success) {
+        setState(
+          () => _saveError =
+              store.persistenceError ?? store.t['storageWriteError'],
+        );
+        return;
+      }
+      _finishSave();
+      return;
+    }
     if (hasPendingImeComposition(_draft.titleController) ||
         hasPendingImeComposition(_draft.notesController) ||
         hasPendingImeComposition(_draft.newSubtaskController)) {
@@ -311,10 +331,12 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     if (!_draft.hasTitle) return;
 
     final store = context.read<Store>();
-    final current =
-        store.tasks.where((t) => t.id == widget.task.id).firstOrNull;
+    final current = store.tasks
+        .where((t) => t.id == widget.task.id)
+        .firstOrNull;
     if (current == null) {
       _draft.markDiscarding();
+      setState(() {});
       widget.onDirtyChanged?.call(false);
       _close();
       return;
@@ -323,8 +345,27 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     // A save is the user saying this draft is finished, so the composer row is
     // written as a subtask instead of quietly disappearing with the editor.
     _draft.takeNewSubtask();
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     store.updateTask(_draft.applyTo(current));
+    final result = await store.flush(waitForReminders: false);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (!result.success) {
+      setState(() {
+        _pendingSave = true;
+        _saveError = store.persistenceError ?? store.t['storageWriteError'];
+      });
+      return;
+    }
+    _finishSave();
+  }
+
+  void _finishSave() {
     _draft.markDiscarding();
+    setState(() {});
     widget.onDirtyChanged?.call(false);
     _close();
   }
@@ -334,45 +375,82 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     final t = store.t;
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(t['deleteTaskTitle']!),
-            content: Text(t['deleteTaskConfirm']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(t['cancel']!),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(t['confirm']!),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(t['deleteTaskTitle']!),
+        content: Text(t['deleteTaskConfirm']!),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(t['cancel']!),
           ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(t['confirm']!),
+          ),
+        ],
+      ),
     );
     if (ok == true && mounted) {
       store.deleteTask(widget.task.id);
       _draft.markDiscarding();
+      setState(() {});
       _close();
     }
   }
 
-  Future<void> _pickDate() async {
-    final picked = await pickDeadlineDay(context, selected: _draft.deadline);
-    if (picked != null) setState(() => _draft.deadline = picked);
-  }
-
-  Future<void> _pickReminderDateTime() async {
-    await pickReminderMoment(
+  Future<void> _editTime() async {
+    final result = await showTaskTimeEditor(
       context,
       t: context.read<Store>().t,
-      reminderAt: _draft.reminderAt,
       deadline: _draft.deadline,
-      onPicked: _applyReminderMoment,
+      reminderAt: _draft.reminderAt,
     );
+    if (result == null || !mounted) return;
+    setState(() {
+      _draft.deadline = result.deadline;
+      _draft.reminderAt = result.reminderAt;
+    });
+  }
+
+  Future<void> _editNotes() async {
+    final controller = TextEditingController(text: _draft.notesController.text);
+    final t = context.read<Store>().t;
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(t['editNotes']!),
+        content: SizedBox(
+          width: 420,
+          child: TextField(
+            key: const ValueKey('edit-notes'),
+            controller: controller,
+            autofocus: true,
+            minLines: 4,
+            maxLines: 12,
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration(hintText: t['notesHint']),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(t['cancel']!),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (hasPendingImeComposition(controller)) return;
+              Navigator.pop(dialogContext, controller.text);
+            },
+            child: Text(t['confirm']!),
+          ),
+        ],
+      ),
+    );
+    if (mounted && value != null) _draft.notesController.text = value;
+    Future<void>.delayed(const Duration(milliseconds: 350), controller.dispose);
   }
 
   void _addSubtask() {
@@ -415,6 +493,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
         final discard = await _confirmDiscard(context);
         if (discard && mounted) {
           _draft.markDiscarding();
+          setState(() {});
           _close();
         }
       },
@@ -422,15 +501,14 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
         behavior: HitTestBehavior.opaque,
         onTap: () => FocusScope.of(context).unfocus(),
         child: Container(
-          decoration:
-              widget.isSidebar
-                  ? BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    border: Border(
-                      left: BorderSide(color: theme.dividerColor, width: 1),
-                    ),
-                  )
-                  : null,
+          decoration: widget.isSidebar
+              ? BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(
+                    left: BorderSide(color: theme.dividerColor, width: 1),
+                  ),
+                )
+              : null,
           child: SafeArea(
             top: false,
             child: CallbackShortcuts(
@@ -457,24 +535,18 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: t['deleteTaskTitle']!,
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: theme.colorScheme.error,
-                          ),
-                          onPressed: _confirmDeleteTask,
-                        ),
-                        const SizedBox(width: 4),
                         FilledButton(
                           key: const ValueKey('save-task'),
                           style: FilledButton.styleFrom(
                             visualDensity: VisualDensity.compact,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                           ),
-                          onPressed: _save,
-                          child: Text(t['save'] ?? t['confirm']!),
+                          onPressed: _saving ? null : _save,
+                          child: Text(
+                            _pendingSave
+                                ? t['retrySave']!
+                                : t['save'] ?? t['confirm']!,
+                          ),
                         ),
                         const SizedBox(width: 4),
                         IconButton(
@@ -487,6 +559,14 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                     ),
                   ),
                   const Divider(height: 1),
+                  if (_saveError != null)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        _saveError!,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
                   // Scrollable Body
                   Expanded(
                     child: SingleChildScrollView(
@@ -517,314 +597,6 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Task Notes Field (multiline plain text editor)
-                          TextField(
-                            key: const ValueKey('edit-notes'),
-                            controller: _draft.notesController,
-                            minLines: 2,
-                            maxLines: 6,
-                            keyboardType: TextInputType.multiline,
-                            textInputAction: TextInputAction.newline,
-                            decoration: InputDecoration(
-                              labelText: t['notes'] ?? 'Notes',
-                              hintText: t['notesHint'] ?? 'Add notes…',
-                              alignLabelWithHint: true,
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Deadline row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  key: const ValueKey('edit-deadline-btn'),
-                                  icon: const Icon(
-                                    Icons.calendar_month,
-                                    size: 18,
-                                  ),
-                                  label: Text(
-                                    d == null
-                                        ? t['setDeadline']!
-                                        : '${d.year}-${d.month}-${d.day}',
-                                  ),
-                                  onPressed: _pickDate,
-                                ),
-                              ),
-                              if (d != null)
-                                IconButton(
-                                  tooltip: t['cancel']!,
-                                  onPressed:
-                                      () => setState(() => _draft.deadline = null),
-                                  icon: const Icon(Icons.clear),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Reminder row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  key: const ValueKey('edit-reminder-btn'),
-                                  icon: Icon(
-                                    _draft.reminderAt == null
-                                        ? Icons.notifications_none
-                                        : Icons.notifications_active,
-                                    size: 18,
-                                    color:
-                                        _draft.reminderAt == null
-                                            ? null
-                                            : theme.colorScheme.primary,
-                                  ),
-                                  label: Text(
-                                    _draft.reminderAt == null
-                                        ? (t['setReminder'] ?? 'Set Reminder')
-                                        : formatCivilDateTimeMs(_draft.reminderAt!),
-                                  ),
-                                  onPressed: _pickReminderDateTime,
-                                ),
-                              ),
-                              if (_draft.reminderAt != null)
-                                IconButton(
-                                  key: const ValueKey('clear-reminder-btn'),
-                                  tooltip:
-                                      t['clearReminder'] ?? 'Clear Reminder',
-                                  onPressed:
-                                      () => setState(() => _draft.reminderAt = null),
-                                  icon: const Icon(Icons.clear),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          // Quick reminder chips
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              if (d != null) ...[
-                                ActionChip(
-                                  key: const ValueKey(
-                                    'reminder-quick-due-date',
-                                  ),
-                                  label: Text(
-                                    t['reminderOnDueDate'] ??
-                                        'On due date 09:00',
-                                    style: const TextStyle(fontSize: 11),
-                                  ),
-                                  onPressed:
-                                      () => applyPresetReminderMoment(
-                                        context,
-                                        t: t,
-                                        moment: DateTime(
-                                          d.year,
-                                          d.month,
-                                          d.day,
-                                          9,
-                                          0,
-                                        ),
-                                        onPicked: _applyReminderMoment,
-                                      ),
-                                ),
-                              ],
-                              ActionChip(
-                                key: const ValueKey('reminder-quick-today-18'),
-                                label: Text(
-                                  t['reminderToday18'] ?? 'Today 18:00',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                                onPressed: () {
-                                  final now = DateTime.now();
-                                  applyPresetReminderMoment(
-                                    context,
-                                    t: t,
-                                    moment: DateTime(
-                                      now.year,
-                                      now.month,
-                                      now.day,
-                                      18,
-                                      0,
-                                    ),
-                                    onPicked: _applyReminderMoment,
-                                  );
-                                },
-                              ),
-                              ActionChip(
-                                key: const ValueKey(
-                                  'reminder-quick-tomorrow-9',
-                                ),
-                                label: Text(
-                                  t['reminderTomorrow9'] ?? 'Tomorrow 09:00',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                                onPressed: () {
-                                  final tomorrow = addCivilDays(
-                                    DateTime.now(),
-                                    1,
-                                  );
-                                  applyPresetReminderMoment(
-                                    context,
-                                    t: t,
-                                    moment: DateTime(
-                                      tomorrow.year,
-                                      tomorrow.month,
-                                      tomorrow.day,
-                                      9,
-                                      0,
-                                    ),
-                                    onPicked: _applyReminderMoment,
-                                  );
-                                },
-                              ),
-                              ActionChip(
-                                key: const ValueKey('reminder-quick-custom'),
-                                label: Text(
-                                  t['customReminder'] ?? 'Custom',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                                onPressed: _pickReminderDateTime,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Quadrant selection chips
-                          Text(
-                            t['quadrant']!,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              for (final q in allQuadrants)
-                                ChoiceChip(
-                                  label: Text(t['q$q']!),
-                                  selected: _draft.quadrant == q,
-                                  onSelected: (_) {
-                                    setState(() {
-                                      final oldQ = _draft.quadrant;
-                                      _draft.quadrant = q;
-                                      if (isUrgentQuadrant(oldQ) !=
-                                          isUrgentQuadrant(q)) {
-                                        _draft.urgencyMode = UrgencyMode.manual;
-                                      }
-                                    });
-                                  },
-                                ),
-                            ],
-                          ),
-                          if (_draft.urgencyMode == UrgencyMode.manual) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.tune,
-                                    size: 16,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      t['urgencyManualNotice'] ??
-                                          'Urgency manually set',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color:
-                                                theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    key: const ValueKey('reset-urgency-auto'),
-                                    style: TextButton.styleFrom(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _draft.urgencyMode = UrgencyMode.auto;
-                                        final store = context.read<Store>();
-                                        final d = _draft.deadline;
-                                        if (d != null) {
-                                          final dMs =
-                                              DateTime(
-                                                d.year,
-                                                d.month,
-                                                d.day,
-                                                23,
-                                                59,
-                                                59,
-                                              ).millisecondsSinceEpoch;
-                                          if (isDeadlineUrgent(
-                                            dMs,
-                                            store.settings.urgencyThresholdDays,
-                                          )) {
-                                            _draft.quadrant = promoteToUrgent(
-                                              _draft.quadrant,
-                                            );
-                                          }
-                                        }
-                                      });
-                                    },
-                                    child: Text(
-                                      t['resetUrgencyAuto'] ?? 'Restore Auto',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-
-                          // Long-Term switch & AI Decompose button
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SwitchListTile(
-                                  title: Text(
-                                    t['longTermTask'] ?? 'Long-Term Task',
-                                    style: theme.textTheme.bodyMedium,
-                                  ),
-                                  value: _draft.isLongTerm,
-                                  onChanged:
-                                      (v) => setState(() => _draft.isLongTerm = v),
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.auto_awesome, size: 16),
-                                label: Text(t['decomposeTask'] ?? 'AI'),
-                                onPressed: () {
-                                  showBatchDecomposeSheet(context, [
-                                    widget.task,
-                                  ], autoStart: true);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
                           // Subtasks Section
                           Row(
                             children: [
@@ -846,20 +618,17 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 4,
                               ),
-                              decoration:
-                                  sub.id == widget.highlightSubtaskId
-                                      ? BoxDecoration(
-                                        color: theme
-                                            .colorScheme
-                                            .primaryContainer
-                                            .withValues(alpha: 0.35),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: theme.colorScheme.primary
-                                              .withValues(alpha: 0.5),
-                                        ),
-                                      )
-                                      : null,
+                              decoration: sub.id == widget.highlightSubtaskId
+                                  ? BoxDecoration(
+                                      color: theme.colorScheme.primaryContainer
+                                          .withValues(alpha: 0.35),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: theme.colorScheme.primary
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                    )
+                                  : null,
                               child: Row(
                                 children: [
                                   TaskHierarchyCheckbox(
@@ -899,20 +668,16 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                             Text(
                                               sub.title,
                                               style: TextStyle(
-                                                fontSize:
-                                                    TaskHierarchyStyle
-                                                        .childTitleSize,
-                                                decoration:
-                                                    sub.completed
-                                                        ? TextDecoration
-                                                            .lineThrough
-                                                        : null,
-                                                color:
-                                                    sub.completed
-                                                        ? theme.disabledColor
-                                                        : theme
-                                                            .colorScheme
-                                                            .onSurface,
+                                                fontSize: TaskHierarchyStyle
+                                                    .childTitleSize,
+                                                decoration: sub.completed
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                                color: sub.completed
+                                                    ? theme.disabledColor
+                                                    : theme
+                                                          .colorScheme
+                                                          .onSurface,
                                               ),
                                             ),
                                             if (sub.notesMarkdown != null &&
@@ -926,10 +691,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                                 overflow: TextOverflow.ellipsis,
                                                 style: theme.textTheme.bodySmall
                                                     ?.copyWith(
-                                                      color:
-                                                          theme
-                                                              .colorScheme
-                                                              .onSurfaceVariant,
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
                                                       fontSize: 11,
                                                     ),
                                               ),
@@ -976,10 +740,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                                     Icons
                                                         .notifications_active_outlined,
                                                     size: 11,
-                                                    color:
-                                                        theme
-                                                            .colorScheme
-                                                            .primary,
+                                                    color: theme
+                                                        .colorScheme
+                                                        .primary,
                                                   ),
                                                   const SizedBox(width: 3),
                                                   Text(
@@ -990,10 +753,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                                         .textTheme
                                                         .labelSmall
                                                         ?.copyWith(
-                                                          color:
-                                                              theme
-                                                                  .colorScheme
-                                                                  .primary,
+                                                          color: theme
+                                                              .colorScheme
+                                                              .primary,
                                                           fontSize: 11,
                                                         ),
                                                   ),
@@ -1008,7 +770,9 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                   IconButton(
                                     icon: const Icon(Icons.close, size: 16),
                                     onPressed: () {
-                                      setState(() => _draft.subtasks.remove(sub));
+                                      setState(
+                                        () => _draft.subtasks.remove(sub),
+                                      );
                                     },
                                     tooltip: t['delete'] ?? 'Delete',
                                   ),
@@ -1044,6 +808,235 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 24),
+                          TextButton.icon(
+                            key: const ValueKey('edit-notes-entry'),
+                            onPressed: _editNotes,
+                            icon: const Icon(Icons.notes_outlined),
+                            label: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _draft.notesController.text.trim().isEmpty
+                                    ? t['notesHint']!
+                                    : _draft.notesController.text,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            key: const ValueKey('edit-time-btn'),
+                            onPressed: _editTime,
+                            icon: const Icon(Icons.schedule),
+                            label: Text(t['timePanel']!),
+                          ),
+                          if (d != null || _draft.reminderAt != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Wrap(
+                                spacing: 8,
+                                children: [
+                                  if (d != null)
+                                    ActionChip(
+                                      key: const ValueKey('edit-deadline-btn'),
+                                      label: Text(
+                                        '${t['deadline']}: ${formatCivilDate(d)}',
+                                      ),
+                                      onPressed: _editTime,
+                                    ),
+                                  if (_draft.reminderAt != null)
+                                    ActionChip(
+                                      key: const ValueKey('edit-reminder-btn'),
+                                      label: Text(
+                                        '${t['reminder']}: ${formatCivilDateTimeMs(_draft.reminderAt!)}',
+                                      ),
+                                      onPressed: _editTime,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          if (_draft.quadrant != qDo || _draft.isLongTerm ||
+                              _draft.urgencyMode == UrgencyMode.manual)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Wrap(
+                                spacing: 8,
+                                children: [
+                                  ActionChip(
+                                    key: const ValueKey('quadrant-summary'),
+                                    label: Text(t['q${_draft.quadrant}']!),
+                                    onPressed: () => setState(() => _showMore = true),
+                                  ),
+                                  if (_draft.isLongTerm)
+                                    ActionChip(
+                                      label: Text(t['longTermTask']!),
+                                      onPressed: () => setState(() => _showMore = true),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            key: const ValueKey('more-properties-btn'),
+                            onPressed: () =>
+                                setState(() => _showMore = !_showMore),
+                            icon: Icon(
+                              _showMore ? Icons.expand_less : Icons.expand_more,
+                            ),
+                            label: Text(t['moreProperties']!),
+                          ),
+                          if (_showMore) ...[
+                            // Quadrant selection chips
+                            Text(
+                              t['quadrant']!,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                for (final q in allQuadrants)
+                                  ChoiceChip(
+                                    label: Text(t['q$q']!),
+                                    selected: _draft.quadrant == q,
+                                    onSelected: (_) {
+                                      setState(() {
+                                        final oldQ = _draft.quadrant;
+                                        _draft.quadrant = q;
+                                        if (isUrgentQuadrant(oldQ) !=
+                                            isUrgentQuadrant(q)) {
+                                          _draft.urgencyMode =
+                                              UrgencyMode.manual;
+                                        }
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                            if (_draft.urgencyMode == UrgencyMode.manual) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.tune,
+                                      size: 16,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        t['urgencyManualNotice'] ??
+                                            'Urgency manually set',
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      key: const ValueKey('reset-urgency-auto'),
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _draft.urgencyMode = UrgencyMode.auto;
+                                          final store = context.read<Store>();
+                                          final d = _draft.deadline;
+                                          if (d != null) {
+                                            final dMs = DateTime(
+                                              d.year,
+                                              d.month,
+                                              d.day,
+                                              23,
+                                              59,
+                                              59,
+                                            ).millisecondsSinceEpoch;
+                                            if (isDeadlineUrgent(
+                                              dMs,
+                                              store
+                                                  .settings
+                                                  .urgencyThresholdDays,
+                                            )) {
+                                              _draft.quadrant = promoteToUrgent(
+                                                _draft.quadrant,
+                                              );
+                                            }
+                                          }
+                                        });
+                                      },
+                                      child: Text(
+                                        t['resetUrgencyAuto'] ?? 'Restore Auto',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+
+                            // Long-Term switch & AI Decompose button
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SwitchListTile(
+                                    title: Text(
+                                      t['longTermTask'] ?? 'Long-Term Task',
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                    value: _draft.isLongTerm,
+                                    onChanged: (v) =>
+                                        setState(() => _draft.isLongTerm = v),
+                                    dense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                OutlinedButton.icon(
+                                  icon: const Icon(
+                                    Icons.auto_awesome,
+                                    size: 16,
+                                  ),
+                                  label: Text(t['decomposeTask'] ?? 'AI'),
+                                  onPressed: () {
+                                    showBatchDecomposeSheet(context, [
+                                      widget.task,
+                                    ], autoStart: true);
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+
+                            TextButton.icon(
+                              onPressed: _confirmDeleteTask,
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: theme.colorScheme.error,
+                              ),
+                              label: Text(t['deleteTaskTitle']!),
+                            ),
+                          ],
                         ],
                       ),
                     ),

@@ -14,8 +14,22 @@ void main() {
   group('calendarDaysLeft algorithm', () {
     test('same day returns 0 regardless of time-of-day offsets', () {
       final now = DateTime(2026, 9, 15, 8, 30, 0);
-      final deadlineMorning = DateTime(2026, 9, 15, 9, 0, 0).millisecondsSinceEpoch;
-      final deadlineNight = DateTime(2026, 9, 15, 23, 59, 59).millisecondsSinceEpoch;
+      final deadlineMorning = DateTime(
+        2026,
+        9,
+        15,
+        9,
+        0,
+        0,
+      ).millisecondsSinceEpoch;
+      final deadlineNight = DateTime(
+        2026,
+        9,
+        15,
+        23,
+        59,
+        59,
+      ).millisecondsSinceEpoch;
       expect(calendarDaysLeft(deadlineMorning, now: now), 0);
       expect(calendarDaysLeft(deadlineNight, now: now), 0);
     });
@@ -116,44 +130,68 @@ void main() {
       store.dispose();
     });
 
-    test('auto promotes Q2->Q1 and Q4->Q3 for uncompleted tasks within threshold', () {
-      // addTasks promotes using the real clock before the explicit policy pass.
-      final now = DateTime.now();
-      final taskQ2 = Task(
-        id: 't-q2',
-        boardId: boardId,
-        title: 'Q2 due in 2 days',
-        quadrant: qPlan,
-        createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(now.year, now.month, now.day + 2, 18).millisecondsSinceEpoch, // 2 days away <= 3
-        urgencyMode: UrgencyMode.auto,
-      );
-      final taskQ4 = Task(
-        id: 't-q4',
-        boardId: boardId,
-        title: 'Q4 due today',
-        quadrant: qEliminate,
-        createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(now.year, now.month, now.day + 0, 18).millisecondsSinceEpoch, // 0 days away
-        urgencyMode: UrgencyMode.auto,
-      );
-      final taskQ2Far = Task(
-        id: 't-q2-far',
-        boardId: boardId,
-        title: 'Q2 due in 5 days',
-        quadrant: qPlan,
-        createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(now.year, now.month, now.day + 5, 18).millisecondsSinceEpoch, // 5 days > 3
-        urgencyMode: UrgencyMode.auto,
-      );
+    test(
+      'auto promotes Q2->Q1 and Q4->Q3 for uncompleted tasks within threshold',
+      () {
+        // addTasks promotes using the real clock before the explicit policy pass.
+        final now = DateTime.now();
+        final taskQ2 = Task(
+          id: 't-q2',
+          boardId: boardId,
+          title: 'Q2 due in 2 days',
+          quadrant: qPlan,
+          createdAt: now.millisecondsSinceEpoch,
+          deadline: DateTime(
+            now.year,
+            now.month,
+            now.day + 2,
+            18,
+          ).millisecondsSinceEpoch, // 2 days away <= 3
+          urgencyMode: UrgencyMode.auto,
+        );
+        final taskQ4 = Task(
+          id: 't-q4',
+          boardId: boardId,
+          title: 'Q4 due today',
+          quadrant: qEliminate,
+          createdAt: now.millisecondsSinceEpoch,
+          deadline: DateTime(
+            now.year,
+            now.month,
+            now.day + 0,
+            18,
+          ).millisecondsSinceEpoch, // 0 days away
+          urgencyMode: UrgencyMode.auto,
+        );
+        final taskQ2Far = Task(
+          id: 't-q2-far',
+          boardId: boardId,
+          title: 'Q2 due in 5 days',
+          quadrant: qPlan,
+          createdAt: now.millisecondsSinceEpoch,
+          deadline: DateTime(
+            now.year,
+            now.month,
+            now.day + 5,
+            18,
+          ).millisecondsSinceEpoch, // 5 days > 3
+          urgencyMode: UrgencyMode.auto,
+        );
 
-      store.addTasks([taskQ2, taskQ4, taskQ2Far]);
-      store.promoteDeadlinesNow(now: now);
+        store.addTasks([taskQ2, taskQ4, taskQ2Far]);
+        store.promoteDeadlinesNow(now: now);
 
-      expect(store.tasks.firstWhere((t) => t.id == 't-q2').quadrant, qDo);
-      expect(store.tasks.firstWhere((t) => t.id == 't-q4').quadrant, qDelegate);
-      expect(store.tasks.firstWhere((t) => t.id == 't-q2-far').quadrant, qPlan);
-    });
+        expect(store.tasks.firstWhere((t) => t.id == 't-q2').quadrant, qDo);
+        expect(
+          store.tasks.firstWhere((t) => t.id == 't-q4').quadrant,
+          qDelegate,
+        );
+        expect(
+          store.tasks.firstWhere((t) => t.id == 't-q2-far').quadrant,
+          qPlan,
+        );
+      },
+    );
 
     test('does NOT promote completed tasks or tasks without deadlines', () {
       final completedTask = Task(
@@ -179,7 +217,10 @@ void main() {
       store.addTasks([completedTask, noDateTask]);
       store.promoteDeadlinesNow(now: now);
 
-      expect(store.tasks.firstWhere((t) => t.id == 't-completed').quadrant, qPlan);
+      expect(
+        store.tasks.firstWhere((t) => t.id == 't-completed').quadrant,
+        qPlan,
+      );
       expect(store.tasks.firstWhere((t) => t.id == 't-nodate').quadrant, qPlan);
     });
 
@@ -207,7 +248,14 @@ void main() {
         title: 'Manual Q2 overdue',
         quadrant: qPlan,
         createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(2026, 9, 14, 12, 0, 0).millisecondsSinceEpoch, // overdue
+        deadline: DateTime(
+          2026,
+          9,
+          14,
+          12,
+          0,
+          0,
+        ).millisecondsSinceEpoch, // overdue
         urgencyMode: UrgencyMode.manual,
       );
 
@@ -231,11 +279,17 @@ void main() {
 
       // Move Q2 -> Q1: shifts from not urgent to urgent
       store.moveTask('t-move', qDo);
-      expect(store.tasks.firstWhere((t) => t.id == 't-move').urgencyMode, UrgencyMode.manual);
+      expect(
+        store.tasks.firstWhere((t) => t.id == 't-move').urgencyMode,
+        UrgencyMode.manual,
+      );
 
       // Move Q1 -> Q2: shifts back to not urgent -> stays manual
       store.moveTask('t-move', qPlan);
-      expect(store.tasks.firstWhere((t) => t.id == 't-move').urgencyMode, UrgencyMode.manual);
+      expect(
+        store.tasks.firstWhere((t) => t.id == 't-move').urgencyMode,
+        UrgencyMode.manual,
+      );
     });
 
     test('moveTask across importance only preserves urgencyMode', () {
@@ -251,28 +305,44 @@ void main() {
 
       // Move Q1 -> Q3: both are urgent, only importance changes
       store.moveTask('t-importance', qDelegate);
-      expect(store.tasks.firstWhere((t) => t.id == 't-importance').urgencyMode, UrgencyMode.auto);
-    });
-
-    test('resetTaskUrgencyMode restores auto and immediately promotes if due', () {
-      final task = Task(
-        id: 't-reset',
-        boardId: boardId,
-        title: 'Task to restore auto',
-        quadrant: qPlan,
-        createdAt: now.millisecondsSinceEpoch,
-        deadline: DateTime(2026, 9, 15, 12, 0, 0).millisecondsSinceEpoch, // today
-        urgencyMode: UrgencyMode.manual,
+      expect(
+        store.tasks.firstWhere((t) => t.id == 't-importance').urgencyMode,
+        UrgencyMode.auto,
       );
-      store.addTasks([task]);
-      expect(store.tasks.firstWhere((t) => t.id == 't-reset').quadrant, qPlan);
-
-      store.resetTaskUrgencyMode('t-reset');
-
-      final restored = store.tasks.firstWhere((t) => t.id == 't-reset');
-      expect(restored.urgencyMode, UrgencyMode.auto);
-      expect(restored.quadrant, qDo); // Promoted to Q1!
     });
+
+    test(
+      'resetTaskUrgencyMode restores auto and immediately promotes if due',
+      () {
+        final task = Task(
+          id: 't-reset',
+          boardId: boardId,
+          title: 'Task to restore auto',
+          quadrant: qPlan,
+          createdAt: now.millisecondsSinceEpoch,
+          deadline: DateTime(
+            2026,
+            9,
+            15,
+            12,
+            0,
+            0,
+          ).millisecondsSinceEpoch, // today
+          urgencyMode: UrgencyMode.manual,
+        );
+        store.addTasks([task]);
+        expect(
+          store.tasks.firstWhere((t) => t.id == 't-reset').quadrant,
+          qPlan,
+        );
+
+        store.resetTaskUrgencyMode('t-reset');
+
+        final restored = store.tasks.firstWhere((t) => t.id == 't-reset');
+        expect(restored.urgencyMode, UrgencyMode.auto);
+        expect(restored.quadrant, qDo); // Promoted to Q1!
+      },
+    );
 
     test('subtask deadlines do NOT promote parent task', () {
       final parent = Task(
@@ -298,41 +368,52 @@ void main() {
       expect(store.tasks.firstWhere((t) => t.id == 't-parent').quadrant, qPlan);
     });
 
-    test('grouping preserves manual urgencyMode if any grouped task was manual', () {
-      final task1 = Task(
-        id: 'g-1',
-        boardId: boardId,
-        title: 'Item 1',
-        quadrant: qPlan,
-        createdAt: now.millisecondsSinceEpoch,
-        urgencyMode: UrgencyMode.auto,
-      );
-      final task2 = Task(
-        id: 'g-2',
-        boardId: boardId,
-        title: 'Item 2',
-        quadrant: qPlan,
-        createdAt: now.millisecondsSinceEpoch,
-        urgencyMode: UrgencyMode.manual,
-      );
-      store.addTasks([task1, task2]);
+    test(
+      'grouping preserves manual urgencyMode if any grouped task was manual',
+      () {
+        final task1 = Task(
+          id: 'g-1',
+          boardId: boardId,
+          title: 'Item 1',
+          quadrant: qPlan,
+          createdAt: now.millisecondsSinceEpoch,
+          urgencyMode: UrgencyMode.auto,
+        );
+        final task2 = Task(
+          id: 'g-2',
+          boardId: boardId,
+          title: 'Item 2',
+          quadrant: qPlan,
+          createdAt: now.millisecondsSinceEpoch,
+          urgencyMode: UrgencyMode.manual,
+        );
+        store.addTasks([task1, task2]);
 
-      final parent = store.groupTasks(['g-1', 'g-2'], 'Group Parent');
-      expect(parent.urgencyMode, UrgencyMode.manual);
-    });
+        final parent = store.groupTasks(['g-1', 'g-2'], 'Group Parent');
+        expect(parent.urgencyMode, UrgencyMode.manual);
+      },
+    );
   });
 
   group('WP22-C-N Widget tests', () {
     const boardId = 'b-ui-test';
 
-    testWidgets('TaskDetailPanel shows manual urgency banner and restores auto', (tester) async {
+    testWidgets('TaskDetailPanel shows manual urgency banner and restores auto', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
       final now = DateTime.now();
-      final todayDeadline = DateTime(now.year, now.month, now.day, 20, 0).millisecondsSinceEpoch;
+      final todayDeadline = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        20,
+        0,
+      ).millisecondsSinceEpoch;
       final task = Task(
         id: 't-ui-1',
         boardId: boardId,
@@ -357,20 +438,22 @@ void main() {
         ChangeNotifierProvider<Store>.value(
           value: store,
           child: MaterialApp(
-            home: Scaffold(
-              body: TaskDetailPanel(task: task),
-            ),
+            home: Scaffold(body: TaskDetailPanel(task: task)),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       // Manual notice & restore button should be visible
+      await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('reset-urgency-auto')), findsOneWidget);
       expect(find.text(store.t['urgencyManualNotice']!), findsOneWidget);
 
       // Tap restore auto
-      await tester.ensureVisible(find.byKey(const ValueKey('reset-urgency-auto')));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('reset-urgency-auto')),
+      );
       await tester.tap(find.byKey(const ValueKey('reset-urgency-auto')));
       await tester.pumpAndSettle();
 
@@ -387,90 +470,99 @@ void main() {
       expect(savedTask.quadrant, qDo);
     });
 
-    testWidgets('TaskDetailPanel selecting different urgency quadrant sets manual', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+    testWidgets(
+      'TaskDetailPanel selecting different urgency quadrant sets manual',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-      final now = DateTime.now();
-      final task = Task(
-        id: 't-ui-2',
-        boardId: boardId,
-        title: 'Task initially auto in Q1',
-        quadrant: qDo,
-        createdAt: now.millisecondsSinceEpoch,
-        urgencyMode: UrgencyMode.auto,
-      );
-
-      late Store store;
-      await tester.runAsync(() async {
-        final res = await makeStore(
-          boards: [Board(id: boardId, name: 'UI Board', createdAt: 1000)],
-          tasks: [task],
+        final now = DateTime.now();
+        final task = Task(
+          id: 't-ui-2',
+          boardId: boardId,
+          title: 'Task initially auto in Q1',
+          quadrant: qDo,
+          createdAt: now.millisecondsSinceEpoch,
+          urgencyMode: UrgencyMode.auto,
         );
-        store = res.$1;
-      });
-      addTearDown(store.dispose);
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<Store>.value(
-          value: store,
-          child: MaterialApp(
-            home: Scaffold(
-              body: TaskDetailPanel(task: task),
+        late Store store;
+        await tester.runAsync(() async {
+          final res = await makeStore(
+            boards: [Board(id: boardId, name: 'UI Board', createdAt: 1000)],
+            tasks: [task],
+          );
+          store = res.$1;
+        });
+        addTearDown(store.dispose);
+
+        await tester.pumpWidget(
+          ChangeNotifierProvider<Store>.value(
+            value: store,
+            child: MaterialApp(
+              home: Scaffold(body: TaskDetailPanel(task: task)),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      // Auto mode: no banner
-      expect(find.byKey(const ValueKey('reset-urgency-auto')), findsNothing);
+        // Auto mode: no banner
+        expect(find.byKey(const ValueKey('reset-urgency-auto')), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+        await tester.pumpAndSettle();
 
-      // Tap Q2 choice chip (shifts urgency from urgent to not urgent)
-      await tester.tap(find.text(store.t['q2']!));
-      await tester.pumpAndSettle();
+        // Tap Q2 choice chip (shifts urgency from urgent to not urgent)
+        await tester.tap(find.text(store.t['q2']!));
+        await tester.pumpAndSettle();
 
-      // Banner now appears!
-      expect(find.byKey(const ValueKey('reset-urgency-auto')), findsOneWidget);
+        // Banner now appears!
+        expect(
+          find.byKey(const ValueKey('reset-urgency-auto')),
+          findsOneWidget,
+        );
 
-      // Save
-      await tester.tap(find.byKey(const ValueKey('save-task')));
-      await tester.pumpAndSettle();
+        // Save
+        await tester.tap(find.byKey(const ValueKey('save-task')));
+        await tester.pumpAndSettle();
 
-      final savedTask = store.tasks.firstWhere((t) => t.id == task.id);
-      expect(savedTask.urgencyMode, UrgencyMode.manual);
-      expect(savedTask.quadrant, qPlan);
-    });
+        final savedTask = store.tasks.firstWhere((t) => t.id == task.id);
+        expect(savedTask.urgencyMode, UrgencyMode.manual);
+        expect(savedTask.quadrant, qPlan);
+      },
+    );
 
-    testWidgets('SettingsScreen displays urgency threshold explanation subtitle', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+    testWidgets(
+      'SettingsScreen displays urgency threshold explanation subtitle',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-      late Store store;
-      await tester.runAsync(() async {
-        final res = await makeStore();
-        store = res.$1;
-      });
-      addTearDown(store.dispose);
+        late Store store;
+        await tester.runAsync(() async {
+          final res = await makeStore();
+          store = res.$1;
+        });
+        addTearDown(store.dispose);
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<Store>.value(
-          value: store,
-          child: const MaterialApp(
-            home: SettingsScreen(),
+        await tester.pumpWidget(
+          ChangeNotifierProvider<Store>.value(
+            value: store,
+            child: const MaterialApp(home: SettingsScreen()),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text(store.t['urgencyThreshold']!), findsOneWidget);
-      final expectedDesc = store.t['urgencyThresholdDesc']!
-          .replaceAll('{n}', '${store.settings.urgencyThresholdDays}');
-      expect(find.text(expectedDesc), findsOneWidget);
-    });
+        expect(find.text(store.t['urgencyThreshold']!), findsOneWidget);
+        final expectedDesc = store.t['urgencyThresholdDesc']!.replaceAll(
+          '{n}',
+          '${store.settings.urgencyThresholdDays}',
+        );
+        expect(find.text(expectedDesc), findsOneWidget);
+      },
+    );
   });
 }
