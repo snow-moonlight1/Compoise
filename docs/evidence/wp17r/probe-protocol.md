@@ -48,7 +48,7 @@ adb shell dumpsys package com.miui.notes | grep -E "versionName|versionCode|targ
 - `EXTRA_TEXT` 有全文 → 文本分享通道成立，P0 可做。
 - 只有 `content://` 且带临时 grant → 需要在接收 Activity 存活期内读完并转存，P0 加一条“即刻读取”约束。
 - 只有 `file://` → **放弃该路径**（API 24+ 会抛 `FileUriExposure`/无读取权限），只能靠文本或 SAF。
-- 只能得到长图/PDF → 文本通道不成立，WP17 降级为“文件导入 + 应用内粘贴”。
+- 只能得到长图/PDF → 待办文本通道不成立，停止小米专属适配；通用粘贴或文本文件输入可另行评估，不据此宣称支持系统待办导入。
 
 ## 4. 合成分享（不碰小米笔记也能验通道）
 

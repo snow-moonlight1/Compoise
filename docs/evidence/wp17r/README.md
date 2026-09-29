@@ -2,30 +2,30 @@
 
 基线：`main / 45cd517`（研究分支 `wp17r-notes-import-research`）。本轮**只研究，不改产品代码**：`lib/`、`android/`、`test/` 零改动。
 
-研究边界（按 `docs/ROADMAP.md:40` 与本轮指令）：不读取私有数据库、不使用需要 root 的数据、不做无障碍或屏幕抓取；只做包与公开接口的元数据检查，以及合成样例。
+研究边界（见[工作包状态](../../ROADMAP.md)）：不读取私有数据库、不使用需要 root 的数据、不做无障碍或屏幕抓取；只做包与公开接口的元数据检查，以及合成样例。
 
 ## 先看结论
 
 1. **没有稳定的公开接口可直接读取系统笔记待办库。** 小米笔记（`com.miui.notes` 2.4.3.3）的已识别跨应用入口由 `com.miui.notes.permission.ACCESS_NOTE` 保护，该权限在实测机上登记为 `prot=signature|privileged`，普通第三方应用无法取得。待办数据提供者 `com.miui.todo.provider` 在清单里没有声明权限门禁，但属于未公开实现，没有兼容性契约；Android 16 的 AppFunctions 通道也受 `EXECUTE_APP_FUNCTIONS`（实测 `prot=internal|privileged`）限制。
-2. **分享、粘贴与选中文本处理是候选入口。** Android 提供这些由用户主动触发的通道；实测机上 `ACTION_SEND` `text/plain` 有 101 个接收方。本仓库已有逐行转待办逻辑（`lib/widgets/input_sheet.dart`）和批量落库入口（`Store.addTasks`）。小米笔记实际分享出的内容和格式仍需按探针协议验证。
-3. **文件导入是另一条候选入口，无需新增存储权限。** Android 的 SAF（`ACTION_OPEN_DOCUMENT`）在用户选取文件后授予读取权限，必要时可持久化。小米笔记能否导出适合解析的文件尚未实测；现有 `file_picker` 与备份导入门禁不能直接证明笔记导入已可用。
+2. **单篇笔记的手动文本分享有官方说明，待办分享仍未证实。** [小米支持页](https://www.mi.com/global/support/faq/details/KA-559533/)列出“分享笔记为文本”；[小米设备手册](https://ams-go.buy.mi.com/uk/servicecenter/file/POCO_C40_User_Guide___uk?binaryId=204632&namespaceId=2&publicationId=204657)把笔记分享和待办清单分开描述。Android 可接收 `ACTION_SEND text/plain`，但实测机上的小米待办能否分享、能否带出完成态和提醒，仍无证据。本仓库已有逐行转待办逻辑（`lib/widgets/input_sheet.dart`）和批量落库入口（`Store.addTasks`）。
+3. **通用文件选择可做，小米待办批量文本导出未证实。** Android 的 SAF（`ACTION_OPEN_DOCUMENT`）在用户选取文件后授予读取权限，必要时可持久化。上述小米支持页虽然以“导出所有内容到 txt”为标题，正文实际列的是逐篇复制、逐篇分享以及系统备份；它没有提供待办批量导出为可解析文本的证据。现有 `file_picker` 与备份导入门禁也不能证明笔记导入已可用。
 4. **剪贴板不能作为后台通道。** Android 10+ 剪贴板读取仅限前台聚焦应用，Android 12+ 读取粘贴会弹 toast。可作为“用户显式点粘贴”使用，不能做静默桥接。
 5. **先做真机分享探针。** 还需验证小米笔记分享出的内容形态（纯文本、图片或文件）、完成态和日期是否保留，以及待办与普通笔记是否区分。判定标准和步骤见 [真机探针协议](probe-protocol.md)。
 
-实施候选是用户主动分享、粘贴或选择文件。先按 [真机探针协议](probe-protocol.md) 确认小米笔记交出的实际数据，再确定要实现哪些入口。
+**产品判断：不按“系统待办导入”直接排实现包。** 自动读取、批量迁移与保留完整待办结构都缺少可依赖的公开接口。若仍希望支持手动迁移，先按 [真机探针协议](probe-protocol.md)验证待办页能否分享文本；只有实际拿到可用内容，才评估一个明确标注数据损失的“用户主动分享文本导入”。如果待办只能分享图片或无法分享，结束小米专属适配，通用粘贴/文本文件输入可以独立于 WP17 评估。
 
 ## Android 入口盘点
 
 | 入口 | 方向 | 需要的新权限 | 可行性 | 证据 |
 |---|---|---|---|---|
 | `ACTION_SEND` / `SEND_MULTIPLE` `text/plain` | 笔记 → 我们 | 无（清单 intent-filter + `exported=true`） | **Android 可接收；小米分享内容待实测** | 官方接收文档；实测机有 101 个接收方，含 HyperOS 自身组件 |
-| `ACTION_PROCESS_TEXT`（选中文本菜单） | 笔记 → 我们 | 无 | **可行，但语义受限** | API 23+；接收方清单需 `PROCESS_TEXT` + `DEFAULT` + `text/plain` 的 filter；本仓 `minSdk=23` 满足 |
+| `ACTION_PROCESS_TEXT`（选中文本菜单） | 笔记 → 我们 | 无 | **Android 可接收；小米菜单待实测** | API 23+；接收方清单需 `PROCESS_TEXT` + `DEFAULT` + `text/plain` 的 filter；本仓 `minSdk=23` 满足 |
 | SAF `ACTION_OPEN_DOCUMENT` 挑导出文件 | 用户导出 → 我们 | 无（挑中即授权，可持久化） | **Android 可选文件；小米导出格式待实测** | 官方 SAF 文档：grant 默认到重启，`takePersistableUriPermission` 可延长；无需存储权限 |
 | 应用内“粘贴”按钮（用户自己复制） | 笔记 → 剪贴板 → 我们 | 无 | **可行，非自动化** | 官方剪贴板说明：Android 10+ 仅前台聚焦应用可读，Android 12+ 粘贴有 toast |
 | 静默读剪贴板 / 后台轮询 | 同上但自动 | — | **不可行** | 同上，Android 10 起禁止后台读取 |
 | ContentProvider 直读（`content://com.miui.todo.provider`） | 我们 → 笔记数据 | — | **不作为方案** | 清单上 `exported=true` 且无权限声明，但属未公开实现；官方入口一律 `signature\|privileged` |
 | Android 16 AppFunctions / NOTES role | 系统级代理 | — | **第三方不可用** | 决定性证据是 `EXECUTE_APP_FUNCTIONS` 实测为 `internal\|privileged`。该机确有 notes 角色开关（`/product/overlay/NotesRoleEnabled/NotesRoleEnabledOverlay.apk` = `com.android.role.notes.enabled`，min/targetSdk 36），但 `cmd role get-role-holders android.app.role.NOTES` 返回空，且与传入非法角色名的输出**无法区分**（已用对照实验验证），因此角色是否可申领属未定，需实现期用 `RoleManager` API 实测 |
-| 无障碍服务 / 屏幕抓取 | — | — | **禁区，本包明确排除** | 与 `docs/ROADMAP.md:40` 一致 |
+| 无障碍服务 / 屏幕抓取 | — | — | **禁区，本包明确排除** | 见[工作包状态](../../ROADMAP.md) |
 
 ### 平台侧要付的代价（不写代码也得先量出来）
 
@@ -60,7 +60,7 @@
 - ROM 侧还有 `com.android.permission.GET_INSTALLED_APPS` 这一层额外门（原生 `<queries>` 之外的厂商限制），会影响“检测装了哪些笔记应用”这类逻辑。
 - **厂商限制是否影响分享落地（例如 MIUI 的后台启动/前台 Activity 限制是否会拦我们被拉起的接收路径），本轮未实测**，只能由 `probe-protocol.md` 的第 4 步判定。
 
-## 实现建议（给 WP17 执行包，不含本轮改动）
+## 条件性实现建议（仅在待办分享探针通过后考虑）
 
 **分层范围**
 
@@ -103,6 +103,7 @@ WP17 实现前先完成[真机探针](probe-protocol.md)的分享与导出记录
 ## 来源
 
 - [接收来自其他应用的简单数据](https://developer.android.com/training/sharing/receive) · [将简单的数据发送到其他应用](https://developer.android.com/training/sharing/send)
+- [小米支持：逐篇复制或分享笔记文本](https://www.mi.com/global/support/faq/details/KA-559533/) · [小米设备手册：笔记分享与待办清单分列](https://ams-go.buy.mi.com/uk/servicecenter/file/POCO_C40_User_Guide___uk?binaryId=204632&namespaceId=2&publicationId=204657)
 - [声明软件包可见性需求](https://developer.android.com/training/package-visibility/declaring) · [软件包可见性总览](https://developer.android.com/training/package-visibility)
 - [通过 SAF 打开文档](https://developer.android.com/training/data-storage/shared/documents-files)
 - [安全剪贴板处理](https://developer.android.com/privacy-and-security/risks/secure-clipboard-handling)
