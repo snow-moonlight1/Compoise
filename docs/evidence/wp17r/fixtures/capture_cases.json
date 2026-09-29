@@ -1,0 +1,245 @@
+{
+  "package": "WP17-R",
+  "kind": "proposed-test-fixtures",
+  "note": "全部为合成数据，不含真实笔记内容。basis=existing 复刻仓库现有行为；basis=proposed 是本研究提出的新契约，需 WP17 落地时确认；pending-probe 的期望取决于真机分享形态，见 ../probe-protocol.md 第 3 步。",
+  "sharedDefaults": {
+    "boardId": "<store.activeBoardId>",
+    "quadrant": 1,
+    "isLongTerm": false,
+    "createdAt": "<now ms>",
+    "basis": "existing: Store.newTask (lib/storage.dart:697-710)"
+  },
+  "lineSplitRule": {
+    "rule": "按 \\n 拆分 -> 逐行 trim -> 丢弃空行",
+    "basis": "existing: lib/widgets/input_sheet.dart:373-379"
+  },
+  "cases": [
+    {
+      "id": "WP17R-001",
+      "name": "单行中文分享",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "买牛奶" }
+      },
+      "expect": { "drafts": [{ "title": "买牛奶", "completed": false }], "warnings": [] },
+      "basis": "existing"
+    },
+    {
+      "id": "WP17R-002",
+      "name": "多行 + 空行 + 行首尾空格 + 制表符",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "买鸡蛋\n\n  交房租  \n\t修水龙头\n" }
+      },
+      "expect": {
+        "drafts": [
+          { "title": "买鸡蛋", "completed": false },
+          { "title": "交房租", "completed": false },
+          { "title": "修水龙头", "completed": false }
+        ],
+        "warnings": []
+      },
+      "basis": "existing"
+    },
+    {
+      "id": "WP17R-003",
+      "name": "空文本与纯空白：不提交、不崩溃",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "\n  \n\t\n" }
+      },
+      "expect": { "drafts": [], "warnings": ["captureEmptyText"], "commits": 0 },
+      "basis": "existing: 早退条件 text.isEmpty (lib/widgets/input_sheet.dart:368)"
+    },
+    {
+      "id": "WP17R-004",
+      "name": "Markdown 复选框完成态",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "- [x] 付网费\n- [ ] 买纸巾" }
+      },
+      "expect": {
+        "drafts": [
+          { "title": "付网费", "completed": true },
+          { "title": "买纸巾", "completed": false }
+        ],
+        "warnings": []
+      },
+      "basis": "proposed"
+    },
+    {
+      "id": "WP17R-005",
+      "name": "厂商复选框字形",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "☑ 已完成项\n☐ 未完成项" }
+      },
+      "expect": {
+        "drafts": [
+          { "title": "已完成项", "completed": true },
+          { "title": "未完成项", "completed": false }
+        ],
+        "warnings": []
+      },
+      "basis": "proposed, pending-probe：小米是否输出该字形需实测；不输出则回落到 WP17R-006 的保留原文策略"
+    },
+    {
+      "id": "WP17R-006",
+      "name": "白名单外标记不得猜测",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "[ ] 方括号\n(✓) 圆括号对勾\n1. 有序列表\n· 中点列表" }
+      },
+      "expect": {
+        "drafts": [
+          { "title": "[ ] 方括号", "completed": false },
+          { "title": "(✓) 圆括号对勾", "completed": false },
+          { "title": "1. 有序列表", "completed": false },
+          { "title": "· 中点列表", "completed": false }
+        ],
+        "warnings": ["captureMarkerUnrecognized"]
+      },
+      "basis": "proposed：完成态一律判 false，标题保留原文"
+    },
+    {
+      "id": "WP17R-007",
+      "name": "自然语言日期不解析",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "周五 10月5日 15:00 交报告" }
+      },
+      "expect": {
+        "drafts": [{ "title": "周五 10月5日 15:00 交报告", "completed": false, "deadline": null }],
+        "warnings": ["captureDateNotParsed"]
+      },
+      "basis": "proposed：仓库现无自然语言日期解析（lib/widgets/date_edit_fields.dart 只有今天/明天等预设），导入不引入"
+    },
+    {
+      "id": "WP17R-008",
+      "name": "不可见控制字符与 BOM 被剥离",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "﻿买牛\u0000奶\n‮交房租" }
+      },
+      "expect": {
+        "drafts": [
+          { "title": "买牛奶", "completed": false },
+          { "title": "交房租", "completed": false }
+        ],
+        "warnings": ["captureControlCharsStripped"]
+      },
+      "basis": "proposed：剥离 BOM、NUL、方向覆盖/嵌入等双向控制符；剥离后为空则丢弃该行"
+    },
+    {
+      "id": "WP17R-009",
+      "name": "超长输入截断",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "<600 行合成文本>" }
+      },
+      "expect": { "drafts": "<前 200 行>", "commits": 200, "warnings": ["captureTruncatedAtLineLimit"] },
+      "basis": "proposed：单次上限 200 行、单行上限 500 字符，数值待 WP17 确认（现有解析路径无任何上限）"
+    },
+    {
+      "id": "WP17R-010",
+      "name": "file:// 附件不读取",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": {
+          "android.intent.extra.TEXT": "见文件",
+          "android.intent.extra.STREAM": "file:///storage/emulated/0/Download/note.txt"
+        }
+      },
+      "expect": {
+        "drafts": [{ "title": "见文件", "completed": false }],
+        "warnings": ["captureFileUriRejected"],
+        "readsStream": false
+      },
+      "basis": "proposed：API 24+ 跨应用 file:// 不可靠且需额外存储权限，直接拒绝附件、只保留文本"
+    },
+    {
+      "id": "WP17R-011",
+      "name": "content:// 附件缺少临时授权",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.STREAM": "content://com.example.provider/note/1" },
+        "grantReadUriPermission": false
+      },
+      "expect": { "drafts": [], "warnings": ["captureStreamNotGranted"], "commits": 0, "crash": false },
+      "basis": "proposed：读取必须 try/catch，失败只提示重新分享，不得伪报成功"
+    },
+    {
+      "id": "WP17R-012",
+      "name": "非文本 MIME 不在 P0 范围",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "image/png",
+        "extras": { "android.intent.extra.STREAM": "content://media/external/images/media/1" }
+      },
+      "expect": { "drafts": [], "warnings": ["captureUnsupportedMimeType"], "handled": false },
+      "basis": "proposed：P0 只注册 text/plain 过滤器"
+    },
+    {
+      "id": "WP17R-013",
+      "name": "选中文本处理入口（P2）",
+      "input": {
+        "action": "android.intent.action.PROCESS_TEXT",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.PROCESS_TEXT": "买牛奶" }
+      },
+      "expect": {
+        "drafts": [{ "title": "买牛奶", "completed": false }],
+        "warnings": [],
+        "resultExtraSet": false
+      },
+      "basis": "proposed：不回写 RESULT_OK + EXTRA_PROCESS_TEXT，避免改掉用户笔记原文"
+    },
+    {
+      "id": "WP17R-014",
+      "name": "SAF 挑选的导出文本",
+      "input": {
+        "action": "android.intent.action.OPEN_DOCUMENT",
+        "type": "text/plain",
+        "uri": "content://com.android.externalstorage.documents/document/primary%3Anote.txt",
+        "persistable": true,
+        "body": "买鸡蛋\n交房租"
+      },
+      "expect": {
+        "drafts": [
+          { "title": "买鸡蛋", "completed": false },
+          { "title": "交房租", "completed": false }
+        ],
+        "warnings": [],
+        "grantPersisted": true
+      },
+      "basis": "proposed：与分享共用同一行解析；grant 需 takePersistableUriPermission 后才能跨重启再读"
+    },
+    {
+      "id": "WP17R-015",
+      "name": "重复导入同一份文本",
+      "input": {
+        "action": "android.intent.action.SEND",
+        "type": "text/plain",
+        "extras": { "android.intent.extra.TEXT": "买牛奶" },
+        "preexistingTasks": [{ "title": "买牛奶", "boardId": "<active>", "completed": false }]
+      },
+      "expect": {
+        "drafts": [{ "title": "买牛奶", "completed": false, "duplicateOf": "<existing task id>" }],
+        "warnings": ["capturePossibleDuplicate"],
+        "autoMerged": false
+      },
+      "basis": "proposed：Task 无来源 ID/指纹字段，只能按标题规范化在同 board 内提示重复，绝不自动合并"
+    }
+  ]
+}
