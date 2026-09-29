@@ -113,7 +113,7 @@ def main() -> int:
                 f"checksum mismatch for {rel}: expected {pinned['sha256']}, got {digest}"
             )
         lock[key] = {
-            "path": dest,
+            "path": rel,
             "url": urls if isinstance(urls, list) else [urls],
             "bytes": os.path.getsize(dest),
             "sha256": digest,

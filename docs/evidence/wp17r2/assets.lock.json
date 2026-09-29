@@ -1,7 +1,7 @@
 {
   "ppocrv5_det_bin": {
     "bytes": 2357216,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\ncnn/PP_OCRv5_mobile_det.ncnn.bin",
+    "path": "ncnn/PP_OCRv5_mobile_det.ncnn.bin",
     "sha256": "857a96bc963725105b78a178dfcc3c0c3db1a7b9eef32244367b2cb105ccf60b",
     "url": [
       "https://raw.githubusercontent.com/nihui/ncnn-android-ppocrv5/master/app/src/main/assets/PP_OCRv5_mobile_det.ncnn.bin"
@@ -9,7 +9,7 @@
   },
   "ppocrv5_det_param": {
     "bytes": 24821,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\ncnn/PP_OCRv5_mobile_det.ncnn.param",
+    "path": "ncnn/PP_OCRv5_mobile_det.ncnn.param",
     "sha256": "358f459680ae0e7a73e477469e529ce116f68c629019ec7a0b6457d2d9117934",
     "url": [
       "https://raw.githubusercontent.com/nihui/ncnn-android-ppocrv5/master/app/src/main/assets/PP_OCRv5_mobile_det.ncnn.param"
@@ -17,7 +17,7 @@
   },
   "ppocrv5_dict": {
     "bytes": 74012,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\ncnn/ppocrv5_dict.txt",
+    "path": "ncnn/ppocrv5_dict.txt",
     "sha256": "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b",
     "url": [
       "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/dict/ppocrv5_dict.txt",
@@ -26,7 +26,7 @@
   },
   "ppocrv5_rec_bin": {
     "bytes": 8242276,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\ncnn/PP_OCRv5_mobile_rec.ncnn.bin",
+    "path": "ncnn/PP_OCRv5_mobile_rec.ncnn.bin",
     "sha256": "49d9907a55ba20fa6637f9f788f66ab00793bc8ce57a733a09dbe86b9a2e3db0",
     "url": [
       "https://raw.githubusercontent.com/nihui/ncnn-android-ppocrv5/master/app/src/main/assets/PP_OCRv5_mobile_rec.ncnn.bin"
@@ -34,7 +34,7 @@
   },
   "ppocrv5_rec_param": {
     "bytes": 20031,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\ncnn/PP_OCRv5_mobile_rec.ncnn.param",
+    "path": "ncnn/PP_OCRv5_mobile_rec.ncnn.param",
     "sha256": "f52a6586ac3338d8c350db0c9f3c55ff2ecd3763327f9bc7f0efc091f8a63e74",
     "url": [
       "https://raw.githubusercontent.com/nihui/ncnn-android-ppocrv5/master/app/src/main/assets/PP_OCRv5_mobile_rec.ncnn.param"
@@ -42,7 +42,7 @@
   },
   "stb_image": {
     "bytes": 283010,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\third_party/stb_image.h",
+    "path": "third_party/stb_image.h",
     "sha256": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
     "url": [
       "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"
@@ -50,7 +50,7 @@
   },
   "tessdata_chi_sim": {
     "bytes": 2469156,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\tessdata_fast/chi_sim.traineddata",
+    "path": "tessdata_fast/chi_sim.traineddata",
     "sha256": "a5fcb6f0db1e1d6d8522f39db4e848f05984669172e584e8d76b6b3141e1f730",
     "url": [
       "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/chi_sim.traineddata"
@@ -58,7 +58,7 @@
   },
   "tessdata_eng": {
     "bytes": 4113088,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\tessdata_fast/eng.traineddata",
+    "path": "tessdata_fast/eng.traineddata",
     "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
     "url": [
       "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata"
@@ -66,7 +66,7 @@
   },
   "tessdata_jpn": {
     "bytes": 2471260,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\tessdata_fast/jpn.traineddata",
+    "path": "tessdata_fast/jpn.traineddata",
     "sha256": "1f5de9236d2e85f5fdf4b3c500f2d4926f8d9449f28f5394472d9e8d83b91b4d",
     "url": [
       "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/jpn.traineddata"
@@ -74,7 +74,7 @@
   },
   "tesseract_win_setup": {
     "bytes": 50175248,
-    "path": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\installer/tesseract-ocr-w64-setup.exe",
+    "path": "installer/tesseract-ocr-w64-setup.exe",
     "sha256": "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9",
     "url": [
       "https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-5.4.0.20240606.exe"

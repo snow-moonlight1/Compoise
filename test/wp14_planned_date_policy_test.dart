@@ -279,7 +279,10 @@ void main() {
       addTearDown(store.dispose);
       expect(stored(store, 'here').quadrant, qPlan);
 
-      store.setPlannedDay('here', DateTime.now().add(const Duration(hours: 9)));
+      store.setPlannedDay(
+        'here',
+        DateTime(realNow.year, realNow.month, realNow.day, 18),
+      );
       final after = stored(store, 'here');
       expect(after.plannedDate, realToday);
       expect(after.quadrant, qPlan);
