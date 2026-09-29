@@ -17,8 +17,25 @@ val keystorePropertiesFile = listOf(
 ).firstOrNull { it.exists() }
 
 val keystoreProperties = Properties()
-val wp17NcnnRoot = providers.gradleProperty("wp17OcrNcnnRoot").orNull
-val wp17StbDir = providers.gradleProperty("wp17OcrStbDir").orNull
+val localMachineProperties = Properties()
+val localMachinePropertiesFile = rootProject.file("local.properties")
+if (localMachinePropertiesFile.exists()) {
+    localMachinePropertiesFile.inputStream().use { localMachineProperties.load(it) }
+}
+
+// flutter build apk replaces the Gradle environment with JAVA_HOME and PATH,
+// so ORG_GRADLE_PROJECT_* never arrives. local.properties is gitignored and
+// is the channel that still reaches this file. Direct gradlew -P still works.
+fun wp17ExternalPath(name: String): String? {
+    val fromGradle = providers.gradleProperty(name).orNull?.trim()
+    if (!fromGradle.isNullOrEmpty()) return fromGradle
+    val fromLocal = localMachineProperties.getProperty(name)?.trim()
+    if (fromLocal.isNullOrEmpty()) return null
+    return fromLocal
+}
+
+val wp17NcnnRoot = wp17ExternalPath("wp17OcrNcnnRoot")
+val wp17StbDir = wp17ExternalPath("wp17OcrStbDir")
 val wp17OcrEnabled = wp17NcnnRoot != null && wp17StbDir != null
 val hasKeystore = keystorePropertiesFile != null
 if (hasKeystore) {
@@ -53,6 +70,9 @@ android {
                     arguments.addAll(listOf(
                         "-DWP17_NCNN_ROOT=${file(wp17NcnnRoot!!).absolutePath.replace('\\', '/')}",
                         "-DWP17_STB_DIR=${file(wp17StbDir!!).absolutePath.replace('\\', '/')}",
+                        // The checked-in Android ncnn trees are static and were
+                        // built against c++_static. AGP's default is c++_shared.
+                        "-DANDROID_STL=c++_static",
                     ))
                 }
             }
