@@ -1,6 +1,6 @@
 # WP17：批量截图识别导入
 
-状态：OCR 选型研究已完成，产品导入流程待实施；实测范围和限制见 [WP17-R2 报告](WP17_OCR_EVALUATION.md)。用户一次选取多张待办截图，识别出任务草稿，检查修改后一次导入。图片来源可以是小米笔记或其他代办应用；不读取其他应用数据库，也不自动抓屏。旧[系统笔记接口研究](evidence/wp17r/README.md)仅作历史证据。
+状态：OCR 选型、[I1 原生运行时](WP17_I1_NOTES.md)和 [I2 独立校对组件](WP17_I2_NOTES.md)已集成；尚不能在应用内完成选图、识别与导入。实测范围和限制见 [WP17-R2 报告](WP17_OCR_EVALUATION.md)。目标是用户一次选取多张待办截图，识别出任务草稿，检查修改后一次导入。图片来源可以是小米笔记或其他代办应用；不读取其他应用数据库，也不自动抓屏。旧[系统笔记接口研究](evidence/wp17r/README.md)仅作历史证据。
 
 ## 用户流程与数据边界
 
@@ -32,8 +32,8 @@ OCR 只负责读取图中文字和位置，不能把截图中的勾选、缩进�
 | 子包 | 交付与门禁 |
 |---|---|
 | WP17-R2 选型 | 已完成；[实测报告和证据](WP17_OCR_EVALUATION.md)记录了平台覆盖、质量、资源与许可门禁。 |
-| WP17-I1 / I2 | 并行开发隔离的 ncnn 运行时与可编辑草稿预览；目录和依赖边界见[路线图](ROADMAP.md#下一批可并行)。 |
-| WP17-I3 集成 | 多图选择、OCR 接线、一次确认写库与平台设备验收。未测过的平台不显示“已支持”。 |
+| WP17-I1 / I2 | 已集成隔离的 [ncnn 运行时](WP17_I1_NOTES.md)与 [可编辑草稿预览](WP17_I2_NOTES.md)；均未接入产品入口。 |
+| WP17-I3a / I3b 集成 | 先做多图选择与 OCR 转草稿，再接一次确认写库、导航与平台设备验收。未测过的平台不显示“已支持”。下一批边界见[路线图](ROADMAP.md#下一批可并行)。 |
 
 R2 的比较方法和未测项目由[实测报告](WP17_OCR_EVALUATION.md)保存。[PaddleOCR 官方 Android 示例](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/inference_deployment/cross_platform/android_deployment.md)本身要求 API 26，不能直接移植进 `minSdk=23` 的应用。
 
