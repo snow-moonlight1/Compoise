@@ -44,6 +44,7 @@ const int goldenBigMirrorBytes = 236865;
 const String slotA = 'matrixflow-save-a';
 const String slotB = 'matrixflow-save-b';
 const String kTasks = 'matrixflow-tasks';
+const String kSchedule = 'matrixflow-schedule';
 const String kBoards = 'matrixflow-boards';
 const String kConfig = 'matrixflow-config';
 const String kSettings = 'matrixflow-settings';
@@ -908,6 +909,7 @@ void main() {
         slotB,
         SaveProtocol.pointerKey,
         kTasks,
+        kSchedule,
         kBoards,
         kConfig,
         kSettings,
@@ -921,6 +923,7 @@ void main() {
       );
       expect(values.keys.toList(), <String>[
         kTasks,
+        kSchedule,
         kBoards,
         kConfig,
         kSettings,
