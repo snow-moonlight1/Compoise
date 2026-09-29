@@ -38,6 +38,8 @@ void main() {
         ],
       );
       addTearDown(store.dispose);
+      store.setPlannedDay('a', DateTime(2026, 9, 30, 14));
+      final plannedDate = store.tasks.firstWhere((t) => t.id == 'a').plannedDate;
       expect((await store.flush()).success, isTrue);
       final revision = store.lastSaveResult.revision;
       final untouchedRevision = store.taskSeq('already');
@@ -54,6 +56,7 @@ void main() {
         store.tasks.firstWhere((t) => t.id == 'a').urgencyMode,
         UrgencyMode.manual,
       );
+      expect(store.tasks.firstWhere((t) => t.id == 'a').plannedDate, plannedDate);
       expect(
         store.tasks.firstWhere((t) => t.id == 'other-board').quadrant,
         qDo,
@@ -63,6 +66,7 @@ void main() {
       addTearDown(reloaded.dispose);
       await reloaded.init();
       expect(reloaded.tasksIn(qPlan).map((t) => t.id), ['a', 'b', 'already']);
+      expect(reloaded.tasks.firstWhere((t) => t.id == 'a').plannedDate, plannedDate);
       expect(
         reloaded.tasks.firstWhere((t) => t.id == 'other-board').quadrant,
         qDo,

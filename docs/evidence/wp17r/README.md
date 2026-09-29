@@ -6,50 +6,21 @@
 
 ## 先看结论
 
-1. **“直接读取系统笔记待办库”这条路走不通，也不该走。** 小米笔记（`com.miui.notes` 2.4.3.3）的官方跨应用入口全部由 `com.miui.notes.permission.ACCESS_NOTE` 保护，该权限在实测机上登记为 `prot=signature|privileged`，第三方应用永远拿不到。待办数据提供者 `com.miui.todo.provider` 在清单里没有声明权限门禁，但那是**未公开、未契约、随时可变**的内部实现，依赖它等于把用户数据挂在厂商每次升级的赌博上；Android 16 的 AppFunctions 通道同样被 `EXECUTE_APP_FUNCTIONS`（实测 `prot=internal|privileged`）挡住。
-2. **“分享/粘贴/选中文本处理”三条用户主动入口是可行的，而且成本很低。** 实测机上 `ACTION_SEND` `text/plain` 有 101 个接收方，HyperOS 自身的组件（`com.miui.voiceassist.ShareReceiverActivity`）就在其中，说明该通道在小米 ROM 上是活的。本仓库**已经有逐行转待办的解析**（`lib/widgets/input_sheet.dart:373-394`）和批量落库入口（`lib/storage.dart:659` `addTasks`），所以分享入口的增量主要是平台侧把 Intent 送进 Dart，而不是再造一个解析器。
-3. **文件导入是稳妥的第二条路，零新权限。** SAF（`ACTION_OPEN_DOCUMENT`）实测结论：用户挑选即授权，不需要存储权限，`takePersistableUriPermission` 可跨重启保留。本仓库已有 `file_picker` 与备份导入门禁（`lib/import_preflight.dart`），复用即可。
+1. **没有稳定的公开接口可直接读取系统笔记待办库。** 小米笔记（`com.miui.notes` 2.4.3.3）的已识别跨应用入口由 `com.miui.notes.permission.ACCESS_NOTE` 保护，该权限在实测机上登记为 `prot=signature|privileged`，普通第三方应用无法取得。待办数据提供者 `com.miui.todo.provider` 在清单里没有声明权限门禁，但属于未公开实现，没有兼容性契约；Android 16 的 AppFunctions 通道也受 `EXECUTE_APP_FUNCTIONS`（实测 `prot=internal|privileged`）限制。
+2. **分享、粘贴与选中文本处理是候选入口。** Android 提供这些由用户主动触发的通道；实测机上 `ACTION_SEND` `text/plain` 有 101 个接收方。本仓库已有逐行转待办逻辑（`lib/widgets/input_sheet.dart`）和批量落库入口（`Store.addTasks`）。小米笔记实际分享出的内容和格式仍需按探针协议验证。
+3. **文件导入是另一条候选入口，无需新增存储权限。** Android 的 SAF（`ACTION_OPEN_DOCUMENT`）在用户选取文件后授予读取权限，必要时可持久化。小米笔记能否导出适合解析的文件尚未实测；现有 `file_picker` 与备份导入门禁不能直接证明笔记导入已可用。
 4. **剪贴板不能作为后台通道。** Android 10+ 剪贴板读取仅限前台聚焦应用，Android 12+ 读取粘贴会弹 toast。可作为“用户显式点粘贴”使用，不能做静默桥接。
-5. **本轮不建议直接进入实现包。** 缺的不是方案，而是**真机实测数据**：小米笔记的分享到底给什么（纯文本？长图？带不带完成态和日期？待办和普通笔记是否区分？）。这些只能在一台小米机器上花 20 分钟测出来。判定标准和测试协议见 `probe-protocol.md`。
+5. **先做真机分享探针。** 还需验证小米笔记分享出的内容形态（纯文本、图片或文件）、完成态和日期是否保留，以及待办与普通笔记是否区分。判定标准和步骤见 [真机探针协议](probe-protocol.md)。
 
-一句话给决策：**做“用户主动分享/粘贴 + 文件导入”的最小入口，不做“读系统笔记库”。**
-
-## 出处核查：记忆里说研究已结项，但查无实据
-
-项目记忆里有一条“WP17 已按用户决定重定义、WP17-R 已于 2026-09-29 结项”，并列出 `docs/WP17_NOTES.md`、`docs/WP17_ANDROID_CAPTURE_CONTRACT.md`、`lib/services/task_capture.dart`、8 个 `test/wp17_*` 等产物。逐项核查结果：
-
-| 核查动作 | 结果 |
-|---|---|
-| `ls docs`（工作树与主检出） | 无 `WP17*` 文档；`docs/` 仍是 13 个文件 + `evidence/` |
-| `ls lib/services` | 无 `task_capture.dart` |
-| `ls test \| grep wp17` | 无匹配 |
-| `git log --all --grep=wp17 -i` | 空 |
-| `git branch -a \| grep wp17` | 空 |
-| `git reflog` / `git stash list` | 无 WP17 条目，无 stash |
-| `git log --all --diff-filter=A --name-only \| grep -i wp17` | 空 |
-| 同级工作树（`martix-wp14-today`、`martix-wp12-tags`、`.codex/worktrees/*`） | 无 WP17 文件 |
-| `git fsck --lost-found` 悬空对象逐个 grep | 唯一命中是一个悬空 blob，见下 |
-| 记忆目录 `memory/`、`projects/*/memory/` | **没有任何 WP17 的 `.md` 记忆文件**，只有会话转录 `.jsonl` |
-| 会话转录（本项目全部 `.jsonl`） | WP17 只作为 ROADMAP 表格里的“系统笔记待办导入”出现；**没有任何一段用户批准记录** |
-
-结论：**“D1–D6 已获用户批准”找不到任何记录出处**——记忆文件本身不存在，批准的对话不存在，产物也不在 git 里。因此本轮不把它们当作既定前提，只按 `docs/ROADMAP.md` 的定义推进。
-
-那个唯一命中的悬空 blob（`f04c387d`，93 KB）是 2026-09-16 版执行计划，它是 WP17-R 的**最早书面定义**，比现在的 ROADMAP 更具体，值得保留参考：
-
-- 交付物名字当时定为 `docs/SYSTEM_NOTES_IMPORT_RESEARCH.md`；
-- 研究范围与本轮指令一致：只做包/公开接口元数据检查与合成待办样例，不读私有库、不申请 root、不用无障碍抓屏遍历用户笔记；
-- 完成标准是给出“可直接授权读取 / 可分享或文件导入 / 无公开接口”三态证据 + 小米适配实施计划；
-- 需求源头是 MF03（来源 A3）：小米 `com.miui.notes` 优先，其余厂商逐家核验，不能按相同包结构假定兼容。
-
-最可能的实情是：那轮研究确实做过，产物留在临时工作树 `wp17-notes-import` 里，归档前工作树被清理，于是记忆留下了结论、仓库什么都没接到（记忆自己也写过“研究结论文档不要留在执行工作树里”）。按用户决定，本轮记忆不动。
+实施候选是用户主动分享、粘贴或选择文件。先按 [真机探针协议](probe-protocol.md) 确认小米笔记交出的实际数据，再确定要实现哪些入口。
 
 ## Android 入口盘点
 
 | 入口 | 方向 | 需要的新权限 | 可行性 | 证据 |
 |---|---|---|---|---|
-| `ACTION_SEND` / `SEND_MULTIPLE` `text/plain` | 笔记 → 我们 | 无（清单 intent-filter + `exported=true`） | **可行，首选** | 官方接收文档；实测机有 101 个接收方，含 HyperOS 自身组件 |
+| `ACTION_SEND` / `SEND_MULTIPLE` `text/plain` | 笔记 → 我们 | 无（清单 intent-filter + `exported=true`） | **Android 可接收；小米分享内容待实测** | 官方接收文档；实测机有 101 个接收方，含 HyperOS 自身组件 |
 | `ACTION_PROCESS_TEXT`（选中文本菜单） | 笔记 → 我们 | 无 | **可行，但语义受限** | API 23+；接收方清单需 `PROCESS_TEXT` + `DEFAULT` + `text/plain` 的 filter；本仓 `minSdk=23` 满足 |
-| SAF `ACTION_OPEN_DOCUMENT` 挑导出文件 | 用户导出 → 我们 | 无（挑中即授权，可持久化） | **可行，兜底** | 官方 SAF 文档：grant 默认到重启，`takePersistableUriPermission` 可延长；无需存储权限 |
+| SAF `ACTION_OPEN_DOCUMENT` 挑导出文件 | 用户导出 → 我们 | 无（挑中即授权，可持久化） | **Android 可选文件；小米导出格式待实测** | 官方 SAF 文档：grant 默认到重启，`takePersistableUriPermission` 可延长；无需存储权限 |
 | 应用内“粘贴”按钮（用户自己复制） | 笔记 → 剪贴板 → 我们 | 无 | **可行，非自动化** | 官方剪贴板说明：Android 10+ 仅前台聚焦应用可读，Android 12+ 粘贴有 toast |
 | 静默读剪贴板 / 后台轮询 | 同上但自动 | — | **不可行** | 同上，Android 10 起禁止后台读取 |
 | ContentProvider 直读（`content://com.miui.todo.provider`） | 我们 → 笔记数据 | — | **不作为方案** | 清单上 `exported=true` 且无权限声明，但属未公开实现；官方入口一律 `signature\|privileged` |
@@ -116,7 +87,7 @@
 
 ## 验收门禁
 
-WP17 执行包开工前必须有：`probe-protocol.md` 的 6 步实测记录（含 Android/HyperOS/笔记 App 三个版本号、每步原始 Intent 元数据摘录），以及 P0 的本地回归（`flutter test --no-pub` + `flutter analyze --no-pub`）。**未实测的厂商一律不显示“已支持”**。
+WP17 实现前先完成[真机探针](probe-protocol.md)的分享与导出记录（含 Android/HyperOS/笔记 App 版本号和原始 Intent 元数据）；需要产品接收代码的冷/热启动验证在实现阶段补齐。P0 实现后运行 `flutter test --no-pub` 与 `flutter analyze --no-pub`。**未实测的厂商一律不显示“已支持”**。
 
 ## 测试夹具
 
@@ -136,4 +107,4 @@ WP17 执行包开工前必须有：`probe-protocol.md` 的 6 步实测记录（�
 - [通过 SAF 打开文档](https://developer.android.com/training/data-storage/shared/documents-files)
 - [安全剪贴板处理](https://developer.android.com/privacy-and-security/risks/secure-clipboard-handling)
 - [Intent 参考：ACTION_PROCESS_TEXT](https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT)（本轮抓取被页面截断，实现前需人工复核该页原文）
-- 悬空对象 `f04c387d`（2026-09-16 版执行计划）中的 WP17/MF03 原始定义；`docs/ROADMAP.md:28,40`
+- [工作包状态](../../ROADMAP.md)中的 WP17 与 WP17-R 范围。

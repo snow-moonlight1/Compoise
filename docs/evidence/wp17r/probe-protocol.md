@@ -1,6 +1,6 @@
 # WP17-R 真机探针协议（给 WP17 执行包的第 0 步）
 
-目的：把研究里唯一缺的东西补上——**小米笔记/待办在公开通道上实际交出什么形态的数据**。6 步全部做完约 20 分钟，不需要 root、不需要无障碍、不需要读任何真实笔记。
+目的：确认**小米笔记/待办在公开通道上实际交出什么形态的数据**。分享与导出探针可先独立完成；接收路径的冷/热启动要在产品接收入口实现后验证。不需要 root、无障碍或读取真实笔记。
 
 红线：测完只把**合成内容**写进仓库；真实笔记正文一律不入库，日志里也不留。
 
@@ -30,10 +30,12 @@ adb shell dumpsys package com.miui.notes | grep -E "versionName|versionCode|targ
 
 ## 3. 抓一次真实分享（关键步）
 
-需要一个最小探针 Activity 才能看到 Intent 原貌。两种做法，选 A：
+需要一个最小探针 Activity 才能看到 Intent 原貌。两种做法：
 
-- **A（推荐）**：产品开工时先加 `SEND text/plain` filter + `MainActivity.onNewIntent` 暂存 + MethodChannel，把收到的 `action`、`type`、`extras` 键列表、`EXTRA_TEXT` 全文、`EXTRA_STREAM` 的 scheme/authority/是否带 grant flag 显示在调试页上。分享 N1–N4，逐条抄录。**注意**：小米的分享面板通常有“发送纯文本 / 长图 / PDF / 邮件”等选项，每个选项都要各测一次并分别记录。
-- **B（不进仓库的旁路）**：装一个开源“Intent 查看器”类应用做接收端。优点是零产品改动，缺点是第三方 App 与我们的接收路径不完全同构（`singleTop`、冷启动），只能当参考。
+- **A（实现阶段）**：先加 `SEND text/plain` filter + `MainActivity.onNewIntent` 暂存 + MethodChannel，把收到的 `action`、`type`、`extras` 键列表、`EXTRA_TEXT` 全文、`EXTRA_STREAM` 的 scheme/authority/是否带 grant flag 显示在调试页上。分享 N1–N4，逐条抄录。
+- **B（研究阶段）**：用临时接收器或 Intent 查看器接收合成样例。无需改产品，但不能据此断言本应用的 `singleTop`、冷启动路径已通过。
+
+小米分享面板若提供不同格式选项，应分别记录；只测确实出现的选项。
 
 记录表（抄进本目录 `probe-result.md`）：
 
@@ -54,15 +56,16 @@ adb shell dumpsys package com.miui.notes | grep -E "versionName|versionCode|targ
 
 ```bash
 adb shell am start -a android.intent.action.SEND -t text/plain \
-  --es android.intent.extra.TEXT "买牛奶" -n com.matrixflow.app/.MainActivity
+  --es android.intent.extra.TEXT "买牛奶" \
+  -n com.matrixflow.app/com.matrixflow.matrixflow_native.MainActivity
 # 冷启动（先杀进程）与热启动各测一次
 adb shell am force-stop com.matrixflow.app
 adb shell am start -a android.intent.action.SEND -t text/plain \
-  --es android.intent.extra.TEXT "买牛奶" -n com.matrixflow.app/.MainActivity
-# 多条：模拟真实清单
-adb shell am start -a android.intent.action.SEND -t text/plain \
-  --es android.intent.extra.TEXT "买鸡蛋\n交房租" -n com.matrixflow.app/.MainActivity
+  --es android.intent.extra.TEXT "买牛奶" \
+  -n com.matrixflow.app/com.matrixflow.matrixflow_native.MainActivity
 ```
+
+多行清单要由测试发送端传入真实换行；在命令行里写 `\n` 可能只传入反斜杠和字母 `n`，不足以验证换行处理。以上命令需在接收入口实现或临时探针安装后执行。
 
 要看清的两件事：热启动是否走到 `onNewIntent`（`launchMode="singleTop"`）、冷启动时 Dart 侧引擎 attach 之前 intent 有没有被丢掉。这两点是本包最容易写出“静默丢数据”的地方。
 
@@ -79,7 +82,7 @@ adb shell am start -a android.intent.action.SEND -t text/plain \
 
 ## 完成标准
 
-- 第 3、4 步有逐条原始记录；第 5 步有结论（有/无导出）。
+- 研究阶段第 3、5 步有逐条记录；产品接收入口实现后补第 4 步的冷/热启动记录。
 - 依据第 3 步判定，明确写出：文本分享通道成立与否、完成态与日期能拿到什么、丢了什么。
 - 只有 `com.miui.notes` 一条被测；其余厂商保持“未验证”，UI 上不得显示“已支持”。
 - 任何未实测项继续标注为未实测，不用单元测试结论代替设备行为。

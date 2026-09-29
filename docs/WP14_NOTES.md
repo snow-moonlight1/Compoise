@@ -1,6 +1,6 @@
 # 今天待办与计划日（WP14）
 
-状态：已在 `codex/wp14-today-planned-date` 工作树实施，待集成验收。范围只有今天待办页与 `plannedDate` 语义。
+状态：已集成。范围只有今天待办页与 `plannedDate` 语义。
 Planner / Schedule（WP15）与今日完成庆祝（WP16）不在本包，本包只交出它们依赖的数据契约。
 
 ## 两个字段的区别（WP15、WP16 读这一节）
