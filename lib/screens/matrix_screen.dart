@@ -586,6 +586,17 @@ class _MatrixHomeState extends State<MatrixHome> {
     PlatformUiPolicy policy,
   ) {
     if (_selecting) {
+      final compact = MediaQuery.sizeOf(context).width < 360;
+      void editSelected() {
+        final task =
+            store.tasks
+                .where((item) => item.id == _selectedIds.single)
+                .firstOrNull;
+        if (task != null) {
+          _openTaskDetail(context, task, isWide: wide);
+        }
+      }
+
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
         decoration: BoxDecoration(
@@ -603,33 +614,48 @@ class _MatrixHomeState extends State<MatrixHome> {
           children: [
             Expanded(
               child: Text(
-                t['multiSelectStatus']!.replaceAll(
-                  '{n}',
-                  '${_selectedIds.length}',
-                ),
+                compact
+                    ? '${_selectedIds.length} ${t['selectedMark']}'
+                    : t['multiSelectStatus']!.replaceAll(
+                      '{n}',
+                      '${_selectedIds.length}',
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            if (_selectedIds.length == 1)
+            if (_selectedIds.length == 1 && compact)
+              IconButton(
+                tooltip: t['editTask'],
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: editSelected,
+              ),
+            if (_selectedIds.length == 1 && !compact)
               TextButton.icon(
-                onPressed: () {
-                  final task =
-                      store.tasks
-                          .where((item) => item.id == _selectedIds.single)
-                          .firstOrNull;
-                  if (task != null) {
-                    _openTaskDetail(context, task, isWide: wide);
-                  }
-                },
+                onPressed: editSelected,
                 icon: const Icon(Icons.edit_outlined, size: 18),
                 label: Text(t['editTask']!),
               ),
-            if (_selectedIds.length >= 2)
+            if (_selectedIds.length >= 2 && compact)
+              IconButton(
+                tooltip: t['groupSelected'],
+                icon: const Icon(Icons.group_work_outlined),
+                onPressed: () => _groupSelected(context, store),
+              ),
+            if (_selectedIds.length >= 2 && !compact)
               FilledButton.tonal(
                 onPressed: () => _groupSelected(context, store),
                 child: Text('${t['groupSelected']} (${_selectedIds.length})'),
+              ),
+            if (_selectedIds.isNotEmpty)
+              IconButton(
+                key: const ValueKey('batch-move-btn'),
+                tooltip: t['moveSelected'],
+                icon: const Icon(Icons.drive_file_move_outline),
+                onPressed: () => _moveSelected(context, store),
               ),
             const SizedBox(width: 4),
             if (policy.isTouchLayout)
@@ -1017,6 +1043,57 @@ class _MatrixHomeState extends State<MatrixHome> {
       _selecting = false;
       _selectedIds.clear();
     });
+  }
+
+  Future<void> _moveSelected(BuildContext context, Store store) async {
+    final ids = Set<String>.of(_selectedIds);
+    final boardId = store.activeBoardId;
+    final t = store.t;
+    final quadrant = await showDialog<int>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(t['moveSelected']!),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final q in allQuadrants)
+                  ListTile(
+                    key: ValueKey('batch-move-q$q'),
+                    title: Text(t['q$q']!),
+                    onTap: () => Navigator.pop(dialogContext, q),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(t['cancel']!),
+              ),
+            ],
+          ),
+    );
+    if (!context.mounted || quadrant == null || boardId != store.activeBoardId) {
+      return;
+    }
+    final currentIds = store.visibleTasks
+        .where((task) => ids.contains(task.id) && _selectedIds.contains(task.id))
+        .map((task) => task.id);
+    final count = store.moveTasks(currentIds, quadrant);
+    if (count == 0) return;
+    setState(() {
+      _selecting = false;
+      _selectedIds.clear();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          t['tasksMoved']!
+              .replaceAll('{n}', '$count')
+              .replaceAll('{quadrant}', t['q$quadrant']!),
+        ),
+      ),
+    );
   }
 
   Future<String?> _askText(
