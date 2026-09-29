@@ -25,6 +25,14 @@ class DatePickerWindow {
 DateTime civilDate(DateTime instant) =>
     DateTime(instant.year, instant.month, instant.day);
 
+/// Whether [a] and [b] fall on the same local year/month/day. The two instants
+/// do not have to agree: a plan stored at midnight and a deadline stored at the
+/// end of the day still describe the same civil day.
+bool isSameCivilDay(DateTime? a, DateTime? b) {
+  if (a == null || b == null) return false;
+  return a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
 /// Moves [days] civil dates. [days] may be negative.
 DateTime addCivilDays(DateTime instant, int days) {
   final day = civilDate(instant);

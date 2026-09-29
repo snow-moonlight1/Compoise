@@ -348,6 +348,7 @@ class ImportPreflight {
       for (final field in [
         'createdAt',
         'deadline',
+        'plannedDate',
         'reminderAt',
         'completedAt',
       ]) {
@@ -362,6 +363,7 @@ class ImportPreflight {
         'completed',
         'createdAt',
         'deadline',
+        'plannedDate',
         'subtasks',
         'reasoning',
         'urgencyMode',

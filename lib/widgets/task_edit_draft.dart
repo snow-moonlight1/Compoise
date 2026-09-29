@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../calendar_dates.dart';
 import '../models.dart';
+import '../planned_policy.dart';
 import '../task_tags.dart';
 import 'date_edit_fields.dart';
 
@@ -48,6 +50,7 @@ class TaskEditDraft {
 
   int quadrant = 0;
   DateTime? deadline;
+  DateTime? plannedDate;
   int? reminderAt;
   bool isLongTerm = false;
   UrgencyMode urgencyMode = UrgencyMode.auto;
@@ -58,6 +61,7 @@ class TaskEditDraft {
   String _initialNotes = '';
   int _initialQuadrant = 0;
   int? _initialDeadlineMs;
+  int? _initialPlannedMs;
   int? _initialReminderAt;
   bool _initialIsLongTerm = false;
   UrgencyMode _initialUrgencyMode = UrgencyMode.auto;
@@ -79,6 +83,10 @@ class TaskEditDraft {
   /// A deadline is a civil day, stored as the end of that day.
   int? get deadlineMs => endOfCivilDayMs(deadline);
 
+  /// A plan is a civil day too, stored as its start so the day is never
+  /// reported as past while it is still running.
+  int? get plannedDateMs => plannedDayMs(plannedDate);
+
   /// Text in the composer row that has not become a subtask yet.
   String get pendingSubtaskTitle => newSubtaskController.text.trim();
 
@@ -96,6 +104,7 @@ class TaskEditDraft {
     if ((notes ?? '').trim() != _initialNotes.trim()) return true;
     if (quadrant != _initialQuadrant) return true;
     if (!_sameDayMs(deadlineMs, _initialDeadlineMs)) return true;
+    if (!_sameDayMs(plannedDateMs, _initialPlannedMs)) return true;
     if (reminderAt != _initialReminderAt) return true;
     if (isLongTerm != _initialIsLongTerm) return true;
     if (urgencyMode != _initialUrgencyMode) return true;
@@ -118,6 +127,9 @@ class TaskEditDraft {
     deadline = task.deadline == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(task.deadline!);
+    plannedDate = task.plannedDate == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(task.plannedDate!);
     reminderAt = task.reminderAt;
     isLongTerm = task.isLongTerm;
     urgencyMode = task.urgencyMode;
@@ -128,6 +140,7 @@ class TaskEditDraft {
     _initialNotes = task.notesMarkdown ?? '';
     _initialQuadrant = task.quadrant;
     _initialDeadlineMs = task.deadline;
+    _initialPlannedMs = task.plannedDate;
     _initialReminderAt = task.reminderAt;
     _initialIsLongTerm = task.isLongTerm;
     _initialUrgencyMode = task.urgencyMode;
@@ -162,6 +175,9 @@ class TaskEditDraft {
       ..deadline = !_sameDayMs(deadlineMs, _initialDeadlineMs)
           ? deadlineMs
           : current.deadline
+      ..plannedDate = !_sameDayMs(plannedDateMs, _initialPlannedMs)
+          ? plannedDateMs
+          : current.plannedDate
       ..reminderAt = reminderAt != _initialReminderAt
           ? reminderAt
           : current.reminderAt

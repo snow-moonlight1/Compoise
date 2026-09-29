@@ -23,6 +23,7 @@ import 'completed_screen.dart';
 import 'onboarding_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+import 'today_screen.dart';
 
 class MatrixHome extends StatefulWidget {
   final DesktopShellService? desktopShell;
@@ -781,6 +782,16 @@ class _MatrixHomeState extends State<MatrixHome> {
     );
   }
 
+  void _openToday() {
+    final store = context.read<Store>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TodayScreen(initialBoardId: store.activeBoardId),
+      ),
+    );
+  }
+
   void _openSettings() {
     Navigator.push(
       context,
@@ -818,6 +829,8 @@ class _MatrixHomeState extends State<MatrixHome> {
     switch (action) {
       case HomeMoreAction.switchBoard:
         await _openBoardPicker();
+      case HomeMoreAction.today:
+        _openToday();
       case HomeMoreAction.completed:
         _openCompleted();
       case HomeMoreAction.select:

@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
+import '../planned_policy.dart';
 import '../storage.dart';
 import '../ui/motion_policy.dart';
 import 'anim.dart';
 import 'animated_task_title.dart';
+import 'date_edit_fields.dart';
 import 'task_hierarchy_checkbox.dart';
 
 export '../deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
@@ -282,6 +284,11 @@ class TaskCard extends StatelessWidget {
                   ),
                 Row(
                   children: [
+                    _PlannedChip(
+                      task: task,
+                      done: task.completed,
+                      t: t,
+                    ),
                     _DeadlineChip(
                       daysLeft: daysLeft,
                       done: task.completed,
@@ -728,6 +735,56 @@ class TaskCard extends StatelessWidget {
           );
       }
     }
+  }
+}
+
+/// The planned day, marked apart from [_DeadlineChip]: a plan says when the work
+/// is scheduled and never turns red, so the two cannot be read as one signal.
+class _PlannedChip extends StatelessWidget {
+  final Task task;
+  final bool done;
+  final Map<String, String> t;
+  const _PlannedChip({
+    required this.task,
+    required this.done,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final days = plannedDaysLeft(task.plannedDate);
+    if (days == null || done) return const SizedBox.shrink();
+    final day = DateTime.fromMillisecondsSinceEpoch(task.plannedDate!);
+    final color = Theme.of(context).colorScheme.primary.withValues(
+      alpha: 0.75,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 3, right: 6),
+      child: Tooltip(
+        message: t['plannedDate']!,
+        child: Row(
+          key: ValueKey('task-planned-${task.id}'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_note, size: 11, color: color),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                days == 0
+                    ? t['today']!
+                    : days == 1
+                    ? t['tomorrow']!
+                    : formatCivilDate(day),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

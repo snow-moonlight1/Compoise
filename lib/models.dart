@@ -173,6 +173,9 @@ class Task {
   bool completed;
   int createdAt;
   int? deadline;
+  /// Day the task is scheduled for, local civil midnight. Independent of
+  /// [deadline]: a plan never moves a quadrant nor makes a task urgent.
+  int? plannedDate;
   List<SubTask> subtasks;
   String? reasoning;
   UrgencyMode urgencyMode;
@@ -192,6 +195,7 @@ class Task {
     this.completed = false,
     required this.createdAt,
     this.deadline,
+    this.plannedDate,
     List<SubTask>? subtasks,
     this.reasoning,
     this.urgencyMode = UrgencyMode.auto,
@@ -213,6 +217,7 @@ class Task {
     completed: (j['completed'] as bool?) ?? false,
     createdAt: (j['createdAt'] as num?)?.toInt() ?? 0,
     deadline: _timestamp(j['deadline']),
+    plannedDate: _timestamp(j['plannedDate']),
     subtasks: ((j['subtasks'] as List?) ?? [])
         .cast<Map<String, dynamic>>()
         .map(SubTask.fromJson)
@@ -254,6 +259,7 @@ class Task {
       if (!isV1 && reminderTimezone != null && reminderTimezone!.isNotEmpty)
         'reminderTimezone': reminderTimezone,
       if (!isV1 && completedAt != null) 'completedAt': completedAt,
+      if (!isV1 && plannedDate != null) 'plannedDate': plannedDate,
       if (!isV1 && tags.isNotEmpty) 'tags': tags,
       if (!isV1 && recoveryPending != null) 'recoveryPending': recoveryPending,
     };
@@ -283,6 +289,7 @@ class AIAnalysisResult {
     required String boardId,
     required int createdAt,
     int? deadline,
+    int? plannedDate,
     String? notesMarkdown,
     int? reminderAt,
     String? reminderTimezone,
@@ -295,6 +302,7 @@ class AIAnalysisResult {
     isLongTerm: isLongTerm,
     createdAt: createdAt,
     deadline: deadline,
+    plannedDate: plannedDate,
     reasoning: reasoning,
     notesMarkdown: notesMarkdown,
     reminderAt: reminderAt,

@@ -408,11 +408,14 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       t: context.read<Store>().t,
       deadline: _draft.deadline,
       reminderAt: _draft.reminderAt,
+      supportsPlannedDate: true,
+      plannedDate: _draft.plannedDate,
     );
     if (result == null || !mounted) return;
     setState(() {
       _draft.deadline = result.deadline;
       _draft.reminderAt = result.reminderAt;
+      _draft.plannedDate = result.plannedDate;
     });
   }
 
@@ -482,6 +485,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     final t = store.t;
     final theme = Theme.of(context);
     final d = _draft.deadline;
+    final p = _draft.plannedDate;
     final dirty = _draft.isDirty;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onDirtyChanged?.call(dirty);
@@ -828,12 +832,22 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             icon: const Icon(Icons.schedule),
                             label: Text(t['timePanel']!),
                           ),
-                          if (d != null || _draft.reminderAt != null)
+                          if (d != null ||
+                              p != null ||
+                              _draft.reminderAt != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Wrap(
                                 spacing: 8,
                                 children: [
+                                  if (p != null)
+                                    ActionChip(
+                                      key: const ValueKey('edit-planned-btn'),
+                                      label: Text(
+                                        '${t['plannedDate']}: ${formatCivilDate(p)}',
+                                      ),
+                                      onPressed: _editTime,
+                                    ),
                                   if (d != null)
                                     ActionChip(
                                       key: const ValueKey('edit-deadline-btn'),

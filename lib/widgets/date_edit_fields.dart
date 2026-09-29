@@ -1,7 +1,9 @@
-/// Shared deadline and reminder editing pieces: one civil-day rule set, one
-/// picker flow and one day-chip row. Presentation stays with each surface so
-/// the composer, the detail editor and the subtask dialog keep their own
-/// affordance while agreeing on what a chosen day or moment means.
+/// Shared planning-day, deadline and reminder editing pieces: one civil-day rule
+/// set, one picker flow and one day-chip row. Presentation stays with each
+/// surface so the composer, the detail editor and the subtask dialog keep their
+/// own affordance while agreeing on what a chosen day or moment means.
+/// A plan and a deadline are different questions, so each editor decides whether
+/// the plan row exists at all.
 library;
 
 import 'package:flutter/material.dart';
@@ -10,22 +12,41 @@ import '../calendar_dates.dart';
 import 'reminder_access.dart';
 
 class TaskTimeSelection {
-  const TaskTimeSelection(this.deadline, this.reminderAt);
+  const TaskTimeSelection({
+    this.deadline,
+    this.reminderAt,
+    this.plannedDate,
+  });
   final DateTime? deadline;
   final int? reminderAt;
+
+  /// Day the task is planned for. Only set when the editor was opened with
+  /// [showTaskTimeEditor]'s `supportsPlannedDate`.
+  final DateTime? plannedDate;
 }
 
-/// Edits both time properties in isolation. Closing or cancelling the dialog
+/// Edits the time properties in isolation. Closing or cancelling the dialog
 /// returns null, so the caller's larger task draft remains untouched.
+///
+/// [plannedDate] is the planning day, and it is only offered when the edited
+/// object has one: a parent task passes [supportsPlannedDate], a subtask row
+/// keeps the deadline-and-reminder panel.
 Future<TaskTimeSelection?> showTaskTimeEditor(
   BuildContext context, {
   required Map<String, String> t,
   DateTime? deadline,
   int? reminderAt,
+  bool supportsPlannedDate = false,
+  DateTime? plannedDate,
 }) => showDialog<TaskTimeSelection>(
   context: context,
-  builder: (_) =>
-      _TaskTimeDialog(t: t, deadline: deadline, reminderAt: reminderAt),
+  builder: (_) => _TaskTimeDialog(
+    t: t,
+    deadline: deadline,
+    reminderAt: reminderAt,
+    supportsPlannedDate: supportsPlannedDate,
+    plannedDate: plannedDate,
+  ),
 );
 
 class _TaskTimeDialog extends StatefulWidget {
@@ -33,10 +54,14 @@ class _TaskTimeDialog extends StatefulWidget {
     required this.t,
     required this.deadline,
     required this.reminderAt,
+    required this.supportsPlannedDate,
+    this.plannedDate,
   });
   final Map<String, String> t;
   final DateTime? deadline;
   final int? reminderAt;
+  final bool supportsPlannedDate;
+  final DateTime? plannedDate;
 
   @override
   State<_TaskTimeDialog> createState() => _TaskTimeDialogState();
@@ -45,6 +70,7 @@ class _TaskTimeDialog extends StatefulWidget {
 class _TaskTimeDialogState extends State<_TaskTimeDialog> {
   late DateTime? _deadline = widget.deadline;
   late int? _reminderAt = widget.reminderAt;
+  late DateTime? _plannedDate = widget.plannedDate;
 
   Future<void> _preset(DateTime moment) async {
     await applyPresetReminderMoment(
@@ -71,10 +97,7 @@ class _TaskTimeDialogState extends State<_TaskTimeDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                t['deadline']!,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
+              _SectionLabel(t['deadline']!, hint: widget.supportsPlannedDate ? t['deadlineHint'] : null),
               const SizedBox(height: 8),
               DeadlineDayChips(
                 t: t,
@@ -143,6 +166,22 @@ class _TaskTimeDialogState extends State<_TaskTimeDialog> {
                     ),
                 ],
               ),
+              // Last, so adding the plan never pushes the deadline and reminder
+              // presets a phone user already knows out of reach.
+              if (widget.supportsPlannedDate) ...[
+                const SizedBox(height: 24),
+                _SectionLabel(
+                  t['plannedDate']!,
+                  hint: t['plannedDateHint']!,
+                ),
+                const SizedBox(height: 8),
+                DeadlineDayChips(
+                  t: t,
+                  keyPrefix: 'planned',
+                  selected: _plannedDate,
+                  onChanged: (value) => setState(() => _plannedDate = value),
+                ),
+              ],
             ],
           ),
         ),
@@ -154,8 +193,17 @@ class _TaskTimeDialogState extends State<_TaskTimeDialog> {
         ),
         FilledButton(
           key: const ValueKey('time-confirm'),
-          onPressed: () =>
-              Navigator.pop(context, TaskTimeSelection(_deadline, _reminderAt)),
+          onPressed:
+              () => Navigator.pop(
+                context,
+                TaskTimeSelection(
+                  deadline: _deadline,
+                  reminderAt: _reminderAt,
+                  plannedDate: widget.supportsPlannedDate
+                      ? _plannedDate
+                      : null,
+                ),
+              ),
           child: Text(t['confirm']!),
         ),
       ],
@@ -163,11 +211,37 @@ class _TaskTimeDialogState extends State<_TaskTimeDialog> {
   }
 }
 
-/// Two instants on the same local year/month/day. A reminder keeps its exact
-/// moment; a deadline is a civil day, so this is the comparison that counts.
-bool isSameCivilDay(DateTime? a, DateTime? b) {
-  if (a == null || b == null) return false;
-  return a.year == b.year && a.month == b.month && a.day == b.day;
+/// A property label with its one-line explanation on the same row. Keeping the
+/// hint beside rather than under the label means adding the plan row cannot
+/// push the presets a phone user already knows off the dialog.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label, {this.hint});
+
+  final String label;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(label, style: theme.textTheme.titleSmall),
+        if (hint != null) ...[
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              hint!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 /// Today's local calendar day at midnight.

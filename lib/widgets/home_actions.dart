@@ -6,7 +6,7 @@ import '../storage.dart';
 import '../task_stats.dart';
 import '../ui/platform_ui_policy.dart';
 
-enum HomeMoreAction { switchBoard, completed, select, settings }
+enum HomeMoreAction { switchBoard, today, completed, select, settings }
 
 class HomeActionButton extends StatelessWidget {
   final Key? buttonKey;
@@ -217,6 +217,13 @@ class HomeMorePanel extends StatelessWidget {
               leading: const Icon(Icons.dashboard_outlined),
               title: Text(t['switchBoard'] ?? 'Switch board'),
               onTap: () => Navigator.pop(context, HomeMoreAction.switchBoard),
+            ),
+            ListTile(
+              key: const ValueKey('today-btn'),
+              minVerticalPadding: 12,
+              leading: const Icon(Icons.today),
+              title: Text(t['today']!),
+              onTap: () => Navigator.pop(context, HomeMoreAction.today),
             ),
             ListTile(
               key: const ValueKey('completed-btn'),

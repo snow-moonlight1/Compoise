@@ -28,20 +28,22 @@
 | `timestamp` | 导出时间，Unix 毫秒；导入不使用。 |
 | `recovery`、`recoveryChunks` | 应用生成的恢复归档标记和大字段分块；见下文。 |
 
-板、任务和子项的 `id` 是不透明的非空白字符串。板 ID 和任务 ID 各自在整个文件内唯一，子项 ID 在同一任务内唯一。`boardId` 指向所属板。日期时间字段使用 Unix 毫秒；`deadline` 用于本地日历日的紧急性判断，`reminderAt` 表示提醒的绝对时刻。
+板、任务和子项的 `id` 是不透明的非空白字符串。板 ID 和任务 ID 各自在整个文件内唯一，子项 ID 在同一任务内唯一。`boardId` 指向所属板。日期时间字段使用 Unix 毫秒；`deadline` 用于本地日历日的紧急性判断，`reminderAt` 表示提醒的绝对时刻，`plannedDate` 是本地日历日的零点（当天开始），只表示安排在哪天做。
 
 常用 v2 字段如下；完整序列化和默认值以 [models.dart](../lib/models.dart) 为准：
 
 | 对象 | 字段 |
 |---|---|
 | 板 | `id`、`name`、`createdAt` |
-| 任务 | `id`、`boardId`、`title`、`quadrant`、`isLongTerm`、`completed`、`createdAt`、`deadline`、`subtasks`、`reasoning`、`urgencyMode`、`notesMarkdown`、`reminderAt`、`reminderTimezone`、`completedAt`、`tags` |
+| 任务 | `id`、`boardId`、`title`、`quadrant`、`isLongTerm`、`completed`、`createdAt`、`deadline`、`plannedDate`、`subtasks`、`reasoning`、`urgencyMode`、`notesMarkdown`、`reminderAt`、`reminderTimezone`、`completedAt`、`tags` |
 | 子项 | `id`、`title`、`completed`、`deadline`、`notesMarkdown`、`reminderAt`、`completedAt` |
 | 设置和 AI 配置 | `AppSettings`、`AIConfig` 的公开 JSON 字段；备份默认省略 `aiConfig.customApiKey`。 |
 
 `tags` 是字符串数组，只属于父任务，空数组和缺省都不写出。读入时统一去掉首尾空格与空标签，大小写等价的重复只保留第一次出现的写法。
 
-通过代码调用 `Store.exportJson(version: 1)` 可以生成有损 v1：任务和子项的笔记、提醒、完成时间、任务标签，以及 v2 显示和桌面设置不会写出。设置页没有 v1 导出选项。v1 输入中的已知 v2 字段仍可能被当前读取器识别；不要把版本号当成字段过滤器。未知字段会在预检中提示名称，重新导出时不会保留。
+`plannedDate` 只属于父任务，缺省与 null 都不写出，含义是“没有安排”。它不参与紧急性判断，也不会改变象限；`deadline` 才会在临近时把任务推入紧急一侧。两者互相独立，读取对方都不会改写自己。子项没有计划日。
+
+通过代码调用 `Store.exportJson(version: 1)` 可以生成有损 v1：任务和子项的笔记、提醒、完成时间、任务标签和计划日，以及 v2 显示和桌面设置不会写出。设置页没有 v1 导出选项。v1 输入中的已知 v2 字段仍可能被当前读取器识别；不要把版本号当成字段过滤器。未知字段会在预检中提示名称，重新导出时不会保留。
 
 ## 导入前检查和提交
 

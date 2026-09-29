@@ -15,6 +15,7 @@ import 'deadline_policy.dart';
 import 'l10n.dart';
 import 'import_preflight.dart';
 import 'models.dart';
+import 'planned_policy.dart';
 import 'save_protocol.dart';
 import 'services/reminder_service.dart';
 import 'task_commands.dart';
@@ -604,6 +605,29 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       .where((t) => t.completed && (boardId == null || t.boardId == boardId))
       .length;
 
+  // --- today list ---
+
+  /// The Today list: tasks bucketed by planned day and deadline across every
+  /// quadrant, on the active board or, with [allBoards], across all of them.
+  /// [settings.hideCompleted] does not apply — a completed task never enters a
+  /// bucket — and reading this list never changes a quadrant.
+  List<TodayGroup> todayGroups({bool allBoards = false, DateTime? now}) =>
+      groupForToday(
+        tasks.where(
+          (task) => allBoards || task.boardId == activeBoardId,
+        ),
+        now: now,
+      );
+
+  /// Tasks completed today, under the same board scope as [todayGroups].
+  int completedTodayCount({bool allBoards = false}) => tasks
+      .where(
+        (task) =>
+            completedOnDay(task) &&
+            (allBoards || task.boardId == activeBoardId),
+      )
+      .length;
+
   // --- mutations ---
 
   void setViewMode(ViewMode mode) {
@@ -699,6 +723,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     int quadrant = qDo,
     bool isLongTerm = false,
     int? deadline,
+    int? plannedDate,
   }) => Task(
     id: newId(),
     boardId: activeBoardId,
@@ -707,6 +732,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     isLongTerm: isLongTerm,
     createdAt: _now(),
     deadline: deadline,
+    plannedDate: plannedDate,
   );
 
   void _insertAtFrontOfQuadrant(Task task) {
@@ -735,6 +761,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     to.completed = from.completed;
     to.createdAt = from.createdAt;
     to.deadline = from.deadline;
+    to.plannedDate = from.plannedDate;
     to.subtasks = from.subtasks;
     to.reasoning = from.reasoning;
     to.urgencyMode = from.urgencyMode;
@@ -913,6 +940,18 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (modeChanged && !quadrantChanged) _touchTask(taskId);
     _saveTasks();
     notifyListeners();
+  }
+
+  /// Plans [taskId] on the civil day of [day], or clears the plan when null.
+  /// Nothing else moves: the quadrant, the deadline and the urgency mode keep
+  /// their values, because a plan is not a commitment date.
+  void setPlannedDay(String taskId, DateTime? day) {
+    final i = tasks.indexWhere((t) => t.id == taskId);
+    if (i == -1) return;
+    final stored = tasks[i];
+    final next = plannedDayMs(day);
+    if (stored.plannedDate == next) return;
+    updateTask(Task.fromJson(stored.toJson())..plannedDate = next);
   }
 
   void appendSubtasks(String taskId, List<SubTask> subs) {
