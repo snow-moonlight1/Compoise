@@ -1,0 +1,568 @@
+{
+ "id": "ja_dark_small_text",
+ "engine": "tesseract5-tessdata_fast",
+ "engine_version": "5.5.1",
+ "config": "tess-tri-psm3",
+ "timing": {
+  "width": 1080,
+  "height": 1480,
+  "det_ms": 469.635,
+  "rec_ms": 0.0,
+  "total_ms": 489.299
+ },
+ "text": {
+  "id": "ja_dark_small_text",
+  "gt_lines": 15,
+  "rec_lines": 12,
+  "matched": 10,
+  "missed_gt": 5,
+  "spurious_rec": 2,
+  "spurious_chars": 6,
+  "merged_gt_into_one_rec": 0,
+  "edit_distance": 41,
+  "ref_chars": 110,
+  "cer": 0.37272727272727274,
+  "cer_strict": 0.375,
+  "line_exact_rate": 0.5333333333333333,
+  "task_line_cer": 0.4457831325301205,
+  "decor_line_cer": 0.14814814814814814
+ },
+ "text_diffs": [
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 4,
+   "rec_index": 2,
+   "gt_box": [
+    105.2,
+    337.74,
+    512.0,
+    33.48
+   ],
+   "rec_box": [
+    114.0,
+    342.0,
+    411.0,
+    25.0
+   ],
+   "ref": "スーパーで食材を買う（トマト・卵・牛乳）",
+   "hyp": "スーパーで食材を買う (トマト・卵・",
+   "edit_distance": 3
+  },
+  {
+   "kind": "mismatch",
+   "role": "due_date",
+   "gt_index": 8,
+   "rec_index": 10,
+   "gt_box": [
+    748.0,
+    540.15,
+    84.0,
+    40.5
+   ],
+   "rec_box": [
+    756.0,
+    546.0,
+    47.0,
+    30.0
+   ],
+   "ref": "金曜",
+   "hyp": "Hp",
+   "edit_distance": 2
+  },
+  {
+   "kind": "missed",
+   "role": "section_header",
+   "gt_index": 3,
+   "gt_box": [
+    36.0,
+    243.0,
+    88.0,
+    43.2
+   ],
+   "ref": "今日",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "task",
+   "gt_index": 7,
+   "gt_box": [
+    105.2,
+    543.66,
+    137.0,
+    33.48
+   ],
+   "ref": "週報を書く",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "task",
+   "gt_index": 10,
+   "gt_box": [
+    161.2,
+    749.58,
+    287.0,
+    33.48
+   ],
+   "ref": "回帰テストの項目を追加",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "task",
+   "gt_index": 11,
+   "gt_box": [
+    105.2,
+    852.54,
+    251.0,
+    33.48
+   ],
+   "ref": "技術書の第5章を読む",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "task",
+   "gt_index": 12,
+   "gt_box": [
+    105.2,
+    955.5,
+    212.0,
+    33.48
+   ],
+   "ref": "公共料金を支払う",
+   "hyp": ""
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 6,
+   "rec_box": [
+    538.0,
+    342.0,
+    56.0,
+    25.0
+   ],
+   "hyp": "牛乳)",
+   "score": 0.9286,
+   "chars": 3
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 7,
+   "rec_box": [
+    940.0,
+    25.0,
+    97.0,
+    22.0
+   ],
+   "hyp": "ain",
+   "score": 0.5068,
+   "chars": 3
+  }
+ ],
+ "structure": {
+  "id": "ja_dark_small_text",
+  "gt_tasks": 8,
+  "pred_tasks": 6,
+  "true_positive": 4,
+  "missing": 4,
+  "spurious": 2,
+  "spurious_matched_non_task": 2,
+  "task_recall": 0.5,
+  "task_precision": 0.6666666666666666,
+  "checked_accuracy": 1.0,
+  "parent_accuracy": 0.0,
+  "parent_total": 1,
+  "due_accuracy": 1.0,
+  "due_total": 1,
+  "order_engine_native_exact": false,
+  "order_after_adapter_exact": true,
+  "order_task_exact": true,
+  "order_task_kendall": 0.0,
+  "needs_confirmation": 1
+ },
+ "structure_details": [
+  {
+   "kind": "task",
+   "row": 2,
+   "title": "スーパーで食材を買う (トマト・卵・牛乳)",
+   "gt_title": "スーパーで食材を買う（トマト・卵・牛乳）",
+   "gt_key": "t1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "今日 18:00",
+   "gt_due": "今日 18:00",
+   "needs_confirmation": [
+    "row contains 3 text blocks; split/merge needs review"
+   ]
+  },
+  {
+   "kind": "task",
+   "row": 3,
+   "title": "母に電話をかける",
+   "gt_title": "母に電話をかける",
+   "gt_key": "t2",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 5,
+   "title": "先週の議事録を整理する",
+   "gt_title": "先週の議事録を整理する",
+   "gt_key": "t4",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 7,
+   "title": "歯医者の予約 9:30",
+   "gt_title": "歯医者の予約 9:30",
+   "gt_key": "t8",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  }
+ ],
+ "spurious_detail": [
+  {
+   "row": 4,
+   "title": "",
+   "matched_gt_role": "due_date",
+   "matched_gt_text": "金曜",
+   "reason": "matched non-task line"
+  },
+  {
+   "row": 6,
+   "title": "",
+   "matched_gt_role": "due_date",
+   "matched_gt_text": "10月15日",
+   "reason": "matched non-task line"
+  }
+ ],
+ "draft": {
+  "schema": "wp17r2-draft/1",
+  "id": "ja_dark_small_text",
+  "width": 1080,
+  "height": 1480,
+  "engine": "tesseract5-tessdata_fast",
+  "rows": [
+   {
+    "index": 0,
+    "kind": "chrome",
+    "line_indices": [
+     0,
+     7
+    ],
+    "text": "9:41ain",
+    "y_center": 37.5,
+    "checkbox": null
+   },
+   {
+    "index": 1,
+    "kind": "chrome",
+    "line_indices": [
+     1,
+     8
+    ],
+    "text": "やること8件",
+    "y_center": 146.0,
+    "checkbox": {
+     "box": [
+      214.0,
+      123.0,
+      33.0,
+      42.0
+     ],
+     "fill": 0.397,
+     "checked": false
+    }
+   },
+   {
+    "index": 2,
+    "kind": "task",
+    "line_indices": [
+     2,
+     6,
+     9
+    ],
+    "text": "スーパーで食材を買う (トマト・卵・牛乳)今日 18:00",
+    "y_center": 354.17,
+    "checkbox": {
+     "box": [
+      48.0,
+      340.0,
+      36.0,
+      36.0
+     ],
+     "fill": 0.301,
+     "checked": false
+    }
+   },
+   {
+    "index": 3,
+    "kind": "task",
+    "line_indices": [
+     3
+    ],
+    "text": "母に電話をかける",
+    "y_center": 458.0,
+    "checkbox": {
+     "box": [
+      48.0,
+      443.0,
+      36.0,
+      36.0
+     ],
+     "fill": 0.868,
+     "checked": true
+    }
+   },
+   {
+    "index": 4,
+    "kind": "task",
+    "line_indices": [
+     10
+    ],
+    "text": "Hp",
+    "y_center": 561.0,
+    "checkbox": {
+     "box": [
+      48.0,
+      546.0,
+      36.0,
+      36.0
+     ],
+     "fill": 0.301,
+     "checked": false
+    }
+   },
+   {
+    "index": 5,
+    "kind": "task",
+    "line_indices": [
+     4
+    ],
+    "text": "先週の議事録を整理する",
+    "y_center": 663.5,
+    "checkbox": {
+     "box": [
+      104.0,
+      649.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.305,
+     "checked": false
+    }
+   },
+   {
+    "index": 6,
+    "kind": "task",
+    "line_indices": [
+     11
+    ],
+    "text": "10月15日",
+    "y_center": 972.5,
+    "checkbox": {
+     "box": [
+      48.0,
+      958.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.305,
+     "checked": false
+    }
+   },
+   {
+    "index": 7,
+    "kind": "task",
+    "line_indices": [
+     5
+    ],
+    "text": "歯医者の予約 9:30",
+    "y_center": 1074.5,
+    "checkbox": {
+     "box": [
+      48.0,
+      1061.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.87,
+     "checked": true
+    }
+   }
+  ],
+  "tasks": [
+   {
+    "row": 2,
+    "line_indices": [
+     2,
+     6,
+     9
+    ],
+    "anchor_line": 2,
+    "title": "スーパーで食材を買う (トマト・卵・牛乳)",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     340.0,
+     36.0,
+     36.0
+    ],
+    "checkbox_fill": 0.301,
+    "level": 0,
+    "parent": null,
+    "due": "今日 18:00",
+    "needs_confirmation": [
+     "row contains 3 text blocks; split/merge needs review"
+    ]
+   },
+   {
+    "row": 3,
+    "line_indices": [
+     3
+    ],
+    "anchor_line": 3,
+    "title": "母に電話をかける",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     443.0,
+     36.0,
+     36.0
+    ],
+    "checkbox_fill": 0.868,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 4,
+    "line_indices": [
+     10
+    ],
+    "anchor_line": null,
+    "title": "",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     546.0,
+     36.0,
+     36.0
+    ],
+    "checkbox_fill": 0.301,
+    "level": 0,
+    "parent": null,
+    "due": "Hp",
+    "needs_confirmation": [
+     "task row has no left-aligned text"
+    ]
+   },
+   {
+    "row": 5,
+    "line_indices": [
+     4
+    ],
+    "anchor_line": 4,
+    "title": "先週の議事録を整理する",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     649.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.305,
+    "level": 1,
+    "parent": 4,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 6,
+    "line_indices": [
+     11
+    ],
+    "anchor_line": null,
+    "title": "",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     958.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.305,
+    "level": 0,
+    "parent": null,
+    "due": "10月15日",
+    "needs_confirmation": [
+     "task row has no left-aligned text"
+    ]
+   },
+   {
+    "row": 7,
+    "line_indices": [
+     5
+    ],
+    "anchor_line": 5,
+    "title": "歯医者の予約 9:30",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     1061.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.87,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   }
+  ],
+  "dropped": [
+   {
+    "row": 0,
+    "kind": "chrome",
+    "text": "9:41ain"
+   },
+   {
+    "row": 1,
+    "kind": "chrome",
+    "text": "やること8件"
+   }
+  ],
+  "noise_lines": [],
+  "notes": [
+   "2 gutter mark(s) matched no text row"
+  ]
+ }
+}

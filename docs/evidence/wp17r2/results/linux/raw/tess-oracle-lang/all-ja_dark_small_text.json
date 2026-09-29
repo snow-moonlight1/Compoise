@@ -1,0 +1,38 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "tesseract5-tessdata_fast",
+  "engine_version": "5.5.1",
+  "variant": "",
+  "model_load_ms": 186.877112,
+  "batch_total_ms": 265.371904,
+  "peak_rss_kb": 74544,
+  "config": {
+    "langs": "jpn",
+    "oem": "default(LSTM)",
+    "psm": "3",
+    "tessdata": "/home/ubuntu/wp17r2/assets/tessdata_fast",
+    "user_defined_dpi": "96"
+  },
+  "images": [
+    {
+      "path": "/home/ubuntu/wp17r2/samples/images/ja_dark_small_text.png",
+      "width": 1080, "height": 1480,
+      "decode_ms": 20.247, "preprocess_ms": 0.000, "det_ms": 220.569, "rec_ms": 0.000, "total_ms": 265.367,
+      "error": "",
+      "lines": [
+        {"text": "9:41", "box": [44.00, 27.00, 62.00, 24.00], "score": 0.9312},
+        {"text": "やること", "box": [51.00, 122.00, 195.00, 45.00], "score": 0.9661},
+        {"text": "スーパーで食材を買う (トマト・卵・", "box": [114.00, 342.00, 411.00, 25.00], "score": 0.9033},
+        {"text": "母に電話をかける", "box": [112.00, 447.00, 194.00, 22.00], "score": 0.9604},
+        {"text": "先週の議事録を整理する", "box": [169.00, 652.00, 268.00, 23.00], "score": 0.9506},
+        {"text": "歯医者の予約 9:30", "box": [113.00, 1063.00, 202.00, 23.00], "score": 0.9521},
+        {"text": "生乳)", "box": [538.00, 342.00, 56.00, 25.00], "score": 0.6642},
+        {"text": "=m上上mm |", "box": [940.00, 25.00, 97.00, 22.00], "score": 0.5964},
+        {"text": "8件", "box": [862.00, 134.00, 43.00, 27.00], "score": 0.9679},
+        {"text": "今日 18:00", "box": [762.00, 340.00, 142.00, 27.00], "score": 0.9349},
+        {"text": "肢", "box": [762.00, 546.00, 37.00, 26.00], "score": 0.2686},
+        {"text": "10月15日", "box": [763.00, 960.00, 118.00, 25.00], "score": 0.9262}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,713 @@
+{
+ "id": "en_light_base",
+ "engine": "tesseract5-tessdata_fast",
+ "engine_version": "v5.4.0.20240606",
+ "config": "tess-tri-psm6",
+ "timing": {
+  "width": 1080,
+  "height": 1403,
+  "det_ms": 231.479,
+  "rec_ms": 0.0,
+  "total_ms": 244.954
+ },
+ "text": {
+  "id": "en_light_base",
+  "gt_lines": 15,
+  "rec_lines": 11,
+  "matched": 8,
+  "missed_gt": 7,
+  "spurious_rec": 3,
+  "spurious_chars": 38,
+  "merged_gt_into_one_rec": 0,
+  "edit_distance": 65,
+  "ref_chars": 223,
+  "cer": 0.2914798206278027,
+  "cer_strict": 0.296875,
+  "line_exact_rate": 0.4,
+  "task_line_cer": 0.16847826086956522,
+  "decor_line_cer": 0.8717948717948718
+ },
+ "text_diffs": [
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 4,
+   "rec_index": 3,
+   "gt_box": [
+    114.0,
+    342.0,
+    635.98,
+    54.0
+   ],
+   "rec_box": [
+    124.0,
+    360.0,
+    830.0,
+    39.0
+   ],
+   "ref": "Buy groceries: tomatoes, eggs, milk",
+   "hyp": "Buy groceries: tomatoes, eggs, milk Today 6:00 PM",
+   "edit_distance": 11
+  },
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 7,
+   "rec_index": 5,
+   "gt_box": [
+    114.0,
+    606.0,
+    476.0,
+    54.0
+   ],
+   "rec_box": [
+    121.0,
+    624.0,
+    669.0,
+    39.0
+   ],
+   "ref": "Write weekly status report",
+   "hyp": "Write weekly status report            Fri",
+   "edit_distance": 3
+  },
+  {
+   "kind": "missed",
+   "role": "status_clock",
+   "gt_index": 0,
+   "gt_box": [
+    36.0,
+    18.0,
+    73.0,
+    45.9
+   ],
+   "ref": "9:41",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "app_title",
+   "gt_index": 1,
+   "gt_box": [
+    36.0,
+    114.0,
+    162.92,
+    70.2
+   ],
+   "ref": "To-do",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "app_meta",
+   "gt_index": 2,
+   "gt_box": [
+    848.0,
+    128.0,
+    120.0,
+    40.5
+   ],
+   "ref": "8 items",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "due_date",
+   "gt_index": 5,
+   "gt_box": [
+    748.0,
+    348.75,
+    220.95,
+    40.5
+   ],
+   "ref": "Today 6:00 PM",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "due_date",
+   "gt_index": 8,
+   "gt_box": [
+    748.0,
+    612.75,
+    56.0,
+    40.5
+   ],
+   "ref": "Fri",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "task",
+   "gt_index": 12,
+   "gt_box": [
+    114.0,
+    1134.0,
+    317.98,
+    54.0
+   ],
+   "ref": "Pay the utility bill",
+   "hyp": ""
+  },
+  {
+   "kind": "missed",
+   "role": "due_date",
+   "gt_index": 13,
+   "gt_box": [
+    748.0,
+    1140.75,
+    111.0,
+    40.5
+   ],
+   "ref": "Oct 15",
+   "hyp": ""
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 0,
+   "rec_box": [
+    44.0,
+    25.0,
+    993.0,
+    34.0
+   ],
+   "hyp": "9:41                                                     a",
+   "score": 0.7341,
+   "chars": 5
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 1,
+   "rec_box": [
+    49.0,
+    136.0,
+    905.0,
+    40.0
+   ],
+   "hyp": "To-do                                          8 items",
+   "score": 0.9507,
+   "chars": 11
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 9,
+   "rec_box": [
+    124.0,
+    1152.0,
+    721.0,
+    39.0
+   ],
+   "hyp": "Pay the utility bill                       Oct 15",
+   "score": 0.9599,
+   "chars": 22
+  }
+ ],
+ "structure": {
+  "id": "en_light_base",
+  "gt_tasks": 8,
+  "pred_tasks": 8,
+  "true_positive": 7,
+  "missing": 1,
+  "spurious": 1,
+  "spurious_matched_non_task": 0,
+  "task_recall": 0.875,
+  "task_precision": 0.875,
+  "checked_accuracy": 1.0,
+  "parent_accuracy": 1.0,
+  "parent_total": 2,
+  "due_accuracy": 0.0,
+  "due_total": 2,
+  "order_engine_native_exact": false,
+  "order_after_adapter_exact": true,
+  "order_task_exact": true,
+  "order_task_kendall": 0.0,
+  "needs_confirmation": 0
+ },
+ "structure_details": [
+  {
+   "kind": "task",
+   "row": 3,
+   "title": "Buy groceries: tomatoes, eggs, milk Today 6:00 PM",
+   "gt_title": "Buy groceries: tomatoes, eggs, milk",
+   "gt_key": "t1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": "Today 6:00 PM",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 4,
+   "title": "  Call mom back",
+   "gt_title": "Call mom back",
+   "gt_key": "t2",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 5,
+   "title": "Write weekly status report            Fri",
+   "gt_title": "Write weekly status report",
+   "gt_key": "t3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": "Fri",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 6,
+   "title": "Tidy up last week's meeting notes",
+   "gt_title": "Tidy up last week's meeting notes",
+   "gt_key": "t4",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 7,
+   "title": "Fill in the regression test checklist",
+   "gt_title": "Fill in the regression test checklist",
+   "gt_key": "t5",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 8,
+   "title": "Read chapter 5 of DDIA",
+   "gt_title": "Read chapter 5 of DDIA",
+   "gt_key": "t6",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 10,
+   "title": "  Dentist appointment at 9:30",
+   "gt_title": "Dentist appointment at 9:30",
+   "gt_key": "t8",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  }
+ ],
+ "spurious_detail": [
+  {
+   "row": 9,
+   "title": "Pay the utility bill                       Oct 15",
+   "matched_gt_role": null,
+   "matched_gt_text": null,
+   "reason": "no matching image line"
+  }
+ ],
+ "draft": {
+  "schema": "wp17r2-draft/1",
+  "id": "en_light_base",
+  "width": 1080,
+  "height": 1403,
+  "engine": "tesseract5-tessdata_fast",
+  "rows": [
+   {
+    "index": 0,
+    "kind": "chrome",
+    "line_indices": [
+     0
+    ],
+    "text": "9:41                                                     a",
+    "y_center": 42.0,
+    "checkbox": null
+   },
+   {
+    "index": 1,
+    "kind": "chrome",
+    "line_indices": [
+     1
+    ],
+    "text": "To-do                                          8 items",
+    "y_center": 156.0,
+    "checkbox": null
+   },
+   {
+    "index": 2,
+    "kind": "section",
+    "line_indices": [
+     2
+    ],
+    "text": "Today",
+    "y_center": 273.5,
+    "checkbox": null
+   },
+   {
+    "index": 3,
+    "kind": "task",
+    "line_indices": [
+     3
+    ],
+    "text": "Buy groceries: tomatoes, eggs, milk Today 6:00 PM",
+    "y_center": 379.5,
+    "checkbox": {
+     "box": [
+      48.0,
+      351.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 4,
+    "kind": "task",
+    "line_indices": [
+     4
+    ],
+    "text": "  Call mom back",
+    "y_center": 507.0,
+    "checkbox": {
+     "box": [
+      48.0,
+      483.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   },
+   {
+    "index": 5,
+    "kind": "task",
+    "line_indices": [
+     5
+    ],
+    "text": "Write weekly status report            Fri",
+    "y_center": 643.5,
+    "checkbox": {
+     "box": [
+      48.0,
+      615.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 6,
+    "kind": "task",
+    "line_indices": [
+     6
+    ],
+    "text": "Tidy up last week's meeting notes",
+    "y_center": 775.5,
+    "checkbox": {
+     "box": [
+      104.0,
+      747.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 7,
+    "kind": "task",
+    "line_indices": [
+     7
+    ],
+    "text": "Fill in the regression test checklist",
+    "y_center": 907.5,
+    "checkbox": {
+     "box": [
+      104.0,
+      879.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 8,
+    "kind": "task",
+    "line_indices": [
+     8
+    ],
+    "text": "Read chapter 5 of DDIA",
+    "y_center": 1039.5,
+    "checkbox": {
+     "box": [
+      48.0,
+      1011.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 9,
+    "kind": "task",
+    "line_indices": [
+     9
+    ],
+    "text": "Pay the utility bill                       Oct 15",
+    "y_center": 1171.5,
+    "checkbox": {
+     "box": [
+      48.0,
+      1143.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 10,
+    "kind": "task",
+    "line_indices": [
+     10
+    ],
+    "text": "  Dentist appointment at 9:30",
+    "y_center": 1304.0,
+    "checkbox": {
+     "box": [
+      48.0,
+      1275.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   }
+  ],
+  "tasks": [
+   {
+    "row": 3,
+    "line_indices": [
+     3
+    ],
+    "anchor_line": 3,
+    "title": "Buy groceries: tomatoes, eggs, milk Today 6:00 PM",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     351.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 4,
+    "line_indices": [
+     4
+    ],
+    "anchor_line": 4,
+    "title": "  Call mom back",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     483.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 5,
+    "line_indices": [
+     5
+    ],
+    "anchor_line": 5,
+    "title": "Write weekly status report            Fri",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     615.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 6,
+    "line_indices": [
+     6
+    ],
+    "anchor_line": 6,
+    "title": "Tidy up last week's meeting notes",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     747.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 5,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 7,
+    "line_indices": [
+     7
+    ],
+    "anchor_line": 7,
+    "title": "Fill in the regression test checklist",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     879.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 5,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 8,
+    "line_indices": [
+     8
+    ],
+    "anchor_line": 8,
+    "title": "Read chapter 5 of DDIA",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     1011.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 9,
+    "line_indices": [
+     9
+    ],
+    "anchor_line": 9,
+    "title": "Pay the utility bill                       Oct 15",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     1143.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 10,
+    "line_indices": [
+     10
+    ],
+    "anchor_line": 10,
+    "title": "  Dentist appointment at 9:30",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     1275.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   }
+  ],
+  "dropped": [
+   {
+    "row": 0,
+    "kind": "chrome",
+    "text": "9:41                                                     a"
+   },
+   {
+    "row": 1,
+    "kind": "chrome",
+    "text": "To-do                                          8 items"
+   },
+   {
+    "row": 2,
+    "kind": "section",
+    "text": "Today"
+   }
+  ],
+  "noise_lines": [],
+  "notes": []
+ }
+}

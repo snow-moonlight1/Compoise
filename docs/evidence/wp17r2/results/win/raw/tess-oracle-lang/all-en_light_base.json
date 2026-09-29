@@ -1,0 +1,37 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "tesseract5-tessdata_fast",
+  "engine_version": "v5.4.0.20240606",
+  "variant": "",
+  "model_load_ms": 77.030600,
+  "batch_total_ms": 166.729100,
+  "peak_rss_kb": 54340,
+  "config": {
+    "langs": "eng",
+    "oem": "default(LSTM)",
+    "psm": "3",
+    "tessdata": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\tessdata_fast",
+    "user_defined_dpi": "96"
+  },
+  "images": [
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/en_light_base.png",
+      "width": 1080, "height": 1403,
+      "decode_ms": 6.376, "preprocess_ms": 0.000, "det_ms": 154.040, "rec_ms": 0.000, "total_ms": 166.559,
+      "error": "",
+      "lines": [
+        {"text": "9:41 aT", "box": [44.00, 25.00, 993.00, 34.00], "score": 0.6107},
+        {"text": "To-do 8 items", "box": [49.00, 136.00, 905.00, 40.00], "score": 0.9636},
+        {"text": "Today", "box": [49.00, 258.00, 85.00, 31.00], "score": 0.9687},
+        {"text": "Buy groceries: tomatoes, eggs, milk Today 6:00 PM", "box": [124.00, 360.00, 830.00, 39.00], "score": 0.9113},
+        {"text": "Call mom back", "box": [122.00, 492.00, 257.00, 30.00], "score": 0.9636},
+        {"text": "Write weekly status report Fri", "box": [121.00, 624.00, 669.00, 39.00], "score": 0.9643},
+        {"text": "Tidy up last week's meeting notes", "box": [177.00, 756.00, 596.00, 39.00], "score": 0.9647},
+        {"text": "Fill in the regression test checklist", "box": [180.00, 888.00, 592.00, 39.00], "score": 0.9668},
+        {"text": "Read chapter 5 of DDIA", "box": [124.00, 1020.00, 413.00, 39.00], "score": 0.9474},
+        {"text": "Pay the utility bill Oct 15", "box": [124.00, 1152.00, 721.00, 39.00], "score": 0.9599},
+        {"text": "Dentist appointment at 9:30", "box": [124.00, 1285.00, 493.00, 38.00], "score": 0.9563}
+      ]
+    }
+  ]
+}

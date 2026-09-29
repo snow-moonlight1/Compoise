@@ -1,0 +1,37 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "tesseract5-tessdata_fast",
+  "engine_version": "v5.4.0.20240606",
+  "variant": "",
+  "model_load_ms": 328.853000,
+  "batch_total_ms": 338.968800,
+  "peak_rss_kb": 134120,
+  "config": {
+    "langs": "chi_sim+eng+jpn",
+    "oem": "default(LSTM)",
+    "psm": "6",
+    "tessdata": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\tessdata_fast",
+    "user_defined_dpi": "96"
+  },
+  "images": [
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_light_base.png",
+      "width": 1080, "height": 1403,
+      "decode_ms": 6.073, "preprocess_ms": 0.000, "det_ms": 326.634, "rec_ms": 0.000, "total_ms": 338.476,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                        に", "box": [44.00, 25.00, 993.00, 33.00], "score": 0.5849},
+        {"text": "待办清单                             am", "box": [49.00, 130.00, 867.00, 51.00], "score": 0.9005},
+        {"text": "今天", "box": [49.00, 255.00, 62.00, 31.00], "score": 0.9587},
+        {"text": "买菜: 西红柿、鸡蛋、和牛奶      SF 18:00", "box": [121.00, 354.00, 785.00, 41.00], "score": 0.8379},
+        {"text": " 给妈妈打电话", "box": [121.00, 487.00, 238.00, 40.00], "score": 0.9302},
+        {"text": "项目周报                       ap", "box": [120.00, 620.00, 699.00, 39.00], "score": 0.8098},
+        {"text": "整理上周会议记录", "box": [177.00, 752.00, 318.00, 38.00], "score": 0.9263},
+        {"text": "补充测试用例清单", "box": [177.00, 883.00, 318.00, 40.00], "score": 0.9351},
+        {"text": "读《Designing Data-Intensive》 第 5 章", "box": [120.00, 1014.00, 734.00, 45.00], "score": 0.9110},
+        {"text": "缴纳水电费                                              108158", "box": [121.00, 1147.00, 766.00, 39.00], "score": 0.8633},
+        {"text": " 预约牙医 9:39", "box": [120.00, 1280.00, 252.00, 38.00], "score": 0.7778}
+      ]
+    }
+  ]
+}

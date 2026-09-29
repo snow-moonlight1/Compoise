@@ -1,0 +1,222 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "tesseract5-tessdata_fast",
+  "engine_version": "v5.4.0.20240606",
+  "variant": "",
+  "model_load_ms": 357.523900,
+  "batch_total_ms": 5037.925700,
+  "peak_rss_kb": 203140,
+  "config": {
+    "langs": "chi_sim+eng+jpn",
+    "oem": "default(LSTM)",
+    "psm": "6",
+    "tessdata": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\tessdata_fast",
+    "user_defined_dpi": "96"
+  },
+  "images": [
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_light_base.png",
+      "width": 1080, "height": 1403,
+      "decode_ms": 6.634, "preprocess_ms": 0.000, "det_ms": 323.309, "rec_ms": 0.000, "total_ms": 335.755,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                        に", "box": [44.00, 25.00, 993.00, 33.00], "score": 0.5849},
+        {"text": "待办清单                             am", "box": [49.00, 130.00, 867.00, 51.00], "score": 0.9005},
+        {"text": "今天", "box": [49.00, 255.00, 62.00, 31.00], "score": 0.9587},
+        {"text": "买菜: 西红柿、鸡蛋、和牛奶      SF 18:00", "box": [121.00, 354.00, 785.00, 41.00], "score": 0.8379},
+        {"text": " 给妈妈打电话", "box": [121.00, 487.00, 238.00, 40.00], "score": 0.9302},
+        {"text": "项目周报                       ap", "box": [120.00, 620.00, 699.00, 39.00], "score": 0.8098},
+        {"text": "整理上周会议记录", "box": [177.00, 752.00, 318.00, 38.00], "score": 0.9263},
+        {"text": "补充测试用例清单", "box": [177.00, 883.00, 318.00, 40.00], "score": 0.9351},
+        {"text": "读《Designing Data-Intensive》 第 5 章", "box": [120.00, 1014.00, 734.00, 45.00], "score": 0.9110},
+        {"text": "缴纳水电费                                              108158", "box": [121.00, 1147.00, 766.00, 39.00], "score": 0.8633},
+        {"text": " 预约牙医 9:39", "box": [120.00, 1280.00, 252.00, 38.00], "score": 0.7778}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_dark_base.png",
+      "width": 1080, "height": 1403,
+      "decode_ms": 6.560, "preprocess_ms": 0.000, "det_ms": 610.440, "rec_ms": 0.000, "total_ms": 623.278,
+      "error": "",
+      "lines": [
+        {"text": "9:41", "box": [44.00, 25.00, 993.00, 33.00], "score": 0.9257},
+        {"text": "待办清单                      8页", "box": [49.00, 130.00, 867.00, 51.00], "score": 0.8900},
+        {"text": "今天", "box": [49.00, 255.00, 62.00, 31.00], "score": 0.9590},
+        {"text": "| | 买荣: 西红柿、鸡蛋、牛奶      今天18:00", "box": [48.00, 351.00, 858.00, 44.00], "score": 0.8490},
+        {"text": " 给妈妈打电话", "box": [121.00, 487.00, 238.00, 40.00], "score": 0.9311},
+        {"text": "| | 项目周报                 周五", "box": [48.00, 615.00, 771.00, 44.00], "score": 0.8369},
+        {"text": "| | 整理上周会议记录", "box": [104.00, 747.00, 391.00, 44.00], "score": 0.9090},
+        {"text": "| | 补充测试用例清单", "box": [104.00, 879.00, 391.00, 44.00], "score": 0.9255},
+        {"text": "| | 读《Designing Data-Intensive》 第 5 章", "box": [48.00, 1011.00, 806.00, 48.00], "score": 0.8473},
+        {"text": "| | 缴纳水电费               10月15晶", "box": [48.00, 1143.00, 839.00, 44.00], "score": 0.8361},
+        {"text": " 预约牙医 9:30", "box": [120.00, 1280.00, 252.00, 38.00], "score": 0.7424}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/en_light_base.png",
+      "width": 1080, "height": 1403,
+      "decode_ms": 9.845, "preprocess_ms": 0.000, "det_ms": 229.714, "rec_ms": 0.000, "total_ms": 248.143,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                                     a", "box": [44.00, 25.00, 993.00, 34.00], "score": 0.7341},
+        {"text": "To-do                                          8 items", "box": [49.00, 136.00, 905.00, 40.00], "score": 0.9507},
+        {"text": "Today", "box": [49.00, 258.00, 85.00, 31.00], "score": 0.9690},
+        {"text": "Buy groceries: tomatoes, eggs, milk Today 6:00 PM", "box": [124.00, 360.00, 830.00, 39.00], "score": 0.9506},
+        {"text": "  Call mom back", "box": [122.00, 492.00, 257.00, 30.00], "score": 0.9636},
+        {"text": "Write weekly status report            Fri", "box": [121.00, 624.00, 669.00, 39.00], "score": 0.9608},
+        {"text": "Tidy up last week's meeting notes", "box": [177.00, 756.00, 596.00, 39.00], "score": 0.9647},
+        {"text": "Fill in the regression test checklist", "box": [180.00, 888.00, 592.00, 39.00], "score": 0.9668},
+        {"text": "Read chapter 5 of DDIA", "box": [124.00, 1020.00, 413.00, 39.00], "score": 0.9474},
+        {"text": "Pay the utility bill                       Oct 15", "box": [124.00, 1152.00, 721.00, 39.00], "score": 0.9599},
+        {"text": "  Dentist appointment at 9:30", "box": [124.00, 1285.00, 493.00, 38.00], "score": 0.9563}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/ja_light_base.png",
+      "width": 1080, "height": 1403,
+      "decode_ms": 7.112, "preprocess_ms": 0.000, "det_ms": 289.862, "rec_ms": 0.000, "total_ms": 303.717,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                a", "box": [44.00, 25.00, 993.00, 26.00], "score": 0.7407},
+        {"text": "やること           ol", "box": [51.00, 122.00, 854.00, 45.00], "score": 0.8435},
+        {"text": "今日", "box": [49.00, 249.00, 57.00, 30.00], "score": 0.7197},
+        {"text": "スーパーで食材を買う ChYb - I+ 4R¥p", "box": [125.00, 347.00, 778.00, 39.00], "score": 0.5783},
+        {"text": " 母に電話をかける", "box": [122.00, 482.00, 311.00, 35.00], "score": 0.9445},
+        {"text": "先週の議事録を整理する", "box": [179.00, 745.00, 430.00, 36.00], "score": 0.9509},
+        {"text": "回帰テストの項目を追加", "box": [180.00, 877.00, 432.00, 36.00], "score": 0.9506},
+        {"text": "技術書の第5章を読む", "box": [122.00, 1009.00, 377.00, 36.00], "score": 0.9394},
+        {"text": "公共料金を支払う             105158", "box": [122.00, 1136.00, 759.00, 54.00], "score": 0.8468},
+        {"text": " 歯医者の予約 9:30", "box": [123.00, 1273.00, 323.00, 36.00], "score": 0.9536}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_small_text.png",
+      "width": 1080, "height": 1480,
+      "decode_ms": 6.646, "preprocess_ms": 0.000, "det_ms": 295.616, "rec_ms": 0.000, "total_ms": 309.112,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                                                oT il", "box": [44.00, 25.00, 993.00, 33.00], "score": 0.5059},
+        {"text": "待办清音           om", "box": [49.00, 130.00, 867.00, 51.00], "score": 0.8323},
+        {"text": "今天", "box": [49.00, 255.00, 62.00, 31.00], "score": 0.9459},
+        {"text": "买菜: 西红柿、鸡蛋、牛奶                   今天 18:00", "box": [112.00, 346.00, 794.00, 27.00], "score": 0.8982},
+        {"text": "  给妈妈打电话", "box": [111.00, 451.00, 150.00, 24.00], "score": 0.9254},
+        {"text": "项目局报                                          周五", "box": [111.00, 553.00, 708.00, 27.00], "score": 0.9047},
+        {"text": "整理上周会议记录", "box": [167.00, 657.00, 200.00, 24.00], "score": 0.8998},
+        {"text": "补充测试用例清单", "box": [167.00, 760.00, 200.00, 24.00], "score": 0.9403},
+        {"text": "读《Designing Data-Intensive》 第 5 章", "box": [111.00, 862.00, 455.00, 28.00], "score": 0.9181},
+        {"text": "缴纳水电费                                                                  10月15日", "box": [111.00, 964.00, 776.00, 27.00], "score": 0.9387}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_075.png",
+      "width": 810, "height": 1052,
+      "decode_ms": 4.572, "preprocess_ms": 0.000, "det_ms": 410.900, "rec_ms": 0.000, "total_ms": 420.360,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                   ae", "box": [33.00, 18.00, 745.00, 26.00], "score": 0.6737},
+        {"text": "SR", "box": [36.00, 191.00, 47.00, 24.00], "score": 0.8772},
+        {"text": "买菜: 西红柿、鸡蛋、牛奶     今天18:00", "box": [91.00, 265.00, 585.00, 31.00], "score": 0.9004},
+        {"text": " 给妈妈打电话", "box": [90.00, 365.00, 179.00, 29.00], "score": 0.9217},
+        {"text": "项目周报                    周五", "box": [90.00, 465.00, 523.00, 28.00], "score": 0.8102},
+        {"text": "整理上周会议记录", "box": [132.00, 563.00, 239.00, 29.00], "score": 0.9289},
+        {"text": "补充测试用例清单", "box": [132.00, 662.00, 239.00, 29.00], "score": 0.9437},
+        {"text": "读《Designing Data-Intensive) 第 5 章", "box": [90.00, 760.00, 547.00, 33.00], "score": 0.9256},
+        {"text": "缴纳水电费                                          10月15晶", "box": [90.00, 859.00, 572.00, 30.00], "score": 0.8612},
+        {"text": " 预约牙医 9:30", "box": [90.00, 958.00, 191.00, 30.00], "score": 0.8908}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_150.png",
+      "width": 1620, "height": 2104,
+      "decode_ms": 20.174, "preprocess_ms": 0.000, "det_ms": 356.685, "rec_ms": 0.000, "total_ms": 395.470,
+      "error": "",
+      "lines": [
+        {"text": "9:41", "box": [65.00, 47.00, 89.00, 41.00], "score": 0.9644},
+        {"text": "待办清音", "box": [73.00, 194.00, 310.00, 76.00], "score": 0.9027},
+        {"text": "今天", "box": [73.00, 382.00, 94.00, 46.00], "score": 0.9684},
+        {"text": "SE: FRET, YS. FMS", "box": [182.00, 533.00, 715.00, 58.00], "score": 0.3978},
+        {"text": " 给妈妈打电话", "box": [181.00, 731.00, 358.00, 58.00], "score": 0.9326},
+        {"text": "项目周报", "box": [181.00, 929.00, 238.00, 59.00], "score": 0.9184},
+        {"text": "整理上周会议记录", "box": [265.00, 1127.00, 478.00, 59.00], "score": 0.9241},
+        {"text": "补宛测试用例清单", "box": [265.00, 1325.00, 478.00, 59.00], "score": 0.7749},
+        {"text": "读《Designing Data-Intensive》 第 5 章", "box": [181.00, 1522.00, 1095.00, 67.00], "score": 0.9226},
+        {"text": "缴纳水电费", "box": [181.00, 1721.00, 296.00, 58.00], "score": 0.9501}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_long_scroll.png",
+      "width": 1080, "height": 4525,
+      "decode_ms": 24.703, "preprocess_ms": 0.000, "det_ms": 1190.823, "rec_ms": 0.000, "total_ms": 1241.314,
+      "error": "",
+      "lines": [
+        {"text": "9:41", "box": [44.00, 32.00, 59.00, 26.00], "score": 0.9667},
+        {"text": "待办清单", "box": [49.00, 130.00, 206.00, 51.00], "score": 0.9340},
+        {"text": "今天", "box": [49.00, 255.00, 62.00, 31.00], "score": 0.9681},
+        {"text": "买菜: 西红柿、鸡蛋、牛奶", "box": [121.00, 354.00, 477.00, 41.00], "score": 0.8913},
+        {"text": " 给妈妈打电话", "box": [121.00, 487.00, 238.00, 40.00], "score": 0.9302},
+        {"text": "项目周报", "box": [120.00, 620.00, 159.00, 39.00], "score": 0.9288},
+        {"text": "整理上周会议记录", "box": [177.00, 752.00, 318.00, 38.00], "score": 0.9263},
+        {"text": "补充测试用例清单", "box": [177.00, 883.00, 318.00, 40.00], "score": 0.9351},
+        {"text": "读《Designing Data-Intensive》 第 5 章", "box": [120.00, 1014.00, 734.00, 45.00], "score": 0.9110},
+        {"text": "缴纳水电费", "box": [121.00, 1147.00, 197.00, 39.00], "score": 0.8881},
+        {"text": " 预约牙医 9:36", "box": [121.00, 1280.00, 249.00, 38.00], "score": 0.7549},
+        {"text": "今天", "box": [49.00, 1750.00, 62.00, 31.00], "score": 0.9681},
+        {"text": "买菜: 西红柿、鸡蛋、牛奶", "box": [121.00, 1849.00, 477.00, 41.00], "score": 0.8913},
+        {"text": " 给妈妈打电话", "box": [121.00, 1982.00, 238.00, 40.00], "score": 0.9302},
+        {"text": "项目周报", "box": [120.00, 2115.00, 159.00, 39.00], "score": 0.9288},
+        {"text": "整理上周会议记录", "box": [177.00, 2247.00, 318.00, 38.00], "score": 0.9263},
+        {"text": "补充测试用例清单", "box": [177.00, 2378.00, 318.00, 40.00], "score": 0.9351},
+        {"text": "读《Designing Data-Intensive》 第 5 章", "box": [120.00, 2509.00, 734.00, 45.00], "score": 0.9110},
+        {"text": "缴纳水电费", "box": [121.00, 2642.00, 197.00, 39.00], "score": 0.8881},
+        {"text": " 预约牙医 9:36", "box": [121.00, 2775.00, 249.00, 38.00], "score": 0.7549},
+        {"text": "今天", "box": [49.00, 3245.00, 62.00, 31.00], "score": 0.8519},
+        {"text": "买菜: 西红柿、鸡蛋、牛奶", "box": [121.00, 3344.00, 477.00, 41.00], "score": 0.8913},
+        {"text": " 给妈妈打电话", "box": [121.00, 3477.00, 238.00, 40.00], "score": 0.9302},
+        {"text": "项目周报", "box": [120.00, 3610.00, 159.00, 39.00], "score": 0.9288},
+        {"text": "整理上周会议记录", "box": [177.00, 3742.00, 318.00, 38.00], "score": 0.9263},
+        {"text": "补充测试用例清单", "box": [177.00, 3873.00, 318.00, 40.00], "score": 0.9351},
+        {"text": "读《Designing Data-Intensive》 第 5 章", "box": [120.00, 4004.00, 734.00, 45.00], "score": 0.9110},
+        {"text": "缴纳水电费", "box": [121.00, 4137.00, 197.00, 39.00], "score": 0.8881},
+        {"text": " 预约牙医 9:36", "box": [121.00, 4270.00, 249.00, 38.00], "score": 0.7549}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/en_small_text.png",
+      "width": 1080, "height": 1480,
+      "decode_ms": 11.127, "preprocess_ms": 0.000, "det_ms": 281.199, "rec_ms": 0.000, "total_ms": 303.991,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                                                                    ain", "box": [43.00, 25.00, 994.00, 34.00], "score": 0.7684},
+        {"text": "To-do                                                                                                 8 items", "box": [49.00, 136.00, 905.00, 40.00], "score": 0.9571},
+        {"text": "Today", "box": [49.00, 258.00, 85.00, 31.00], "score": 0.9690},
+        {"text": "Buy groceries: tomatoes, eggs, milk                         Today 6:00 PM", "box": [113.00, 348.00, 841.00, 30.00], "score": 0.9666},
+        {"text": "  Call mom back", "box": [112.00, 453.00, 164.00, 19.00], "score": 0.9668},
+        {"text": "Write weekly status report                                          Fri", "box": [111.00, 555.00, 679.00, 26.00], "score": 0.9677},
+        {"text": "Tidy up last week's meeting notes", "box": [167.00, 659.00, 372.00, 25.00], "score": 0.9499},
+        {"text": "Fill in the regression test checklist", "box": [169.00, 762.00, 368.00, 25.00], "score": 0.9634},
+        {"text": "Read chapter 5 of DDIA", "box": [113.00, 865.00, 261.00, 25.00], "score": 0.9480},
+        {"text": "Pay the utility bill                                               Oct 15", "box": [113.00, 967.00, 732.00, 25.00], "score": 0.9583},
+        {"text": "   Dentist appointment at 9:30", "box": [113.00, 1071.00, 305.00, 24.00], "score": 0.9649}
+      ]
+    },
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/ja_dark_small_text.png",
+      "width": 1080, "height": 1480,
+      "decode_ms": 10.141, "preprocess_ms": 0.000, "det_ms": 831.394, "rec_ms": 0.000, "total_ms": 853.261,
+      "error": "",
+      "lines": [
+        {"text": "9:41                             | io", "box": [44.00, 25.00, 993.00, 26.00], "score": 0.5229},
+        {"text": "やること                                  8件", "box": [51.00, 122.00, 854.00, 45.00], "score": 0.9460},
+        {"text": "今日", "box": [49.00, 249.00, 57.00, 30.00], "score": 0.7764},
+        {"text": "| | スーパーで食材を買う (トマト・卵・生乳)       今日 18:00", "box": [48.00, 340.00, 856.00, 36.00], "score": 0.8728},
+        {"text": " 母に電話をかける", "box": [112.00, 447.00, 194.00, 22.00], "score": 0.9596},
+        {"text": "| | 週報を書く                  金曜", "box": [48.00, 546.00, 770.00, 36.00], "score": 0.8734},
+        {"text": "| | BRS ETS", "box": [104.00, 649.00, 333.00, 35.00], "score": 0.4455},
+        {"text": "| | 回帰テストの項目を追加", "box": [104.00, 752.00, 336.00, 35.00], "score": 0.8413},
+        {"text": "L] 技術書の第5章を読む", "box": [48.00, 855.00, 300.00, 35.00], "score": 0.8858},
+        {"text": "L] 公共料金を支払う                10月15晶", "box": [48.00, 958.00, 833.00, 35.00], "score": 0.8226},
+        {"text": " 歯医者の予約 9:30", "box": [113.00, 1063.00, 202.00, 23.00], "score": 0.9528}
+      ]
+    }
+  ]
+}

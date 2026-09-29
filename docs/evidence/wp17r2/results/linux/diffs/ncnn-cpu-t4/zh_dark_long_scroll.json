@@ -1,0 +1,1840 @@
+{
+ "id": "zh_dark_long_scroll",
+ "engine": "ncnn-ppocrv5-mobile",
+ "engine_version": "1.0.20260929",
+ "config": "ncnn-cpu-t4",
+ "timing": {
+  "width": 1080,
+  "height": 4525,
+  "det_ms": 67.591,
+  "rec_ms": 833.129,
+  "total_ms": 936.577
+ },
+ "text": {
+  "id": "zh_dark_long_scroll",
+  "gt_lines": 39,
+  "rec_lines": 53,
+  "matched": 39,
+  "missed_gt": 0,
+  "spurious_rec": 14,
+  "spurious_chars": 9,
+  "merged_gt_into_one_rec": 0,
+  "edit_distance": 7,
+  "ref_chars": 301,
+  "cer": 0.023255813953488372,
+  "cer_strict": 0.07255520504731862,
+  "line_exact_rate": 0.8461538461538461,
+  "task_line_cer": 0.029166666666666667,
+  "decor_line_cer": 0.0
+ },
+ "text_diffs": [
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 6,
+   "rec_index": 8,
+   "gt_box": [
+    114.0,
+    474.0,
+    252.0,
+    54.0
+   ],
+   "rec_box": [
+    87.04,
+    475.91,
+    283.14,
+    66.31
+   ],
+   "ref": "给妈妈打电话",
+   "hyp": "1给妈妈打电话",
+   "edit_distance": 1
+  },
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 11,
+   "rec_index": 16,
+   "gt_box": [
+    114.0,
+    1002.0,
+    747.0,
+    54.0
+   ],
+   "rec_box": [
+    30.45,
+    994.37,
+    839.39,
+    80.51
+   ],
+   "ref": "读《Designing Data-Intensive》第 5 章",
+   "hyp": "□读《DesigningData-Intensive》第5章",
+   "edit_distance": 1
+  },
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 16,
+   "rec_index": 23,
+   "gt_box": [
+    114.0,
+    1837.0,
+    492.0,
+    54.0
+   ],
+   "rec_box": [
+    95.72,
+    1837.37,
+    426.04,
+    67.81
+   ],
+   "ref": "买菜：西红柿、鸡蛋、牛奶",
+   "hyp": "买菜：西红柿、鸡蛋、",
+   "edit_distance": 2
+  },
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 18,
+   "rec_index": 28,
+   "gt_box": [
+    114.0,
+    1969.0,
+    252.0,
+    54.0
+   ],
+   "rec_box": [
+    89.93,
+    1972.99,
+    277.35,
+    55.82
+   ],
+   "ref": "给妈妈打电话",
+   "hyp": "|给妈妈打电话",
+   "edit_distance": 1
+  },
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 35,
+   "rec_index": 49,
+   "gt_box": [
+    114.0,
+    3992.0,
+    747.0,
+    54.0
+   ],
+   "rec_box": [
+    33.73,
+    3990.75,
+    828.11,
+    69.23
+   ],
+   "ref": "读《Designing Data-Intensive》第 5 章",
+   "hyp": "□读《DesigningData-Intensive》第5章",
+   "edit_distance": 1
+  },
+  {
+   "kind": "mismatch",
+   "role": "task",
+   "gt_index": 38,
+   "rec_index": 52,
+   "gt_box": [
+    114.0,
+    4256.0,
+    263.0,
+    54.0
+   ],
+   "rec_box": [
+    25.31,
+    4251.0,
+    354.74,
+    67.22
+   ],
+   "ref": "预约牙医 9:30",
+   "hyp": "✅预约牙医9:30",
+   "edit_distance": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 0,
+   "rec_box": [
+    926.21,
+    9.43,
+    122.55,
+    51.85
+   ],
+   "hyp": "-",
+   "score": 0.354,
+   "chars": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 7,
+   "rec_box": [
+    36.29,
+    472.3,
+    64.1,
+    59.39
+   ],
+   "hyp": "🙌",
+   "score": 0.2232,
+   "chars": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 9,
+   "rec_box": [
+    45.21,
+    617.9,
+    50.99,
+    36.85
+   ],
+   "hyp": "",
+   "score": 0.0,
+   "chars": 0
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 13,
+   "rec_box": [
+    106.53,
+    764.07,
+    22.63,
+    17.91
+   ],
+   "hyp": "",
+   "score": 0.0,
+   "chars": 0
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 14,
+   "rec_box": [
+    101.77,
+    881.86,
+    50.99,
+    36.85
+   ],
+   "hyp": "",
+   "score": 0.0,
+   "chars": 0
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 17,
+   "rec_box": [
+    45.21,
+    1145.82,
+    50.99,
+    36.85
+   ],
+   "hyp": "",
+   "score": 0.0,
+   "chars": 0
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 20,
+   "rec_box": [
+    36.29,
+    1264.17,
+    64.1,
+    59.39
+   ],
+   "hyp": "🙌",
+   "score": 0.2232,
+   "chars": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 24,
+   "rec_box": [
+    490.8,
+    1841.23,
+    116.66,
+    60.1
+   ],
+   "hyp": "牛奶",
+   "score": 0.9999,
+   "chars": 2
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 26,
+   "rec_box": [
+    46.78,
+    1854.43,
+    47.84,
+    28.99
+   ],
+   "hyp": "",
+   "score": 0.0,
+   "chars": 0
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 27,
+   "rec_box": [
+    38.13,
+    1977.75,
+    65.15,
+    46.29
+   ],
+   "hyp": "√",
+   "score": 0.7903,
+   "chars": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 34,
+   "rec_box": [
+    55.68,
+    2513.79,
+    58.33,
+    30.05
+   ],
+   "hyp": "",
+   "score": 0.0,
+   "chars": 0
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 37,
+   "rec_box": [
+    30.22,
+    2761.72,
+    76.25,
+    62.11
+   ],
+   "hyp": "v",
+   "score": 0.3034,
+   "chars": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 40,
+   "rec_box": [
+    37.02,
+    3338.85,
+    81.52,
+    48.52
+   ],
+   "hyp": "□",
+   "score": 0.7306,
+   "chars": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 43,
+   "rec_box": [
+    29.66,
+    3463.47,
+    82.09,
+    63.24
+   ],
+   "hyp": "√",
+   "score": 0.292,
+   "chars": 1
+  }
+ ],
+ "structure": {
+  "id": "zh_dark_long_scroll",
+  "gt_tasks": 24,
+  "pred_tasks": 24,
+  "true_positive": 24,
+  "missing": 0,
+  "spurious": 0,
+  "spurious_matched_non_task": 0,
+  "task_recall": 1.0,
+  "task_precision": 1.0,
+  "checked_accuracy": 1.0,
+  "parent_accuracy": 1.0,
+  "parent_total": 6,
+  "due_accuracy": 1.0,
+  "due_total": 9,
+  "order_engine_native_exact": false,
+  "order_after_adapter_exact": true,
+  "order_task_exact": true,
+  "order_task_kendall": 0.0,
+  "needs_confirmation": 1
+ },
+ "structure_details": [
+  {
+   "kind": "task",
+   "row": 3,
+   "title": "买菜：西红柿、鸡蛋、牛奶",
+   "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+   "gt_key": "t1-s1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "今天18:00",
+   "gt_due": "今天 18:00",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 4,
+   "title": "1给妈妈打电话",
+   "gt_title": "给妈妈打电话",
+   "gt_key": "t2-s1",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 5,
+   "title": "项目周报",
+   "gt_title": "项目周报",
+   "gt_key": "t3-s1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "周五",
+   "gt_due": "周五",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 6,
+   "title": "整理上周会议记录",
+   "gt_title": "整理上周会议记录",
+   "gt_key": "t4-s1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3-s1",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 7,
+   "title": "补充测试用例清单",
+   "gt_title": "补充测试用例清单",
+   "gt_key": "t5-s1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3-s1",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 8,
+   "title": "□读《DesigningData-Intensive》第5章",
+   "gt_title": "读《Designing Data-Intensive》第 5 章",
+   "gt_key": "t6-s1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 9,
+   "title": "缴纳水电费",
+   "gt_title": "缴纳水电费",
+   "gt_key": "t7-s1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "10月15日",
+   "gt_due": "10月15日",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 10,
+   "title": "预约牙医9:30",
+   "gt_title": "预约牙医 9:30",
+   "gt_key": "t8-s1",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 12,
+   "title": "买菜：西红柿、鸡蛋、牛奶",
+   "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+   "gt_key": "t1-s2",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "今天18:00",
+   "gt_due": "今天 18:00",
+   "needs_confirmation": [
+    "row contains 3 text blocks; split/merge needs review"
+   ]
+  },
+  {
+   "kind": "task",
+   "row": 13,
+   "title": "|给妈妈打电话",
+   "gt_title": "给妈妈打电话",
+   "gt_key": "t2-s2",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 14,
+   "title": "项目周报",
+   "gt_title": "项目周报",
+   "gt_key": "t3-s2",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "周五",
+   "gt_due": "周五",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 15,
+   "title": "整理上周会议记录",
+   "gt_title": "整理上周会议记录",
+   "gt_key": "t4-s2",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3-s2",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 16,
+   "title": "补充测试用例清单",
+   "gt_title": "补充测试用例清单",
+   "gt_key": "t5-s2",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3-s2",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 17,
+   "title": "读《DesigningData-Intensive》第5章",
+   "gt_title": "读《Designing Data-Intensive》第 5 章",
+   "gt_key": "t6-s2",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 18,
+   "title": "缴纳水电费",
+   "gt_title": "缴纳水电费",
+   "gt_key": "t7-s2",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "10月15日",
+   "gt_due": "10月15日",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 19,
+   "title": "预约牙医9:30",
+   "gt_title": "预约牙医 9:30",
+   "gt_key": "t8-s2",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 21,
+   "title": "买菜：西红柿、鸡蛋、牛奶",
+   "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+   "gt_key": "t1-s3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "今天18:00",
+   "gt_due": "今天 18:00",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 22,
+   "title": "给妈妈打电话",
+   "gt_title": "给妈妈打电话",
+   "gt_key": "t2-s3",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 23,
+   "title": "项目周报",
+   "gt_title": "项目周报",
+   "gt_key": "t3-s3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "周五",
+   "gt_due": "周五",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 24,
+   "title": "整理上周会议记录",
+   "gt_title": "整理上周会议记录",
+   "gt_key": "t4-s3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3-s3",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 25,
+   "title": "补充测试用例清单",
+   "gt_title": "补充测试用例清单",
+   "gt_key": "t5-s3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3-s3",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 26,
+   "title": "□读《DesigningData-Intensive》第5章",
+   "gt_title": "读《Designing Data-Intensive》第 5 章",
+   "gt_key": "t6-s3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 27,
+   "title": "缴纳水电费",
+   "gt_title": "缴纳水电费",
+   "gt_key": "t7-s3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "10月15日",
+   "gt_due": "10月15日",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 28,
+   "title": "✅预约牙医9:30",
+   "gt_title": "预约牙医 9:30",
+   "gt_key": "t8-s3",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  }
+ ],
+ "spurious_detail": [],
+ "draft": {
+  "schema": "wp17r2-draft/1",
+  "id": "zh_dark_long_scroll",
+  "width": 1080,
+  "height": 4525,
+  "engine": "ncnn-ppocrv5-mobile",
+  "rows": [
+   {
+    "index": 0,
+    "kind": "chrome",
+    "line_indices": [
+     1,
+     0
+    ],
+    "text": "9:41-",
+    "y_center": 40.06,
+    "checkbox": null
+   },
+   {
+    "index": 1,
+    "kind": "chrome",
+    "line_indices": [
+     2,
+     3
+    ],
+    "text": "待办清单8项",
+    "y_center": 153.19,
+    "checkbox": null
+   },
+   {
+    "index": 2,
+    "kind": "section",
+    "line_indices": [
+     4
+    ],
+    "text": "今天",
+    "y_center": 268.67,
+    "checkbox": null
+   },
+   {
+    "index": 3,
+    "kind": "task",
+    "line_indices": [
+     5,
+     6
+    ],
+    "text": "买菜：西红柿、鸡蛋、牛奶今天18:00",
+    "y_center": 373.55,
+    "checkbox": {
+     "box": [
+      48.0,
+      351.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 4,
+    "kind": "task",
+    "line_indices": [
+     7,
+     8
+    ],
+    "text": "🙌1给妈妈打电话",
+    "y_center": 505.53,
+    "checkbox": {
+     "box": [
+      48.0,
+      483.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   },
+   {
+    "index": 5,
+    "kind": "task",
+    "line_indices": [
+     10,
+     11
+    ],
+    "text": "项目周报周五",
+    "y_center": 638.68,
+    "checkbox": {
+     "box": [
+      48.0,
+      615.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 6,
+    "kind": "task",
+    "line_indices": [
+     12
+    ],
+    "text": "整理上周会议记录",
+    "y_center": 770.67,
+    "checkbox": {
+     "box": [
+      104.0,
+      747.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 7,
+    "kind": "task",
+    "line_indices": [
+     15
+    ],
+    "text": "补充测试用例清单",
+    "y_center": 902.64,
+    "checkbox": {
+     "box": [
+      104.0,
+      879.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 8,
+    "kind": "task",
+    "line_indices": [
+     16
+    ],
+    "text": "□读《DesigningData-Intensive》第5章",
+    "y_center": 1034.62,
+    "checkbox": {
+     "box": [
+      48.0,
+      1011.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 9,
+    "kind": "task",
+    "line_indices": [
+     18,
+     19
+    ],
+    "text": "缴纳水电费10月15日",
+    "y_center": 1166.6,
+    "checkbox": {
+     "box": [
+      48.0,
+      1143.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 10,
+    "kind": "task",
+    "line_indices": [
+     20,
+     21
+    ],
+    "text": "🙌预约牙医9:30",
+    "y_center": 1295.05,
+    "checkbox": {
+     "box": [
+      48.0,
+      1275.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   },
+   {
+    "index": 11,
+    "kind": "section",
+    "line_indices": [
+     22
+    ],
+    "text": "今天",
+    "y_center": 1765.22,
+    "checkbox": null
+   },
+   {
+    "index": 12,
+    "kind": "task",
+    "line_indices": [
+     23,
+     24,
+     25
+    ],
+    "text": "买菜：西红柿、鸡蛋、牛奶今天18:00",
+    "y_center": 1870.49,
+    "checkbox": {
+     "box": [
+      48.0,
+      1846.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 13,
+    "kind": "task",
+    "line_indices": [
+     27,
+     28
+    ],
+    "text": "√|给妈妈打电话",
+    "y_center": 2000.9,
+    "checkbox": {
+     "box": [
+      48.0,
+      1978.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   },
+   {
+    "index": 14,
+    "kind": "task",
+    "line_indices": [
+     29,
+     30
+    ],
+    "text": "项目周报周五",
+    "y_center": 2135.23,
+    "checkbox": {
+     "box": [
+      48.0,
+      2110.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 15,
+    "kind": "task",
+    "line_indices": [
+     31
+    ],
+    "text": "整理上周会议记录",
+    "y_center": 2267.21,
+    "checkbox": {
+     "box": [
+      104.0,
+      2242.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 16,
+    "kind": "task",
+    "line_indices": [
+     32
+    ],
+    "text": "补充测试用例清单",
+    "y_center": 2399.2,
+    "checkbox": {
+     "box": [
+      104.0,
+      2374.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 17,
+    "kind": "task",
+    "line_indices": [
+     33
+    ],
+    "text": "读《DesigningData-Intensive》第5章",
+    "y_center": 2528.81,
+    "checkbox": {
+     "box": [
+      48.0,
+      2506.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 18,
+    "kind": "task",
+    "line_indices": [
+     35,
+     36
+    ],
+    "text": "缴纳水电费10月15日",
+    "y_center": 2661.97,
+    "checkbox": {
+     "box": [
+      48.0,
+      2638.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 19,
+    "kind": "task",
+    "line_indices": [
+     37,
+     38
+    ],
+    "text": "v预约牙医9:30",
+    "y_center": 2792.77,
+    "checkbox": {
+     "box": [
+      48.0,
+      2770.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   },
+   {
+    "index": 20,
+    "kind": "section",
+    "line_indices": [
+     39
+    ],
+    "text": "今天",
+    "y_center": 3259.41,
+    "checkbox": null
+   },
+   {
+    "index": 21,
+    "kind": "task",
+    "line_indices": [
+     40,
+     41,
+     42
+    ],
+    "text": "□买菜：西红柿、鸡蛋、牛奶今天18:00",
+    "y_center": 3363.9,
+    "checkbox": {
+     "box": [
+      48.0,
+      3341.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 22,
+    "kind": "task",
+    "line_indices": [
+     43,
+     44
+    ],
+    "text": "√给妈妈打电话",
+    "y_center": 3495.09,
+    "checkbox": {
+     "box": [
+      48.0,
+      3473.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   },
+   {
+    "index": 23,
+    "kind": "task",
+    "line_indices": [
+     45,
+     46
+    ],
+    "text": "项目周报周五",
+    "y_center": 3629.43,
+    "checkbox": {
+     "box": [
+      48.0,
+      3605.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 24,
+    "kind": "task",
+    "line_indices": [
+     47
+    ],
+    "text": "整理上周会议记录",
+    "y_center": 3761.41,
+    "checkbox": {
+     "box": [
+      104.0,
+      3737.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 25,
+    "kind": "task",
+    "line_indices": [
+     48
+    ],
+    "text": "补充测试用例清单",
+    "y_center": 3893.39,
+    "checkbox": {
+     "box": [
+      104.0,
+      3869.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 26,
+    "kind": "task",
+    "line_indices": [
+     49
+    ],
+    "text": "□读《DesigningData-Intensive》第5章",
+    "y_center": 4025.36,
+    "checkbox": {
+     "box": [
+      48.0,
+      4001.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 27,
+    "kind": "task",
+    "line_indices": [
+     50,
+     51
+    ],
+    "text": "缴纳水电费10月15日",
+    "y_center": 4157.34,
+    "checkbox": {
+     "box": [
+      48.0,
+      4133.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.248,
+     "checked": false
+    }
+   },
+   {
+    "index": 28,
+    "kind": "task",
+    "line_indices": [
+     52
+    ],
+    "text": "✅预约牙医9:30",
+    "y_center": 4284.61,
+    "checkbox": {
+     "box": [
+      48.0,
+      4265.0,
+      45.0,
+      44.0
+     ],
+     "fill": 0.896,
+     "checked": true
+    }
+   }
+  ],
+  "tasks": [
+   {
+    "row": 3,
+    "line_indices": [
+     5,
+     6
+    ],
+    "anchor_line": 5,
+    "title": "买菜：西红柿、鸡蛋、牛奶",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     351.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "今天18:00",
+    "needs_confirmation": []
+   },
+   {
+    "row": 4,
+    "line_indices": [
+     8
+    ],
+    "anchor_line": 8,
+    "title": "1给妈妈打电话",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     483.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 5,
+    "line_indices": [
+     10,
+     11
+    ],
+    "anchor_line": 10,
+    "title": "项目周报",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     615.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "周五",
+    "needs_confirmation": []
+   },
+   {
+    "row": 6,
+    "line_indices": [
+     12
+    ],
+    "anchor_line": 12,
+    "title": "整理上周会议记录",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     747.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 5,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 7,
+    "line_indices": [
+     15
+    ],
+    "anchor_line": 15,
+    "title": "补充测试用例清单",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     879.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 5,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 8,
+    "line_indices": [
+     16
+    ],
+    "anchor_line": 16,
+    "title": "□读《DesigningData-Intensive》第5章",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     1011.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 9,
+    "line_indices": [
+     18,
+     19
+    ],
+    "anchor_line": 18,
+    "title": "缴纳水电费",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     1143.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "10月15日",
+    "needs_confirmation": []
+   },
+   {
+    "row": 10,
+    "line_indices": [
+     21
+    ],
+    "anchor_line": 21,
+    "title": "预约牙医9:30",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     1275.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 12,
+    "line_indices": [
+     23,
+     24,
+     25
+    ],
+    "anchor_line": 23,
+    "title": "买菜：西红柿、鸡蛋、牛奶",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     1846.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "今天18:00",
+    "needs_confirmation": [
+     "row contains 3 text blocks; split/merge needs review"
+    ]
+   },
+   {
+    "row": 13,
+    "line_indices": [
+     28
+    ],
+    "anchor_line": 28,
+    "title": "|给妈妈打电话",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     1978.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 14,
+    "line_indices": [
+     29,
+     30
+    ],
+    "anchor_line": 29,
+    "title": "项目周报",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     2110.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "周五",
+    "needs_confirmation": []
+   },
+   {
+    "row": 15,
+    "line_indices": [
+     31
+    ],
+    "anchor_line": 31,
+    "title": "整理上周会议记录",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     2242.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 14,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 16,
+    "line_indices": [
+     32
+    ],
+    "anchor_line": 32,
+    "title": "补充测试用例清单",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     2374.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 14,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 17,
+    "line_indices": [
+     33
+    ],
+    "anchor_line": 33,
+    "title": "读《DesigningData-Intensive》第5章",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     2506.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 18,
+    "line_indices": [
+     35,
+     36
+    ],
+    "anchor_line": 35,
+    "title": "缴纳水电费",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     2638.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "10月15日",
+    "needs_confirmation": []
+   },
+   {
+    "row": 19,
+    "line_indices": [
+     38
+    ],
+    "anchor_line": 38,
+    "title": "预约牙医9:30",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     2770.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 21,
+    "line_indices": [
+     41,
+     42
+    ],
+    "anchor_line": 41,
+    "title": "买菜：西红柿、鸡蛋、牛奶",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     3341.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "今天18:00",
+    "needs_confirmation": []
+   },
+   {
+    "row": 22,
+    "line_indices": [
+     44
+    ],
+    "anchor_line": 44,
+    "title": "给妈妈打电话",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     3473.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 23,
+    "line_indices": [
+     45,
+     46
+    ],
+    "anchor_line": 45,
+    "title": "项目周报",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     3605.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "周五",
+    "needs_confirmation": []
+   },
+   {
+    "row": 24,
+    "line_indices": [
+     47
+    ],
+    "anchor_line": 47,
+    "title": "整理上周会议记录",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     3737.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 23,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 25,
+    "line_indices": [
+     48
+    ],
+    "anchor_line": 48,
+    "title": "补充测试用例清单",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     3869.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 1,
+    "parent": 23,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 26,
+    "line_indices": [
+     49
+    ],
+    "anchor_line": 49,
+    "title": "□读《DesigningData-Intensive》第5章",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     4001.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 27,
+    "line_indices": [
+     50,
+     51
+    ],
+    "anchor_line": 50,
+    "title": "缴纳水电费",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     4133.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.248,
+    "level": 0,
+    "parent": null,
+    "due": "10月15日",
+    "needs_confirmation": []
+   },
+   {
+    "row": 28,
+    "line_indices": [
+     52
+    ],
+    "anchor_line": 52,
+    "title": "✅预约牙医9:30",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     4265.0,
+     45.0,
+     44.0
+    ],
+    "checkbox_fill": 0.896,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   }
+  ],
+  "dropped": [
+   {
+    "row": 0,
+    "kind": "chrome",
+    "text": "9:41-"
+   },
+   {
+    "row": 1,
+    "kind": "chrome",
+    "text": "待办清单8项"
+   },
+   {
+    "row": 2,
+    "kind": "section",
+    "text": "今天"
+   },
+   {
+    "row": 11,
+    "kind": "section",
+    "text": "今天"
+   },
+   {
+    "row": 20,
+    "kind": "section",
+    "text": "今天"
+   }
+  ],
+  "noise_lines": [
+   {
+    "box": [
+     45.21,
+     617.9,
+     50.99,
+     36.85
+    ],
+    "score": 0.0
+   },
+   {
+    "box": [
+     106.53,
+     764.07,
+     22.63,
+     17.91
+    ],
+    "score": 0.0
+   },
+   {
+    "box": [
+     101.77,
+     881.86,
+     50.99,
+     36.85
+    ],
+    "score": 0.0
+   },
+   {
+    "box": [
+     45.21,
+     1145.82,
+     50.99,
+     36.85
+    ],
+    "score": 0.0
+   },
+   {
+    "box": [
+     46.78,
+     1854.43,
+     47.84,
+     28.99
+    ],
+    "score": 0.0
+   },
+   {
+    "box": [
+     55.68,
+     2513.79,
+     58.33,
+     30.05
+    ],
+    "score": 0.0
+   }
+  ],
+  "notes": [
+   "3 gutter mark(s) matched no text row",
+   "6 recognized block(s) had no usable text"
+  ]
+ }
+}

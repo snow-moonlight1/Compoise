@@ -1,0 +1,3720 @@
+{
+ "platform": "android",
+ "host": "Windows-11-10.0.26200-SP0",
+ "device": "Android API 23 x86_64 emulator (SSE4.2, no AVX)",
+ "cli": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\build-android-x86_64\\wp17r2_ocr.stripped",
+ "assets": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets",
+ "samples": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples",
+ "started": "2026-09-29T19:35:38",
+ "runs": {
+  "ncnn-cpu-t4": {
+   "config": {
+    "id": "ncnn-cpu-t4",
+    "engine": "ncnn",
+    "args": [
+     "--threads",
+     "4"
+    ],
+    "cases": "all",
+    "primary": true,
+    "label": "ncnn PP-OCRv5 mobile CPU; API 23 x86_64 emulator; x86 SIMD disabled"
+   },
+   "cases": [
+    "zh_light_base",
+    "zh_dark_base",
+    "en_light_base",
+    "ja_light_base",
+    "zh_small_text",
+    "zh_scale_075",
+    "zh_scale_150",
+    "zh_long_scroll",
+    "zh_dark_long_scroll",
+    "en_small_text",
+    "ja_dark_small_text",
+    "zh_light_base_dup"
+   ],
+   "errors": [],
+   "cold_start": {
+    "image": "zh_light_base",
+    "model_load_ms": 51.7848,
+    "first_image_ms": 597.314,
+    "cold_to_first_result_ms": 649.0988,
+    "process_wall_ms": 819.0662999986671,
+    "peak_rss_kb": 350272,
+    "engine": "ncnn-ppocrv5-mobile",
+    "engine_version": "1.0.20260929",
+    "cli_config": {
+     "box_thresh": "0.6000",
+     "det_limit": "960",
+     "det_param": "./assets/ncnn/PP_OCRv5_mobile_det.ncnn.param",
+     "det_thresh": "0.3000",
+     "dict_chars": "18384",
+     "rec_max_width": "0",
+     "rec_param": "./assets/ncnn/PP_OCRv5_mobile_rec.ncnn.param",
+     "threads": "4",
+     "unclip_ratio": "1.5000",
+     "vulkan": "off"
+    }
+   },
+   "batch10": {
+    "images": [
+     "zh_light_base",
+     "zh_dark_base",
+     "en_light_base",
+     "ja_light_base",
+     "zh_small_text",
+     "zh_scale_075",
+     "zh_scale_150",
+     "zh_long_scroll",
+     "en_small_text",
+     "ja_dark_small_text"
+    ],
+    "batch_total_ms": 6681.3715,
+    "per_image_ms": [
+     641.546,
+     611.675,
+     776.341,
+     693.522,
+     511.365,
+     581.083,
+     572.425,
+     1110.393,
+     589.749,
+     588.913
+    ],
+    "median_per_image_ms": 611.675,
+    "mean_per_image_ms": 667.7012,
+    "peak_rss_kb": 440908,
+    "process_wall_ms": 6930.8784999957425
+   },
+   "per_image_ms": {
+    "zh_light_base": 596.222,
+    "zh_dark_base": 643.977,
+    "en_light_base": 660.54,
+    "ja_light_base": 702.119,
+    "zh_small_text": 550.642,
+    "zh_scale_075": 598.348,
+    "zh_scale_150": 604.511,
+    "zh_long_scroll": 1227.005,
+    "zh_dark_long_scroll": 1269.517,
+    "en_small_text": 588.889,
+    "ja_dark_small_text": 674.508,
+    "zh_light_base_dup": 565.232
+   },
+   "all_peak_rss_kb": 440028,
+   "engine": "ncnn-ppocrv5-mobile",
+   "engine_version": "1.0.20260929",
+   "cli_config": {
+    "box_thresh": "0.6000",
+    "det_limit": "960",
+    "det_param": "./assets/ncnn/PP_OCRv5_mobile_det.ncnn.param",
+    "det_thresh": "0.3000",
+    "dict_chars": "18384",
+    "rec_max_width": "0",
+    "rec_param": "./assets/ncnn/PP_OCRv5_mobile_rec.ncnn.param",
+    "threads": "4",
+    "unclip_ratio": "1.5000",
+    "vulkan": "off"
+   },
+   "text": {
+    "per_image": [
+     {
+      "id": "zh_light_base",
+      "gt_lines": 15,
+      "rec_lines": 16,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 1,
+      "spurious_chars": 0,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 107,
+      "cer": 0.0,
+      "cer_strict": 0.05309734513274336,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 1,
+        "rec_box": [
+         944.75,
+         25.49,
+         80.55,
+         23.55
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       }
+      ]
+     },
+     {
+      "id": "zh_dark_base",
+      "gt_lines": 15,
+      "rec_lines": 20,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 5,
+      "spurious_chars": 2,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 107,
+      "cer": 0.0,
+      "cer_strict": 0.05309734513274336,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 6,
+        "rec_box": [
+         49.14,
+         483.19,
+         43.48,
+         43.48
+        ],
+        "hyp": "V",
+        "score": 0.3073,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 12,
+        "rec_box": [
+         57.77,
+         1017.95,
+         32.06,
+         29.14
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 14,
+        "rec_box": [
+         98.21,
+         1029.16,
+         11.11,
+         14.03
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 15,
+        "rec_box": [
+         110.19,
+         1033.84,
+         3.22,
+         7.6
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 18,
+        "rec_box": [
+         47.41,
+         1275.04,
+         45.47,
+         44.01
+        ],
+        "hyp": "√",
+        "score": 0.3487,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "en_light_base",
+      "gt_lines": 15,
+      "rec_lines": 17,
+      "matched": 14,
+      "missed_gt": 1,
+      "spurious_rec": 3,
+      "spurious_chars": 3,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 22,
+      "ref_chars": 223,
+      "cer": 0.09865470852017937,
+      "cer_strict": 0.21484375,
+      "line_exact_rate": 0.8666666666666667,
+      "task_line_cer": 0.059782608695652176,
+      "decor_line_cer": 0.28205128205128205,
+      "diffs": [
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 4,
+        "rec_index": 5,
+        "gt_box": [
+         114.0,
+         342.0,
+         635.98,
+         54.0
+        ],
+        "rec_box": [
+         111.56,
+         348.31,
+         852.52,
+         57.48
+        ],
+        "ref": "Buy groceries: tomatoes, eggs, milk",
+        "hyp": "Buygroceries:tomatoes,eggs,milkToday6:00PM",
+        "edit_distance": 11
+       },
+       {
+        "kind": "missed",
+        "role": "due_date",
+        "gt_index": 5,
+        "gt_box": [
+         748.0,
+         348.75,
+         220.95,
+         40.5
+        ],
+        "ref": "Today 6:00 PM",
+        "hyp": ""
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 0,
+        "rec_box": [
+         934.14,
+         22.19,
+         98.84,
+         30.15
+        ],
+        "hyp": "-",
+        "score": 0.9013,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 6,
+        "rec_box": [
+         49.17,
+         484.69,
+         44.88,
+         41.95
+        ],
+        "hyp": "√",
+        "score": 0.2982,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 16,
+        "rec_box": [
+         55.09,
+         1284.18,
+         28.66,
+         30.12
+        ],
+        "hyp": "√",
+        "score": 0.4189,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "ja_light_base",
+      "gt_lines": 15,
+      "rec_lines": 16,
+      "matched": 14,
+      "missed_gt": 1,
+      "spurious_rec": 2,
+      "spurious_chars": 2,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 10,
+      "ref_chars": 110,
+      "cer": 0.09090909090909091,
+      "cer_strict": 0.10714285714285714,
+      "line_exact_rate": 0.8666666666666667,
+      "task_line_cer": 0.03614457831325301,
+      "decor_line_cer": 0.25925925925925924,
+      "diffs": [
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 4,
+        "rec_index": 5,
+        "gt_box": [
+         114.0,
+         342.0,
+         812.0,
+         54.0
+        ],
+        "rec_box": [
+         118.67,
+         343.74,
+         787.13,
+         43.25
+        ],
+        "ref": "スーパーで食材を買う（トマト・卵・牛乳）",
+        "hyp": "スーパーで食材を買う（トマト・卵今件乳",
+        "edit_distance": 3
+       },
+       {
+        "kind": "missed",
+        "role": "due_date",
+        "gt_index": 5,
+        "gt_box": [
+         748.0,
+         348.75,
+         170.0,
+         40.5
+        ],
+        "ref": "今日 18:00",
+        "hyp": ""
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 1,
+        "rec_box": [
+         937.98,
+         23.11,
+         89.69,
+         26.85
+        ],
+        "hyp": "0",
+        "score": 0.2824,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 7,
+        "rec_box": [
+         55.35,
+         492.33,
+         28.13,
+         28.13
+        ],
+        "hyp": "V",
+        "score": 0.2027,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "zh_small_text",
+      "gt_lines": 15,
+      "rec_lines": 17,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 2,
+      "spurious_chars": 2,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 107,
+      "cer": 0.0,
+      "cer_strict": 0.05309734513274336,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 1,
+        "rec_box": [
+         937.29,
+         27.71,
+         47.87,
+         23.2
+        ],
+        "hyp": "-",
+        "score": 0.7807,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 16,
+        "rec_box": [
+         52.49,
+         1068.45,
+         22.98,
+         19.9
+        ],
+        "hyp": "X",
+        "score": 0.3238,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "zh_scale_075",
+      "gt_lines": 15,
+      "rec_lines": 18,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 3,
+      "spurious_chars": 2,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 107,
+      "cer": 0.0,
+      "cer_strict": 0.05309734513274336,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 1,
+        "rec_box": [
+         709.08,
+         19.25,
+         51.36,
+         17.39
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 8,
+        "rec_box": [
+         45.7,
+         373.9,
+         10.52,
+         8.33
+        ],
+        "hyp": "T",
+        "score": 0.5053,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 9,
+        "rec_box": [
+         46.44,
+         380.12,
+         9.04,
+         4.66
+        ],
+        "hyp": "+",
+        "score": 0.3529,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "zh_scale_150",
+      "gt_lines": 15,
+      "rec_lines": 16,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 1,
+      "spurious_chars": 0,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 107,
+      "cer": 0.0,
+      "cer_strict": 0.05309734513274336,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 1,
+        "rec_box": [
+         1406.79,
+         38.1,
+         132.01,
+         35.58
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       }
+      ]
+     },
+     {
+      "id": "zh_long_scroll",
+      "gt_lines": 39,
+      "rec_lines": 50,
+      "matched": 39,
+      "missed_gt": 0,
+      "spurious_rec": 11,
+      "spurious_chars": 7,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 3,
+      "ref_chars": 301,
+      "cer": 0.009966777408637873,
+      "cer_strict": 0.05993690851735016,
+      "line_exact_rate": 0.9230769230769231,
+      "task_line_cer": 0.0125,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 11,
+        "rec_index": 15,
+        "gt_box": [
+         114.0,
+         1002.0,
+         747.0,
+         54.0
+        ],
+        "rec_box": [
+         29.01,
+         997.64,
+         837.56,
+         69.25
+        ],
+        "ref": "读《Designing Data-Intensive》第 5 章",
+        "hyp": "□读《DesigningData-Intensive》第5章",
+        "edit_distance": 1
+       },
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 23,
+        "rec_index": 30,
+        "gt_box": [
+         114.0,
+         2497.0,
+         747.0,
+         54.0
+        ],
+        "rec_box": [
+         38.44,
+         2491.84,
+         828.11,
+         69.23
+        ],
+        "ref": "读《Designing Data-Intensive》第 5 章",
+        "hyp": "□读《DesigningData-Intensive》第5章",
+        "edit_distance": 1
+       },
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 35,
+        "rec_index": 45,
+        "gt_box": [
+         114.0,
+         3992.0,
+         747.0,
+         54.0
+        ],
+        "rec_box": [
+         29.01,
+         3986.03,
+         837.56,
+         69.25
+        ],
+        "ref": "读《Designing Data-Intensive》第 5 章",
+        "hyp": "□读《DesigningData-Intensive》第5章",
+        "edit_distance": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 0,
+        "rec_box": [
+         919.14,
+         2.36,
+         131.98,
+         61.28
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 5,
+        "rec_box": [
+         37.71,
+         346.45,
+         70.7,
+         47.14
+        ],
+        "hyp": "□",
+        "score": 0.3663,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 12,
+        "rec_box": [
+         95.95,
+         748.78,
+         67.34,
+         39.05
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 13,
+        "rec_box": [
+         91.91,
+         872.01,
+         84.84,
+         56.56
+        ],
+        "hyp": "□",
+        "score": 0.8954,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 20,
+        "rec_box": [
+         37.02,
+         1839.94,
+         81.52,
+         48.52
+        ],
+        "hyp": "□",
+        "score": 0.3804,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 26,
+        "rec_box": [
+         75.12,
+         2123.16,
+         19.44,
+         10.02
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 29,
+        "rec_box": [
+         102.44,
+         2381.43,
+         68.51,
+         30.81
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 35,
+        "rec_box": [
+         35.35,
+         3332.47,
+         84.84,
+         56.56
+        ],
+        "hyp": "□",
+        "score": 0.8854,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 42,
+        "rec_box": [
+         94.69,
+         3735.9,
+         65.15,
+         46.29
+        ],
+        "hyp": "□",
+        "score": 0.7462,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 44,
+        "rec_box": [
+         94.69,
+         3867.88,
+         65.15,
+         46.29
+        ],
+        "hyp": "□",
+        "score": 0.7462,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 46,
+        "rec_box": [
+         28.69,
+         4117.69,
+         93.45,
+         65.16
+        ],
+        "hyp": "□",
+        "score": 0.8109,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "zh_dark_long_scroll",
+      "gt_lines": 39,
+      "rec_lines": 53,
+      "matched": 39,
+      "missed_gt": 0,
+      "spurious_rec": 14,
+      "spurious_chars": 9,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 7,
+      "ref_chars": 301,
+      "cer": 0.023255813953488372,
+      "cer_strict": 0.07255520504731862,
+      "line_exact_rate": 0.8461538461538461,
+      "task_line_cer": 0.029166666666666667,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 6,
+        "rec_index": 8,
+        "gt_box": [
+         114.0,
+         474.0,
+         252.0,
+         54.0
+        ],
+        "rec_box": [
+         87.04,
+         475.91,
+         283.14,
+         66.31
+        ],
+        "ref": "给妈妈打电话",
+        "hyp": "1给妈妈打电话",
+        "edit_distance": 1
+       },
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 11,
+        "rec_index": 16,
+        "gt_box": [
+         114.0,
+         1002.0,
+         747.0,
+         54.0
+        ],
+        "rec_box": [
+         30.45,
+         994.37,
+         839.39,
+         80.51
+        ],
+        "ref": "读《Designing Data-Intensive》第 5 章",
+        "hyp": "□读《DesigningData-Intensive》第5章",
+        "edit_distance": 1
+       },
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 16,
+        "rec_index": 23,
+        "gt_box": [
+         114.0,
+         1837.0,
+         492.0,
+         54.0
+        ],
+        "rec_box": [
+         95.72,
+         1837.37,
+         426.04,
+         67.81
+        ],
+        "ref": "买菜：西红柿、鸡蛋、牛奶",
+        "hyp": "买菜：西红柿、鸡蛋、",
+        "edit_distance": 2
+       },
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 18,
+        "rec_index": 28,
+        "gt_box": [
+         114.0,
+         1969.0,
+         252.0,
+         54.0
+        ],
+        "rec_box": [
+         89.93,
+         1972.99,
+         277.35,
+         55.82
+        ],
+        "ref": "给妈妈打电话",
+        "hyp": "|给妈妈打电话",
+        "edit_distance": 1
+       },
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 35,
+        "rec_index": 49,
+        "gt_box": [
+         114.0,
+         3992.0,
+         747.0,
+         54.0
+        ],
+        "rec_box": [
+         33.73,
+         3990.75,
+         828.11,
+         69.23
+        ],
+        "ref": "读《Designing Data-Intensive》第 5 章",
+        "hyp": "□读《DesigningData-Intensive》第5章",
+        "edit_distance": 1
+       },
+       {
+        "kind": "mismatch",
+        "role": "task",
+        "gt_index": 38,
+        "rec_index": 52,
+        "gt_box": [
+         114.0,
+         4256.0,
+         263.0,
+         54.0
+        ],
+        "rec_box": [
+         25.31,
+         4251.0,
+         354.74,
+         67.22
+        ],
+        "ref": "预约牙医 9:30",
+        "hyp": "✅预约牙医9:30",
+        "edit_distance": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 0,
+        "rec_box": [
+         926.21,
+         9.43,
+         122.55,
+         51.85
+        ],
+        "hyp": "-",
+        "score": 0.354,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 7,
+        "rec_box": [
+         36.29,
+         472.3,
+         64.1,
+         59.39
+        ],
+        "hyp": "🙌",
+        "score": 0.2232,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 9,
+        "rec_box": [
+         45.21,
+         617.9,
+         50.99,
+         36.85
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 13,
+        "rec_box": [
+         106.53,
+         764.07,
+         22.63,
+         17.91
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 14,
+        "rec_box": [
+         101.77,
+         881.86,
+         50.99,
+         36.85
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 17,
+        "rec_box": [
+         45.21,
+         1145.82,
+         50.99,
+         36.85
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 20,
+        "rec_box": [
+         36.29,
+         1264.17,
+         64.1,
+         59.39
+        ],
+        "hyp": "🙌",
+        "score": 0.2232,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 24,
+        "rec_box": [
+         490.8,
+         1841.23,
+         116.66,
+         60.1
+        ],
+        "hyp": "牛奶",
+        "score": 0.9999,
+        "chars": 2
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 26,
+        "rec_box": [
+         46.78,
+         1854.43,
+         47.84,
+         28.99
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 27,
+        "rec_box": [
+         38.13,
+         1977.75,
+         65.15,
+         46.29
+        ],
+        "hyp": "√",
+        "score": 0.7903,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 34,
+        "rec_box": [
+         55.68,
+         2513.79,
+         58.33,
+         30.05
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 37,
+        "rec_box": [
+         30.22,
+         2761.72,
+         76.25,
+         62.11
+        ],
+        "hyp": "v",
+        "score": 0.3034,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 40,
+        "rec_box": [
+         37.02,
+         3338.85,
+         81.52,
+         48.52
+        ],
+        "hyp": "□",
+        "score": 0.7306,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 43,
+        "rec_box": [
+         29.66,
+         3463.47,
+         82.09,
+         63.24
+        ],
+        "hyp": "√",
+        "score": 0.292,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "en_small_text",
+      "gt_lines": 15,
+      "rec_lines": 17,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 2,
+      "spurious_chars": 2,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 223,
+      "cer": 0.0,
+      "cer_strict": 0.12890625,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 0,
+        "rec_box": [
+         931.92,
+         22.34,
+         78.66,
+         30.86
+        ],
+        "hyp": "-",
+        "score": 0.7443,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 15,
+        "rec_box": [
+         49.35,
+         1065.31,
+         32.34,
+         26.17
+        ],
+        "hyp": "人",
+        "score": 0.0974,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "ja_dark_small_text",
+      "gt_lines": 15,
+      "rec_lines": 18,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 3,
+      "spurious_chars": 5,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 110,
+      "cer": 0.0,
+      "cer_strict": 0.017857142857142856,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 1,
+        "rec_box": [
+         931.52,
+         21.94,
+         99.5,
+         31.67
+        ],
+        "hyp": "--□",
+        "score": 0.5806,
+        "chars": 3
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 7,
+        "rec_box": [
+         43.54,
+         439.75,
+         43.96,
+         39.34
+        ],
+        "hyp": "✔",
+        "score": 0.3366,
+        "chars": 1
+       },
+       {
+        "kind": "spurious",
+        "rec_index": 16,
+        "rec_box": [
+         43.2,
+         1057.62,
+         44.64,
+         41.55
+        ],
+        "hyp": "v",
+        "score": 0.2465,
+        "chars": 1
+       }
+      ]
+     },
+     {
+      "id": "zh_light_base_dup",
+      "gt_lines": 15,
+      "rec_lines": 16,
+      "matched": 15,
+      "missed_gt": 0,
+      "spurious_rec": 1,
+      "spurious_chars": 0,
+      "merged_gt_into_one_rec": 0,
+      "edit_distance": 0,
+      "ref_chars": 107,
+      "cer": 0.0,
+      "cer_strict": 0.05309734513274336,
+      "line_exact_rate": 1.0,
+      "task_line_cer": 0.0,
+      "decor_line_cer": 0.0,
+      "diffs": [
+       {
+        "kind": "spurious",
+        "rec_index": 1,
+        "rec_box": [
+         944.75,
+         25.49,
+         80.55,
+         23.55
+        ],
+        "hyp": "",
+        "score": 0.0,
+        "chars": 0
+       }
+      ]
+     }
+    ],
+    "aggregate": {
+     "images": 12,
+     "cer_micro": 0.02198952879581152,
+     "cer_macro": 0.01856553256594971,
+     "ref_chars": 1910,
+     "edit_distance": 42,
+     "missed_gt_lines": 2,
+     "spurious_rec_lines": 48,
+     "spurious_chars": 34,
+     "merged_gt_lines": 0,
+     "line_exact_rate_macro": 0.9585470085470086
+    }
+   },
+   "structure": {
+    "per_image": [
+     {
+      "id": "zh_light_base",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "zh_dark_base",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "en_light_base",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 0.6666666666666666,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "Buygroceries:tomatoes,eggs,milkToday6:00PM",
+        "gt_title": "Buy groceries: tomatoes, eggs, milk",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": "Today 6:00 PM",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "Callmomback",
+        "gt_title": "Call mom back",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "Writeweeklystatusreport",
+        "gt_title": "Write weekly status report",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "Fri",
+        "gt_due": "Fri",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "Tidyuplastweek'smeetingnotes",
+        "gt_title": "Tidy up last week's meeting notes",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "Fillintheregressiontestchecklist",
+        "gt_title": "Fill in the regression test checklist",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "Readchapter5ofDDIA",
+        "gt_title": "Read chapter 5 of DDIA",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "Paytheutilitybill",
+        "gt_title": "Pay the utility bill",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "Oct15",
+        "gt_due": "Oct 15",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "Dentistappointmentat9:30",
+        "gt_title": "Dentist appointment at 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "ja_light_base",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 0.6666666666666666,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "スーパーで食材を買う（トマト・卵今件乳",
+        "gt_title": "スーパーで食材を買う（トマト・卵・牛乳）",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": "今日 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "母に電話をかける",
+        "gt_title": "母に電話をかける",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "週報を書く",
+        "gt_title": "週報を書く",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "金曜",
+        "gt_due": "金曜",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "先週の議事録を整理する",
+        "gt_title": "先週の議事録を整理する",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "回帰テストの項目を追加",
+        "gt_title": "回帰テストの項目を追加",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "技術書の第5章を読む",
+        "gt_title": "技術書の第5章を読む",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "公共料金を支払う",
+        "gt_title": "公共料金を支払う",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "歯医者の予約9:30",
+        "gt_title": "歯医者の予約 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "zh_small_text",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "zh_scale_075",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "zh_scale_150",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "zh_long_scroll",
+      "gt_tasks": 24,
+      "pred_tasks": 24,
+      "true_positive": 24,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 6,
+      "due_accuracy": 1.0,
+      "due_total": 9,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2-s1",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s1",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s1",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "□读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8-s1",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 12,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 13,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2-s2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 14,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 15,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s2",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 16,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s2",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 17,
+        "title": "□读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 18,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 19,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8-s2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 21,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 22,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2-s3",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 23,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 24,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 25,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 26,
+        "title": "□读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 27,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 28,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8-s3",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "zh_dark_long_scroll",
+      "gt_tasks": 24,
+      "pred_tasks": 24,
+      "true_positive": 24,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 6,
+      "due_accuracy": 1.0,
+      "due_total": 9,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 1,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "1给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2-s1",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s1",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s1",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "□读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7-s1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8-s1",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 12,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": [
+         "row contains 3 text blocks; split/merge needs review"
+        ]
+       },
+       {
+        "kind": "task",
+        "row": 13,
+        "title": "|给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2-s2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 14,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 15,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s2",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 16,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s2",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 17,
+        "title": "读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 18,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7-s2",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 19,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8-s2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 21,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 22,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2-s3",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 23,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 24,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 25,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3-s3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 26,
+        "title": "□读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 27,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7-s3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 28,
+        "title": "✅预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8-s3",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "en_small_text",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "Buygroceries:tomatoes,eggs,milk",
+        "gt_title": "Buy groceries: tomatoes, eggs, milk",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "Today6:00PM",
+        "gt_due": "Today 6:00 PM",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "Callmomback",
+        "gt_title": "Call mom back",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "Writeweeklystatusreport",
+        "gt_title": "Write weekly status report",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "Fri",
+        "gt_due": "Fri",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "Tidyuplastweek'smeetingnotes",
+        "gt_title": "Tidy up last week's meeting notes",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "Fillintheregressiontestchecklist",
+        "gt_title": "Fill in the regression test checklist",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "Readchapter5ofDDIA",
+        "gt_title": "Read chapter 5 of DDIA",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "Paytheutilitybill",
+        "gt_title": "Pay the utility bill",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "Oct15",
+        "gt_due": "Oct 15",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "Dentistappointmentat9:30",
+        "gt_title": "Dentist appointment at 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "ja_dark_small_text",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "スーパーで食材を買う（トマト・卵・牛乳)",
+        "gt_title": "スーパーで食材を買う（トマト・卵・牛乳）",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今日18:00",
+        "gt_due": "今日 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "母に電話をかける",
+        "gt_title": "母に電話をかける",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "週報を書く",
+        "gt_title": "週報を書く",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "金曜",
+        "gt_due": "金曜",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "先週の議事録を整理する",
+        "gt_title": "先週の議事録を整理する",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "回帰テストの項目を追加",
+        "gt_title": "回帰テストの項目を追加",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "技術書の第5章を読む",
+        "gt_title": "技術書の第5章を読む",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "公共料金を支払う",
+        "gt_title": "公共料金を支払う",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "歯医者の予約9:30",
+        "gt_title": "歯医者の予約 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     },
+     {
+      "id": "zh_light_base_dup",
+      "gt_tasks": 8,
+      "pred_tasks": 8,
+      "true_positive": 8,
+      "missing": 0,
+      "spurious": 0,
+      "spurious_matched_non_task": 0,
+      "task_recall": 1.0,
+      "task_precision": 1.0,
+      "checked_accuracy": 1.0,
+      "parent_accuracy": 1.0,
+      "parent_total": 2,
+      "due_accuracy": 1.0,
+      "due_total": 3,
+      "order_engine_native_exact": false,
+      "order_after_adapter_exact": true,
+      "order_task_exact": true,
+      "order_task_kendall": 0.0,
+      "needs_confirmation": 0,
+      "details": [
+       {
+        "kind": "task",
+        "row": 3,
+        "title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_title": "买菜：西红柿、鸡蛋、牛奶",
+        "gt_key": "t1",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "今天18:00",
+        "gt_due": "今天 18:00",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 4,
+        "title": "给妈妈打电话",
+        "gt_title": "给妈妈打电话",
+        "gt_key": "t2",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 5,
+        "title": "项目周报",
+        "gt_title": "项目周报",
+        "gt_key": "t3",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "周五",
+        "gt_due": "周五",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 6,
+        "title": "整理上周会议记录",
+        "gt_title": "整理上周会议记录",
+        "gt_key": "t4",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 7,
+        "title": "补充测试用例清单",
+        "gt_title": "补充测试用例清单",
+        "gt_key": "t5",
+        "checked": false,
+        "gt_checked": false,
+        "level": 1,
+        "gt_indent": 1,
+        "parent_key": "t3",
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 8,
+        "title": "读《DesigningData-Intensive》第5章",
+        "gt_title": "读《Designing Data-Intensive》第 5 章",
+        "gt_key": "t6",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 9,
+        "title": "缴纳水电费",
+        "gt_title": "缴纳水电费",
+        "gt_key": "t7",
+        "checked": false,
+        "gt_checked": false,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": "10月15日",
+        "gt_due": "10月15日",
+        "needs_confirmation": []
+       },
+       {
+        "kind": "task",
+        "row": 10,
+        "title": "预约牙医9:30",
+        "gt_title": "预约牙医 9:30",
+        "gt_key": "t8",
+        "checked": true,
+        "gt_checked": true,
+        "level": 0,
+        "gt_indent": 0,
+        "parent_key": null,
+        "due": null,
+        "gt_due": null,
+        "needs_confirmation": []
+       }
+      ],
+      "spurious_detail": []
+     }
+    ],
+    "aggregate": {
+     "images": 12,
+     "gt_tasks": 128,
+     "pred_tasks": 128,
+     "true_positive": 128,
+     "task_recall_micro": 1.0,
+     "task_precision_micro": 1.0,
+     "spurious_total": 0,
+     "spurious_matched_non_task": 0,
+     "checked_accuracy_macro": 1.0,
+     "parent_accuracy_macro": 1.0,
+     "due_accuracy_macro": 0.9444444444444445,
+     "order_engine_native_exact_images": 0,
+     "order_after_adapter_exact_images": 12,
+     "order_task_exact_images": 12,
+     "order_task_kendall_macro": 0.0,
+     "needs_confirmation_total": 1
+    }
+   },
+   "duplicates": [
+    {
+     "images": [
+      "zh_light_base",
+      "zh_dark_base"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_light_base",
+      "zh_small_text"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_light_base",
+      "zh_scale_075"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_light_base",
+      "zh_scale_150"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_light_base",
+      "zh_long_scroll"
+     ],
+     "reason": "char-jaccard=0.984",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_light_base",
+      "zh_dark_long_scroll"
+     ],
+     "reason": "char-jaccard=0.940",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_light_base",
+      "zh_light_base_dup"
+     ],
+     "reason": "identical-bytes",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_dark_base",
+      "zh_small_text"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_dark_base",
+      "zh_scale_075"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_dark_base",
+      "zh_scale_150"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_dark_base",
+      "zh_long_scroll"
+     ],
+     "reason": "char-jaccard=0.984",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_dark_base",
+      "zh_dark_long_scroll"
+     ],
+     "reason": "char-jaccard=0.940",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_dark_base",
+      "zh_light_base_dup"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "en_light_base",
+      "en_small_text"
+     ],
+     "reason": "char-jaccard=0.950",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "ja_light_base",
+      "ja_dark_small_text"
+     ],
+     "reason": "char-jaccard=0.940",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_small_text",
+      "zh_scale_075"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_small_text",
+      "zh_scale_150"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_small_text",
+      "zh_long_scroll"
+     ],
+     "reason": "char-jaccard=0.984",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_small_text",
+      "zh_dark_long_scroll"
+     ],
+     "reason": "char-jaccard=0.940",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_small_text",
+      "zh_light_base_dup"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_scale_075",
+      "zh_scale_150"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_scale_075",
+      "zh_long_scroll"
+     ],
+     "reason": "char-jaccard=0.984",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_scale_075",
+      "zh_dark_long_scroll"
+     ],
+     "reason": "char-jaccard=0.940",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_scale_075",
+      "zh_light_base_dup"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_scale_150",
+      "zh_long_scroll"
+     ],
+     "reason": "char-jaccard=0.984",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_scale_150",
+      "zh_dark_long_scroll"
+     ],
+     "reason": "char-jaccard=0.940",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_scale_150",
+      "zh_light_base_dup"
+     ],
+     "reason": "char-jaccard=1.000",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_long_scroll",
+      "zh_dark_long_scroll"
+     ],
+     "reason": "char-jaccard=0.955",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_long_scroll",
+      "zh_light_base_dup"
+     ],
+     "reason": "char-jaccard=0.984",
+     "hint_only": true
+    },
+    {
+     "images": [
+      "zh_dark_long_scroll",
+      "zh_light_base_dup"
+     ],
+     "reason": "char-jaccard=0.940",
+     "hint_only": true
+    }
+   ]
+  }
+ }
+}

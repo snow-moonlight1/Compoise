@@ -1,0 +1,41 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "tesseract5-tessdata_fast",
+  "engine_version": "5.5.1",
+  "variant": "",
+  "model_load_ms": 102.259889,
+  "batch_total_ms": 239.695789,
+  "peak_rss_kb": 84220,
+  "config": {
+    "langs": "chi_sim",
+    "oem": "default(LSTM)",
+    "psm": "3",
+    "tessdata": "/home/ubuntu/wp17r2/assets/tessdata_fast",
+    "user_defined_dpi": "96"
+  },
+  "images": [
+    {
+      "path": "/home/ubuntu/wp17r2/samples/images/zh_small_text.png",
+      "width": 1080, "height": 1480,
+      "decode_ms": 14.724, "preprocess_ms": 0.000, "det_ms": 207.513, "rec_ms": 0.000, "total_ms": 239.679,
+      "error": "",
+      "lines": [
+        {"text": "9:41", "box": [44.00, 32.00, 59.00, 26.00], "score": 0.5861},
+        {"text": "待办清单", "box": [49.00, 130.00, 206.00, 51.00], "score": 0.9370},
+        {"text": "今天", "box": [49.00, 255.00, 62.00, 31.00], "score": 0.4533},
+        {"text": "买荣: 西红柿、鸡蛋、牛奶", "box": [112.00, 348.00, 298.00, 24.00], "score": 0.8773},
+        {"text": " 给妈妈打电话", "box": [111.00, 451.00, 150.00, 24.00], "score": 0.9150},
+        {"text": "项目周报", "box": [111.00, 555.00, 99.00, 24.00], "score": 0.8993},
+        {"text": "整理上周会议记录", "box": [167.00, 657.00, 200.00, 24.00], "score": 0.9314},
+        {"text": "补充测试用例清单", "box": [167.00, 760.00, 200.00, 24.00], "score": 0.9421},
+        {"text": "读《Designing Data-lntensive》第 5 章", "box": [111.00, 862.00, 455.00, 28.00], "score": 0.8794},
+        {"text": "缴纳水电费", "box": [111.00, 964.00, 124.00, 25.00], "score": 0.9497},
+        {"text": "二四四[]", "box": [940.00, 25.00, 97.00, 22.00], "score": 0.0000},
+        {"text": "8 项", "box": [862.00, 141.00, 54.00, 26.00], "score": 0.9526},
+        {"text": "今天 18:00", "box": [761.00, 346.00, 145.00, 27.00], "score": 0.9162},
+        {"text": "周五", "box": [761.00, 553.00, 58.00, 27.00], "score": 0.9408},
+        {"text": "10月15日", "box": [764.00, 965.00, 123.00, 26.00], "score": 0.9141}
+      ]
+    }
+  ]
+}

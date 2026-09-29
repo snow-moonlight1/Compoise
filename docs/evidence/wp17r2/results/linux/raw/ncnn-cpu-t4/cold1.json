@@ -1,0 +1,47 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "ncnn-ppocrv5-mobile",
+  "engine_version": "1.0.20260929",
+  "variant": "",
+  "model_load_ms": 84.523384,
+  "batch_total_ms": 1008.141018,
+  "peak_rss_kb": 352204,
+  "config": {
+    "box_thresh": "0.6000",
+    "det_limit": "960",
+    "det_param": "/home/ubuntu/wp17r2/assets/ncnn/PP_OCRv5_mobile_det.ncnn.param",
+    "det_thresh": "0.3000",
+    "dict_chars": "18384",
+    "rec_max_width": "0",
+    "rec_param": "/home/ubuntu/wp17r2/assets/ncnn/PP_OCRv5_mobile_rec.ncnn.param",
+    "threads": "4",
+    "unclip_ratio": "1.5000",
+    "vulkan": "off"
+  },
+  "images": [
+    {
+      "path": "/home/ubuntu/wp17r2/samples/images/zh_light_base.png",
+      "width": 1080, "height": 1403,
+      "decode_ms": 15.685, "preprocess_ms": 0.000, "det_ms": 581.528, "rec_ms": 410.875, "total_ms": 1008.090,
+      "error": "",
+      "lines": [
+        {"text": "9:41", "box": [32.23, 19.08, 84.61, 51.00], "score": 0.9989},
+        {"text": "", "box": [944.75, 25.49, 80.55, 23.55], "score": 0.0000},
+        {"text": "待办清单", "box": [41.02, 121.40, 220.48, 67.03], "score": 0.9993},
+        {"text": "8项", "box": [850.75, 130.25, 74.17, 44.94], "score": 0.9986},
+        {"text": "今天", "box": [40.31, 242.00, 81.59, 55.29], "score": 0.9999},
+        {"text": "今天18:00", "box": [752.49, 349.12, 161.09, 47.10], "score": 0.9970},
+        {"text": "买菜：西红柿、鸡蛋、牛奶", "box": [116.39, 350.22, 484.80, 46.36], "score": 0.9987},
+        {"text": "给妈妈打电话", "box": [114.57, 481.39, 248.77, 48.55], "score": 0.9997},
+        {"text": "项目周报", "box": [112.05, 611.87, 174.88, 53.58], "score": 0.9999},
+        {"text": "周五", "box": [752.93, 615.56, 72.51, 44.74], "score": 1.0000},
+        {"text": "整理上周会议记录", "box": [172.71, 745.60, 326.86, 49.18], "score": 1.0000},
+        {"text": "补充测试用例清单", "box": [171.25, 877.13, 326.86, 49.18], "score": 0.9997},
+        {"text": "读《DesigningData-Intensive》第5章", "box": [112.66, 1008.53, 748.02, 53.83], "score": 0.9938},
+        {"text": "缴纳水电费", "box": [113.95, 1139.90, 209.07, 51.23], "score": 0.9988},
+        {"text": "10月15日", "box": [753.55, 1143.76, 141.43, 43.51], "score": 0.9997},
+        {"text": "预约牙医9:30", "box": [112.67, 1270.14, 265.72, 55.27], "score": 0.9914}
+      ]
+    }
+  ]
+}

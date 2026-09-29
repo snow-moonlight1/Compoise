@@ -1,0 +1,42 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "tesseract5-tessdata_fast",
+  "engine_version": "v5.4.0.20240606",
+  "variant": "",
+  "model_load_ms": 76.854100,
+  "batch_total_ms": 143.647600,
+  "peak_rss_kb": 55912,
+  "config": {
+    "langs": "eng",
+    "oem": "default(LSTM)",
+    "psm": "3",
+    "tessdata": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\tessdata_fast",
+    "user_defined_dpi": "96"
+  },
+  "images": [
+    {
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/en_small_text.png",
+      "width": 1080, "height": 1480,
+      "decode_ms": 5.536, "preprocess_ms": 0.000, "det_ms": 132.320, "rec_ms": 0.000, "total_ms": 143.485,
+      "error": "",
+      "lines": [
+        {"text": "9:41", "box": [43.00, 35.00, 54.00, 24.00], "score": 0.9596},
+        {"text": "To-do", "box": [49.00, 136.00, 136.00, 40.00], "score": 0.9677},
+        {"text": "Today", "box": [49.00, 258.00, 85.00, 31.00], "score": 0.9687},
+        {"text": "Buy groceries: tomatoes, eggs, milk", "box": [113.00, 350.00, 389.00, 25.00], "score": 0.9679},
+        {"text": "Call mom back", "box": [112.00, 453.00, 164.00, 19.00], "score": 0.9668},
+        {"text": "Write weekly status report", "box": [111.00, 556.00, 288.00, 25.00], "score": 0.9672},
+        {"text": "Tidy up last week's meeting notes", "box": [167.00, 659.00, 372.00, 25.00], "score": 0.9499},
+        {"text": "Fill in the regression test checklist", "box": [169.00, 762.00, 368.00, 25.00], "score": 0.9634},
+        {"text": "Read chapter 5 of DDIA", "box": [113.00, 865.00, 261.00, 25.00], "score": 0.9480},
+        {"text": "Pay the utility bill", "box": [113.00, 967.00, 184.00, 25.00], "score": 0.9574},
+        {"text": "Dentist appointment at 9:30", "box": [113.00, 1071.00, 305.00, 24.00], "score": 0.9678},
+        {"text": "ain", "box": [940.00, 25.00, 97.00, 22.00], "score": 0.5880},
+        {"text": "8 items", "box": [862.00, 143.00, 92.00, 22.00], "score": 0.9451},
+        {"text": "Today 6:00 PM", "box": [761.00, 348.00, 193.00, 30.00], "score": 0.9651},
+        {"text": "Fri", "box": [763.00, 555.00, 27.00, 22.00], "score": 0.9699},
+        {"text": "Oct 15", "box": [762.00, 968.00, 83.00, 21.00], "score": 0.9615}
+      ]
+    }
+  ]
+}

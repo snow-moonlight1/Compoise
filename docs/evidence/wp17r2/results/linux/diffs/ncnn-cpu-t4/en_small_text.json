@@ -1,0 +1,583 @@
+{
+ "id": "en_small_text",
+ "engine": "ncnn-ppocrv5-mobile",
+ "engine_version": "1.0.20260929",
+ "config": "ncnn-cpu-t4",
+ "timing": {
+  "width": 1080,
+  "height": 1480,
+  "det_ms": 194.253,
+  "rec_ms": 311.956,
+  "total_ms": 518.348
+ },
+ "text": {
+  "id": "en_small_text",
+  "gt_lines": 15,
+  "rec_lines": 17,
+  "matched": 15,
+  "missed_gt": 0,
+  "spurious_rec": 2,
+  "spurious_chars": 2,
+  "merged_gt_into_one_rec": 0,
+  "edit_distance": 0,
+  "ref_chars": 223,
+  "cer": 0.0,
+  "cer_strict": 0.12890625,
+  "line_exact_rate": 1.0,
+  "task_line_cer": 0.0,
+  "decor_line_cer": 0.0
+ },
+ "text_diffs": [
+  {
+   "kind": "spurious",
+   "rec_index": 0,
+   "rec_box": [
+    931.92,
+    22.34,
+    78.66,
+    30.86
+   ],
+   "hyp": "-",
+   "score": 0.7443,
+   "chars": 1
+  },
+  {
+   "kind": "spurious",
+   "rec_index": 15,
+   "rec_box": [
+    49.35,
+    1065.31,
+    32.34,
+    26.17
+   ],
+   "hyp": "人",
+   "score": 0.0974,
+   "chars": 1
+  }
+ ],
+ "structure": {
+  "id": "en_small_text",
+  "gt_tasks": 8,
+  "pred_tasks": 8,
+  "true_positive": 8,
+  "missing": 0,
+  "spurious": 0,
+  "spurious_matched_non_task": 0,
+  "task_recall": 1.0,
+  "task_precision": 1.0,
+  "checked_accuracy": 1.0,
+  "parent_accuracy": 1.0,
+  "parent_total": 2,
+  "due_accuracy": 1.0,
+  "due_total": 3,
+  "order_engine_native_exact": false,
+  "order_after_adapter_exact": true,
+  "order_task_exact": true,
+  "order_task_kendall": 0.0,
+  "needs_confirmation": 0
+ },
+ "structure_details": [
+  {
+   "kind": "task",
+   "row": 3,
+   "title": "Buygroceries:tomatoes,eggs,milk",
+   "gt_title": "Buy groceries: tomatoes, eggs, milk",
+   "gt_key": "t1",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "Today6:00PM",
+   "gt_due": "Today 6:00 PM",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 4,
+   "title": "Callmomback",
+   "gt_title": "Call mom back",
+   "gt_key": "t2",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 5,
+   "title": "Writeweeklystatusreport",
+   "gt_title": "Write weekly status report",
+   "gt_key": "t3",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "Fri",
+   "gt_due": "Fri",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 6,
+   "title": "Tidyuplastweek'smeetingnotes",
+   "gt_title": "Tidy up last week's meeting notes",
+   "gt_key": "t4",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 7,
+   "title": "Fillintheregressiontestchecklist",
+   "gt_title": "Fill in the regression test checklist",
+   "gt_key": "t5",
+   "checked": false,
+   "gt_checked": false,
+   "level": 1,
+   "gt_indent": 1,
+   "parent_key": "t3",
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 8,
+   "title": "Readchapter5ofDDIA",
+   "gt_title": "Read chapter 5 of DDIA",
+   "gt_key": "t6",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 9,
+   "title": "Paytheutilitybill",
+   "gt_title": "Pay the utility bill",
+   "gt_key": "t7",
+   "checked": false,
+   "gt_checked": false,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": "Oct15",
+   "gt_due": "Oct 15",
+   "needs_confirmation": []
+  },
+  {
+   "kind": "task",
+   "row": 10,
+   "title": "Dentistappointmentat9:30",
+   "gt_title": "Dentist appointment at 9:30",
+   "gt_key": "t8",
+   "checked": true,
+   "gt_checked": true,
+   "level": 0,
+   "gt_indent": 0,
+   "parent_key": null,
+   "due": null,
+   "gt_due": null,
+   "needs_confirmation": []
+  }
+ ],
+ "spurious_detail": [],
+ "draft": {
+  "schema": "wp17r2-draft/1",
+  "id": "en_small_text",
+  "width": 1080,
+  "height": 1480,
+  "engine": "ncnn-ppocrv5-mobile",
+  "rows": [
+   {
+    "index": 0,
+    "kind": "chrome",
+    "line_indices": [
+     1,
+     0
+    ],
+    "text": "9:41-",
+    "y_center": 41.62,
+    "checkbox": null
+   },
+   {
+    "index": 1,
+    "kind": "chrome",
+    "line_indices": [
+     2,
+     3
+    ],
+    "text": "To-do8items",
+    "y_center": 154.94,
+    "checkbox": null
+   },
+   {
+    "index": 2,
+    "kind": "section",
+    "line_indices": [
+     4
+    ],
+    "text": "Today",
+    "y_center": 272.88,
+    "checkbox": null
+   },
+   {
+    "index": 3,
+    "kind": "task",
+    "line_indices": [
+     6,
+     5
+    ],
+    "text": "Buygroceries:tomatoes,eggs,milkToday6:00PM",
+    "y_center": 359.59,
+    "checkbox": {
+     "box": [
+      48.0,
+      340.0,
+      36.0,
+      36.0
+     ],
+     "fill": 0.301,
+     "checked": false
+    }
+   },
+   {
+    "index": 4,
+    "kind": "task",
+    "line_indices": [
+     7
+    ],
+    "text": "Callmomback",
+    "y_center": 461.73,
+    "checkbox": {
+     "box": [
+      48.0,
+      443.0,
+      36.0,
+      36.0
+     ],
+     "fill": 0.868,
+     "checked": true
+    }
+   },
+   {
+    "index": 5,
+    "kind": "task",
+    "line_indices": [
+     9,
+     8
+    ],
+    "text": "WriteweeklystatusreportFri",
+    "y_center": 565.79,
+    "checkbox": {
+     "box": [
+      48.0,
+      546.0,
+      36.0,
+      36.0
+     ],
+     "fill": 0.301,
+     "checked": false
+    }
+   },
+   {
+    "index": 6,
+    "kind": "task",
+    "line_indices": [
+     10
+    ],
+    "text": "Tidyuplastweek'smeetingnotes",
+    "y_center": 669.08,
+    "checkbox": {
+     "box": [
+      104.0,
+      649.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.305,
+     "checked": false
+    }
+   },
+   {
+    "index": 7,
+    "kind": "task",
+    "line_indices": [
+     11
+    ],
+    "text": "Fillintheregressiontestchecklist",
+    "y_center": 771.6,
+    "checkbox": {
+     "box": [
+      104.0,
+      752.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.305,
+     "checked": false
+    }
+   },
+   {
+    "index": 8,
+    "kind": "task",
+    "line_indices": [
+     12
+    ],
+    "text": "Readchapter5ofDDIA",
+    "y_center": 873.36,
+    "checkbox": {
+     "box": [
+      48.0,
+      855.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.305,
+     "checked": false
+    }
+   },
+   {
+    "index": 9,
+    "kind": "task",
+    "line_indices": [
+     14,
+     13
+    ],
+    "text": "PaytheutilitybillOct15",
+    "y_center": 977.41,
+    "checkbox": {
+     "box": [
+      48.0,
+      958.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.305,
+     "checked": false
+    }
+   },
+   {
+    "index": 10,
+    "kind": "task",
+    "line_indices": [
+     15,
+     16
+    ],
+    "text": "人Dentistappointmentat9:30",
+    "y_center": 1079.17,
+    "checkbox": {
+     "box": [
+      48.0,
+      1061.0,
+      36.0,
+      35.0
+     ],
+     "fill": 0.87,
+     "checked": true
+    }
+   }
+  ],
+  "tasks": [
+   {
+    "row": 3,
+    "line_indices": [
+     6,
+     5
+    ],
+    "anchor_line": 6,
+    "title": "Buygroceries:tomatoes,eggs,milk",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     340.0,
+     36.0,
+     36.0
+    ],
+    "checkbox_fill": 0.301,
+    "level": 0,
+    "parent": null,
+    "due": "Today6:00PM",
+    "needs_confirmation": []
+   },
+   {
+    "row": 4,
+    "line_indices": [
+     7
+    ],
+    "anchor_line": 7,
+    "title": "Callmomback",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     443.0,
+     36.0,
+     36.0
+    ],
+    "checkbox_fill": 0.868,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 5,
+    "line_indices": [
+     9,
+     8
+    ],
+    "anchor_line": 9,
+    "title": "Writeweeklystatusreport",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     546.0,
+     36.0,
+     36.0
+    ],
+    "checkbox_fill": 0.301,
+    "level": 0,
+    "parent": null,
+    "due": "Fri",
+    "needs_confirmation": []
+   },
+   {
+    "row": 6,
+    "line_indices": [
+     10
+    ],
+    "anchor_line": 10,
+    "title": "Tidyuplastweek'smeetingnotes",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     649.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.305,
+    "level": 1,
+    "parent": 5,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 7,
+    "line_indices": [
+     11
+    ],
+    "anchor_line": 11,
+    "title": "Fillintheregressiontestchecklist",
+    "checked": false,
+    "checkbox_box": [
+     104.0,
+     752.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.305,
+    "level": 1,
+    "parent": 5,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 8,
+    "line_indices": [
+     12
+    ],
+    "anchor_line": 12,
+    "title": "Readchapter5ofDDIA",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     855.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.305,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   },
+   {
+    "row": 9,
+    "line_indices": [
+     14,
+     13
+    ],
+    "anchor_line": 14,
+    "title": "Paytheutilitybill",
+    "checked": false,
+    "checkbox_box": [
+     48.0,
+     958.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.305,
+    "level": 0,
+    "parent": null,
+    "due": "Oct15",
+    "needs_confirmation": []
+   },
+   {
+    "row": 10,
+    "line_indices": [
+     16
+    ],
+    "anchor_line": 16,
+    "title": "Dentistappointmentat9:30",
+    "checked": true,
+    "checkbox_box": [
+     48.0,
+     1061.0,
+     36.0,
+     35.0
+    ],
+    "checkbox_fill": 0.87,
+    "level": 0,
+    "parent": null,
+    "due": null,
+    "needs_confirmation": []
+   }
+  ],
+  "dropped": [
+   {
+    "row": 0,
+    "kind": "chrome",
+    "text": "9:41-"
+   },
+   {
+    "row": 1,
+    "kind": "chrome",
+    "text": "To-do8items"
+   },
+   {
+    "row": 2,
+    "kind": "section",
+    "text": "Today"
+   }
+  ],
+  "noise_lines": [],
+  "notes": []
+ }
+}

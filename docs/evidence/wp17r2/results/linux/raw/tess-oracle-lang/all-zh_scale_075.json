@@ -1,0 +1,35 @@
+{
+  "schema": "wp17r2-ocr/1",
+  "engine": "tesseract5-tessdata_fast",
+  "engine_version": "5.5.1",
+  "variant": "",
+  "model_load_ms": 190.397775,
+  "batch_total_ms": 219.888899,
+  "peak_rss_kb": 70788,
+  "config": {
+    "langs": "chi_sim",
+    "oem": "default(LSTM)",
+    "psm": "3",
+    "tessdata": "/home/ubuntu/wp17r2/assets/tessdata_fast",
+    "user_defined_dpi": "96"
+  },
+  "images": [
+    {
+      "path": "/home/ubuntu/wp17r2/samples/images/zh_scale_075.png",
+      "width": 810, "height": 1052,
+      "decode_ms": 12.005, "preprocess_ms": 0.000, "det_ms": 195.649, "rec_ms": 0.000, "total_ms": 219.883,
+      "error": "",
+      "lines": [
+        {"text": "9:41                                               -ai", "box": [33.00, 18.00, 745.00, 26.00], "score": 0.6086},
+        {"text": "今天", "box": [36.00, 191.00, 47.00, 24.00], "score": 0.9602},
+        {"text": "买菜: 西红柿、鸡蛋、牛奶     今天 18:00", "box": [91.00, 265.00, 585.00, 31.00], "score": 0.8350},
+        {"text": " 给妈妈打电话", "box": [90.00, 365.00, 179.00, 29.00], "score": 0.9307},
+        {"text": "项目周报                 局五", "box": [90.00, 465.00, 523.00, 28.00], "score": 0.7970},
+        {"text": "整理上周会议记录", "box": [132.00, 563.00, 239.00, 29.00], "score": 0.9336},
+        {"text": "补充测试用例清", "box": [132.00, 662.00, 210.00, 29.00], "score": 0.9224},
+        {"text": "读《Designing Data-lntensive》第 5 章", "box": [90.00, 760.00, 547.00, 33.00], "score": 0.8801},
+        {"text": "缴纳水电费                                          10月15日", "box": [90.00, 859.00, 572.00, 30.00], "score": 0.9366}
+      ]
+    }
+  ]
+}
