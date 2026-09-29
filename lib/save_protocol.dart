@@ -23,6 +23,9 @@ class SavedBatch {
 
 class SaveProtocol {
   static const pointerKey = 'matrixflow-save-pointer';
+
+  /// Optional in older committed batches; new Store snapshots always include it.
+  static const scheduleKey = 'matrixflow-schedule';
   static const _slotA = 'matrixflow-save-a';
   static const _slotB = 'matrixflow-save-b';
   final SharedPreferences prefs;

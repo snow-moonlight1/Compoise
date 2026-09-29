@@ -16,6 +16,7 @@ import 'l10n.dart';
 import 'import_preflight.dart';
 import 'models.dart';
 import 'planned_policy.dart';
+import 'schedule_item.dart';
 import 'save_protocol.dart';
 import 'services/reminder_service.dart';
 import 'task_commands.dart';
@@ -50,21 +51,26 @@ class SharedPreferencesStorePersistence extends StorePersistence {
 class StoreSnapshot {
   final List<Board> boards;
   final List<Task> tasks;
+  final List<ScheduleItem> scheduleItems;
   final AIConfig aiConfig;
   final AppSettings settings;
   final String activeBoardId;
   final Map<String, int> taskRevisions;
+  final Map<String, int> scheduleRevisions;
 
   const StoreSnapshot({
     required this.boards,
     required this.tasks,
+    required this.scheduleItems,
     required this.aiConfig,
     required this.settings,
     required this.activeBoardId,
     required this.taskRevisions,
+    required this.scheduleRevisions,
   });
 
   int revisionFor(String taskId) => taskRevisions[taskId] ?? 0;
+  int scheduleRevisionFor(String id) => scheduleRevisions[id] ?? 0;
 }
 
 class _CredentialImportReservation {
@@ -76,6 +82,7 @@ class _CredentialImportReservation {
 
 class Store extends ChangeNotifier with WidgetsBindingObserver {
   static const _kTasks = 'matrixflow-tasks';
+  static const _kSchedule = SaveProtocol.scheduleKey;
   static const _kBoards = 'matrixflow-boards';
   static const _kConfig = 'matrixflow-config';
   static const _kSettings = 'matrixflow-settings';
@@ -123,8 +130,94 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   SaveResult lastSaveResult = const SaveResult(true, 0);
   List<Board> _boards = [];
   List<Task> _tasks = [];
+  List<ScheduleItem> _scheduleItems = [];
   List<Board> get boards => List.unmodifiable(_boards);
   List<Task> get tasks => List.unmodifiable(_tasks);
+  List<ScheduleItem> get scheduleItems => List.unmodifiable(_scheduleItems);
+  final Map<String, int> _scheduleSeq = {};
+  int scheduleRevision(String id) => _scheduleSeq[id] ?? 0;
+  void _touchSchedule(String id) => _scheduleSeq[id] = scheduleRevision(id) + 1;
+
+  /// Commands use a caller's observed revision; a stale detail pane cannot
+  /// overwrite a newer edit, deletion, or re-parenting.
+  bool addScheduleItem(ScheduleItem item) {
+    if (hasStartupRecovery) throw StateError('Startup recovery pending');
+    _validateSchedule([..._scheduleItems, item]);
+    _scheduleItems.add(item);
+    _touchSchedule(item.id);
+    _markDirty();
+    notifyListeners();
+    return true;
+  }
+
+  bool updateScheduleItem(ScheduleItem item, {required int expectedRevision}) {
+    if (hasStartupRecovery) throw StateError('Startup recovery pending');
+    final index = _scheduleItems.indexWhere((entry) => entry.id == item.id);
+    if (index < 0 || scheduleRevision(item.id) != expectedRevision) {
+      return false;
+    }
+    if (jsonEncode(_scheduleItems[index].toJson()) ==
+        jsonEncode(item.toJson())) {
+      return true;
+    }
+    final next = List<ScheduleItem>.from(_scheduleItems)..[index] = item;
+    _validateSchedule(next);
+    _scheduleItems[index] = item;
+    _touchSchedule(item.id);
+    _markDirty();
+    notifyListeners();
+    return true;
+  }
+
+  bool deleteScheduleItem(String id, {required int expectedRevision}) {
+    if (hasStartupRecovery) throw StateError('Startup recovery pending');
+    final index = _scheduleItems.indexWhere((entry) => entry.id == id);
+    if (index < 0 || scheduleRevision(id) != expectedRevision) return false;
+    _scheduleItems.removeAt(index);
+    _touchSchedule(id);
+    _markDirty();
+    notifyListeners();
+    return true;
+  }
+
+  void _validateSchedule(Iterable<ScheduleItem> items) =>
+      validateScheduleCollection(
+        items,
+        parentTaskIds: {for (final task in _tasks) task.id},
+        boardIds: {for (final board in _boards) board.id},
+      );
+
+  bool _removeScheduleForTaskIds(Set<String> ids) {
+    if (ids.isEmpty) return false;
+    final removed = _scheduleItems
+        .where((item) => ids.contains(item.taskId))
+        .toList();
+    if (removed.isEmpty) return false;
+    _scheduleItems.removeWhere((item) => ids.contains(item.taskId));
+    for (final item in removed) {
+      _touchSchedule(item.id);
+    }
+    return true;
+  }
+
+  bool _removeOrphanScheduleItems() {
+    final taskIds = {for (final task in _tasks) task.id};
+    final boardIds = {for (final board in _boards) board.id};
+    final removed = _scheduleItems
+        .where(
+          (item) =>
+              item.taskId != null && !taskIds.contains(item.taskId) ||
+              item.boardId != null && !boardIds.contains(item.boardId),
+        )
+        .toList();
+    if (removed.isEmpty) return false;
+    _scheduleItems.removeWhere((item) => removed.contains(item));
+    for (final item in removed) {
+      _touchSchedule(item.id);
+    }
+    return true;
+  }
+
   String activeBoardId = '';
   AIConfig aiConfig = AIConfig();
   AppSettings settings = AppSettings();
@@ -446,6 +539,24 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         task.boardId = boards.first.id;
       }
     }
+    _scheduleItems = read(
+      _kSchedule,
+      <ScheduleItem>[],
+      (raw) {
+        if (raw is! List) throw const FormatException('Invalid schedule list');
+        final parsed = [
+          for (final item in raw)
+            ScheduleItem.fromJson(item as Map<String, dynamic>),
+        ];
+        validateScheduleCollection(
+          parsed,
+          parentTaskIds: {for (final task in tasks) task.id},
+          boardIds: {for (final board in boards) board.id},
+        );
+        return parsed;
+      },
+      (value) => value.map((item) => item.toJson()).toList(),
+    );
     final savedActive =
         _savedValues?[_kActiveBoard] ?? _prefs.get(_kActiveBoard);
     mark(
@@ -514,6 +625,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       'entries': [
         for (final key in [
           _kTasks,
+          _kSchedule,
           _kBoards,
           _kConfig,
           _kSettings,
@@ -544,6 +656,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     for (final task in tasks) {
       if (!validIds.contains(task.boardId)) task.boardId = boards.first.id;
     }
+    _removeOrphanScheduleItems();
     if (!await retryCredentialMigration()) {
       notifyListeners();
       return false;
@@ -618,9 +731,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// bucket — and reading this list never changes a quadrant.
   List<TodayGroup> todayGroups({bool allBoards = false, DateTime? now}) =>
       groupForToday(
-        tasks.where(
-          (task) => allBoards || task.boardId == activeBoardId,
-        ),
+        tasks.where((task) => allBoards || task.boardId == activeBoardId),
         now: now,
       );
 
@@ -906,6 +1017,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     _tasks.removeWhere((t) => t.id == id);
+    _removeScheduleForTaskIds({id});
     _saveTasks();
     notifyListeners();
   }
@@ -936,15 +1048,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       throw ArgumentError.value(quadrant, 'quadrant');
     }
     final selectedIds = ids.toSet();
-    final moving =
-        _tasks
-            .where(
-              (task) =>
-                  selectedIds.contains(task.id) &&
-                  task.boardId == activeBoardId &&
-                  task.quadrant != quadrant,
-            )
-            .toList();
+    final moving = _tasks
+        .where(
+          (task) =>
+              selectedIds.contains(task.id) &&
+              task.boardId == activeBoardId &&
+              task.quadrant != quadrant,
+        )
+        .toList();
     if (moving.isEmpty) return 0;
 
     final moved = [
@@ -953,8 +1064,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           ..quadrant = quadrant
           ..urgencyMode =
               isUrgentQuadrant(task.quadrant) != isUrgentQuadrant(quadrant)
-                  ? UrgencyMode.manual
-                  : task.urgencyMode,
+              ? UrgencyMode.manual
+              : task.urgencyMode,
     ];
     final movingIds = moving.map((task) => task.id).toSet();
     _tasks.removeWhere((task) => movingIds.contains(task.id));
@@ -1017,10 +1128,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     tasks: List.unmodifiable([
       for (final task in tasks) Task.fromJson(task.toJson()),
     ]),
+    scheduleItems: List.unmodifiable(_scheduleItems),
     aiConfig: _copyConfig(aiConfig),
     settings: AppSettings.fromJson(settings.toJson()),
     activeBoardId: activeBoardId,
     taskRevisions: Map.unmodifiable(Map<String, int>.from(_taskSeq)),
+    scheduleRevisions: Map.unmodifiable(Map<String, int>.from(_scheduleSeq)),
   );
 
   /// Detached config draft for settings edits without mutating live state.
@@ -1071,8 +1184,11 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     reminderService.cancelAllForBoard(boardId, boardTasks);
     final before = tasks.length;
     _tasks.removeWhere((t) => t.boardId == boardId);
+    final removedSchedule = _removeScheduleForTaskIds({
+      for (final task in boardTasks) task.id,
+    });
     final removed = before - tasks.length;
-    if (removed > 0) {
+    if (removed > 0 || removedSchedule) {
       _saveTasks();
       notifyListeners();
     }
@@ -1087,6 +1203,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         .toList();
     reminderService.cancelAllForBoard(bId, quadTasks);
     _tasks.removeWhere((t) => t.boardId == bId && t.quadrant == quadrant);
+    _removeScheduleForTaskIds({for (final task in quadTasks) task.id});
     _saveTasks();
     notifyListeners();
   }
@@ -1182,8 +1299,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       boardEpoch: boardEpoch(task.boardId),
       originalIndex: i,
       commandSeq: taskSeq(task.id),
+      linkedScheduleItems: [
+        for (final item in _scheduleItems)
+          if (item.taskId == task.id) item,
+      ],
     );
     _tasks.removeAt(i);
+    _removeScheduleForTaskIds({task.id});
     _saveTasks();
     notifyListeners();
     return snapshot;
@@ -1244,6 +1366,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (tasks.any((t) => t.id == snapshot.taskId)) {
         return false;
       }
+      final liveIds = {for (final item in _scheduleItems) item.id};
+      if (snapshot.linkedScheduleItems.any(
+        (item) => liveIds.contains(item.id),
+      )) {
+        return false;
+      }
     }
     return true;
   }
@@ -1260,6 +1388,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         final restored = Task.fromJson(snapshot.task.toJson());
         final insertIndex = snapshot.originalIndex.clamp(0, tasks.length);
         _tasks.insert(insertIndex, restored);
+        _scheduleItems.addAll(snapshot.linkedScheduleItems);
+        for (final item in snapshot.linkedScheduleItems) {
+          _touchSchedule(item.id);
+        }
         final now = DateTime.now().millisecondsSinceEpoch;
         if (!restored.completed &&
             restored.reminderAt != null &&
@@ -1403,6 +1535,15 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
     _tasks.removeWhere((t) => selectedIds.contains(t.id));
     _tasks.insert(0, parent);
+    for (var i = 0; i < _scheduleItems.length; i++) {
+      final item = _scheduleItems[i];
+      if (!selectedIds.contains(item.taskId)) continue;
+      _scheduleItems[i] = ScheduleItem.fromJson({
+        ...item.toJson(),
+        'taskId': parent.id,
+      });
+      _touchSchedule(item.id);
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     if (!parent.completed &&
         parent.reminderAt != null &&
@@ -1454,6 +1595,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     reminderService.cancelAllForBoard(id, boardTasks);
     _boards.removeWhere((b) => b.id == id);
     _tasks.removeWhere((t) => t.boardId == id);
+    _removeScheduleForTaskIds({for (final task in boardTasks) task.id});
+    final independent = _scheduleItems
+        .where((item) => item.boardId == id)
+        .toList();
+    _scheduleItems.removeWhere((item) => item.boardId == id);
+    for (final item in independent) {
+      _touchSchedule(item.id);
+    }
     if (activeBoardId == id) activeBoardId = boards.first.id;
     _saveBoardsMeta();
     _saveTasks();
@@ -1927,6 +2076,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final liveBoards = [
       for (final board in _boards) Board.fromJson(board.toJson()),
     ];
+    final liveTasks = [for (final task in _tasks) Task.fromJson(task.toJson())];
     _boards = _carryPostCommitRecords(
       before: [for (final board in before.boards) board.toJson()],
       live: [for (final board in _boards) board.toJson()],
@@ -1937,6 +2087,11 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       live: [for (final task in _tasks) task.toJson()],
       committed: atCommit[_kTasks],
     ).map(Task.fromJson).toList();
+    _scheduleItems = _carryPostCommitRecords(
+      before: [for (final item in before.scheduleItems) item.toJson()],
+      live: [for (final item in _scheduleItems) item.toJson()],
+      committed: atCommit[_kSchedule],
+    ).map(ScheduleItem.fromJson).toList();
     if (jsonEncode(settings.toJson()) == atCommit[_kSettings]) {
       settings = AppSettings.fromJson(before.settings.toJson());
     }
@@ -1950,7 +2105,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (activeBoardId == atCommit[_kActiveBoard]) {
       activeBoardId = before.activeBoardId;
     }
+    _retainDependenciesOfKeptSchedule(liveTasks, liveBoards);
     _retainDependenciesOfKeptTasks(liveBoards);
+    _removeOrphanScheduleItems();
     if (!_boards.any((board) => board.id == activeBoardId)) {
       activeBoardId = _boards.any((board) => board.id == before.activeBoardId)
           ? before.activeBoardId
@@ -1975,6 +2132,34 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (dependency == null) continue;
       _boards.add(Board.fromJson(dependency.toJson()));
       present.add(dependency.id);
+    }
+  }
+
+  void _retainDependenciesOfKeptSchedule(
+    List<Task> liveTasks,
+    List<Board> liveBoards,
+  ) {
+    final taskIds = {for (final task in _tasks) task.id};
+    final liveTaskById = {for (final task in liveTasks) task.id: task};
+    final boardIds = {for (final board in _boards) board.id};
+    final liveBoardById = {for (final board in liveBoards) board.id: board};
+    for (final item in _scheduleItems) {
+      final taskId = item.taskId;
+      if (taskId != null && !taskIds.contains(taskId)) {
+        final task = liveTaskById[taskId];
+        if (task != null) {
+          _tasks.add(Task.fromJson(task.toJson()));
+          taskIds.add(taskId);
+        }
+      }
+      final boardId = item.boardId;
+      if (boardId != null && !boardIds.contains(boardId)) {
+        final board = liveBoardById[boardId];
+        if (board != null) {
+          _boards.add(Board.fromJson(board.toJson()));
+          boardIds.add(boardId);
+        }
+      }
     }
   }
 
@@ -2015,6 +2200,11 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       for (final board in plan.boards) {
         bumpBoardEpoch(board.id);
       }
+      for (final item in _scheduleItems) {
+        _touchSchedule(item.id);
+      }
+      // Until v3 file import is implemented, legacy overwrite has no schedule.
+      _scheduleItems = [];
     }
     _boards = plan.boards;
     _tasks = plan.tasks;
@@ -2065,7 +2255,11 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   dynamic _loadJson(String key) {
     try {
-      final raw = _savedValues?[key] ?? _prefs.getString(key);
+      // A committed old slot without the optional schedule key is authoritative;
+      // never borrow an uncommitted/stale compatibility mirror to fill it.
+      final raw = _savedValues != null
+          ? _savedValues![key]
+          : _prefs.getString(key);
       if (raw == null) return null;
       return jsonDecode(raw);
     } catch (_) {
@@ -2169,8 +2363,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       ]);
       final ledger =
           waitForReminders &&
-                  includeReminderLedger &&
-                  reminderService.hasUnlandedLedgerWrites
+              includeReminderLedger &&
+              reminderService.hasUnlandedLedgerWrites
           ? await reminderService.flushPendingLedger()
           : null;
       final stable =
@@ -2203,7 +2397,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (ledger.failed && !await reminderService.retryPendingLedger()) {
         // Retrying did not land the ledger, so the barrier still owes the
         // caller a failed result instead of the library-only answer.
-        return flush(includeReminderLedger: true, waitForReminders: waitForReminders);
+        return flush(
+          includeReminderLedger: true,
+          waitForReminders: waitForReminders,
+        );
       }
     }
     if (credentialError != null ||
@@ -2250,6 +2447,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _kTasks: jsonEncode(
       (tasksValue ?? tasks).map((task) => task.toJson()).toList(),
     ),
+    _kSchedule: jsonEncode(scheduleItems.map((item) => item.toJson()).toList()),
     _kBoards: jsonEncode(
       (boardsValue ?? boards).map((board) => board.toJson()).toList(),
     ),

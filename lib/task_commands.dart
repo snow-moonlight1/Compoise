@@ -1,11 +1,9 @@
-﻿import 'models.dart';
+import 'models.dart';
+
+import 'schedule_item.dart';
 
 /// The type of action that can be undone.
-enum TaskUndoType {
-  complete,
-  restore,
-  delete,
-}
+enum TaskUndoType { complete, restore, delete }
 
 /// A lightweight snapshot capturing the necessary data to undo a task mutation.
 /// Only retains the affected task and its position, strictly avoiding full-board copies.
@@ -18,6 +16,7 @@ class TaskUndoSnapshot {
   final int originalIndex;
   final DateTime timestamp;
   final int commandSeq;
+  final List<ScheduleItem> linkedScheduleItems;
 
   TaskUndoSnapshot({
     required this.actionType,
@@ -27,6 +26,7 @@ class TaskUndoSnapshot {
     required this.task,
     required this.originalIndex,
     this.commandSeq = 0,
+    this.linkedScheduleItems = const [],
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -37,6 +37,7 @@ class TaskUndoSnapshot {
     required int boardEpoch,
     required int originalIndex,
     int commandSeq = 0,
+    List<ScheduleItem> linkedScheduleItems = const [],
   }) {
     return TaskUndoSnapshot(
       actionType: actionType,
@@ -46,6 +47,7 @@ class TaskUndoSnapshot {
       task: Task.fromJson(task.toJson()),
       originalIndex: originalIndex,
       commandSeq: commandSeq,
+      linkedScheduleItems: List.unmodifiable(linkedScheduleItems),
     );
   }
 }
