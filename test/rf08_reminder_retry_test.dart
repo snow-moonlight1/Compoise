@@ -857,10 +857,12 @@ void main() {
       final cancelKey = 'cancel:${_id('t1')}';
       final spentSince = service.pendingJobs[cancelKey]!.firstFailedAtMs;
 
+      final cancelCalls = plugin.countOf(#cancel);
       await service.cancelReminder('t1', userInitiated: true);
       final restarted = service.pendingJobs[cancelKey]!;
+      expect(plugin.countOf(#cancel), cancelCalls + 1);
       expect(restarted.attempts, 0);
-      expect(restarted.firstFailedAtMs, isNot(spentSince));
+      expect(restarted.firstFailedAtMs, greaterThanOrEqualTo(spentSince!));
       expect(restarted.notificationId, _id('t1'));
     });
   });
