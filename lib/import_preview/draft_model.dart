@@ -230,9 +230,8 @@ class DraftBatch {
         final row = _int(parent, '$id parent');
         final candidate = rows[row];
         final task = tasks[index];
-        if (candidate == null ||
-            candidate == task ||
-            tasks.indexOf(candidate) >= index) {
+        // Parent identity is the source row, not the JSON array position.
+        if (candidate == null || candidate.sourceRow! >= task.sourceRow!) {
           task.reviewReasons.add('parent row is missing or out of order');
         } else {
           task.parentId = candidate.id;
@@ -315,12 +314,7 @@ class DraftBatch {
         (task) =>
             task.confirmed &&
             task.hasValidTitle &&
-            (task.parentId == null ||
-                activeTasks.any(
-                  (parent) =>
-                      parent.id == task.parentId &&
-                      parent.imageId == task.imageId,
-                )),
+            _parentIsEarlierActive(task),
       ) &&
       duplicates.every(
         (hint) =>
@@ -429,7 +423,7 @@ class DraftBatch {
     return ImportSubmission(
       boardId: boardId!,
       quadrant: quadrant!,
-      tasks: [
+      tasks: List<ImportTask>.unmodifiable([
         for (final task in activeTasks)
           ImportTask(
             id: task.id,
@@ -437,9 +431,9 @@ class DraftBatch {
             title: task.title.trim(),
             checked: task.checked,
             parentId: task.parentId,
-            dueText: task.keepDueText ? task.dueText?.trim() : null,
+            dueText: _submissionDue(task),
           ),
-      ],
+      ]),
       skippedCount: images.fold(
         0,
         (count, image) =>
@@ -449,5 +443,27 @@ class DraftBatch {
                 : image.tasks.where((task) => task.excluded).length),
       ),
     );
+  }
+
+  /// Blank OCR text is not a date. Only an explicit keep flag copies the raw
+  /// string; it is never parsed into a deadline or reminder.
+  String? _submissionDue(DraftTask task) {
+    if (!task.keepDueText) return null;
+    final text = task.dueText?.trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
+  }
+
+  bool _parentIsEarlierActive(DraftTask task) {
+    if (task.parentId == null) return true;
+    for (final image in images) {
+      if (image.id != task.imageId) continue;
+      final index = image.tasks.indexOf(task);
+      if (index <= 0) return false;
+      return image.tasks
+          .take(index)
+          .any((parent) => parent.id == task.parentId && !parent.excluded);
+    }
+    return false;
   }
 }

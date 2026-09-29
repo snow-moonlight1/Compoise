@@ -95,6 +95,7 @@ class _DraftPreviewState extends State<DraftPreview> {
       },
       child: SafeArea(
         child: SingleChildScrollView(
+          key: const ValueKey('import-review-scroll'),
           padding: EdgeInsets.fromLTRB(
             16,
             16,
@@ -107,9 +108,12 @@ class _DraftPreviewState extends State<DraftPreview> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    t('importReviewTitle'),
-                    style: theme.textTheme.headlineSmall,
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      t('importReviewTitle'),
+                      style: theme.textTheme.headlineSmall,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(t('importReviewHint')),
@@ -412,7 +416,7 @@ class _DraftPreviewState extends State<DraftPreview> {
               ],
               for (final reason in task.reviewReasons)
                 Text(
-                  '${t('importNeedsReview')}: $reason',
+                  '${t('importNeedsReview')}: ${_reasonText(reason)}',
                   style: theme.textTheme.bodySmall,
                 ),
               Wrap(
@@ -473,6 +477,24 @@ class _DraftPreviewState extends State<DraftPreview> {
         ),
       ),
     );
+  }
+
+  String _reasonText(String reason) {
+    const keys = <String, String>{
+      'date text needs review': 'importReasonDate',
+      'indent/parent needs review': 'importReasonParent',
+      'parent row is missing or out of order': 'importReasonParentOrder',
+      'parent was excluded': 'importReasonParentExcluded',
+      'split task needs review': 'importReasonSplit',
+      'merged task needs review': 'importReasonMerged',
+    };
+    final key = keys[reason];
+    if (key != null) return t(key);
+    const dropped = 'dropped ';
+    if (reason.startsWith(dropped)) {
+      return '${t('importReasonDropped')}: ${reason.substring(dropped.length)}';
+    }
+    return reason;
   }
 
   Widget _duplicateTile(DuplicateHint hint, int index) {
