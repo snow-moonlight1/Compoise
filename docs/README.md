@@ -7,6 +7,7 @@
 | 看工作包状态与后续计划 | [工作包状态](ROADMAP.md) |
 | 改进任务输入、子任务与详情层级 | [任务交互方案（WP13）](TASK_INTERACTION.md) |
 | 理解今天待办与计划日 | [WP14 计划日契约](WP14_NOTES.md) |
+| 设计 Planner / Schedule | [WP15 日程契约](WP15_CONTRACT.md) |
 | 做多张待办截图的识别与导入 | [WP17 截图导入方案](WP17_SCREENSHOT_IMPORT.md) |
 | 搭建环境、运行、测试或构建 | [开发指南](DEVELOPMENT.md) |
 | 准备安装包、升级与发行渠道验证 | [发行验证清单](RELEASE_VALIDATION.md) |
