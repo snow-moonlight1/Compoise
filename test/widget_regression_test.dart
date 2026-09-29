@@ -690,6 +690,44 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('WP10 selection moves tasks and cancel preserves selection', (
+    tester,
+  ) async {
+    viewport(tester, const Size(320, 700));
+    final store = await setup(tester);
+    final a = store.newTask('move alpha');
+    final b = store.newTask('move beta', quadrant: qPlan);
+    store.addTasks([a, b]);
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
+    await enterSelectMode(tester);
+    await tester.tap(find.text('move alpha'));
+    await tester.tap(find.text('move beta'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('batch-move-btn')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('batch-move-q3')), findsOneWidget);
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    expect(find.text('2 Selected'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('batch-move-btn')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('batch-move-q3')));
+    await tester.pumpAndSettle();
+    expect(
+      store.tasks.where((task) => task.quadrant == qDelegate),
+      hasLength(2),
+    );
+    expect(find.byKey(const ValueKey('batch-move-btn')), findsNothing);
+    expect(
+      find.text('Moved 2 tasks to Urgent but Not Important'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('embedded AI submits repeatedly and keeps original board', (
     tester,
   ) async {

@@ -924,6 +924,44 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Moves selected tasks on the active board as one library mutation and one
+  /// persisted commit. Tasks already in the target quadrant keep their place.
+  int moveTasks(Iterable<String> ids, int quadrant) {
+    if (!allQuadrants.contains(quadrant)) {
+      throw ArgumentError.value(quadrant, 'quadrant');
+    }
+    final selectedIds = ids.toSet();
+    final moving =
+        _tasks
+            .where(
+              (task) =>
+                  selectedIds.contains(task.id) &&
+                  task.boardId == activeBoardId &&
+                  task.quadrant != quadrant,
+            )
+            .toList();
+    if (moving.isEmpty) return 0;
+
+    final moved = [
+      for (final task in moving)
+        Task.fromJson(task.toJson())
+          ..quadrant = quadrant
+          ..urgencyMode =
+              isUrgentQuadrant(task.quadrant) != isUrgentQuadrant(quadrant)
+                  ? UrgencyMode.manual
+                  : task.urgencyMode,
+    ];
+    final movingIds = moving.map((task) => task.id).toSet();
+    _tasks.removeWhere((task) => movingIds.contains(task.id));
+    for (final task in moved.reversed) {
+      _touchTask(task.id);
+      _insertAtFrontOfQuadrant(task);
+    }
+    _saveTasks();
+    notifyListeners();
+    return moved.length;
+  }
+
   void resetTaskUrgencyMode(String taskId) {
     final i = tasks.indexWhere((t) => t.id == taskId);
     if (i == -1) return;
