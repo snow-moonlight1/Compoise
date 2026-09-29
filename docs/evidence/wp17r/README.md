@@ -53,7 +53,7 @@
 | 应用内“粘贴”按钮（用户自己复制） | 笔记 → 剪贴板 → 我们 | 无 | **可行，非自动化** | 官方剪贴板说明：Android 10+ 仅前台聚焦应用可读，Android 12+ 粘贴有 toast |
 | 静默读剪贴板 / 后台轮询 | 同上但自动 | — | **不可行** | 同上，Android 10 起禁止后台读取 |
 | ContentProvider 直读（`content://com.miui.todo.provider`） | 我们 → 笔记数据 | — | **不作为方案** | 清单上 `exported=true` 且无权限声明，但属未公开实现；官方入口一律 `signature\|privileged` |
-| Android 16 AppFunctions / NOTES role | 系统级代理 | — | **第三方不可用** | `EXECUTE_APP_FUNCTIONS` = `internal\|privileged`；`android.app.role.NOTES` 在实测机上无持有者；角色开关由 `/product/overlay/NotesRoleEnabled/` 提供 |
+| Android 16 AppFunctions / NOTES role | 系统级代理 | — | **第三方不可用** | 决定性证据是 `EXECUTE_APP_FUNCTIONS` 实测为 `internal\|privileged`。该机确有 notes 角色开关（`/product/overlay/NotesRoleEnabled/NotesRoleEnabledOverlay.apk` = `com.android.role.notes.enabled`，min/targetSdk 36），但 `cmd role get-role-holders android.app.role.NOTES` 返回空，且与传入非法角色名的输出**无法区分**（已用对照实验验证），因此角色是否可申领属未定，需实现期用 `RoleManager` API 实测 |
 | 无障碍服务 / 屏幕抓取 | — | — | **禁区，本包明确排除** | 与 `docs/ROADMAP.md:40` 一致 |
 
 ### 平台侧要付的代价（不写代码也得先量出来）
