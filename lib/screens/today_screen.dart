@@ -11,6 +11,7 @@ import '../widgets/reminder_failure_banner.dart';
 import '../widgets/task_detail_panel.dart';
 import '../widgets/task_filter_panel.dart';
 import '../widgets/task_hierarchy_checkbox.dart';
+import '../widgets/today_celebration_banner.dart';
 
 /// The Today list: what is planned for today, what carried over, and what is
 /// due without a plan — gathered from every quadrant and, on request, every
@@ -44,8 +45,81 @@ class _TodayScreenState extends State<TodayScreen> {
       if (mounted) setState(() {});
     },
   );
+  Store? _observedStore;
+  _TodayScope? _todayScope;
+  bool _showCelebration = false;
 
   bool get _allBoards => _applied.scope == TaskScopeFilter.allBoards;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final store = context.read<Store>();
+    if (identical(_observedStore, store)) return;
+    _observedStore?.removeListener(_onTodayStoreChanged);
+    _observedStore = store;
+    _todayScope = null;
+    store.addListener(_onTodayStoreChanged);
+  }
+
+  @override
+  void dispose() {
+    _observedStore?.removeListener(_onTodayStoreChanged);
+    super.dispose();
+  }
+
+  _TodayScope _capture(Store store) {
+    final groups = store.todayGroups(allBoards: _allBoards);
+    return _TodayScope(
+      _allBoards ? 'all-boards' : 'board:${store.activeBoardId}',
+      {
+        for (final group in groups)
+          for (final task in group.tasks) task.id,
+      },
+    );
+  }
+
+  bool _isCompleted(Store store, String id) {
+    for (final task in store.tasks) {
+      if (task.id == id) return task.completed;
+    }
+    return false;
+  }
+
+  /// Store notifications are the only path that can celebrate, and only when
+  /// the open rows that disappeared are now completed. Board switches, plan
+  /// clears, deletes, and the midnight refresh all notify too; they update the
+  /// baseline and never consume the day's celebration.
+  void _onTodayStoreChanged() {
+    final store = _observedStore;
+    if (store == null || !mounted) return;
+    final next = _capture(store);
+    final previous = _todayScope;
+    if (previous == null) {
+      _todayScope = next;
+      return;
+    }
+    final removed = previous.openIds.difference(next.openIds);
+    final celebrate = store.todayCelebration.consider(
+      scopeUnchanged: previous.scopeKey == next.scopeKey,
+      openBefore: previous.openIds.length,
+      openAfter: next.openIds.length,
+      removedIds: removed,
+      isCompleted: (id) => _isCompleted(store, id),
+    );
+    final hide = previous.scopeKey != next.scopeKey || next.openIds.isNotEmpty;
+    _todayScope = next;
+    if (celebrate) {
+      setState(() => _showCelebration = true);
+    } else if (hide && _showCelebration) {
+      setState(() => _showCelebration = false);
+    }
+  }
+
+  void _dismissCelebration() {
+    if (!mounted || !_showCelebration) return;
+    setState(() => _showCelebration = false);
+  }
 
   String _boardName(Store store, String boardId) => resolveBoardName(
     boards: store.boards,
@@ -102,6 +176,14 @@ class _TodayScreenState extends State<TodayScreen> {
     final activeBoardId = widget.initialBoardId ?? store.activeBoardId;
     final isWide = policy.canShowSideDetail(MediaQuery.sizeOf(context).width);
     final groups = store.todayGroups(allBoards: _allBoards);
+    final captured = _capture(store);
+    if (_todayScope == null) {
+      _todayScope = captured;
+    } else if (_todayScope!.scopeKey != captured.scopeKey) {
+      // Filter changes do not notify the store. They are not a completion.
+      _todayScope = captured;
+      _showCelebration = false;
+    }
     final rows = [
       for (final group in groups) ...[
         _TodayRow.header(group.section),
@@ -114,6 +196,17 @@ class _TodayScreenState extends State<TodayScreen> {
     final mainContent = Column(
       children: [
         _buildHeader(context, t, theme, policy, store, groups, activeCount),
+        if (_showCelebration)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: TodayCelebrationBanner(
+              key: const ValueKey('today-celebration'),
+              title: t['todayCelebrationTitle']!,
+              body: t['todayCelebrationBody']!,
+              closeLabel: t['close']!,
+              onClose: _dismissCelebration,
+            ),
+          ),
         const ReminderFailureBanner(),
         AppliedFilterSummary(
           criteria: _applied,
@@ -482,6 +575,15 @@ class _TodayScreenState extends State<TodayScreen> {
           ],
     );
   }
+}
+
+/// Open Today rows for one board scope. Compared by the screen so a filter
+/// or board change is not mistaken for the list being cleared.
+class _TodayScope {
+  const _TodayScope(this.scopeKey, this.openIds);
+
+  final String scopeKey;
+  final Set<String> openIds;
 }
 
 /// One date on a Today row. The planned day carries [color] from the accent and

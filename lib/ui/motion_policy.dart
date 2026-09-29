@@ -49,6 +49,10 @@ class MotionPolicy {
   /// Dismissible swipe movement / resize when completing or deleting a card.
   static const Duration dismissible = Duration(milliseconds: 200);
 
+  /// Fade-in of the Today completion celebration. Reduced motion does not run
+  /// this; the card is shown already settled, with its close action available.
+  static const Duration celebration = Duration(milliseconds: 280);
+
   /// Drag-target hover tint on a quadrant/list section. Deliberately kept
   /// animated even under reduce motion: it is a local pointer affordance that
   /// never gates hit testing or focus, and is outside the OS23 transition set.

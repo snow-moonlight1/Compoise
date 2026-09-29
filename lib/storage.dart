@@ -19,6 +19,7 @@ import 'planned_policy.dart';
 import 'save_protocol.dart';
 import 'services/reminder_service.dart';
 import 'task_commands.dart';
+import 'today_celebration.dart';
 
 export 'backup_export.dart';
 export 'data_migrations.dart';
@@ -127,6 +128,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   String activeBoardId = '';
   AIConfig aiConfig = AIConfig();
   AppSettings settings = AppSettings();
+
+  /// Session latch for the Today completion celebration. Not written to the
+  /// snapshot: it is not a user setting, and a new process starts clear.
+  final TodayCelebrationMemory todayCelebration = TodayCelebrationMemory();
   String? corruptNotice; // set when a persisted blob failed to parse
   final Map<String, StartupDataState> startupDataStates = {};
   final Set<String> _protectedStartupKeys = {};

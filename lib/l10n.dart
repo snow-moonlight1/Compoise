@@ -615,6 +615,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'clearPlan': 'Clear plan',
     'taskPlannedToday': 'Planned for today',
     'taskPlanCleared': 'Plan cleared',
+    'todayCelebrationTitle': 'Today is clear',
+    'todayCelebrationBody': 'Every open task in this view is done.',
   },
   Language.zh: {
     'appTitle': '方寸',
@@ -1148,6 +1150,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'clearPlan': '取消计划',
     'taskPlannedToday': '已安排到今天',
     'taskPlanCleared': '已取消计划',
+    'todayCelebrationTitle': '今天的待办完成了',
+    'todayCelebrationBody': '当前范围内的未完成任务都已完成。',
   },
   Language.ja: {
     'appTitle': 'Compoise',
@@ -1697,6 +1701,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'clearPlan': '予定を解除',
     'taskPlannedToday': '今日に設定しました',
     'taskPlanCleared': '予定を解除しました',
+    'todayCelebrationTitle': '今日のタスクが完了しました',
+    'todayCelebrationBody': 'この表示範囲の未完了タスクはすべて完了しています。',
   },
 };
 
