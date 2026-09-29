@@ -57,6 +57,14 @@ pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
+# Build the shared OCR library when external ncnn and stb dependencies are
+# explicitly supplied. Models are a separate, currently gated asset.
+if(DEFINED ENV{WP17_OCR_NCNN_DIR} AND DEFINED ENV{WP17_OCR_STB_DIR})
+  set(ncnn_DIR "$ENV{WP17_OCR_NCNN_DIR}")
+  set(WP17_STB_DIR "$ENV{WP17_OCR_STB_DIR}")
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../native/ocr" "${CMAKE_CURRENT_BINARY_DIR}/wp17_ocr")
+endif()
+
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
 
@@ -90,6 +98,9 @@ install(CODE "
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+if(TARGET matrixflow_ocr)
+  install(TARGETS matrixflow_ocr LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+endif()
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)

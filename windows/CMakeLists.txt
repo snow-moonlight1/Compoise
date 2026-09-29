@@ -52,6 +52,14 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
+# Opt in only with a verified external ncnn build and stb header. No model
+# weights are shipped by this target.
+if(DEFINED ENV{WP17_OCR_NCNN_DIR} AND DEFINED ENV{WP17_OCR_STB_DIR})
+  set(ncnn_DIR "$ENV{WP17_OCR_NCNN_DIR}")
+  set(WP17_STB_DIR "$ENV{WP17_OCR_STB_DIR}")
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../native/ocr" "${CMAKE_CURRENT_BINARY_DIR}/wp17_ocr")
+endif()
+
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
@@ -71,6 +79,9 @@ endif()
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
+if(TARGET matrixflow_ocr)
+  install(TARGETS matrixflow_ocr RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+endif()
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)

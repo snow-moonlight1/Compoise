@@ -17,6 +17,9 @@ val keystorePropertiesFile = listOf(
 ).firstOrNull { it.exists() }
 
 val keystoreProperties = Properties()
+val wp17NcnnRoot = providers.gradleProperty("wp17OcrNcnnRoot").orNull
+val wp17StbDir = providers.gradleProperty("wp17OcrStbDir").orNull
+val wp17OcrEnabled = wp17NcnnRoot != null && wp17StbDir != null
 val hasKeystore = keystorePropertiesFile != null
 if (hasKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile!!))
@@ -43,6 +46,26 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        if (wp17OcrEnabled) {
+            ndk { abiFilters.addAll(listOf("x86_64", "arm64-v8a")) }
+            externalNativeBuild {
+                cmake {
+                    arguments.addAll(listOf(
+                        "-DWP17_NCNN_ROOT=${file(wp17NcnnRoot!!).absolutePath.replace('\\', '/')}",
+                        "-DWP17_STB_DIR=${file(wp17StbDir!!).absolutePath.replace('\\', '/')}",
+                    ))
+                }
+            }
+        }
+    }
+
+    if (wp17OcrEnabled) {
+        externalNativeBuild {
+            cmake {
+                path = file("../../native/ocr/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
     }
 
     signingConfigs {

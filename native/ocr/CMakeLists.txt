@@ -1,0 +1,32 @@
+cmake_minimum_required(VERSION 3.16)
+project(matrixflow_ocr LANGUAGES CXX)
+
+# All three platforms compile this source. Models and stb_image.h remain
+# external until their provenance and redistribution terms are resolved.
+set(WP17_STB_DIR "" CACHE PATH "Directory containing stb_image.h")
+set(WP17_NCNN_ROOT "" CACHE PATH "Root with ncnn-android-<abi>/install trees")
+if(ANDROID AND WP17_NCNN_ROOT)
+  set(ncnn_DIR "${WP17_NCNN_ROOT}/ncnn-android-${ANDROID_ABI}/install/lib/cmake/ncnn")
+endif()
+if(NOT EXISTS "${WP17_STB_DIR}/stb_image.h")
+  message(FATAL_ERROR "Set WP17_STB_DIR to the verified external stb_image.h directory")
+endif()
+find_package(ncnn REQUIRED)
+
+add_library(matrixflow_ocr SHARED ocr_runtime.cpp)
+target_compile_features(matrixflow_ocr PRIVATE cxx_std_17)
+target_include_directories(matrixflow_ocr PRIVATE "${WP17_STB_DIR}")
+target_link_libraries(matrixflow_ocr PRIVATE ncnn)
+set_target_properties(matrixflow_ocr PROPERTIES CXX_VISIBILITY_PRESET hidden)
+if(WIN32)
+  target_link_libraries(matrixflow_ocr PRIVATE psapi)
+elseif(ANDROID)
+  target_link_libraries(matrixflow_ocr PRIVATE log)
+endif()
+
+option(WP17_OCR_BUILD_SMOKE "Build a small C ABI caller for runtime validation" OFF)
+if(WP17_OCR_BUILD_SMOKE)
+  add_executable(matrixflow_ocr_smoke smoke.cpp)
+  target_compile_features(matrixflow_ocr_smoke PRIVATE cxx_std_17)
+  target_link_libraries(matrixflow_ocr_smoke PRIVATE matrixflow_ocr)
+endif()
