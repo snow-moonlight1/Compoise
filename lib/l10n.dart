@@ -89,6 +89,35 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleWeekday5': 'Fri',
     'scheduleWeekday6': 'Sat',
     'scheduleWeekday7': 'Sun',
+    'screenshotImportTitle': 'Import screenshots',
+    'screenshotImportHint':
+        'Experimental local OCR. Select up to 10 static PNGs (16 MiB each, 48 MiB total). Review every task before saving. Android uses private temporary copies that are deleted during this flow. Model distribution and platform validation remain pending.',
+    'screenshotImportChecking': 'Checking local OCR components…',
+    'screenshotImportProgress': 'Processing screenshots: {done}/{total}',
+    'screenshotImportChoose': 'Choose PNG screenshots',
+    'screenshotImportRetry': 'Check again',
+    'screenshotImportModelsMissing':
+        'OCR models are missing or unreadable. Screenshot OCR is not formally available.',
+    'screenshotImportNativeMissing':
+        'The native OCR runtime is unavailable. Screenshot OCR is not formally available.',
+    'screenshotImportUnavailable':
+        'Screenshot import is unavailable on this platform or local components could not be checked.',
+    'screenshotImportReadFailed':
+        'This screenshot could not be read, decoded or recognized. No tasks were produced.',
+    'screenshotImportCleanupFailed':
+        'Private screenshot cleanup failed. No draft was accepted; retry cleanup before selecting again.',
+    'screenshotImportSuccess': 'Imported {count} confirmed tasks.',
+    'screenshotImportSafFileLimit':
+        'PNG must be nonempty and smaller than 16 MiB. Input stopped at the byte limit.',
+    'screenshotImportSafBatchLimit':
+        'The actual-read batch limit of 48 MiB was reached.',
+    'screenshotImportSafPixelLimit':
+        'PNG dimensions or the 24 Mi-pixel batch limit were exceeded.',
+    'screenshotImportSafCountLimit': 'Select at most 10 PNG screenshots.',
+    'screenshotImportSafPng':
+        'Only valid static PNG is accepted. No format conversion is performed.',
+    'screenshotImportSafRead': 'The selected document could not be read.',
+    'screenshotImportSafCancelled': 'Screenshot selection was cancelled.',
     'importReviewTitle': 'Review screenshot tasks',
     'importReviewHint':
         'Check every task and duplicate before importing. Dates remain unparsed text.',
@@ -840,6 +869,26 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleWeekday5': '周五',
     'scheduleWeekday6': '周六',
     'scheduleWeekday7': '周日',
+    'screenshotImportTitle': '导入截图',
+    'screenshotImportHint':
+        '本地 OCR 实验功能。最多选择 10 张静态 PNG（每张 16 MiB、整批 48 MiB）。保存前逐项校对。Android 使用本流程私有临时副本并及时删除。模型分发与平台验收仍待完成。',
+    'screenshotImportChecking': '正在检查本地 OCR 组件…',
+    'screenshotImportProgress': '正在处理截图：{done}/{total}',
+    'screenshotImportChoose': '选择 PNG 截图',
+    'screenshotImportRetry': '重新检查',
+    'screenshotImportModelsMissing': 'OCR 模型缺失或不可读，截图 OCR 尚未正式可用。',
+    'screenshotImportNativeMissing': '原生 OCR 运行时不可用，截图 OCR 尚未正式可用。',
+    'screenshotImportUnavailable': '此平台不可用，或无法检查本地 OCR 组件。',
+    'screenshotImportReadFailed': '此图读取、解码或识别失败，没有生成任务。',
+    'screenshotImportCleanupFailed': '私有截图清理失败，未接受草稿；重新选择前请重试清理。',
+    'screenshotImportSuccess': '已导入 {count} 项确认任务。',
+    'screenshotImportSafFileLimit': 'PNG 须非空且小于 16 MiB；已在读取上限停止。',
+    'screenshotImportSafBatchLimit': '实际读取已达到整批 48 MiB 上限。',
+    'screenshotImportSafPixelLimit': 'PNG 尺寸或整批 24 Mi 像素上限超出。',
+    'screenshotImportSafCountLimit': '最多选择 10 张 PNG 截图。',
+    'screenshotImportSafPng': '只接受有效静态 PNG，不进行格式转换。',
+    'screenshotImportSafRead': '无法读取所选文档。',
+    'screenshotImportSafCancelled': '已取消截图选择。',
     'importReviewTitle': '校对截图任务',
     'importReviewHint': '逐项确认任务和重复图片。日期仅保留原文，不自动设截止时间。',
     'importBoard': '目标看板',
@@ -1500,6 +1549,29 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleWeekday5': '金',
     'scheduleWeekday6': '土',
     'scheduleWeekday7': '日',
+    'screenshotImportTitle': 'スクリーンショットを取り込む',
+    'screenshotImportHint':
+        'ローカル OCR の実験機能です。静止 PNG を最大10枚（各16 MiB、合計48 MiB）選び、保存前に全項目を確認してください。Android の専用一時コピーは処理中に削除します。モデル配布とプラットフォーム検証は未完了です。',
+    'screenshotImportChecking': 'ローカル OCR の構成を確認中…',
+    'screenshotImportProgress': '画像を処理中：{done}/{total}',
+    'screenshotImportChoose': 'PNG を選ぶ',
+    'screenshotImportRetry': '再確認',
+    'screenshotImportModelsMissing':
+        'OCR モデルがないか読み取れません。スクリーンショット OCR は正式提供されていません。',
+    'screenshotImportNativeMissing':
+        'ネイティブ OCR が利用できません。スクリーンショット OCR は正式提供されていません。',
+    'screenshotImportUnavailable': 'この環境では利用できないか、ローカル構成を確認できません。',
+    'screenshotImportReadFailed': '画像の読み取り・復号・認識に失敗しました。タスクは生成されていません。',
+    'screenshotImportCleanupFailed':
+        '専用一時画像の削除に失敗し、下書きを受理していません。選び直す前に削除を再試行してください。',
+    'screenshotImportSuccess': '確認済みの {count} 項目を取り込みました。',
+    'screenshotImportSafFileLimit': '空でない16 MiB未満の PNG が必要です。上限で読み取りを停止しました。',
+    'screenshotImportSafBatchLimit': '実際の読み取りが合計48 MiBの上限に達しました。',
+    'screenshotImportSafPixelLimit': '画像サイズまたは合計24 Miピクセルの上限を超えました。',
+    'screenshotImportSafCountLimit': 'PNG は最大10枚まで選べます。',
+    'screenshotImportSafPng': '有効な静止 PNG のみ使用できます。形式変換は行いません。',
+    'screenshotImportSafRead': '選んだ文書を読み取れません。',
+    'screenshotImportSafCancelled': '画像選択をキャンセルしました。',
     'importReviewTitle': 'スクリーンショットのタスクを確認',
     'importReviewHint': '各タスクと重複画像を確認してください。日付は未解析の文字列です。',
     'importBoard': '保存先ボード',

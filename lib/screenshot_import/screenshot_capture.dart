@@ -52,7 +52,8 @@ final class ScreenshotCaptureResult {
 
 /// Standalone I3a entry point. I3b supplies navigation/boards and mounts
 /// DraftPreview with [ScreenshotCaptureResult.batch]; this module never saves.
-/// Originals are read from picker-provided paths, never copied to new files.
+/// Desktop originals are read in place. I3b Android supplies bounded private
+/// staging files and releases each one immediately after adaptation.
 /// Cancel/dispose while the picker or native call is pending suppresses its
 /// result. An active native call finishes before its memory can be reclaimed.
 final class ScreenshotCapture {
@@ -95,17 +96,45 @@ final class ScreenshotCapture {
     cancel();
   }
 
-  Future<ScreenshotCaptureResult> pickAndCapture() => _start(null, null);
+  Future<ScreenshotCaptureResult> pickAndCapture({
+    void Function(int done, int total)? onProgress,
+  }) => _start(null, null, null, null, onProgress);
 
   Future<ScreenshotCaptureResult> captureFiles(
     List<PlatformFile> files, {
     OcrCancellationToken? cancellation,
   }) => _start(List<PlatformFile>.of(files), cancellation);
 
+  /// Load Android SAF files one at a time, retaining only memory draft data.
+  Future<ScreenshotCaptureResult> captureSources(
+    int count, {
+    required Future<PlatformFile> Function(int) load,
+    required Future<void> Function(int) release,
+    void Function(int done, int total)? onProgress,
+  }) {
+    if (count < 1 || count > ScreenshotLimits.maxImages) {
+      return Future.value(
+        const ScreenshotCaptureResult(
+          error: 'Select at most 10 PNG screenshots.',
+        ),
+      );
+    }
+    return _start(
+      List.generate(count, (_) => PlatformFile(name: 'pending.png', size: 0)),
+      null,
+      load,
+      release,
+      onProgress,
+    );
+  }
+
   Future<ScreenshotCaptureResult> _start(
     List<PlatformFile>? files,
-    OcrCancellationToken? cancellation,
-  ) async {
+    OcrCancellationToken? cancellation, [
+    Future<PlatformFile> Function(int)? load,
+    Future<void> Function(int)? release,
+    void Function(int, int)? onProgress,
+  ]) async {
     if (_disposed) return const ScreenshotCaptureResult(cancelled: true);
     if (_busy) {
       return const ScreenshotCaptureResult(
@@ -147,7 +176,7 @@ final class ScreenshotCapture {
       }
       final selected = List<PlatformFile>.of(files);
       final scheduled = _tail.then(
-        (_) => _capture(selected, token, generation),
+        (_) => _capture(selected, token, generation, load, release, onProgress),
       );
       _tail = scheduled.then<void>(
         (_) {},
@@ -166,6 +195,9 @@ final class ScreenshotCapture {
     List<PlatformFile> files,
     OcrCancellationToken token,
     int generation,
+    Future<PlatformFile> Function(int)? load,
+    Future<void> Function(int)? release,
+    void Function(int, int)? onProgress,
   ) async {
     var bytesBudget = 0;
     var pixelsBudget = 0;
@@ -186,125 +218,143 @@ final class ScreenshotCapture {
         images.add(failure('Screenshot OCR cancelled.'));
         continue;
       }
-      final path = selected.path;
-      if (!selected.name.toLowerCase().endsWith('.png') ||
-          (path != null && !path.toLowerCase().endsWith('.png'))) {
-        images.add(
-          failure(
-            'Unsupported format: only PNG is accepted; no conversion is performed.',
-          ),
-        );
-        continue;
-      }
-      if (path == null || path.isEmpty) {
-        images.add(failure('Selected screenshot has no readable file path.'));
-        continue;
-      }
       try {
-        final stat = await File(path).stat();
-        if (stat.type != FileSystemEntityType.file) {
-          throw const _CaptureFailure('Screenshot file is unavailable.');
+        final input = load == null ? selected : await load(index);
+        if (_stale(generation)) {
+          return const ScreenshotCaptureResult(cancelled: true);
         }
-        if (stat.size <= 0 || stat.size > ScreenshotLimits.maxFileBytes) {
-          throw const _CaptureFailure(
-            'PNG must be nonempty and at most 16 MiB.',
+        final path = input.path;
+        if (!input.name.toLowerCase().endsWith('.png') ||
+            (path != null && !path.toLowerCase().endsWith('.png'))) {
+          images.add(
+            failure(
+              'Unsupported format: only PNG is accepted; no conversion is performed.',
+            ),
           );
+          continue;
         }
-        if (bytesBudget + stat.size > ScreenshotLimits.maxBatchBytes) {
-          throw const _CaptureFailure(
-            'Screenshot batch exceeds the 48 MiB file budget.',
-          );
+        if (path == null || path.isEmpty) {
+          images.add(failure('Selected screenshot has no readable file path.'));
+          continue;
         }
-        bytesBudget += stat.size;
-        final handle = await File(path).open();
-        late Uint8List png;
-        late int width;
-        late int height;
         try {
-          final header = await handle.read(33);
-          final size = _pngDimensions(header);
-          width = size.$1;
-          height = size.$2;
-          if (pixelsBudget + width * height > ScreenshotLimits.maxBatchPixels) {
+          final stat = await File(path).stat();
+          if (stat.type != FileSystemEntityType.file) {
+            throw const _CaptureFailure('Screenshot file is unavailable.');
+          }
+          if (stat.size <= 0 || stat.size > ScreenshotLimits.maxFileBytes) {
             throw const _CaptureFailure(
-              'Screenshot batch exceeds the 24 Mi-pixel decode budget.',
+              'PNG must be nonempty and at most 16 MiB.',
             );
           }
-          pixelsBudget += width * height;
-          await handle.setPosition(0);
-          // A growing or replaced source cannot trigger an unbounded read.
-          png = await handle.read(stat.size + 1);
-          if (png.length != stat.size) {
+          if (bytesBudget + stat.size > ScreenshotLimits.maxBatchBytes) {
             throw const _CaptureFailure(
-              'Screenshot changed while reading; select it again.',
+              'Screenshot batch exceeds the 48 MiB file budget.',
             );
           }
-          _validatePngChunks(png);
-        } finally {
-          await handle.close();
-        }
-        if (_stale(generation)) {
-          return const ScreenshotCaptureResult(cancelled: true);
-        }
-        if (token.isCancelled) {
-          images.add(failure('Screenshot OCR cancelled.'));
-          continue;
-        }
-        final modelError = await _modelAvailability?.call();
-        if (modelError != null) throw _CaptureFailure(modelError);
-        if (_stale(generation)) {
-          return const ScreenshotCaptureResult(cancelled: true);
-        }
-        if (token.isCancelled) {
-          images.add(failure('Screenshot OCR cancelled.'));
-          continue;
-        }
-        final marks = await _decodeMarks(png, width, height);
-        if (_stale(generation)) {
-          return const ScreenshotCaptureResult(cancelled: true);
-        }
-        if (token.isCancelled) {
-          images.add(failure('Screenshot OCR cancelled.'));
-          continue;
-        }
-        final raw = await _recognize(path, token);
-        if (_stale(generation)) {
-          return const ScreenshotCaptureResult(cancelled: true);
-        }
-        if (token.isCancelled) {
-          images.add(failure('Screenshot OCR cancelled.'));
-          continue;
-        }
-        if (raw.error != null) throw _CaptureFailure(_ocrFailure(raw.error!));
-        final afterOcr = await File(path).stat();
-        if (afterOcr.size != stat.size || afterOcr.modified != stat.modified) {
-          throw const _CaptureFailure(
-            'Screenshot changed during OCR; select it again.',
+          bytesBudget += stat.size;
+          final handle = await File(path).open();
+          late Uint8List png;
+          late int width;
+          late int height;
+          try {
+            final header = await handle.read(33);
+            final size = _pngDimensions(header);
+            width = size.$1;
+            height = size.$2;
+            if (pixelsBudget + width * height >
+                ScreenshotLimits.maxBatchPixels) {
+              throw const _CaptureFailure(
+                'Screenshot batch exceeds the 24 Mi-pixel decode budget.',
+              );
+            }
+            pixelsBudget += width * height;
+            await handle.setPosition(0);
+            // A growing or replaced source cannot trigger an unbounded read.
+            png = await handle.read(stat.size + 1);
+            if (png.length != stat.size) {
+              throw const _CaptureFailure(
+                'Screenshot changed while reading; select it again.',
+              );
+            }
+            _validatePngChunks(png);
+          } finally {
+            await handle.close();
+          }
+          if (_stale(generation)) {
+            return const ScreenshotCaptureResult(cancelled: true);
+          }
+          if (token.isCancelled) {
+            images.add(failure('Screenshot OCR cancelled.'));
+            continue;
+          }
+          final modelError = await _modelAvailability?.call();
+          if (modelError != null) throw _CaptureFailure(modelError);
+          if (_stale(generation)) {
+            return const ScreenshotCaptureResult(cancelled: true);
+          }
+          if (token.isCancelled) {
+            images.add(failure('Screenshot OCR cancelled.'));
+            continue;
+          }
+          final marks = await _decodeMarks(png, width, height);
+          if (_stale(generation)) {
+            return const ScreenshotCaptureResult(cancelled: true);
+          }
+          if (token.isCancelled) {
+            images.add(failure('Screenshot OCR cancelled.'));
+            continue;
+          }
+          final raw = await _recognize(path, token);
+          if (_stale(generation)) {
+            return const ScreenshotCaptureResult(cancelled: true);
+          }
+          if (token.isCancelled) {
+            images.add(failure('Screenshot OCR cancelled.'));
+            continue;
+          }
+          if (raw.error != null) throw _CaptureFailure(_ocrFailure(raw.error!));
+          final afterOcr = await File(path).stat();
+          if (afterOcr.size != stat.size ||
+              afterOcr.modified != stat.modified) {
+            throw const _CaptureFailure(
+              'Screenshot changed during OCR; select it again.',
+            );
+          }
+          if (raw.width != width || raw.height != height) {
+            throw const _CaptureFailure(
+              'OCR dimensions differ from the selected PNG; select it again.',
+            );
+          }
+          final wire = const ScreenshotDraftAdapter().adapt(
+            id: id,
+            result: raw,
+            marks: marks,
+          );
+          images.add(wire);
+          originalBytes[id] = png;
+        } on _CaptureFailure catch (e) {
+          images.add(failure(e.message));
+        } on FileSystemException {
+          images.add(failure('Screenshot file could not be read.'));
+        } on FormatException {
+          images.add(failure('Invalid PNG, image evidence or OCR result.'));
+        } catch (_) {
+          // Neither native errors nor exceptions containing paths/text reach logs.
+          images.add(
+            failure(
+              'Screenshot decoding or OCR failed; no tasks were produced.',
+            ),
           );
         }
-        if (raw.width != width || raw.height != height) {
-          throw const _CaptureFailure(
-            'OCR dimensions differ from the selected PNG; select it again.',
-          );
-        }
-        final wire = const ScreenshotDraftAdapter().adapt(
-          id: id,
-          result: raw,
-          marks: marks,
-        );
-        images.add(wire);
-        originalBytes[id] = png;
-      } on _CaptureFailure catch (e) {
+      } on ScreenshotInputFailure catch (e) {
         images.add(failure(e.message));
-      } on FileSystemException {
-        images.add(failure('Screenshot file could not be read.'));
-      } on FormatException {
-        images.add(failure('Invalid PNG, image evidence or OCR result.'));
       } catch (_) {
-        // Neither native errors nor exceptions containing paths/text reach logs.
-        images.add(
-          failure('Screenshot decoding or OCR failed; no tasks were produced.'),
-        );
+        images.add(failure('Screenshot file could not be read.'));
+      } finally {
+        // Propagate cleanup failure: a draft must not conceal retained sources.
+        await release?.call(index);
+        onProgress?.call(index + 1, files.length);
       }
     }
     if (_stale(generation)) {
@@ -319,6 +369,11 @@ final class ScreenshotCapture {
       }),
     );
   }
+}
+
+final class ScreenshotInputFailure implements Exception {
+  const ScreenshotInputFailure(this.message);
+  final String message;
 }
 
 final class _CaptureFailure implements Exception {

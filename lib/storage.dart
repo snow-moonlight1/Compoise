@@ -1903,6 +1903,24 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   Future<SaveResult> applyImport(
     ImportPlan plan, {
     bool importCredential = false,
+  }) => _acceptImport(plan, importCredential: importCredential);
+
+  /// Screenshot callers provide only confirmed task fields, never source data.
+  /// The guard runs again inside the commit owner against the live review state.
+  Future<SaveResult> applyScreenshotImport(
+    Map<String, dynamic> payload, {
+    required String boardId,
+    required bool Function() stillConfirmed,
+  }) {
+    if (!stillConfirmed()) return Future.value(const SaveResult(false, 0));
+    final plan = previewImport(payload, 'merge', targetBoardId: boardId);
+    return _acceptImport(plan, stillConfirmed: stillConfirmed);
+  }
+
+  Future<SaveResult> _acceptImport(
+    ImportPlan plan, {
+    bool importCredential = false,
+    bool Function()? stillConfirmed,
   }) {
     // Reserve the secure queue when the import is accepted, before any later
     // user edit can enqueue its credential operation.
@@ -1919,6 +1937,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         importCredential: importCredential,
         intentAtStart: intentAtAcceptance,
         reservation: reservation,
+        stillConfirmed: stillConfirmed,
       ),
     ).whenComplete(() => _credentialImports.remove(reservation));
   }
@@ -1928,6 +1947,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     required bool importCredential,
     required int intentAtStart,
     required _CredentialImportReservation reservation,
+    bool Function()? stillConfirmed,
   }) async {
     late ImportPlan effective;
     var oldCredential = _confirmedCredential;
@@ -1935,6 +1955,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await reservation.prior;
       if (_disposed ||
+          (stillConfirmed != null && !stillConfirmed()) ||
           plan.conflicts != 0 ||
           hasStartupRecovery ||
           credentialError != null) {
@@ -1963,7 +1984,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       // Commands may have changed the live library while secure storage was
       // pending. The final plan must use that library, as RF02 requires.
       final rebased = _rebaseImport(plan);
-      if (rebased == null || rebased.conflicts != 0) {
+      if (rebased == null ||
+          rebased.conflicts != 0 ||
+          (stillConfirmed != null && !stillConfirmed())) {
         if (newCredential != oldCredential &&
             await _restoreCredential(oldCredential)) {
           _confirmedCredential = oldCredential;

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
+import '../screenshot_import/screenshot_backend.dart';
+import '../screenshot_import/screenshot_import_page.dart';
 import '../storage.dart';
 import '../shortcuts.dart';
 import '../services/desktop_exit_coordinator.dart';
@@ -27,11 +29,13 @@ import 'today_screen.dart';
 
 class MatrixHome extends StatefulWidget {
   final DesktopShellService? desktopShell;
+  final ScreenshotBackend? screenshotBackend;
   final Duration exitSaveTimeout;
 
   const MatrixHome({
     super.key,
     this.desktopShell,
+    this.screenshotBackend,
     this.exitSaveTimeout = const Duration(seconds: 8),
   });
 
@@ -850,7 +854,51 @@ class _MatrixHomeState extends State<MatrixHome> {
   }
 
   Future<void> _openMore() async {
-    final action = await showHomeMore(context);
+    final policy = PlatformUiPolicy.of(context);
+    Widget panel(BuildContext ctx) => ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(ctx).height,
+        maxWidth: 400,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            key: const ValueKey('more-screenshot-import'),
+            leading: const Icon(Icons.image_outlined),
+            title: Text(ctx.read<Store>().t['screenshotImportTitle']!),
+            onTap: () => Navigator.of(ctx).pop('screenshot-import'),
+          ),
+          const Flexible(child: HomeMorePanel()),
+        ],
+      ),
+    );
+    final Object? action;
+    if (policy.isTouchLayout) {
+      action = await showModalBottomSheet<Object>(
+        context: context, isScrollControlled: true, useSafeArea: true,
+        builder: panel,
+      );
+    } else {
+      action = await showDialog<Object>(
+        context: context,
+        builder: (ctx) => Dialog(
+          alignment: Alignment.topRight,
+          insetPadding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
+          child: panel(ctx),
+        ),
+      );
+    }
+    if (action == 'screenshot-import') {
+      if (!mounted || !await _protectDetailDraft() || !mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              ScreenshotImportPage(backend: widget.screenshotBackend),
+        ),
+      );
+      return;
+    }
     if (!mounted || action == null) return;
     switch (action) {
       case HomeMoreAction.switchBoard:
@@ -866,6 +914,8 @@ class _MatrixHomeState extends State<MatrixHome> {
         });
       case HomeMoreAction.settings:
         _openSettings();
+      default:
+        break;
     }
   }
 
