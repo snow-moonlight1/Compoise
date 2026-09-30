@@ -2,6 +2,8 @@
 library;
 
 import 'models.dart';
+import 'schedule_item.dart';
+import 'recovery_text.dart';
 
 /// Thrown when importing an export payload with an unsupported or unknown future version.
 class UnsupportedDataVersionException extends FormatException {
@@ -24,6 +26,7 @@ class MigrationResult {
   final int targetVersion;
   final List<Board> boards;
   final List<Task> tasks;
+  final List<ScheduleItem> scheduleItems;
   final AppSettings? settings;
   final AIConfig? aiConfig;
   final List<String> warnings;
@@ -33,6 +36,7 @@ class MigrationResult {
     required this.targetVersion,
     required this.boards,
     required this.tasks,
+    this.scheduleItems = const [],
     this.settings,
     this.aiConfig,
     this.warnings = const [],
@@ -44,6 +48,7 @@ class DataMigrator {
   static const int currentVersion = ExportData.currentVersion;
   static const int legacyVersion = ExportData.legacyVersion;
   static const Set<int> supportedVersions = ExportData.supportedVersions;
+  static const maxScheduleTitleBytes = 4096;
 
   /// Pure functional validation and migration of an export JSON map.
   ///
@@ -55,7 +60,9 @@ class DataMigrator {
     int sourceVersion = legacyVersion;
     if (json.containsKey('version')) {
       final rawVersion = json['version'];
-      if (rawVersion is! num || rawVersion.toInt() != rawVersion) {
+      if (rawVersion is! num ||
+          !rawVersion.isFinite ||
+          rawVersion.toInt() != rawVersion) {
         throw FormatException('Invalid version type in payload: $rawVersion');
       }
       final v = rawVersion.toInt();
@@ -133,6 +140,39 @@ class DataMigrator {
       );
     }
 
+    final schedule = <ScheduleItem>[];
+    if (sourceVersion == 3) {
+      final rawSchedule = json['scheduleItems'];
+      if (rawSchedule is! List) {
+        throw const FormatException('Missing or invalid scheduleItems array');
+      }
+      for (final raw in rawSchedule) {
+        if (raw is! Map<String, dynamic>) {
+          throw const FormatException('Invalid schedule record');
+        }
+        late ScheduleItem item;
+        try {
+          item = ScheduleItem.fromJson(raw);
+        } catch (_) {
+          throw CorruptDataPayloadException('Invalid schedule record');
+        }
+        if (item.title != null &&
+            jsonStringUtf8Length(item.title!) > maxScheduleTitleBytes) {
+          throw const FormatException('Schedule title exceeds the byte limit');
+        }
+        schedule.add(item);
+      }
+      validateScheduleCollection(
+        schedule,
+        parentTaskIds: parsedTasks.map((task) => task.id).toSet(),
+        boardIds: parsedBoards.map((board) => board.id).toSet(),
+      );
+    } else if (json.containsKey('scheduleItems')) {
+      warnings.add(
+        'Unknown legacy field scheduleItems ignored; no schedules restored',
+      );
+    }
+
     // 5. Parse settings with whitelist and safe defaults
     AppSettings? parsedSettings;
     if (json['settings'] != null) {
@@ -157,7 +197,7 @@ class DataMigrator {
 
     // 7. Version upgrade normalization
     if (sourceVersion == legacyVersion) {
-      warnings.add('Successfully migrated legacy v1 payload to v2');
+      warnings.add('Successfully migrated legacy v1 payload to v3');
     }
 
     return MigrationResult(
@@ -165,6 +205,7 @@ class DataMigrator {
       targetVersion: currentVersion,
       boards: parsedBoards,
       tasks: parsedTasks,
+      scheduleItems: schedule,
       settings: parsedSettings,
       aiConfig: parsedConfig,
       warnings: warnings,

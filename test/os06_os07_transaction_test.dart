@@ -227,7 +227,7 @@ void main() {
         contains('Empty backup'),
       );
       expect(
-        () => store.previewImport({...payload(), 'version': 3}, 'overwrite'),
+        () => store.previewImport({...payload(), 'version': 4}, 'overwrite'),
         throwsFormatException,
       );
       expect(

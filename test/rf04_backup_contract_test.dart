@@ -1102,8 +1102,8 @@ void main() {
     late String aId;
     late String bId;
     final notes = _cjk * 440000;
-    // Board A needs two parts on its own, board B a third: 10.6 MB of text
-    // cannot be carried by the 8 MiB file ceiling. `Store.init` starts a
+    // 10.6 MB of text cannot be carried by the 8 MiB file ceiling. The v3
+    // content/dependency budget determines the volume count. `Store.init` starts a
     // periodic timer, so it is built on the real clock.
     await tester.runAsync(() async {
       await store.init();
@@ -1151,18 +1151,20 @@ void main() {
       onBusyChanged: (_) {},
       writeFile: (path, bytes) async => written[path] = bytes,
     );
-    final picker = _Recorder(saves: 3);
+    final total = (await tester.runAsync(store.exportBackup))!.parts.length;
+    expect(total, greaterThan(1));
+    final picker = _Recorder(saves: total);
     FilePicker.platform = picker;
     final result = await _exportWithChoice(tester, flow, context, store);
     expect(result.outcome, BackupOutcome.succeeded);
-    expect(picker.asked, hasLength(3));
-    expect(picker.asked.first, contains('part1of3'));
-    expect(picker.asked.last, contains('part3of3'));
-    expect(result.message, contains('3'));
+    expect(picker.asked, hasLength(total));
+    expect(picker.asked.first, contains('part1of$total'));
+    expect(picker.asked.last, contains('part${total}of$total'));
+    expect(result.message, contains('$total'));
     expect(result.message, contains(store.t['exportPartsHint']));
     // What the files carry is a part set a fresh library can restore: every
     // file is inside the ceiling and together they hold all eight tasks.
-    expect(written, hasLength(3));
+    expect(written, hasLength(total));
     final ids = <String>{};
     for (final bytes in written.values) {
       expect(bytes, hasLength(lessThanOrEqualTo(ImportPreflight.maxFileBytes)));

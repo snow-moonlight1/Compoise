@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'data_migrations.dart';
 import 'models.dart';
 import 'recovery_text.dart';
+import 'schedule_item.dart';
 
 class ImportPlan {
   final String mode;
@@ -13,6 +14,7 @@ class ImportPlan {
   final String? targetBoardId;
   final List<Board> boards;
   final List<Task> tasks;
+  final List<ScheduleItem> scheduleItems;
   final AppSettings? settings;
   final AIConfig? aiConfig;
   final bool hasCredential;
@@ -25,11 +27,15 @@ class ImportPlan {
   final Map<String, dynamic>? payload;
   final int addedBoards;
   final int addedTasks;
+  final int addedScheduleItems;
+  final int skippedScheduleItems;
+  final int conflictingScheduleItems;
   final int skipped;
   final int conflicts;
   final int repaired;
   final int removedBoards;
   final int removedTasks;
+  final int removedScheduleItems;
   final List<String> warnings;
   final int baseRevision;
 
@@ -38,17 +44,22 @@ class ImportPlan {
     this.targetBoardId,
     required this.boards,
     required this.tasks,
+    this.scheduleItems = const [],
     this.settings,
     this.aiConfig,
     this.hasCredential = false,
     this.payload,
     required this.addedBoards,
     required this.addedTasks,
+    this.addedScheduleItems = 0,
+    this.skippedScheduleItems = 0,
+    this.conflictingScheduleItems = 0,
     required this.skipped,
     required this.conflicts,
     required this.repaired,
     required this.removedBoards,
     required this.removedTasks,
+    this.removedScheduleItems = 0,
     required this.warnings,
     required this.baseRevision,
   });
@@ -78,32 +89,25 @@ class BackupRejectedException implements FormatException {
 }
 
 class ImportPreflight {
-  /// UTF-8 bytes of task text one backup file is guaranteed to carry. A single
-  /// record may use the whole budget, which is why the file ceiling below is
-  /// larger than this: `maxBytes` alone was rejected as a file ceiling by
-  /// RF-R04, because the JSON around 4 MiB of notes is already over 4 MiB.
+  /// Target escaped JSON content bytes per volume, including boards, tasks,
+  /// schedules and their dependencies. Indivisible groups may exceed this
+  /// target but must still fit [maxFileBytes].
   static const maxBytes = 4 * 1024 * 1024;
 
-  /// Ceiling for one backup file, i.e. the bounded read. Derived, not chosen:
-  /// `maxBytes` of text + the structural bytes a library at the record caps
-  /// costs on its own (measured in `test/review/rf04_size_measurement.dart`:
-  /// 10000 tasks x 146 B + 50000 subtasks x 39 B + 500 boards x 34 B
-  /// = 3.27 MiB) + the 751 B envelope an empty export already has, rounded up
-  /// to 8 MiB, which leaves ~0.7 MiB for key escaping. Measured cost at this
-  /// size is ~100 ms to encode and ~150 ms to decode.
+  /// Hard UTF-8 bounded-read ceiling. V3 measures all content and the actual
+  /// envelope instead of assuming v2's structural overhead; larger libraries
+  /// require a complete, simulated split (see WP15_B1_NOTES.md).
   static const maxFileBytes = 8 * 1024 * 1024;
 
-  /// A library whose text exceeds `maxBytes` still has to be recoverable, so
-  /// export splits it into at most this many files of `maxFileBytes` each —
-  /// together about 64 MiB, roughly ten times the largest library the record
-  /// caps allow (measured 6.52 MiB). Beyond that the library is outside the
-  /// supported contract and export says so instead of claiming a backup it
-  /// cannot restore.
+  /// Historical UI/test threshold, not a volume count gate. Recovery archives
+  /// can use more volumes; every file still obeys bytes/depth validation.
   static const maxParts = 8;
 
   static const maxBoards = 500;
   static const maxTasks = 10000;
   static const maxSubtasks = 50000;
+  static const maxScheduleItems = 10000;
+  static const maxScheduleTitleBytes = DataMigrator.maxScheduleTitleBytes;
   static const maxDepth = 12;
 
   static dynamic _freezeJson(dynamic value) {
@@ -165,6 +169,7 @@ class ImportPreflight {
     String? targetBoardId,
     required List<Board> currentBoards,
     required List<Task> currentTasks,
+    List<ScheduleItem> currentScheduleItems = const [],
     required int revision,
   }) {
     if (mode != 'merge' && mode != 'overwrite') {
@@ -210,12 +215,19 @@ class ImportPreflight {
     }
     final boardsRaw = payload['boards'] as List;
     final tasksRaw = payload['tasks'] as List;
+    final isV3 = payload['version'] == 3;
+    if (isV3 && payload['scheduleItems'] is! List) {
+      throw const FormatException('Missing or invalid scheduleItems array');
+    }
+    final scheduleRaw = isV3 ? payload['scheduleItems'] as List : const [];
     // `recovery: true` is this app's own archive of a library past the count
     // caps. Only that marker may pass the count checks. A hand-built file
     // without it still stops at the caps.
     final recovery = payload['recovery'] == true;
     if (!recovery &&
-        (boardsRaw.length > maxBoards || tasksRaw.length > maxTasks)) {
+        (boardsRaw.length > maxBoards ||
+            tasksRaw.length > maxTasks ||
+            scheduleRaw.length > maxScheduleItems)) {
       throw const BackupRejectedException(
         'importErrorTooManyRecords',
         'Backup record limit exceeded',
@@ -271,6 +283,7 @@ class ImportPreflight {
       'aiConfig',
       'recovery',
       'recoveryChunks',
+      if (isV3) 'scheduleItems',
     }, 'Backup');
     if (payload['settings'] is Map<String, dynamic>) {
       final rawSettings = payload['settings'] as Map<String, dynamic>;
@@ -442,6 +455,22 @@ class ImportPreflight {
       taskIds[task.id] = canonical;
       cleanTasks.add(normalized);
     }
+    for (var i = 0; i < scheduleRaw.length; i++) {
+      final raw = scheduleRaw[i];
+      if (raw is! Map<String, dynamic>) {
+        throw const FormatException('Invalid schedule record');
+      }
+      unknown(raw, {
+        'id',
+        'kind',
+        'taskId',
+        'boardId',
+        'title',
+        'startAt',
+        'endAt',
+        'timeZoneId',
+      }, 'Schedule ${i + 1}');
+    }
     final migration = DataMigrator.migratePayload({
       ...payload,
       'boards': cleanBoards,
@@ -457,9 +486,16 @@ class ImportPreflight {
     final resultTasks = mode == 'merge'
         ? List<Task>.from(currentTasks)
         : List<Task>.from(migration.tasks);
+    final resultSchedule = mode == 'merge'
+        ? List<ScheduleItem>.from(currentScheduleItems)
+        : List<ScheduleItem>.from(migration.scheduleItems);
     var addedBoards = 0;
     var addedTasks = 0;
     var conflicts = 0;
+    var addedSchedule = mode == 'overwrite' ? resultSchedule.length : 0;
+    var skippedSchedule = 0;
+    var conflictingSchedule = 0;
+    final blockedTasks = <String>{};
     if (mode == 'merge') {
       if (targetBoardId == null) {
         for (final board in migration.boards) {
@@ -478,6 +514,7 @@ class ImportPreflight {
       final sourceIds = migration.boards.map((board) => board.id).toSet();
       for (final task in migration.tasks) {
         if (targetBoardId != null && !sourceIds.contains(task.boardId)) {
+          blockedTasks.add(task.id);
           skipped++;
           warnings.add('Orphan task skipped');
           continue;
@@ -486,6 +523,7 @@ class ImportPreflight {
             ? task
             : Task.fromJson({...task.toJson(), 'boardId': targetBoardId});
         if (!validIds.contains(imported.boardId)) {
+          blockedTasks.add(task.id);
           skipped++;
           warnings.add('Orphan task skipped');
           continue;
@@ -497,6 +535,7 @@ class ImportPreflight {
         } else if (jsonEncode(old.toJson()) == jsonEncode(imported.toJson())) {
           skipped++;
         } else {
+          blockedTasks.add(imported.id);
           conflicts++;
         }
       }
@@ -525,6 +564,40 @@ class ImportPreflight {
       addedBoards = resultBoards.length;
       addedTasks = resultTasks.length;
     }
+    if (mode == 'merge') {
+      final existingSchedule = {
+        for (final item in currentScheduleItems) item.id: item,
+      };
+      for (final item in migration.scheduleItems) {
+        if (item.taskId != null && blockedTasks.contains(item.taskId)) {
+          throw const FormatException(
+            'Schedule parent task could not be imported',
+          );
+        }
+        final imported = targetBoardId != null && item.boardId != null
+            ? ScheduleItem.fromJson({
+                ...item.toJson(),
+                'boardId': targetBoardId,
+              })
+            : item;
+        final old = existingSchedule[imported.id];
+        if (old == null) {
+          resultSchedule.add(imported);
+          addedSchedule++;
+        } else if (jsonEncode(old.toJson()) == jsonEncode(imported.toJson())) {
+          skipped++;
+          skippedSchedule++;
+        } else {
+          conflicts++;
+          conflictingSchedule++;
+        }
+      }
+    }
+    validateScheduleCollection(
+      resultSchedule,
+      parentTaskIds: resultTasks.map((task) => task.id).toSet(),
+      boardIds: resultBoards.map((board) => board.id).toSet(),
+    );
     // The caps define an ordinary backup. A merge that is legal by itself
     // would otherwise walk an already large library past the ceiling.
     // A recovery archive is the lossless way out for a library that is
@@ -537,7 +610,8 @@ class ImportPreflight {
     if (!recovery &&
         (resultBoards.length > maxBoards ||
             resultTasks.length > maxTasks ||
-            resultChildren > maxSubtasks)) {
+            resultChildren > maxSubtasks ||
+            resultSchedule.length > maxScheduleItems)) {
       throw const BackupRejectedException(
         'importErrorTooManyRecords',
         'Import would exceed the supported library limits',
@@ -555,6 +629,7 @@ class ImportPreflight {
       targetBoardId: targetBoardId,
       boards: resultBoards,
       tasks: resultTasks,
+      scheduleItems: resultSchedule,
       settings: mode == 'overwrite' ? migration.settings : null,
       aiConfig: mode == 'overwrite' ? migration.aiConfig : null,
       hasCredential:
@@ -566,11 +641,17 @@ class ImportPreflight {
       payload: _freezeJson(payload) as Map<String, dynamic>,
       addedBoards: addedBoards,
       addedTasks: addedTasks,
+      addedScheduleItems: addedSchedule,
+      skippedScheduleItems: skippedSchedule,
+      conflictingScheduleItems: conflictingSchedule,
       skipped: skipped,
       conflicts: conflicts,
       repaired: repairs,
       removedBoards: mode == 'overwrite' ? currentBoards.length : 0,
       removedTasks: mode == 'overwrite' ? currentTasks.length : 0,
+      removedScheduleItems: mode == 'overwrite'
+          ? currentScheduleItems.length
+          : 0,
       warnings: warnings,
       baseRevision: revision,
     );

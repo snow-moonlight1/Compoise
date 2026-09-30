@@ -2,10 +2,12 @@
 library;
 
 import 'dart:math';
+import 'dart:convert';
 import 'dart:ui' show Locale;
 import 'ai_presets.dart';
 import 'quadrant.dart';
 import 'task_tags.dart';
+import 'schedule_item.dart';
 
 export 'dart:ui' show Locale;
 export 'quadrant.dart';
@@ -173,6 +175,7 @@ class Task {
   bool completed;
   int createdAt;
   int? deadline;
+
   /// Day the task is scheduled for, local civil midnight. Independent of
   /// [deadline]: a plan never moves a quadrant nor makes a task urgent.
   int? plannedDate;
@@ -542,16 +545,40 @@ class AppSettings {
   }
 }
 
+/// A caller must acknowledge schedule loss before writing an older format.
+class ScheduleExportLossException implements Exception {
+  const ScheduleExportLossException(this.lostScheduleItems);
+
+  final int lostScheduleItems;
+
+  @override
+  String toString() =>
+      'Legacy export requires confirmation: $lostScheduleItems schedule items lost';
+}
+
+class BackupExportResult {
+  const BackupExportResult({
+    required this.json,
+    required this.version,
+    required this.lostScheduleItems,
+  });
+
+  final String json;
+  final int version;
+  final int lostScheduleItems;
+}
+
 class ExportData {
-  static const currentVersion = 2;
+  static const currentVersion = 3;
   static const legacyVersion = 1;
   static const version = currentVersion;
-  static const supportedVersions = {1, 2};
+  static const supportedVersions = {1, 2, 3};
 
   final int versionNumber;
   final int timestamp;
   final List<Board> boards;
   final List<Task> tasks;
+  final List<ScheduleItem> scheduleItems;
   final AppSettings settings;
   final AIConfig aiConfig;
 
@@ -560,27 +587,52 @@ class ExportData {
     int? timestamp,
     required this.boards,
     required this.tasks,
+    this.scheduleItems = const [],
     required this.settings,
     required this.aiConfig,
   }) : versionNumber = version ?? currentVersion,
        timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
 
   factory ExportData.fromJson(Map<String, dynamic> j) {
-    final v = (j['version'] as num?)?.toInt() ?? legacyVersion;
+    final rawVersion = j['version'];
+    if (j.containsKey('version') &&
+        (rawVersion is! num ||
+            !rawVersion.isFinite ||
+            rawVersion.toInt() != rawVersion)) {
+      throw const FormatException('Invalid export version');
+    }
+    final v = (rawVersion as num?)?.toInt() ?? legacyVersion;
     if (!supportedVersions.contains(v)) {
       throw FormatException('Unsupported export version: $v');
     }
+    if (v == 3 && j['scheduleItems'] is! List) {
+      throw const FormatException('Missing or invalid scheduleItems');
+    }
+    final boards = ((j['boards'] as List?) ?? [])
+        .cast<Map<String, dynamic>>()
+        .map(Board.fromJson)
+        .toList();
+    final tasks = ((j['tasks'] as List?) ?? [])
+        .cast<Map<String, dynamic>>()
+        .map(Task.fromJson)
+        .toList();
+    final schedule = v == 3
+        ? (j['scheduleItems'] as List)
+              .cast<Map<String, dynamic>>()
+              .map(ScheduleItem.fromJson)
+              .toList()
+        : <ScheduleItem>[];
+    validateScheduleCollection(
+      schedule,
+      parentTaskIds: tasks.map((task) => task.id).toSet(),
+      boardIds: boards.map((board) => board.id).toSet(),
+    );
     return ExportData(
       version: v,
       timestamp: (j['timestamp'] as num?)?.toInt(),
-      boards: ((j['boards'] as List?) ?? [])
-          .cast<Map<String, dynamic>>()
-          .map(Board.fromJson)
-          .toList(),
-      tasks: ((j['tasks'] as List?) ?? [])
-          .cast<Map<String, dynamic>>()
-          .map(Task.fromJson)
-          .toList(),
+      boards: boards,
+      tasks: tasks,
+      scheduleItems: schedule,
       settings: j['settings'] != null && j['settings'] is Map<String, dynamic>
           ? AppSettings.fromJson(j['settings'] as Map<String, dynamic>)
           : AppSettings(),
@@ -593,15 +645,43 @@ class ExportData {
   Map<String, dynamic> toJson({
     int? targetVersion,
     bool includeCredential = false,
+    bool allowScheduleLoss = false,
   }) {
     final v = targetVersion ?? versionNumber;
+    if (!supportedVersions.contains(v)) {
+      throw FormatException('Unsupported export version: $v');
+    }
+    if (v < 3 && scheduleItems.isNotEmpty && !allowScheduleLoss) {
+      throw ScheduleExportLossException(scheduleItems.length);
+    }
     return {
       'version': v,
       'timestamp': timestamp,
       'boards': boards.map((b) => b.toJson()).toList(),
       'tasks': tasks.map((t) => t.toJson(targetVersion: v)).toList(),
+      if (v == 3)
+        'scheduleItems': scheduleItems.map((item) => item.toJson()).toList(),
       'settings': settings.toJson(targetVersion: v),
       'aiConfig': aiConfig.toJson(includeCredential: includeCredential),
     };
+  }
+
+  BackupExportResult exportResult({
+    int? targetVersion,
+    bool includeCredential = false,
+    bool allowScheduleLoss = false,
+  }) {
+    final v = targetVersion ?? versionNumber;
+    return BackupExportResult(
+      json: jsonEncode(
+        toJson(
+          targetVersion: v,
+          includeCredential: includeCredential,
+          allowScheduleLoss: allowScheduleLoss,
+        ),
+      ),
+      version: v,
+      lostScheduleItems: v < 3 ? scheduleItems.length : 0,
+    );
   }
 }

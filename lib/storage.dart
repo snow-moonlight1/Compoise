@@ -1786,20 +1786,33 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // --- import / export (ExportData v2 standard, v1 downgrade compatible) ---
+  // --- import / export (v3 standard, explicit lossy v1/v2 compatibility) ---
 
-  String exportJson({int version = ExportData.currentVersion}) => jsonEncode(
-    ExportData(
-      version: version,
-      boards: boards,
-      tasks: tasks,
-      settings: settings,
-      aiConfig: aiConfig,
-    ).toJson(targetVersion: version),
-  );
+  String exportJson({int version = ExportData.currentVersion}) =>
+      exportJsonResult(version: version).json;
+
+  /// After presenting [ScheduleExportLossException.lostScheduleItems], callers
+  /// can explicitly acknowledge a legacy export. The result retains that count
+  /// for display; the ordinary String export never silently drops schedules.
+  BackupExportResult exportJsonResult({
+    int version = ExportData.currentVersion,
+    bool allowScheduleLoss = false,
+  }) => ExportData(
+    version: version,
+    boards: boards,
+    tasks: tasks,
+    scheduleItems: scheduleItems,
+    settings: settings,
+    aiConfig: aiConfig,
+  ).exportResult(targetVersion: version, allowScheduleLoss: allowScheduleLoss);
 
   Future<String> exportJsonWithCredential({
     int version = ExportData.currentVersion,
+  }) async => (await exportJsonResultWithCredential(version: version)).json;
+
+  Future<BackupExportResult> exportJsonResultWithCredential({
+    int version = ExportData.currentVersion,
+    bool allowScheduleLoss = false,
   }) async {
     await _drainCommits();
     await _credentialWrites;
@@ -1810,14 +1823,17 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
     final config = _copyConfig(aiConfig);
     config.apiKey = secured ?? '';
-    return jsonEncode(
-      ExportData(
-        version: version,
-        boards: boards,
-        tasks: tasks,
-        settings: settings,
-        aiConfig: config,
-      ).toJson(targetVersion: version, includeCredential: true),
+    return ExportData(
+      version: version,
+      boards: boards,
+      tasks: tasks,
+      scheduleItems: scheduleItems,
+      settings: settings,
+      aiConfig: config,
+    ).exportResult(
+      targetVersion: version,
+      includeCredential: true,
+      allowScheduleLoss: allowScheduleLoss,
     );
   }
 
@@ -1862,6 +1878,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     targetBoardId: targetBoardId,
     currentBoards: boards,
     currentTasks: tasks,
+    currentScheduleItems: scheduleItems,
     revision: _dirtyRevision,
   );
 
@@ -2051,6 +2068,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         targetBoardId: plan.targetBoardId,
         currentBoards: boards,
         currentTasks: tasks,
+        currentScheduleItems: scheduleItems,
         revision: _dirtyRevision,
       );
     } catch (_) {
@@ -2073,6 +2091,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// put back, and [activeBoardId] is moved onto a board that still exists
   /// when the selection named one this rollback dropped.
   void _rollbackImport(StoreSnapshot before, Map<String, String> atCommit) {
+    final liveSchedule = {
+      for (final item in _scheduleItems) item.id: jsonEncode(item.toJson()),
+    };
     final liveBoards = [
       for (final board in _boards) Board.fromJson(board.toJson()),
     ];
@@ -2108,6 +2129,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _retainDependenciesOfKeptSchedule(liveTasks, liveBoards);
     _retainDependenciesOfKeptTasks(liveBoards);
     _removeOrphanScheduleItems();
+    final restoredSchedule = {
+      for (final item in _scheduleItems) item.id: jsonEncode(item.toJson()),
+    };
+    for (final id in {...liveSchedule.keys, ...restoredSchedule.keys}) {
+      if (liveSchedule[id] != restoredSchedule[id]) _touchSchedule(id);
+    }
     if (!_boards.any((board) => board.id == activeBoardId)) {
       activeBoardId = _boards.any((board) => board.id == before.activeBoardId)
           ? before.activeBoardId
@@ -2200,12 +2227,17 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       for (final board in plan.boards) {
         bumpBoardEpoch(board.id);
       }
-      for (final item in _scheduleItems) {
-        _touchSchedule(item.id);
-      }
-      // Until v3 file import is implemented, legacy overwrite has no schedule.
-      _scheduleItems = [];
     }
+    final previousSchedule = {for (final item in _scheduleItems) item.id: item};
+    final nextSchedule = {for (final item in plan.scheduleItems) item.id: item};
+    for (final id in {...previousSchedule.keys, ...nextSchedule.keys}) {
+      if (plan.mode == 'overwrite' ||
+          jsonEncode(previousSchedule[id]?.toJson()) !=
+              jsonEncode(nextSchedule[id]?.toJson())) {
+        _touchSchedule(id);
+      }
+    }
+    _scheduleItems = List<ScheduleItem>.from(plan.scheduleItems);
     _boards = plan.boards;
     _tasks = plan.tasks;
     settings = plan.settings ?? settings;

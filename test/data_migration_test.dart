@@ -23,11 +23,11 @@ void main() {
   });
 
   group('WP11-N: DataMigrator unit tests', () {
-    test('migrates v1 fixture to v2 with safe defaults', () {
+    test('migrates v1 fixture to v3 with safe defaults', () {
       final result = DataMigrator.migratePayload(v1FixtureJson);
 
       expect(result.sourceVersion, 1);
-      expect(result.targetVersion, 2);
+      expect(result.targetVersion, 3);
       expect(result.boards.length, 1);
       expect(result.boards.first.id, 'b-v1-test');
       expect(result.boards.first.name, 'Legacy V1 Board');
@@ -51,7 +51,7 @@ void main() {
       expect(result.settings!.closeToTray, isFalse); // default fallback
       expect(result.settings!.globalShortcut, 'Ctrl+Alt+M'); // default fallback
 
-      expect(result.warnings.any((w) => w.contains('v1') && w.contains('v2')), isTrue);
+      expect(result.warnings.any((w) => w.contains('v1') && w.contains('v3')), isTrue);
     });
 
     test('treats payload without explicit version as legacy v1', () {
@@ -59,7 +59,7 @@ void main() {
       final result = DataMigrator.migratePayload(unversioned);
 
       expect(result.sourceVersion, 1);
-      expect(result.targetVersion, 2);
+      expect(result.targetVersion, 3);
       expect(result.tasks.first.id, 't-v1-task');
     });
 
@@ -67,7 +67,7 @@ void main() {
       final result = DataMigrator.migratePayload(v2FixtureJson);
 
       expect(result.sourceVersion, 2);
-      expect(result.targetVersion, 2);
+      expect(result.targetVersion, 3);
       expect(result.boards.first.id, 'b-v2-test');
       expect(result.tasks.first.id, 't-v2-task');
       expect(result.tasks.first.isLongTerm, isTrue);
@@ -105,14 +105,14 @@ void main() {
       expect(result.warnings.any((w) => w.contains('Duplicate task ID removed: t1')), isTrue);
     });
 
-    test('strictly rejects unsupported future versions (e.g. version 3, 99)', () {
-      final futurePayloadV3 = Map<String, dynamic>.from(v2FixtureJson)..['version'] = 3;
+    test('strictly rejects unsupported future versions (e.g. version 4, 99)', () {
+      final futurePayloadV4 = Map<String, dynamic>.from(v2FixtureJson)..['version'] = 4;
       expect(
-        () => DataMigrator.migratePayload(futurePayloadV3),
+        () => DataMigrator.migratePayload(futurePayloadV4),
         throwsA(isA<UnsupportedDataVersionException>().having(
           (e) => e.version,
           'version',
-          3,
+          4,
         )),
       );
 
@@ -157,7 +157,7 @@ void main() {
       ).toJson();
 
       final secondPass = DataMigrator.migratePayload(serializedAgain);
-      expect(secondPass.targetVersion, 2);
+      expect(secondPass.targetVersion, 3);
       expect(secondPass.boards.length, firstPass.boards.length);
       expect(secondPass.tasks.length, firstPass.tasks.length);
       expect(secondPass.tasks.first.title, firstPass.tasks.first.title);
@@ -190,7 +190,7 @@ void main() {
 
       // Attempt 1: Unsupported future version
       expect(
-        () => store.importData({'version': 3, 'boards': [], 'tasks': []}, 'overwrite'),
+        () => store.importData({'version': 4, 'boards': [], 'tasks': []}, 'overwrite'),
         throwsFormatException,
       );
       expect(store.boards.single.id, 'safe-b');
@@ -297,7 +297,7 @@ void main() {
       final exportedJsonStr = androidStore.exportJson();
       final exportedMap = jsonDecode(exportedJsonStr) as Map<String, dynamic>;
 
-      expect(exportedMap['version'], 2);
+      expect(exportedMap['version'], 3);
 
       // Create target store (e.g. simulated Windows desktop)
       final (windowsStore, _) = await makeStore();
