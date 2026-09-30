@@ -364,6 +364,31 @@ const Map<Language, Map<String, String>> _dicts = {
     'decomposingSingle': 'Decomposing…',
     'dataManagement': 'Data Backup',
     'exportData': 'Export JSON',
+    'backupVersionInfo':
+        'Export v3 includes boards, tasks, schedules and settings. Import accepts v1/v2/v3. Older apps cannot read v3; v1/v2 cannot restore schedules.',
+    'backupImportVersion': 'Backup version: v{version}',
+    'backupImportV3':
+        'v3 restores schedule entries. Review the schedule changes below.',
+    'backupImportLegacy':
+        'v1/v2 do not restore schedules. Merge keeps local schedules; overwrite clears them.',
+    'backupUnsupportedVersion':
+        'This backup version is not supported. Use a v1, v2 or v3 backup, or update the app.',
+    'exportScheduleLossBlocked':
+        'Export stopped: an older format would omit {n} schedule entries. Use the full v3 backup.',
+    'importScheduleAdded': 'Schedule entries to add',
+    'importScheduleSkipped': 'Identical schedule entries to skip',
+    'importScheduleConflicts': 'Schedule ID conflicts',
+    'importScheduleRemoved': 'Current schedule entries to remove',
+    'importScheduleLegacyOverwrite':
+        'Overwriting with this old backup will delete {n} current schedule entries. They cannot be recovered from this file.',
+    'importScheduleLegacyIgnored':
+        'Schedule fields in this v1/v2 file will be ignored. No schedule entries will be restored from them.',
+    'importScheduleLegacyRestoredNone':
+        'No schedule entries were restored from this v1/v2 file.',
+    'importScheduleConflictBlocked':
+        'Schedule entries with the same ID have different content. Resolve these conflicts before importing.',
+    'importScheduleInvalid':
+        'The backup contains invalid schedule data. Check IDs, times, time zones, titles and linked tasks or boards. Nothing was imported.',
     'exportCredentialTitle': 'Backup credentials',
     'exportCredentialWarning':
         'A backup that includes your API key is plaintext. Choose each time whether to include it.',
@@ -374,11 +399,11 @@ const Map<Language, Map<String, String>> _dicts = {
     'exportPartsHint':
         'This library does not fit in one file. Restore the files in order: import the first as Overwrite, then each next file as Merge. A recovery set can hold more records than one ordinary import; import every file the same way.',
     'exportErrorTooLarge':
-        'A single task or note is larger than this app can back up. Shorten it, then export again.',
+        'A task, schedule entry or linked group exceeds backup limits. Reduce its content and try again. Nothing was written.',
     'exportErrorTooManyRecords':
-        'This library needs more backup files than the restore format allows. Nothing was written.',
+        'This library exceeds the supported backup limits. Nothing was written.',
     'exportErrorIncomplete':
-        'This backup would drop tasks that do not belong to a board. Nothing was written.',
+        'This library has invalid data or references, so a complete backup could not be built. Nothing was written.',
     'importKeepCredential': 'Keep local API key',
     'importReplaceCredential': 'Use backup API key',
     'importCredentialPresent':
@@ -392,7 +417,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'importErrorTooLarge':
         'This backup is larger than the file size this app can import.',
     'importErrorTooManyRecords':
-        'This backup has more boards, tasks or subtasks than this app supports.',
+        'This backup or merged library exceeds the limit for boards, tasks, subtasks or schedule entries.',
     'importErrorTooDeep':
         'This backup nests its data deeper than this app can read.',
     'importErrorRecoveryChunk':
@@ -400,21 +425,21 @@ const Map<Language, Map<String, String>> _dicts = {
     'importErrorRecoveryBoard':
         'This recovery file refers to a task outside the board you selected. The library was left unchanged.',
     'confirmImport':
-        'Replace all current boards and tasks, plus settings included in the backup? This cannot be undone.',
+        'Replace all current boards, tasks and schedule entries, plus settings included in the backup? This cannot be undone.',
     'importOptions': 'Import Options',
-    'importPrompt': 'How would you like to import tasks?',
+    'importPrompt': 'How would you like to import this backup?',
     'importModeMerge': 'Merge with backup boards',
     'importModeMergeDesc':
         'Create missing backup boards; reuse boards with matching IDs. Keep current data.',
     'importModeMergeInto': 'Merge into an existing board',
     'importModeMergeIntoDesc':
-        'Choose a board. Add all imported tasks there and keep current data.',
+        'Choose a board for imported tasks and independent events. Keep current data.',
     'importSelectBoard': 'Choose target board',
     'importTargetBoard': 'Target board',
     'importCurrentBoard': 'Current board',
     'importModeOverwrite': 'Overwrite All',
     'importModeOverwriteDesc':
-        'Replace all boards and tasks, plus settings included in the backup.',
+        'Replace all boards, tasks and schedule entries, plus settings included in the backup.',
     'importPreview': 'Review import',
     'importAddedBoards': 'Boards to add',
     'importAddedTasks': 'Tasks to add',
@@ -432,7 +457,8 @@ const Map<Language, Map<String, String>> _dicts = {
         'Conflicting IDs must be resolved in the backup before import.',
     'importSaveError':
         'Import was not saved. Your existing data is unchanged; retry the import.',
-    'importWarningEmpty': 'The backup contains no boards or tasks.',
+    'importWarningEmpty':
+        'The backup contains no boards, tasks or schedule entries.',
     'importWarningOrphan': 'A task with a missing board will be skipped.',
     'importWarningBoard': 'A default board will be created.',
     'importWarningReference':
@@ -1023,6 +1049,22 @@ const Map<Language, Map<String, String>> _dicts = {
     'decomposingSingle': '正在拆解任务…',
     'dataManagement': '数据备份',
     'exportData': '导出数据 (JSON)',
+    'backupVersionInfo':
+        '导出 v3 包含任务板、任务、日程与设置；可导入 v1/v2/v3。旧版应用不能读取 v3，v1/v2 不能恢复日程。',
+    'backupImportVersion': '备份版本：v{version}',
+    'backupImportV3': 'v3 可恢复日程记录，请核对下方日程变更。',
+    'backupImportLegacy': 'v1/v2 不恢复日程。合并保留本机日程，覆盖会清空本机日程。',
+    'backupUnsupportedVersion': '不支持此备份版本。请使用 v1、v2 或 v3 备份，或更新应用。',
+    'exportScheduleLossBlocked': '导出已停止：旧格式会丢失 {n} 条日程。请使用完整的 v3 备份。',
+    'importScheduleAdded': '新增日程',
+    'importScheduleSkipped': '跳过相同日程',
+    'importScheduleConflicts': '日程 ID 冲突',
+    'importScheduleRemoved': '将删除的现有日程',
+    'importScheduleLegacyOverwrite': '用此旧版备份覆盖会删除现有 {n} 条日程，无法从此文件恢复。',
+    'importScheduleLegacyIgnored': '此 v1/v2 文件夹带的日程字段将被忽略，不会从中恢复日程。',
+    'importScheduleLegacyRestoredNone': '此 v1/v2 文件未恢复任何日程。',
+    'importScheduleConflictBlocked': '相同 ID 的日程内容不同，请先解决日程冲突再导入。',
+    'importScheduleInvalid': '备份中的日程数据无效，请检查 ID、起止时间、时区、标题及关联任务或任务板。本次未导入。',
     'exportCredentialTitle': '备份凭据',
     'exportCredentialWarning': '包含 API 密钥的备份是明文文件。每次导出均需选择是否包含。',
     'exportWithoutCredential': '不包含 API 密钥',
@@ -1031,9 +1073,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'exportPartsSuccess': '备份已分成 {n} 个文件保存。',
     'exportPartsHint':
         '当前数据量无法放入单个文件。请按顺序恢复：第 1 个文件选择覆盖导入，之后每个文件选择合并导入。恢复归档可以超过单次普通导入的数量，请导入全部文件。',
-    'exportErrorTooLarge': '有单条任务或笔记超过本应用可备份的上限，请精简后再导出。',
-    'exportErrorTooManyRecords': '这份数据需要的备份文件超过恢复格式允许的卷数，本次没有写出文件。',
-    'exportErrorIncomplete': '这份备份会丢下没有所属任务板的任务，本次没有写出文件。',
+    'exportErrorTooLarge': '任务、日程或关联记录组超过备份上限，请精简内容后重试。本次未写出文件。',
+    'exportErrorTooManyRecords': '资料库超过支持的备份上限，本次未写出文件。',
+    'exportErrorIncomplete': '资料库含无效数据或关联，无法生成完整备份。本次未写出文件。',
     'importKeepCredential': '保留本机密钥',
     'importReplaceCredential': '使用备份密钥',
     'importCredentialPresent': '备份中包含 API 密钥。除非明确选择替换，否则保留本机密钥。',
@@ -1043,22 +1085,22 @@ const Map<Language, Map<String, String>> _dicts = {
     'importSuccess': '数据导入成功！',
     'importError': '数据格式无效。',
     'importErrorTooLarge': '该备份文件超过本应用可导入的大小上限。',
-    'importErrorTooManyRecords': '该备份的任务板、任务或子项数量超过本应用支持的上限。',
+    'importErrorTooManyRecords': '该备份或合并后的资料库，其任务板、任务、子项或日程数量超过支持上限。',
     'importErrorTooDeep': '该备份的数据嵌套过深，本应用无法读取。',
     'importErrorRecoveryChunk': '这份恢复文件与已经恢复的笔记对不上，资料库没有改动。',
     'importErrorRecoveryBoard': '这份恢复文件指向所选任务板以外的任务，资料库没有改动。',
-    'confirmImport': '将替换当前所有任务板与任务，以及备份中包含的设置。此操作无法撤销。',
+    'confirmImport': '将替换当前所有任务板、任务与日程，以及备份中包含的设置。此操作无法撤销。',
     'importOptions': '导入选项',
-    'importPrompt': '您希望如何导入任务？',
+    'importPrompt': '如何导入这份备份？',
     'importModeMerge': '按备份任务板合并',
     'importModeMergeDesc': '缺少的备份任务板会新建；同 ID 任务板复用。保留当前数据。',
     'importModeMergeInto': '合并到现有任务板',
-    'importModeMergeIntoDesc': '选择目标任务板，将备份中的任务都加入该板，保留当前数据。',
+    'importModeMergeIntoDesc': '选择目标任务板，将备份中的任务与独立事件都加入该板，保留当前数据。',
     'importSelectBoard': '选择目标任务板',
     'importTargetBoard': '目标任务板',
     'importCurrentBoard': '当前任务板',
     'importModeOverwrite': '覆盖所有',
-    'importModeOverwriteDesc': '替换所有任务板与任务，以及备份中包含的设置。',
+    'importModeOverwriteDesc': '替换所有任务板、任务与日程，以及备份中包含的设置。',
     'importPreview': '预览导入',
     'importAddedBoards': '新增任务板',
     'importAddedTasks': '新增任务',
@@ -1074,7 +1116,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'importAbsent': '否',
     'importConflictBlocked': '请先解决备份中的 ID 冲突再导入。',
     'importSaveError': '导入未能保存，现有数据未改变。请重试导入。',
-    'importWarningEmpty': '备份中没有任务板或任务。',
+    'importWarningEmpty': '备份中没有任务板、任务或日程。',
     'importWarningOrphan': '缺少所属任务板的任务将被跳过。',
     'importWarningBoard': '将创建默认任务板。',
     'importWarningReference': '空任务板 ID 的任务将归入第一个任务板。',
@@ -1634,6 +1676,26 @@ const Map<Language, Map<String, String>> _dicts = {
     'decomposingSingle': 'タスク分解中…',
     'dataManagement': 'データ管理',
     'exportData': 'エクスポート (JSON)',
+    'backupVersionInfo':
+        'v3 の出力にはボード・タスク・予定・設定が含まれます。v1/v2/v3 を読み込めます。旧アプリは v3 を読めず、v1/v2 から予定は復元できません。',
+    'backupImportVersion': 'バックアップ形式：v{version}',
+    'backupImportV3': 'v3 は予定を復元できます。以下の予定の変更を確認してください。',
+    'backupImportLegacy': 'v1/v2 は予定を復元しません。結合では端末の予定を保持し、上書きではすべて削除します。',
+    'backupUnsupportedVersion':
+        'このバックアップ形式には対応していません。v1・v2・v3 のバックアップを使うか、アプリを更新してください。',
+    'exportScheduleLossBlocked':
+        '出力を中止しました。旧形式では予定 {n} 件が失われます。完全な v3 バックアップを使ってください。',
+    'importScheduleAdded': '追加する予定',
+    'importScheduleSkipped': '同一内容でスキップする予定',
+    'importScheduleConflicts': '予定 ID の競合',
+    'importScheduleRemoved': '削除する現在の予定',
+    'importScheduleLegacyOverwrite':
+        'この旧形式で上書きすると、現在の予定 {n} 件が削除されます。このファイルからは復元できません。',
+    'importScheduleLegacyIgnored': 'この v1/v2 ファイルの予定項目は無視されます。それらから予定は復元されません。',
+    'importScheduleLegacyRestoredNone': 'この v1/v2 ファイルから予定は復元されていません。',
+    'importScheduleConflictBlocked': '同じ ID の予定に異なる内容があります。競合を解決してから読み込んでください。',
+    'importScheduleInvalid':
+        'バックアップの予定データが無効です。ID・開始と終了・タイムゾーン・タイトル・関連タスクやボードを確認してください。読み込んでいません。',
     'exportCredentialTitle': '認証情報のバックアップ',
     'exportCredentialWarning': 'API キーを含むバックアップは平文です。毎回含めるか選択してください。',
     'exportWithoutCredential': 'API キーを除外',
@@ -1643,10 +1705,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'exportPartsHint':
         'このデータ量は 1 ファイルに収まりません。順序どおりに復元してください：1 番目を上書きで、以降のファイルをそれぞれマージでインポートします。復旧アーカイブは通常の1回のインポートより多くの記録を含めます。すべてのファイルをインポートしてください。',
     'exportErrorTooLarge':
-        '単一のタスクまたはメモが本アプリのバックアップ上限を超えています。短くしてから再エクスポートしてください。',
-    'exportErrorTooManyRecords':
-        'このデータは復元形式が許すより多くのバックアップファイルを必要とします。ファイルは書き出していません。',
-    'exportErrorIncomplete': 'このバックアップは所属ボードのないタスクを落とします。ファイルは書き出していません。',
+        'タスク・予定・関連レコードのグループがバックアップ上限を超えています。内容を減らして再試行してください。ファイルは書き出していません。',
+    'exportErrorTooManyRecords': 'ライブラリが対応するバックアップ上限を超えています。ファイルは書き出していません。',
+    'exportErrorIncomplete': 'データや参照が無効なため、完全なバックアップを作成できません。ファイルは書き出していません。',
     'importKeepCredential': 'この端末の API キーを保持',
     'importReplaceCredential': 'バックアップの API キーを使用',
     'importCredentialPresent': 'バックアップに API キーがあります。明示的に選択しない限り、この端末のキーを保持します。',
@@ -1656,23 +1717,24 @@ const Map<Language, Map<String, String>> _dicts = {
     'importSuccess': 'インポート成功！',
     'importError': 'データ形式が無効です。',
     'importErrorTooLarge': 'このバックアップは本アプリがインポートできるサイズ上限を超えています。',
-    'importErrorTooManyRecords': 'このバックアップのボード・タスク・サブタスク数が本アプリの上限を超えています。',
+    'importErrorTooManyRecords':
+        'バックアップまたは結合後のライブラリのボード・タスク・サブタスク・予定の件数が上限を超えています。',
     'importErrorTooDeep': 'このバックアップのネストが深すぎて本アプリは読み取れません。',
     'importErrorRecoveryChunk': 'この復旧ファイルは、復元済みのメモと一致しません。ライブラリは変更していません。',
     'importErrorRecoveryBoard':
         'この復旧ファイルは、選択したボード以外のタスクを指しています。ライブラリは変更していません。',
-    'confirmImport': '現在のボードとタスク、およびバックアップに含まれる設定を置き換えます。元に戻せません。',
+    'confirmImport': '現在のボード・タスク・予定、およびバックアップに含まれる設定を置き換えます。元に戻せません。',
     'importOptions': 'インポートオプション',
-    'importPrompt': 'タスクをどのようにインポートしますか？',
+    'importPrompt': 'バックアップの読み込み方法を選んでください。',
     'importModeMerge': 'バックアップのボードで統合',
     'importModeMergeDesc': '不足するボードを作成し、同じ ID のボードは再利用します。現在のデータは残ります。',
     'importModeMergeInto': '既存のボードに統合',
-    'importModeMergeIntoDesc': '対象ボードを選び、バックアップの全タスクを追加します。現在のデータは残ります。',
+    'importModeMergeIntoDesc': '対象ボードを選び、バックアップのタスクと独立した予定を追加します。現在のデータは残ります。',
     'importSelectBoard': '対象ボードを選択',
     'importTargetBoard': '対象ボード',
     'importCurrentBoard': '現在のボード',
     'importModeOverwrite': 'すべて上書き',
-    'importModeOverwriteDesc': 'すべてのボードとタスク、およびバックアップに含まれる設定を置き換えます。',
+    'importModeOverwriteDesc': 'すべてのボード・タスク・予定、およびバックアップに含まれる設定を置き換えます。',
     'importPreview': 'インポートの確認',
     'importAddedBoards': '追加するボード',
     'importAddedTasks': '追加するタスク',
@@ -1688,7 +1750,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'importAbsent': 'いいえ',
     'importConflictBlocked': 'ID の競合をバックアップで解決してからインポートしてください。',
     'importSaveError': 'インポートを保存できませんでした。既存データは変更されていません。再試行してください。',
-    'importWarningEmpty': 'バックアップにボードとタスクがありません。',
+    'importWarningEmpty': 'バックアップにボード・タスク・予定がありません。',
     'importWarningOrphan': '所属ボードがないタスクはスキップされます。',
     'importWarningBoard': '既定のボードを作成します。',
     'importWarningReference': 'ボード ID が空のタスクは最初のボードに割り当てます。',

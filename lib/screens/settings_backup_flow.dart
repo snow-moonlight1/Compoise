@@ -5,8 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../models.dart' show ScheduleExportLossException;
 import '../services/desktop_shell_service.dart';
 import '../storage.dart';
+import 'settings_backup_messages.dart';
 import 'settings_desktop.dart';
 
 /// How a backup file operation ended. The screen only reports the outcome; it
@@ -62,7 +64,17 @@ class SettingsBackupFlow {
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(t['exportCredentialTitle']!),
-          content: Text(t['exportCredentialWarning']!),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t['backupVersionInfo']!),
+                const SizedBox(height: 12),
+                Text(t['exportCredentialWarning']!),
+              ],
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -123,6 +135,14 @@ class SettingsBackupFlow {
         BackupOutcome.succeeded,
         '${t['exportPartsSuccess']!.replaceAll('{n}', '${bundle.parts.length}')}'
         '\n${t['exportPartsHint']}',
+      );
+    } on ScheduleExportLossException catch (error) {
+      return BackupResult(
+        BackupOutcome.failed,
+        t['exportScheduleLossBlocked']!.replaceAll(
+          '{n}',
+          '${error.lostScheduleItems}',
+        ),
       );
     } catch (_) {
       return BackupResult(BackupOutcome.failed, t['exportError']!);
@@ -236,16 +256,18 @@ class SettingsBackupFlow {
           : '';
       return BackupResult(
         BackupOutcome.succeeded,
-        '${t['importSuccess']} (${plan.addedTasks})$desktopWarning',
+        '${t['importSuccess']} (${plan.addedTasks})'
+        '${backupImportResultNotice(t, plan)}$desktopWarning',
       );
     } on BackupRejectedException catch (error) {
-      return BackupResult(BackupOutcome.failed, t[error.copy]!);
+      return BackupResult(
+        BackupOutcome.failed,
+        t[error.copy] ?? t['importError']!,
+      );
     } on FormatException catch (error) {
       return BackupResult(
         BackupOutcome.failed,
-        error.message.startsWith('Conflicting')
-            ? t['importConflictBlocked']!
-            : t['importError']!,
+        backupImportFormatError(t, error),
       );
     } catch (_) {
       return BackupResult(
@@ -268,6 +290,8 @@ class SettingsBackupFlow {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(t['importPrompt']!),
+                const SizedBox(height: 8),
+                Text(t['backupVersionInfo']!),
                 const SizedBox(height: 8),
                 for (final option in [
                   ('merge', 'importModeMerge', 'importModeMergeDesc'),
@@ -350,7 +374,13 @@ class SettingsBackupFlow {
       title: Text(t['importPreview']!),
       content: SingleChildScrollView(
         child: Text(
-          '${_importDescription(t, plan, targetBoardName)}\n\n${_summary(t, plan)}\n\n${plan.hasCredential ? t['importCredentialPresent'] : ''}\n\n${_warningDetails(t, plan)}\n\n${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
+          '${backupImportVersionDescription(t, plan)}\n\n'
+          '${_importDescription(t, plan, targetBoardName)}\n\n'
+          '${backupImportSummary(t, plan)}\n\n'
+          '${plan.hasCredential ? t['importCredentialPresent'] : ''}\n\n'
+          '${backupImportWarningDetails(t, plan)}\n\n'
+          '${plan.conflictingScheduleItems > 0 ? t['importScheduleConflictBlocked'] : ''}\n'
+          '${plan.conflicts > 0 ? t['importConflictBlocked'] : ''}',
         ),
       ),
       actions: [
@@ -389,38 +419,6 @@ class SettingsBackupFlow {
     if (targetBoardName == null) return t['importModeMergeDesc']!;
     return '${t['importTargetBoard']}: $targetBoardName\n'
         '${t['importModeMergeIntoDesc']}';
-  }
-
-  String _summary(Map<String, String> t, ImportPlan plan) =>
-      '${t['importAddedBoards']}: ${plan.addedBoards}\n'
-      '${t['importAddedTasks']}: ${plan.addedTasks}\n'
-      '${t['importSkipped']}: ${plan.skipped}\n'
-      '${t['importConflicts']}: ${plan.conflicts}\n'
-      '${t['importRepaired']}: ${plan.repaired}\n'
-      '${t['importWarnings']}: ${plan.warnings.length}\n'
-      '${t['importRemovedBoards']}: ${plan.removedBoards}\n'
-      '${t['importRemovedTasks']}: ${plan.removedTasks}\n'
-      '${t['importSettingsImpact']}: ${plan.settings == null ? t['importAbsent'] : t['importPresent']}\n'
-      '${t['importConfigImpact']}: ${plan.aiConfig == null ? t['importAbsent'] : t['importPresent']}';
-
-  String _warningDetails(Map<String, String> t, ImportPlan plan) {
-    String warningText(String warning) {
-      if (warning == 'Empty backup') return t['importWarningEmpty']!;
-      if (warning == 'Orphan task skipped') return t['importWarningOrphan']!;
-      if (warning == 'Default board created') return t['importWarningBoard']!;
-      if (warning == 'Empty board reference repaired') {
-        return t['importWarningReference']!;
-      }
-      if (warning.startsWith('Successfully migrated legacy')) {
-        return t['importWarningLegacy']!;
-      }
-      if (warning.endsWith('normalized')) {
-        return '${t['importWarningNormalized']}: $warning';
-      }
-      return '${t['importWarningUnknown']}: $warning';
-    }
-
-    return plan.warnings.take(8).map(warningText).join('\n');
   }
 
   bool _start() {

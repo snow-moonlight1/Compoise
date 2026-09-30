@@ -758,6 +758,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Text(t['backupVersionInfo']!, style: theme.textTheme.bodySmall),
             const SizedBox(height: 24),
 
             _sectionTitle(
