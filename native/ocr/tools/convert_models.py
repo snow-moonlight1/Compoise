@@ -39,8 +39,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 LOCK_PATH = HERE / "models.lock.json"
 
-# Pinned conversion toolchain. These are the versions the pinned outputs were
-# produced with; changing one requires regenerating and re-pinning the lockfile.
+# Attempted conversion toolchain; official PIR export has not succeeded yet.
+# A working toolchain and its outputs must be recorded before release.
 TOOLCHAIN = {
     "paddlepaddle": "3.0.0",
     "paddle2onnx": "1.3.1",
@@ -114,6 +114,8 @@ def verify(path: Path, expected: str | None, label: str) -> str:
 def ensure_input(lock: dict, repo: str, name: str, dest: Path, offline: bool) -> str:
     key = f"{repo}/{name}"
     pinned = lock["files"].get(key, {}).get("sha256")
+    if pinned is None:
+        raise SystemExit(f"no pinned input hash for {key}")
     if not dest.exists():
         if offline:
             raise SystemExit(f"offline: missing pinned input {dest}")
@@ -242,10 +244,9 @@ def main() -> int:
         spec = MODELS[name]
         model_dir = model_root / spec["repo"].split("/")[-1]
         for file_name in spec["files"]:
-            ensure_input(lock, spec["repo"], file_name, model_dir / file_name, args.offline)
+            ensure_input(lock, spec["repo"], file_name, model_dir / file_name, args.offline or args.check)
 
     if args.check:
-        save_lock(lock)
         print("inputs verified; --check does not run the conversion")
         return 0
 
@@ -270,10 +271,10 @@ def main() -> int:
         param, binary = pnnx_convert(onnx_path, spec["onnx_shapes"], model_work, args.python)
         for produced_path, suffix in ((param, "ncnn.param"), (binary, "ncnn.bin")):
             target = out_root / f"{spec['ncnn_prefix']}.{suffix}"
-            shutil.copyfile(produced_path, target)
             target_key = f"ncnn-official/{target.name}"
             pinned_out = lock["files"].get(target_key, {}).get("sha256")
-            out_digest = verify(target, pinned_out, target_key)
+            out_digest = verify(produced_path, pinned_out, target_key)
+            shutil.copyfile(produced_path, target)
             lock["files"][target_key] = {
                 "kind": suffix,
                 "source": f"pnnx {TOOLCHAIN['pnnx']} {' '.join(spec['onnx_shapes'])}",

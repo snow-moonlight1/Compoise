@@ -20,7 +20,8 @@ class DeviceTimeZoneController extends ChangeNotifier
   }) : _source = source ?? defaultDeviceTimeZoneSource(),
        _observeLifecycle = observeLifecycle {
     if (_observeLifecycle) WidgetsBinding.instance.addObserver(this);
-    final events = changeEvents ??
+    final events =
+        changeEvents ??
         (listenPlatformChanges ? deviceTimeZoneChangeEvents() : null);
     _changeSubscription = events?.listen((_) => refresh());
   }
@@ -34,6 +35,8 @@ class DeviceTimeZoneController extends ChangeNotifier
   );
   String? _selected;
   bool _refreshing = false;
+  bool _refreshRequested = false;
+  Future<void>? _refreshFuture;
   bool _disposed = false;
 
   /// What the device last reported, including why it could not be used.
@@ -60,9 +63,27 @@ class DeviceTimeZoneController extends ChangeNotifier
   /// Raw platform identity behind [status], for the diagnostic message.
   String? get deviceIdentity => _status.identity;
 
-  Future<void> refresh() async {
-    if (_refreshing || _disposed) return;
+  Future<void> refresh() {
+    if (_disposed) return Future.value();
+    _refreshRequested = true;
+    return _refreshFuture ??= _readLatest().whenComplete(() {
+      _refreshFuture = null;
+    });
+  }
+
+  Future<void> _readLatest() async {
     _refreshing = true;
+    try {
+      do {
+        _refreshRequested = false;
+        await _readOnce();
+      } while (_refreshRequested && !_disposed);
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _readOnce() async {
     DeviceTimeZoneStatus next;
     try {
       next = resolveDeviceTimeZone(await _source.read());
@@ -71,7 +92,6 @@ class DeviceTimeZoneController extends ChangeNotifier
         DeviceTimeZoneProblem.unavailable,
       );
     }
-    _refreshing = false;
     if (_disposed) return;
     final changed =
         next.ianaId != _status.ianaId ||

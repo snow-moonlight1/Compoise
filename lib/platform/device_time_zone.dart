@@ -187,7 +187,8 @@ class ChannelDeviceTimeZoneSource implements DeviceTimeZoneSource {
       final reply = await _channel.invokeMapMethod<String, Object?>(
         'systemZone',
       );
-      final platform = _platformFromName(reply?['platform'] as String?) ??
+      final platform =
+          _platformFromName(reply?['platform'] as String?) ??
           _platformFromTarget(defaultTargetPlatform);
       final identity = (reply?['identity'] as String?)?.trim();
       if (identity == null || identity.isEmpty) {
@@ -206,16 +207,16 @@ class ChannelDeviceTimeZoneSource implements DeviceTimeZoneSource {
   }
 }
 
-/// Reads the same configuration glibc uses, in the same order: `TZ`, then
-/// `/etc/timezone`, then the `/etc/localtime` symlink. An explicit `TZ` that
+/// Reads `TZ` from the process, then the distribution's `/etc/timezone` file
+/// and the `/etc/localtime` symlink. An explicit `TZ` that
 /// cannot be named as an IANA zone is reported as a problem rather than
 /// silently replaced by a lower-priority file.
 class LinuxDeviceTimeZoneSource implements DeviceTimeZoneSource {
   LinuxDeviceTimeZoneSource({
-    Map<String, String> environment = const {},
+    Map<String, String>? environment,
     Future<String?> Function(String path)? readFile,
     Future<String?> Function(String path)? readLink,
-  }) : _environment = environment,
+  }) : _environment = environment ?? Platform.environment,
        _readFile = readFile ?? _defaultReadFile,
        _readLink = readLink ?? _defaultReadLink;
 
@@ -297,9 +298,12 @@ class LinuxDeviceTimeZoneSource implements DeviceTimeZoneSource {
 /// stream is broadcast; closing it releases the channel handler.
 Stream<void> deviceTimeZoneChangeEvents({MethodChannel? channel}) {
   final events = StreamController<void>.broadcast();
-  final methodChannel = channel ?? const MethodChannel(deviceTimeZoneChannelName);
+  final methodChannel =
+      channel ?? const MethodChannel(deviceTimeZoneChannelName);
   methodChannel.setMethodCallHandler((call) async {
-    if (call.method == 'onTimeZoneChanged' && !events.isClosed) events.add(null);
+    if (call.method == 'onTimeZoneChanged' && !events.isClosed) {
+      events.add(null);
+    }
   });
   events.onCancel = () => methodChannel.setMethodCallHandler(null);
   return events.stream;

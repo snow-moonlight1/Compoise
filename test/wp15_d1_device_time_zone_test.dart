@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/platform/device_time_zone.dart';
@@ -138,14 +140,38 @@ void main() {
   });
 
   group('Linux system configuration', () {
+    test(
+      'production source reads process TZ unless explicitly overridden',
+      () async {
+        final source = LinuxDeviceTimeZoneSource(
+          readFile: (_) async => 'Europe/Berlin',
+          readLink: (_) async => null,
+        );
+        final processTz = Platform.environment['TZ'];
+        if (processTz == 'Asia/Tokyo') {
+          expect((await source.read()).identity, 'Asia/Tokyo');
+        } else {
+          // The dedicated integration command sets TZ=Asia/Tokyo for this path.
+          expect((await source.read()).identity, isNotNull);
+        }
+        final explicit = LinuxDeviceTimeZoneSource(
+          environment: const {},
+          readFile: (_) async => 'Europe/Berlin',
+          readLink: (_) async => null,
+        );
+        expect((await explicit.read()).identity, 'Europe/Berlin');
+      },
+    );
+
     test('TZ names the zone, with or without the POSIX colon', () async {
       expect(
         (await linuxSource(environment: {'TZ': 'Asia/Tokyo'}).read()).identity,
         'Asia/Tokyo',
       );
       expect(
-        (await linuxSource(environment: {'TZ': ':America/New_York'}).read())
-            .identity,
+        (await linuxSource(
+          environment: {'TZ': ':America/New_York'},
+        ).read()).identity,
         'America/New_York',
       );
     });
@@ -160,7 +186,10 @@ void main() {
     test('a POSIX TZ rule is not silently treated as a zone', () async {
       final reading = await linuxSource(environment: {'TZ': 'CST-8'}).read();
       expect(reading.identity, 'CST-8');
-      expect(resolveDeviceTimeZone(reading).problem, DeviceTimeZoneProblem.invalid);
+      expect(
+        resolveDeviceTimeZone(reading).problem,
+        DeviceTimeZoneProblem.invalid,
+      );
     });
 
     test('TZ pointing at localtime falls through to the files', () async {
@@ -185,7 +214,10 @@ void main() {
         links: {'/etc/localtime': '/usr/share/zoneinfo/Asia/Tokyo'},
       ).read();
       expect(reading.identity, 'Mars/Phobos');
-      expect(resolveDeviceTimeZone(reading).problem, DeviceTimeZoneProblem.invalid);
+      expect(
+        resolveDeviceTimeZone(reading).problem,
+        DeviceTimeZoneProblem.invalid,
+      );
     });
 
     test('the /etc/localtime symlink names the zone', () async {
@@ -195,14 +227,17 @@ void main() {
       expect(reading.identity, 'Australia/Sydney');
     });
 
-    test('a copied /etc/localtime carries no name and is not guessed', () async {
-      final reading = await linuxSource().read();
-      expect(reading.unreadable, isTrue);
-      expect(
-        resolveDeviceTimeZone(reading).problem,
-        DeviceTimeZoneProblem.unavailable,
-      );
-    });
+    test(
+      'a copied /etc/localtime carries no name and is not guessed',
+      () async {
+        final reading = await linuxSource().read();
+        expect(reading.unreadable, isTrue);
+        expect(
+          resolveDeviceTimeZone(reading).problem,
+          DeviceTimeZoneProblem.unavailable,
+        );
+      },
+    );
   });
 
   group('platform channel source', () {

@@ -27,13 +27,10 @@ export PATH="$FLUTTER/bin:$PATH"
 export WP17_OCR_NCNN_DIR="$NCNN/lib/cmake/ncnn"
 export WP17_OCR_STB_DIR="$ASSETS/third_party"
 export WP17_OCR_ASSETS="$DEPLOY"
-export DISPLAY=:99
 export GDK_BACKEND=x11
 export LIBGL_ALWAYS_SOFTWARE=1
 
-pkill -f "Xvfb :99" >/dev/null 2>&1 || true
-Xvfb :99 -screen 0 1280x1024x24 >/dev/null 2>&1 &
-sleep 2
+# xvfb-run chooses a free display and cleans up only its own server.
 
 cd "$REPO"
 echo "== flutter build linux --$MODE =="
@@ -45,7 +42,8 @@ ls -l "build/linux/x64/$MODE/bundle/lib/" | grep -i ocr || {
 
 echo "== flutter test on the linux device =="
 set +e
-flutter test --no-pub -d linux --dart-define=WP17_I4_EVIDENCE="$REPO" \
+xvfb-run -a flutter test --no-pub -d linux --dart-define=WP17_I4_EVIDENCE="$REPO" \
+  --dart-define=WP17_I4_BUNDLE=true \
   --dart-define=WP17_OCR_TEST_LIBRARY="$BUNDLE_LIB" \
   test/wp17_i4_bundle_ocr_test.dart 2>&1 | tee "$LOG" | tail -30
 status=${PIPESTATUS[0]}
@@ -53,5 +51,4 @@ set -e
 
 echo "---- exit: $status ----"
 grep -E "WP17_I4_|All tests passed|Some tests failed" "$LOG" | sort -u | head -20
-pkill -f "Xvfb :99" >/dev/null 2>&1 || true
 exit "$status"

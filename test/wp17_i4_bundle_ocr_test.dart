@@ -16,7 +16,8 @@ import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
 /// It remains synthetic-image evidence, not a real-screenshot support claim.
 ///
 ///   flutter drive --no-pub --target=test/wp17_i4_bundle_ocr_test.dart \
-///     --driver=test/wp17_i4_device_driver.dart -d windows
+///     --driver=test/wp17_i4_device_driver.dart -d windows \
+///     --dart-define=WP17_I4_BUNDLE=true
 ///
 /// Model files come from `WP17_OCR_ASSETS` in the process environment (desktop)
 /// or `--dart-define=WP17_OCR_ASSETS=<path>`. Images and the printed text
@@ -24,6 +25,10 @@ import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
 /// overrides it), so this test is host-only; the Android device leg compares
 /// the same geometry fixture without needing those files.
 void main() {
+  if (!const bool.fromEnvironment('WP17_I4_BUNDLE')) {
+    test('native bundle smoke requires WP17_I4_BUNDLE', () {}, skip: true);
+    return;
+  }
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('bundle loads the library and reproduces R2 text and boxes', (
@@ -87,13 +92,15 @@ void main() {
         expect(
           resolveOcrLibraryPath(),
           endsWith('/lib/libmatrixflow_ocr.so'),
-          reason: 'the bundle puts the OCR library next to the other bundle '
+          reason:
+              'the bundle puts the OCR library next to the other bundle '
               'libraries and that is the path the product resolves',
         );
         expect(
           bundleLibrary,
           isNotNull,
-          reason: 'pass --dart-define=WP17_OCR_TEST_LIBRARY=<bundle>/lib/'
+          reason:
+              'pass --dart-define=WP17_OCR_TEST_LIBRARY=<bundle>/lib/'
               'libmatrixflow_ocr.so on Linux',
         );
       }
@@ -107,13 +114,11 @@ void main() {
               as Map<String, dynamic>;
       final expectedText = {
         for (final image in baseline['images'] as List<dynamic>)
-          File((image as Map<String, dynamic>)['path'] as String)
-              .uri
-              .pathSegments
-              .last:
-              (image['lines'] as List<dynamic>)
-                  .map((line) => (line as Map<String, dynamic>)['text'] as String)
-                  .toList(),
+          File(
+            (image as Map<String, dynamic>)['path'] as String,
+          ).uri.pathSegments.last: (image['lines'] as List<dynamic>)
+              .map((line) => (line as Map<String, dynamic>)['text'] as String)
+              .toList(),
       };
       final paths = [
         for (final name in expectedText.keys)
@@ -156,7 +161,9 @@ void main() {
       corrupt.parent.deleteSync(recursive: true);
 
       // A root without the model layout must fail instead of falling back.
-      final emptyRoot = Directory.systemTemp.createTempSync('wp17i4-empty-').path;
+      final emptyRoot = Directory.systemTemp
+          .createTempSync('wp17i4-empty-')
+          .path;
       final empty = (await OcrRuntime(
         assetsRoot: emptyRoot,
       ).recognizeFiles([paths.first])).single;

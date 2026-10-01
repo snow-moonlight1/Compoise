@@ -114,7 +114,7 @@ function Add-Record([string]$Key, [string]$Path, [string]$Licence, [string]$Sour
 function Get-Cached([string]$RelPath, [string]$Expected, [string]$Url, [string]$Licence, [string]$Key, [string]$Note = '') {
     $dest = Join-Path $AssetRoot $RelPath
     $dir = Split-Path -Parent $dest
-    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    if (-not $Check -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
 
     $present = Test-Path -LiteralPath $dest
     if ($present) {
@@ -152,6 +152,7 @@ function Get-Cached([string]$RelPath, [string]$Expected, [string]$Url, [string]$
 }
 
 # --- argument validation -----------------------------------------------------
+if ($Check -and $CleanWork) { Fail $exitUsage '-Check cannot be combined with -CleanWork' }
 if (-not (Test-Path -LiteralPath $AssetRoot)) {
     if ($Check) { Fail $exitVerify "asset root does not exist: $AssetRoot" }
     New-Item -ItemType Directory -Force -Path $AssetRoot | Out-Null
@@ -163,8 +164,10 @@ $WorkRoot = Join-Path $AssetRoot 'wp17i4-work'
 if ($CleanWork) {
     if (-not (Test-Path -LiteralPath $WorkRoot)) { Write-Note 'work directory already absent'; exit $exitOk }
     $resolved = (Resolve-Path -LiteralPath $WorkRoot).Path
-    if (-not $resolved.StartsWith($AssetRoot, [StringComparison]::OrdinalIgnoreCase) -or
-        (Split-Path -Leaf $resolved) -ne 'wp17i4-work') {
+    $workItem = Get-Item -LiteralPath $resolved
+    if (-not [string]::Equals((Split-Path -Parent $resolved), $AssetRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        (Split-Path -Leaf $resolved) -ne 'wp17i4-work' -or
+        ($workItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
         Fail $exitUsage "refusing to delete $resolved"
     }
     Remove-Item -LiteralPath $resolved -Recurse -Force
@@ -234,26 +237,42 @@ if ($ModelSource -eq 'official') {
     $lock = Get-Content -LiteralPath $OfficialLock -Raw | ConvertFrom-Json
     foreach ($name in @('PP_OCRv5_mobile_det.ncnn.param', 'PP_OCRv5_mobile_det.ncnn.bin',
                         'PP_OCRv5_mobile_rec.ncnn.param', 'PP_OCRv5_mobile_rec.ncnn.bin')) {
-        $entry = $lock.files."ncnn-official/$name"
-        if (-not $entry) { Fail $exitVerify "models.lock.json has no pinned hash for ncnn-official/$name" }
+        $property = $lock.files.PSObject.Properties["ncnn-official/$name"]
+        if (-not $property -or $property.Value.sha256 -notmatch '^[a-f0-9]{64}$') {
+            Fail $exitVerify "models.lock.json has no pinned hash for ncnn-official/$name; complete and review the official conversion first"
+        }
     }
     $converted = Join-Path $AssetRoot 'ncnn-official'
+    $missingConverted = @($NihuiModels.Keys | Where-Object { -not (Test-Path -LiteralPath (Join-Path $converted $_)) })
+    if ($missingConverted.Count -gt 0 -and -not $Check) {
+        $pythonExe = if ($Python) { $Python } elseif ($env:WP17_CONVERT_PYTHON) { $env:WP17_CONVERT_PYTHON } else { $tools['python'] }
+        if (-not $pythonExe) { Fail $exitTool 'python is required to run the pinned conversion' }
+        $conversionArgs = @((Join-Path $RepoRoot 'native\ocr\tools\convert_models.py'), '--assets', $AssetRoot, '--python', $pythonExe)
+        if ($Offline) { $conversionArgs += '--offline' }
+        Write-Note "converting official weights with $pythonExe (paddle2onnx + pnnx)"
+        & $pythonExe @conversionArgs
+        if ($LASTEXITCODE -ne 0) { Fail $exitVerify 'model conversion failed; see the output above' }
+    }
+    # Verify the entire converted set before replacing any historical model.
     foreach ($name in @('PP_OCRv5_mobile_det.ncnn.param', 'PP_OCRv5_mobile_det.ncnn.bin',
                         'PP_OCRv5_mobile_rec.ncnn.param', 'PP_OCRv5_mobile_rec.ncnn.bin')) {
         $entry = $lock.files."ncnn-official/$name"
-        $dest = Join-Path (Join-Path $AssetRoot 'ncnn') $name
-        if (-not (Test-Path -LiteralPath $dest)) {
-            if ($Check) { Fail $exitVerify "missing converted weight $dest" }
-            if ($Offline) { Fail $exitNetwork "offline: converted weight $dest is missing; run without -Offline to convert" }
-            $pythonExe = if ($Python) { $Python } elseif ($env:WP17_CONVERT_PYTHON) { $env:WP17_CONVERT_PYTHON } else { $tools['python'] }
-            if (-not $pythonExe) { Fail $exitTool 'python is required to run the pinned conversion' }
-            Write-Note "converting official weights with $pythonExe (paddle2onnx + pnnx)"
-            & $pythonExe (Join-Path $RepoRoot 'native\ocr\tools\convert_models.py') --assets $AssetRoot
-            if ($LASTEXITCODE -ne 0) { Fail $exitVerify 'model conversion failed; see the output above' }
-        }
-        $digest = Get-Sha256 $dest
+        $source = Join-Path $converted $name
+        if (-not (Test-Path -LiteralPath $source)) { Fail $exitVerify "missing converted weight $source" }
+        $digest = Get-Sha256 $source
         if ($digest -ne $entry.sha256) {
             Fail $exitVerify "$name has sha256 $digest, pinned $($entry.sha256)"
+        }
+    }
+    foreach ($name in $NihuiModels.Keys) {
+        $source = Join-Path $converted $name
+        $dest = Join-Path (Join-Path $AssetRoot 'ncnn') $name
+        if ($Check) {
+            if (-not (Test-Path -LiteralPath $dest) -or (Get-Sha256 $dest) -ne (Get-Sha256 $source)) {
+                Fail $exitVerify "official deployment does not match the converted weight: $dest"
+            }
+        } else {
+            Copy-Item -LiteralPath $source -Destination $dest -Force
         }
         Add-Record "ncnn/$name" $dest 'apache-2.0 (PaddlePaddle/PP-OCRv5_mobile_*)' 'native/ocr/tools/convert_models.py' 'converted from the official Paddle inference model'
     }
@@ -291,7 +310,6 @@ if ($Ncnn -eq 'host') {
 
 # --- deployment layout -------------------------------------------------------
 Write-Step "deployment layout under $DeployRoot"
-$modelDir = Join-Path (Join-Path $DeployRoot 'ncnn') '.'
 $modelDir = Join-Path $DeployRoot 'ncnn'
 if (-not $Check) { New-Item -ItemType Directory -Force -Path $modelDir | Out-Null }
 foreach ($name in $RequiredModelFiles) {
@@ -300,6 +318,7 @@ foreach ($name in $RequiredModelFiles) {
     $target = Join-Path $modelDir $name
     if ($Check) {
         if (-not (Test-Path -LiteralPath $target)) { Fail $exitVerify "missing deployment file $target" }
+        if ((Get-Sha256 $target) -ne (Get-Sha256 $source)) { Fail $exitVerify "deployment file differs from the verified source: $target" }
     } elseif ($Force -or -not (Test-Path -LiteralPath $target) -or (Get-Sha256 $target) -ne (Get-Sha256 $source)) {
         Copy-Item -LiteralPath $source -Destination $target -Force
     }

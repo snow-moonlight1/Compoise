@@ -8,6 +8,7 @@
 /// Windows zone for that territory, so the table is a fixed, reviewable data
 /// set instead of a guess from the current UTC offset or display language.
 /// Regenerate only by re-deriving it from a named CLDR release.
+/// Unicode-3.0 notice: assets/licenses/THIRD_PARTY_NOTICES.txt.
 library;
 
 /// CLDR release the table below was derived from.

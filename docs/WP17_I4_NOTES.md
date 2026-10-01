@@ -16,7 +16,7 @@
 | stb_image.h v2.30 | `nothings/stb` | `594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3` | 文件头声明 public domain，上游另给 MIT/Unlicense，可再分发 |
 | PP-OCRv5 字典 | `PaddlePaddle/PaddleOCR` `ppocr/utils/dict/ppocrv5_dict.txt`（1553 行） | `d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b` | 仓库 Apache-2.0，可再分发 |
 | PP-OCRv5 mobile 权重（**当前使用的 nihui 转换**） | `nihui/ncnn-android-ppocrv5` 的 det/rec `ncnn.param/bin` | det param `358f459680ae0e7a73e477469e529ce116f68c629019ec7a0b6457d2d9117934`、det bin `857a96bc963725105b78a178dfcc3c0c3db1a7b9eef32244367b2cb105ccf60b`、rec param `f52a6586ac3338d8c350db0c9f3c55ff2ecd3763327f9bc7f0efc091f8a63e74`、rec bin `49d9907a55ba20fa6637f9f788f66ab00793bc8ce57a733a09dbe86b9a2e3db0` | **无授权声明**：`GET /repos/nihui/ncnn-android-ppocrv5/license` 返回 404，README 只给转换配方。**仅用于验证，不得进发行包、不得提交仓库** |
-| PP-OCRv5 mobile 权重（**官方来源**） | `PaddlePaddle/PP-OCRv5_mobile_det` / `_rec`（Hugging Face，model card `license: apache-2.0`） | 固定于 `native/ocr/tools/models.lock.json`（6 个输入文件，例：det `inference.json` `05feef1acb00aa4cd7362b15f7f501fc4f99d7b1fa73c1c871e0c7b1504b0f5c`、det `inference.pdiparams` `afa1820cb16c1fd0dad589d0f8b389139061c1ef6d68019685fd07be997dda5b`、rec `inference.pdiparams` `2460da90875937c94db97eba74ae3d9e5d4c4c57c42f1f41531c09a26bcc771a`、rec `inference.yml` `5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e`） | 授权清晰，是唯一可再分发的权重路线；**转换未完成，见下** |
+| PP-OCRv5 mobile 权重（**官方来源**） | `PaddlePaddle/PP-OCRv5_mobile_det` / `_rec`（Hugging Face，model card `license: apache-2.0`） | 固定于 `native/ocr/tools/models.lock.json`（6 个输入文件，例：det `inference.json` `05feef1acb00aa4cd7362b15f7f501fc4f99d7b1fa73c1c871e0c7b1504b0f5c`、det `inference.pdiparams` `afa1820cb16c1fd0dad589d0f8b389139061c1ef6d68019685fd07be997dda5b`、rec `inference.pdiparams` `2460da90875937c94db97eba74ae3d9e5d4c4c57c42f1f41531c09a26bcc771a`、rec `inference.yml` `5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e`） | 本轮选定的明确授权输入路线；**转换未完成，见下** |
 
 授权证据链接：
 
@@ -174,7 +174,7 @@ $env:WP17_OCR_TEST_LIBRARY = "build\windows\x64\runner\Release\matrixflow_ocr.dl
 $env:WP17_OCR_TEST_ASSETS  = "$env:LOCALAPPDATA\wp17i4-deploy"
 flutter test --no-pub test/wp17_i1_ocr_runtime_test.dart test/wp17_i4_assets_test.dart
 $env:WP17_OCR_ASSETS = "$env:LOCALAPPDATA\wp17i4-deploy"
-flutter drive --no-pub --target=test/wp17_i4_bundle_ocr_test.dart --driver=test/wp17_i4_device_driver.dart -d windows
+flutter drive --no-pub --dart-define=WP17_I4_BUNDLE=true --target=test/wp17_i4_bundle_ocr_test.dart --driver=test/wp17_i4_device_driver.dart -d windows
 
 # 3) Linux（WSL2）：ncnn、bundle、真实加载
 bash native/ocr/tools/build_ncnn_linux.sh
@@ -200,3 +200,9 @@ adb -s <serial> shell sh /data/local/tmp/android_smoke.sh
 5. **Linux**：release/profile bundle 已在 Xvfb 下实际加载识别；没有显示器会话下的 GTK 界面实测，发行侧仍不产出 Linux 安装包（保持既有发行边界）。
 6. **性能**：只记录本机实测耗时与峰值 RSS，没有低端机门槛、没有 Vulkan/GPU 路径、没有并发或长时间稳定性测量。
 7. 集成端统一的**全量 Flutter 测试与云端验收**未跑（本包只跑定向回归与 analyze）。
+
+## 集成修正（2026-10-01）
+
+- bundle 设备测试改为显式 `WP17_I4_BUNDLE=true` 启用；默认测试不调用原生插件。上文平台证据保持原始运行范围，Linux 脚本改用 `xvfb-run -a`，只清理本次显示服务。
+- 转换 `--check` 不下载、不改锁；未固定的输入拒绝使用。输出先校验再复制。部署脚本先验证四份官方产物再安装到 `ncnn/`，转发离线和解释器参数；缺少产物锁仍明确退出 3，不绕过官方转换阻塞。
+- 准备 `-Check` 不创建目录、不删除工作区，并校验部署副本摘要；坏产物不覆盖已有验证模型。`python -m unittest discover -s native/ocr/tools -p test_ocr_preparation.py` 在 Windows 本地 **7 项通过，exit 0**；Linux CI 仅执行三项 Python 只读检查，PowerShell 部署四项不冒充 Linux 验收。

@@ -40,7 +40,7 @@ conversion input is the official Paddle inference model
 | Step | Tool and version | Parameters |
 |---|---|---|
 | fetch | official Paddle inference model from Hugging Face | `inference.json`, `inference.pdiparams`, `inference.yml`, SHA-256 pinned |
-| export | `paddle2onnx 0.9.2` (PaddleX CLI equivalent: `paddlex --paddle2onnx`) | `--opset_version 11` |
+| export | current script pin: `paddle2onnx 1.3.1`, `paddlepaddle 3.0.0` (not yet successful on the official PIR inputs) | `--opset_version 11`; verified compatible tooling remains a release gate |
 | convert | `pnnx 20260526` | det: `inputshape=[1,3,320,320] inputshape2=[1,3,256,256]`; rec: `inputshape=[1,3,48,160] inputshape2=[1,3,48,256]` |
 | load | `lib/ocr/ocr_runtime.dart` | `<assetsRoot>/ncnn/PP_OCRv5_mobile_{det,rec}.ncnn.{param,bin}` + `ppocrv5_dict.txt` |
 

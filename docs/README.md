@@ -7,10 +7,10 @@
 | 看工作包状态与后续计划 | [工作包状态](ROADMAP.md) |
 | 改进任务输入、子任务与详情层级 | [任务交互方案（WP13）](TASK_INTERACTION.md) |
 | 理解今天待办与计划日 | [WP14 计划日契约](WP14_NOTES.md) |
-| 设计 Planner / Schedule | [WP15 日程契约](WP15_CONTRACT.md)；当前界面验收：[备份提示](WP15_B2_NOTES.md)、[日程编辑](WP15_C2_NOTES.md) |
-| 做多张待办截图的识别与导入 | [WP17 截图导入方案](WP17_SCREENSHOT_IMPORT.md)；当前入口与写库验收见 [I3b 记录](WP17_I3B_NOTES.md) |
+| 设计 Planner / Schedule | [WP15 日程契约](WP15_CONTRACT.md)；入口与设备时区验收见 [D1 记录](WP15_D1_NOTES.md) |
+| 做多张待办截图的识别与导入 | [WP17 截图导入方案](WP17_SCREENSHOT_IMPORT.md)；模型来源与三端构建见 [I4 记录](WP17_I4_NOTES.md) |
 | 搭建环境、运行、测试或构建 | [开发指南](DEVELOPMENT.md) |
-| 准备安装包、升级与发行渠道验证 | [发行验证清单](RELEASE_VALIDATION.md) |
+| 准备安装包、升级与发行渠道验证 | [发行验证清单](RELEASE_VALIDATION.md)；Windows 旧目录升级见 [U1 记录](WP28_U1_NOTES.md) |
 | 找模块与平台边界 | [架构说明](ARCHITECTURE.md) |
 | 理解 JSON 文件、导入和多卷恢复 | [备份格式](BACKUP_FORMAT.md) |
 | 修改本地保存或数据模型 | [本地数据与兼容性](DATA_COMPATIBILITY.md) |
