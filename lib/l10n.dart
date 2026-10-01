@@ -5,6 +5,26 @@ import 'models.dart';
 
 const Map<Language, Map<String, String>> _dicts = {
   Language.en: {
+    // Windows directory upgrade (WP28-U1).
+    'upgradeTitle': 'Windows data upgrade',
+    'upgradePreparing': 'Checking saved data before opening the app…',
+    'upgradeFailed':
+        'The upgrade could not finish safely. No empty library has been opened. Check file permissions and available space, close the old app, then retry.',
+    'upgradeSourceUnreadable':
+        'The old preferences file cannot be read safely. Its original contents are preserved. Retry after recovery, or follow the manual recovery and import steps.',
+    'upgradeCurrentUnreadable':
+        'The current preferences file needs recovery. It takes priority over the old library and will not be replaced. No empty library has been opened.',
+    'upgradeRecovery':
+        'The copied save pointer or committed slot needs recovery. Continue to the existing recovery screen to save a recovery copy before deciding what to discard.',
+    'upgradeCredentials':
+        'Encrypted credentials were not migrated. Their old files are preserved; file copying does not prove the key can be decrypted. Continue and re-enter your API key in Settings → AI configuration. Legacy plaintext configuration follows the existing secure write and read-back migration.',
+    'upgradeSourcePreserved': 'The old directory remains unchanged:',
+    'upgradeContinue': 'Continue to app / recovery',
+    'upgradeRetry': 'Retry upgrade',
+    'upgradeClose': 'Close app',
+    'upgradeManual': 'Recovery and manual import steps',
+    'upgradeManualInstructions':
+        'Close both versions and keep copies of the affected files privately; they may contain credentials. Restore an unreadable preferences file from a known intact copy at the same path, then retry. Once the old library is readable, its version can use its recovery screen or export a supported backup in Settings. After startup succeeds, use Settings → Import JSON and review the backup preview. Recovery copies of preferences are not importable backups. This screen never discards or overwrites either library.',
     'scheduleEditorNew': 'New schedule item',
     'scheduleEditorEdit': 'Edit schedule item',
     'scheduleEditorAdd': 'Add schedule item',
@@ -795,6 +815,20 @@ const Map<Language, Map<String, String>> _dicts = {
     'todayCelebrationBody': 'Every open task in this view is done.',
   },
   Language.zh: {
+    // Windows directory upgrade (WP28-U1).
+    'upgradeTitle': 'Windows 数据升级',
+    'upgradePreparing': '正在打开应用前检查已保存数据…',
+    'upgradeFailed': '无法安全完成升级，尚未打开空库。请检查文件权限和可用空间，关闭旧版应用后重试。',
+    'upgradeSourceUnreadable': '无法安全读取旧版首选项文件，原文已保留。请恢复后重试，或查看手动恢复与导入步骤。',
+    'upgradeCurrentUnreadable': '当前首选项文件需要恢复。当前库优先，不会被旧库替换，尚未打开空库。',
+    'upgradeRecovery': '复制的保存指针或已提交槽需要恢复。请继续进入既有恢复页面，先保存恢复副本，再决定是否丢弃损坏项。',
+    'upgradeCredentials': '加密凭据未迁移，旧文件已保留；复制文件不能证明密钥可以解密。继续后请在“设置 → AI 配置”中重新填写 API 密钥。旧版明文配置仍须通过既有安全存储写入与读回校验门禁。',
+    'upgradeSourcePreserved': '旧目录保持不变：',
+    'upgradeContinue': '继续进入应用 / 恢复',
+    'upgradeRetry': '重试升级',
+    'upgradeClose': '关闭应用',
+    'upgradeManual': '查看恢复与手动导入步骤',
+    'upgradeManualInstructions': '关闭两个版本，并私下保留受影响文件的副本，文件可能包含凭据。对于无法读取的首选项文件，请用已知完整副本在原路径恢复后重试。旧库可读后，可使用旧版的恢复页面，或在设置中导出其支持的备份。启动成功后，在“设置 → 导入 JSON”中核对备份预览。首选项恢复副本不是可导入备份。本页面不会丢弃或覆盖任何一个库。',
     'scheduleEditorNew': '新建日程记录',
     'scheduleEditorEdit': '编辑日程记录',
     'scheduleEditorAdd': '添加日程记录',
@@ -1475,6 +1509,20 @@ const Map<Language, Map<String, String>> _dicts = {
     'todayCelebrationBody': '当前范围内的未完成任务都已完成。',
   },
   Language.ja: {
+    // Windows directory upgrade (WP28-U1).
+    'upgradeTitle': 'Windows データのアップグレード',
+    'upgradePreparing': '起動前に保存データを確認しています…',
+    'upgradeFailed': '安全にアップグレードを完了できませんでした。空のライブラリは開いていません。権限と空き容量を確認し、旧版を閉じて再試行してください。',
+    'upgradeSourceUnreadable': '旧版の設定ファイルを安全に読み取れません。元の内容は保持されています。復旧後に再試行するか、手動復旧とインポートの手順を確認してください。',
+    'upgradeCurrentUnreadable': '現在の設定ファイルの復旧が必要です。現在のライブラリを優先し、旧版では置き換えません。空のライブラリは開いていません。',
+    'upgradeRecovery': 'コピーした保存ポインターまたはコミット済みスロットの復旧が必要です。既存の復旧画面でコピーを保存してから、破損項目の破棄を判断してください。',
+    'upgradeCredentials': '暗号化された認証情報は移行していません。旧ファイルは保持されていますが、コピーだけでは復号できると確認できません。続行後に「設定 → AI 設定」で API キーを再入力してください。旧版の平文設定は既存の安全な書き込みと読み戻し検証を経て移行します。',
+    'upgradeSourcePreserved': '旧ディレクトリは変更していません：',
+    'upgradeContinue': 'アプリ / 復旧に進む',
+    'upgradeRetry': 'アップグレードを再試行',
+    'upgradeClose': 'アプリを閉じる',
+    'upgradeManual': '復旧と手動インポートの手順',
+    'upgradeManualInstructions': '両方の版を閉じ、対象ファイルのコピーを非公開で保管してください。認証情報を含む場合があります。読み取れない設定ファイルは、正常なコピーを同じ場所に復元して再試行します。旧ライブラリが読み取れるようになったら、旧版の復旧画面を使用するか、設定から対応するバックアップをエクスポートしてください。起動後に「設定 → JSON インポート」でプレビューを確認してください。設定の復旧コピーはインポート用バックアップではありません。この画面はどちらのライブラリも破棄・上書きしません。',
     'scheduleEditorNew': 'スケジュール項目を作成',
     'scheduleEditorEdit': 'スケジュール項目を編集',
     'scheduleEditorAdd': 'スケジュール項目を追加',

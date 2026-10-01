@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'screens/matrix_screen.dart';
 import 'screens/startup_recovery_screen.dart';
+import 'screens/windows_upgrade_screen.dart';
 import 'models.dart';
 import 'services/desktop_shell_service.dart';
 import 'services/desktop_shell_windows.dart';
 import 'services/single_instance.dart';
+import 'services/windows_data_upgrade.dart';
 import 'storage.dart';
 import 'theme.dart';
 
@@ -26,6 +29,21 @@ Future<void> main([List<String> args = const <String>[]]) async {
       );
     },
   );
+  if (shouldUseRealWindowsShell()) {
+    final upgrade = WindowsDataUpgrade();
+    runApp(
+      WindowsUpgradeStartup(
+        prepare: upgrade.prepare,
+        // No Store has opened, so there is no pending save to flush here.
+        closeBeforeStore: windowManager.destroy,
+        openApplication: () async {
+          await reminders.init();
+          return MatrixFlowApp(reminders: reminders, persistence: persistence);
+        },
+      ),
+    );
+    return;
+  }
   await reminders.init();
   runApp(MatrixFlowApp(reminders: reminders, persistence: persistence));
 }

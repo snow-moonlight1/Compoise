@@ -95,6 +95,7 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
     final t = store.t;
     const labels = {
       'matrixflow-tasks': 'recoveryTasks',
+      'matrixflow-schedule': 'scheduleTitle',
       'matrixflow-boards': 'recoveryBoards',
       'matrixflow-config': 'recoveryConfig',
       'matrixflow-settings': 'recoverySettings',

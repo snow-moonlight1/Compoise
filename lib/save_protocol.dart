@@ -39,19 +39,30 @@ class SaveProtocol {
   /// Null means no protocol exists. A malformed committed slot throws so the
   /// startup recovery screen can preserve every original value.
   SavedBatch? load() {
-    final pointer = prefs.getString(pointerKey);
+    final batch = readCommitted(prefs.get);
+    if (batch != null) {
+      _activeSlot = prefs.getString(pointerKey);
+      revision = batch.revision;
+    }
+    return batch;
+  }
+
+  /// Read-only inspection of the same protocol, before opening preferences.
+  /// The Windows upgrade adapter supplies the plugin's decoded file values.
+  /// Inactive slots and compatibility mirrors never override the pointer.
+  static SavedBatch? readCommitted(Object? Function(String key) read) {
+    final pointer = read(pointerKey);
     if (pointer == null) {
-      if (prefs.containsKey(_slotA) || prefs.containsKey(_slotB)) {
-        // A first commit may have stopped before its pointer. Legacy keys win.
-        return null;
-      }
+      // A first commit may have stopped before its pointer. Legacy keys win.
       return null;
     }
     if (pointer != _slotA && pointer != _slotB) {
       throw const FormatException('Invalid save pointer');
     }
-    final raw = prefs.getString(pointer);
-    if (raw == null) throw const FormatException('Missing committed batch');
+    final raw = read(pointer as String);
+    if (raw is! String) {
+      throw const FormatException('Missing committed batch');
+    }
     final decoded = jsonDecode(raw);
     if (decoded is! Map<String, dynamic> ||
         decoded['revision'] is! int ||
@@ -77,9 +88,7 @@ class SaveProtocol {
     if (_bodyChecksum(prefix, valuesJson) != decoded['check']) {
       throw const FormatException('Committed batch checksum failed');
     }
-    _activeSlot = pointer;
-    revision = decoded['revision'] as int;
-    return SavedBatch(revision, values);
+    return SavedBatch(decoded['revision'] as int, values);
   }
 
   Future<SaveResult> commit(Map<String, String> values) {
