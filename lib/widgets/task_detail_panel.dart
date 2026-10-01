@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
+import '../screens/planner_screen.dart';
 import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
 import 'batch_decompose_sheet.dart';
@@ -43,11 +44,15 @@ Future<bool> confirmDiscardDraft(BuildContext context) async {
 }
 
 /// Shows the task detail as a modal bottom sheet on narrow screens.
+///
+/// [onScheduleTime] replaces the default schedule entry, which saves a pending
+/// draft and then opens the Planner for that task.
 Future<void> showTaskDetailSheet(
   BuildContext context,
   Task task, {
   String? highlightSubtaskId,
   ValueChanged<bool>? onDirtyChanged,
+  Future<void> Function(String taskId)? onScheduleTime,
 }) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
@@ -67,6 +72,7 @@ Future<void> showTaskDetailSheet(
       scrollController: scrollController,
       highlightSubtaskId: highlightSubtaskId,
       onDirtyChanged: onDirtyChanged,
+      onScheduleTime: onScheduleTime,
     ),
   ),
 );
@@ -206,6 +212,9 @@ class DetailSideBySide extends StatelessWidget {
 
 /// Central task detail editor for parent and child tasks.
 /// Can be rendered inside a bottom sheet or as a desktop side panel.
+///
+/// The schedule entry is offered for parent tasks only. Child tasks keep their
+/// own editor without a schedule link, and the home input stays uncluttered.
 class TaskDetailPanel extends StatefulWidget {
   final Task task;
   final VoidCallback? onClose;
@@ -213,6 +222,10 @@ class TaskDetailPanel extends StatefulWidget {
   final bool isSidebar;
   final ScrollController? scrollController;
   final String? highlightSubtaskId;
+
+  /// Opens the schedule for this task. Defaults to saving the draft in place
+  /// and pushing the Planner with this task preselected for a new time block.
+  final Future<void> Function(String taskId)? onScheduleTime;
 
   const TaskDetailPanel({
     super.key,
@@ -222,6 +235,7 @@ class TaskDetailPanel extends StatefulWidget {
     this.isSidebar = false,
     this.scrollController,
     this.highlightSubtaskId,
+    this.onScheduleTime,
   });
 
   @override
@@ -369,6 +383,69 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     setState(() {});
     widget.onDirtyChanged?.call(false);
     _close();
+  }
+
+  /// Saves the draft in place for an action that needs a stored parent task but
+  /// continues on the same page. Returns false while the draft cannot be
+  /// written, leaving the existing unsaved state visible instead of navigating.
+  Future<bool> _persistDraft() async {
+    if (!_draft.isDirty) return true;
+    if (!_draft.hasTitle) return false;
+    final store = context.read<Store>();
+    final current = store.tasks
+        .where((t) => t.id == widget.task.id)
+        .firstOrNull;
+    if (current == null) return false;
+    _draft.takeNewSubtask();
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    store.updateTask(_draft.applyTo(current));
+    final result = await store.flush(waitForReminders: false);
+    if (!mounted) return false;
+    setState(() => _saving = false);
+    if (!result.success) {
+      setState(() {
+        _pendingSave = true;
+        _saveError = store.persistenceError ?? store.t['storageWriteError'];
+      });
+      return false;
+    }
+    _draft.markDiscarding();
+    setState(() {});
+    widget.onDirtyChanged?.call(false);
+    return true;
+  }
+
+  /// Schedules time for this parent task. A time block references a stored
+  /// task, so a pending draft is saved first; a save that fails keeps the
+  /// editor and its error message where they are.
+  Future<void> _scheduleTime() async {
+    if (_saving) return;
+    final store = context.read<Store>();
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final handler = widget.onScheduleTime;
+    if (!await _persistDraft() || !mounted) return;
+    final taskId = widget.task.id;
+    // The sheet has to be gone before the schedule route is pushed over it.
+    if (!widget.isSidebar && navigator.canPop()) {
+      navigator.pop();
+      await Future<void>.delayed(Duration.zero);
+    }
+    if (handler != null) {
+      await handler(taskId);
+      return;
+    }
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlannerScreen(
+          store: store,
+          initialTaskId: taskId,
+          startTimeBlock: true,
+        ),
+      ),
+    );
   }
 
   Future<void> _confirmDeleteTask() async {
@@ -824,6 +901,13 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            key: const ValueKey('edit-schedule-entry'),
+                            onPressed: _saving ? null : _scheduleTime,
+                            icon: const Icon(Icons.calendar_month_outlined),
+                            label: Text(t['scheduleTimeEntry']!),
                           ),
                           const SizedBox(height: 12),
                           OutlinedButton.icon(

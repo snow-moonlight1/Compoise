@@ -23,6 +23,7 @@ import '../widgets/task_list_view.dart';
 import '../widgets/text_prompt.dart';
 import 'completed_screen.dart';
 import 'onboarding_screen.dart';
+import 'planner_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'today_screen.dart';
@@ -864,6 +865,12 @@ class _MatrixHomeState extends State<MatrixHome> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
+            key: const ValueKey('more-schedule'),
+            leading: const Icon(Icons.calendar_month_outlined),
+            title: Text(ctx.read<Store>().t['scheduleOpen']!),
+            onTap: () => Navigator.of(ctx).pop('schedule'),
+          ),
+          ListTile(
             key: const ValueKey('more-screenshot-import'),
             leading: const Icon(Icons.image_outlined),
             title: Text(ctx.read<Store>().t['screenshotImportTitle']!),
@@ -897,6 +904,13 @@ class _MatrixHomeState extends State<MatrixHome> {
               ScreenshotImportPage(backend: widget.screenshotBackend),
         ),
       );
+      return;
+    }
+    if (action == 'schedule') {
+      // Leaving an unsaved detail draft for the schedule keeps the same guard
+      // as every other navigation away from the page.
+      if (!mounted || !await _protectDetailDraft() || !mounted) return;
+      await openPlannerScreen(context, store: context.read<Store>());
       return;
     }
     if (!mounted || action == null) return;

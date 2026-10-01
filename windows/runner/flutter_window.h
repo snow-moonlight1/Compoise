@@ -38,6 +38,11 @@ class FlutterWindow : public Win32Window {
   // Receives command lines forwarded by later Windows launches.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       single_instance_channel_;
+
+  // Reports the Windows zone key and forwards WM_SETTINGCHANGE/WM_TIMECHANGE so
+  // the schedule can re-render after a system zone change.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      timezone_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

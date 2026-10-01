@@ -1,6 +1,7 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <string>
 
 #include "single_instance.h"
 
@@ -12,6 +13,25 @@
 
 namespace {
 constexpr int kMatrixFlowHotkeyId = 0x4D46;
+
+// Windows reports a zone key ("China Standard Time"), which the Dart side
+// translates through the pinned CLDR table. The current UTC offset and the
+// display language are deliberately not consulted here.
+std::string CurrentTimeZoneKeyName() {
+  DYNAMIC_TIME_ZONE_INFORMATION info;
+  if (::GetDynamicTimeZoneInformation(&info) == TIME_ZONE_ID_INVALID) {
+    return std::string();
+  }
+  const std::wstring name(info.TimeZoneKeyName);
+  if (name.empty()) return std::string();
+  const int size = ::WideCharToMultiByte(CP_UTF8, 0, name.c_str(), -1, nullptr,
+                                         0, nullptr, nullptr);
+  if (size <= 1) return std::string();
+  std::string utf8(static_cast<size_t>(size - 1), '\0');
+  ::WideCharToMultiByte(CP_UTF8, 0, name.c_str(), -1, utf8.data(), size,
+                        nullptr, nullptr);
+  return utf8;
+}
 }  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
@@ -142,6 +162,24 @@ bool FlutterWindow::OnCreate() {
   });
   SingleInstanceAttachWindow(GetHandle());
 
+  timezone_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "matrixflow/device_time_zone",
+          &flutter::StandardMethodCodec::GetInstance());
+  timezone_channel_->SetMethodCallHandler([](const auto& call, auto result) {
+    if (call.method_name() == "systemZone") {
+      flutter::EncodableMap reply;
+      reply[flutter::EncodableValue("platform")] =
+          flutter::EncodableValue("windows");
+      reply[flutter::EncodableValue("identity")] =
+          flutter::EncodableValue(CurrentTimeZoneKeyName());
+      result->Success(flutter::EncodableValue(reply));
+      return;
+    }
+    result->NotImplemented();
+  });
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -158,6 +196,7 @@ void FlutterWindow::OnDestroy() {
   SingleInstanceBeginShutdown();
   SingleInstanceSetDispatcher(nullptr);
   single_instance_channel_.reset();
+  timezone_channel_.reset();
   if (hotkey_registered_) {
     ::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId);
     hotkey_registered_ = false;
@@ -198,6 +237,19 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       break;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
+      break;
+    case WM_SETTINGCHANGE:
+      // Windows documents no SPI_* code for a zone change; the time/date panel
+      // broadcasts a settings change instead, so it is forwarded and the Dart
+      // side re-reads and compares the identity before re-rendering.
+      if (timezone_channel_) {
+        timezone_channel_->InvokeMethod("onTimeZoneChanged", nullptr);
+      }
+      break;
+    case WM_TIMECHANGE:
+      if (timezone_channel_) {
+        timezone_channel_->InvokeMethod("onTimeZoneChanged", nullptr);
+      }
       break;
   }
 

@@ -7,6 +7,8 @@ import '../l10n.dart';
 import '../planner/schedule_drag.dart';
 import '../planner/schedule_edit_session.dart';
 import '../planner/schedule_editor.dart';
+import '../platform/device_time_zone_controller.dart';
+import '../platform/device_time_zone_picker.dart';
 import '../schedule_item.dart';
 import '../schedule_time.dart';
 import '../storage.dart';
@@ -17,22 +19,32 @@ enum PlannerView { day, week }
 /// Independently mountable Planner/Schedule surface. Live Store data supports
 /// C2 editing; detached snapshots keep C1's read-only behavior.
 /// Pass a live Store (or provide one via Provider), or a detached StoreSnapshot.
-/// The caller supplies the current device's IANA display zone; platform-to-IANA
-/// mapping and the home entry point belong to integration. Stored item zones
-/// never determine the viewport. Mutations use A2 Store commands after review.
+/// The display zone comes from an injected [DeviceTimeZoneController] (device
+/// discovery plus an explicit user choice) or from a fixed [displayTimeZoneId].
+/// With neither, the page asks for a zone instead of assuming one. Stored item
+/// zones never determine the viewport, and a zone change only re-renders.
+/// Mutations use A2 Store commands after review.
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({
     super.key,
-    required this.displayTimeZoneId,
+    this.displayTimeZoneId,
+    this.timeZoneController,
     this.store,
     this.snapshot,
     this.initialDate,
     this.initialView = PlannerView.day,
     this.initialBoardId,
+    this.initialTaskId,
+    this.startTimeBlock = false,
     this.now,
   }) : assert(store == null || snapshot == null);
 
-  final String displayTimeZoneId;
+  /// Fixed display zone, used when no controller is injected and this page is
+  /// not expected to discover the device zone itself.
+  final String? displayTimeZoneId;
+
+  /// Device zone discovery and user choice; wins over [displayTimeZoneId].
+  final DeviceTimeZoneController? timeZoneController;
   final Store? store;
   final StoreSnapshot? snapshot;
   final ScheduleCivilDate? initialDate;
@@ -40,6 +52,12 @@ class PlannerScreen extends StatefulWidget {
 
   /// Null starts with all boards. This is a local view filter, not activeBoardId.
   final String? initialBoardId;
+
+  /// Parent task a new time block is created for.
+  final String? initialTaskId;
+
+  /// Opens the editor for that task's new time block once the page can save.
+  final bool startTimeBlock;
   final DateTime Function()? now;
 
   @override
@@ -55,26 +73,118 @@ class _PlannerScreenState extends State<PlannerScreen> {
   bool _retryingStore = false;
   String? _adjustingId;
 
-  ScheduleCivilDate _today() {
-    final local = scheduleLocalTime(
-      (widget.now?.call() ?? DateTime.now()).millisecondsSinceEpoch,
-      widget.displayTimeZoneId,
+  /// Created only when the caller injects no controller, and disposed here.
+  DeviceTimeZoneController? _ownedZone;
+
+  /// Effective display zone. Null until the device reports one or the user
+  /// picks one, because there is no silent fallback zone.
+  String? _zone;
+  bool _startedPreselectedBlock = false;
+
+  DeviceTimeZoneController? get _zoneController =>
+      widget.timeZoneController ?? _ownedZone;
+
+  void _readZone() {
+    _zone = _zoneController?.displayIanaId ?? widget.displayTimeZoneId;
+  }
+
+  void _onZoneChanged() {
+    if (!mounted) return;
+    setState(_readZone);
+    _armPreselectedBlock();
+  }
+
+  /// The task entry may arrive before device discovery finishes, so opening its
+  /// editor is re-armed whenever a usable zone appears.
+  void _armPreselectedBlock() {
+    if (_startedPreselectedBlock ||
+        !widget.startTimeBlock ||
+        widget.initialTaskId == null ||
+        _zone == null) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _startPreselectedBlock(),
     );
+  }
+
+  ScheduleCivilDate _today() {
+    final now = widget.now?.call() ?? DateTime.now();
+    if (_zone == null) {
+      // Host calendar date, used only as the starting cursor while the user is
+      // still choosing a zone. It is never labelled a device zone.
+      return ScheduleCivilDate(now.year, now.month, now.day);
+    }
+    final local = scheduleLocalTime(now.millisecondsSinceEpoch, _zone!);
     return ScheduleCivilDate(local.year, local.month, local.day);
   }
 
   @override
   void initState() {
     super.initState();
+    if (widget.timeZoneController == null && widget.displayTimeZoneId == null) {
+      // No injected controller and no fixed zone: this page owns device
+      // discovery, the change listener and the user choice.
+      _ownedZone = DeviceTimeZoneController();
+    }
+    // Entering the page re-reads the device zone; the cached value renders
+    // first and the page rebuilds only if the answer differs.
+    _zoneController?.addListener(_onZoneChanged);
+    _zoneController?.refresh();
+    _readZone();
     _date = widget.initialDate ?? _today();
     _view = widget.initialView;
     _boardId = widget.initialBoardId;
+    _armPreselectedBlock();
+  }
+
+  @override
+  void didUpdateWidget(PlannerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.timeZoneController != widget.timeZoneController) {
+      (oldWidget.timeZoneController ?? _ownedZone)?.removeListener(
+        _onZoneChanged,
+      );
+      _zoneController?.addListener(_onZoneChanged);
+    }
+    // A new controller or a new fixed zone both re-project the same records.
+    if (oldWidget.timeZoneController != widget.timeZoneController ||
+        oldWidget.displayTimeZoneId != widget.displayTimeZoneId) {
+      _readZone();
+    }
   }
 
   @override
   void dispose() {
+    _zoneController?.removeListener(_onZoneChanged);
+    _ownedZone?.dispose();
+    _ownedZone = null;
     _horizontal.dispose();
     super.dispose();
+  }
+
+  /// The task entry asks for a new block of a named parent task. It waits for a
+  /// zone and a writable library, and reports a task that vanished instead of
+  /// opening an editor that could not save it.
+  Future<void> _startPreselectedBlock() async {
+    final taskId = widget.initialTaskId;
+    if (taskId == null || _startedPreselectedBlock || !mounted) return;
+    final store = widget.store ?? context.read<Store>();
+    if (!store.ready || store.hasStartupRecovery || _editorOpen) return;
+    if (_zone == null) return;
+    _startedPreselectedBlock = true;
+    if (!store.tasks.any((task) => task.id == taskId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(store.t['scheduleTaskMissing']!)),
+      );
+      return;
+    }
+    await _create(
+      store,
+      _date,
+      kind: ScheduleItemKind.timeBlock,
+      taskId: taskId,
+    );
   }
 
   void _navigate(int direction) => setState(() {
@@ -85,52 +195,57 @@ class _PlannerScreenState extends State<PlannerScreen> {
     Store store,
     ScheduleCivilDate date, {
     ScheduleWallTime? suggestedStart,
+    ScheduleItemKind? kind,
+    String? taskId,
   }) async {
     if (_editorOpen || store.hasStartupRecovery || !store.ready) return;
     setState(() => _editorOpen = true);
     try {
-      final kind = await showDialog<ScheduleItemKind>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(store.t['scheduleEditorNew']!),
-          scrollable: true,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final kind in ScheduleItemKind.values)
+      // A task entry already knows the kind and its parent task; the grid asks.
+      final chosen =
+          kind ??
+          await showDialog<ScheduleItemKind>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(store.t['scheduleEditorNew']!),
+              scrollable: true,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final option in ScheduleItemKind.values)
+                    TextButton(
+                      key: ValueKey('schedule-create-${option.name}'),
+                      onPressed:
+                          option == ScheduleItemKind.timeBlock &&
+                              store.tasks.isEmpty
+                          ? null
+                          : () => Navigator.pop(context, option),
+                      child: Text(
+                        store.t[option == ScheduleItemKind.timeBlock
+                            ? 'scheduleTimeBlock'
+                            : 'scheduleEvent']!,
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
                 TextButton(
-                  key: ValueKey('schedule-create-${kind.name}'),
-                  onPressed:
-                      kind == ScheduleItemKind.timeBlock && store.tasks.isEmpty
-                      ? null
-                      : () => Navigator.pop(context, kind),
-                  child: Text(
-                    store.t[kind == ScheduleItemKind.timeBlock
-                        ? 'scheduleTimeBlock'
-                        : 'scheduleEvent']!,
-                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(store.t['cancel']!),
                 ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(store.t['cancel']!),
+              ],
             ),
-          ],
-        ),
+          );
+      if (chosen == null || !mounted) return;
+      final session = ScheduleEditSession.create(
+        store,
+        chosen,
+        _zone!,
+        date,
+        suggestedStart: suggestedStart,
       );
-      if (kind == null || !mounted) return;
-      final saved = await showScheduleEditor(
-        context,
-        ScheduleEditSession.create(
-          store,
-          kind,
-          widget.displayTimeZoneId,
-          date,
-          suggestedStart: suggestedStart,
-        ),
-      );
+      if (taskId != null) session.taskId = taskId;
+      final saved = await showScheduleEditor(context, session);
       if (saved == true && mounted) _savedMessage(store);
     } finally {
       if (mounted) setState(() => _editorOpen = false);
@@ -156,7 +271,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         store,
         item,
         mode: mode,
-        displayZone: widget.displayTimeZoneId,
+        displayZone: _zone!,
         target: target,
         revision: revision,
       );
@@ -175,7 +290,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         .floor();
     final quarter = Duration.millisecondsPerMinute * 15;
     final instant = day.window.startAt + (elapsed ~/ quarter) * quarter;
-    final local = scheduleLocalTime(instant, widget.displayTimeZoneId);
+    final local = scheduleLocalTime(instant, _zone!);
     return ScheduleWallTime(
       ScheduleCivilDate(local.year, local.month, local.day),
       hour: local.hour,
@@ -328,6 +443,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   Widget _buildData(StoreSnapshot data, {Store? liveStore}) {
     final t = dictOf(data.settings.language);
+    final zone = _zone;
+    // Without a usable device zone and without a user choice, the page states
+    // the problem instead of drawing a grid in an assumed zone.
+    if (zone == null) return _zoneRequiredScaffold(t);
     final theme = Theme.of(context);
     final scale = math.max(
       1.0,
@@ -355,7 +474,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       for (final date in dates)
         ScheduleDayLayout(
           date: date,
-          timeZoneId: widget.displayTimeZoneId,
+          timeZoneId: zone,
           entries: entries,
           pixelsPerHour: 96 * scale,
           minimumItemHeight: (_adjustingId == null ? 60 : 150) * scale,
@@ -490,8 +609,22 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     ),
                   ],
                 ),
-                Text(
-                  '${t['scheduleDisplayZone']}: ${widget.displayTimeZoneId}',
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '${_zoneController?.followsDeviceZone ?? false ? t['scheduleZoneDevice'] : t['scheduleDisplayZone']}: $zone',
+                    ),
+                    if (_zoneController != null)
+                      TextButton.icon(
+                        key: const ValueKey('schedule-zone-switch'),
+                        onPressed: () => _chooseZone(_zoneController!, t),
+                        icon: const Icon(Icons.public),
+                        label: Text(t['scheduleZoneSwitch']!),
+                      ),
+                  ],
                 ),
                 if (days.every((day) => day.placements.isEmpty))
                   Padding(
@@ -550,6 +683,80 @@ class _PlannerScreenState extends State<PlannerScreen> {
         ),
       ),
     );
+  }
+
+  /// Shown while no zone can be used. It names the reason the device identity
+  /// failed and offers the IANA picker; nothing is displayed in a made-up zone.
+  Widget _zoneRequiredScaffold(Map<String, String> t) {
+    final controller = _zoneController;
+    final theme = Theme.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t['scheduleTitle']!,
+                    style: theme.textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    scheduleZoneProblemText(
+                      t,
+                      problem: controller?.problem,
+                      identity: controller?.deviceIdentity,
+                    ),
+                    key: const ValueKey('schedule-zone-required'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    t['scheduleZoneHint']!,
+                    style: theme.textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    key: const ValueKey('schedule-zone-choose'),
+                    onPressed: controller == null
+                        ? null
+                        : () => _chooseZone(controller, t),
+                    icon: const Icon(Icons.public),
+                    label: Text(t['scheduleZoneChoose']!),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Records a user-chosen display zone on the controller. The choice is a view
+  /// setting only: it never touches a stored record.
+  Future<void> _chooseZone(
+    DeviceTimeZoneController controller,
+    Map<String, String> t,
+  ) async {
+    final chosen = await showScheduleZonePicker(
+      context,
+      t: t,
+      current: controller.displayIanaId,
+      deviceIanaId: controller.deviceIanaId,
+      deviceIdentity: controller.deviceIdentity,
+      problem: controller.problem,
+    );
+    if (chosen == null || !mounted) return;
+    controller.chooseIana(chosen);
+    if (!mounted) return;
+    _armPreselectedBlock();
   }
 
   String _entryLabel(ScheduleEntry entry, Map<String, String> t) => [
@@ -661,8 +868,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
       if (slice.continuesAfter) t['scheduleContinuesAfter']!,
     ].join(' · ');
     final time =
-        '${scheduleClockLabel(slice.startAt, widget.displayTimeZoneId)} – '
-        '${scheduleClockLabel(slice.endAt, widget.displayTimeZoneId)}';
+        '${scheduleClockLabel(slice.startAt, _zone!)} – '
+        '${scheduleClockLabel(slice.endAt, _zone!)}';
     final label =
         '${_entryLabel(entry, t)} · $dateLabel · $time'
         '${continuation.isEmpty ? '' : ' · $continuation'}';
@@ -805,13 +1012,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     children: [
                       Text(_entryLabel(entry, t)),
                       Text(
-                        '${t['scheduleDisplayZone']}: ${widget.displayTimeZoneId}',
+                        '${t['scheduleDisplayZone']}: ${_zone!}',
                       ),
                       Text(
-                        '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, widget.displayTimeZoneId)}',
+                        '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, _zone!)}',
                       ),
                       Text(
-                        '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, widget.displayTimeZoneId)}',
+                        '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, _zone!)}',
                       ),
                       Text(
                         '${t['scheduleRecordedZone']}: ${entry.item.timeZoneId}',
@@ -900,3 +1107,20 @@ class _PlannerScreenState extends State<PlannerScreen> {
     },
   );
 }
+
+/// Opens the schedule for the live library. Every entry point uses this so the
+/// zone handling and the C2 review/save commands stay the only paths in.
+Future<void> openPlannerScreen(
+  BuildContext context, {
+  Store? store,
+  String? taskId,
+  bool startTimeBlock = false,
+}) => Navigator.of(context, rootNavigator: true).push(
+  MaterialPageRoute<void>(
+    builder: (_) => PlannerScreen(
+      store: store,
+      initialTaskId: taskId,
+      startTimeBlock: startTimeBlock,
+    ),
+  ),
+);
