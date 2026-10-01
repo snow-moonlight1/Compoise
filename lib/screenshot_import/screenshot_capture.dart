@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, listEquals;
 
 import '../import_preview/draft_model.dart';
+import '../ocr/ocr_assets.dart';
 import '../ocr/ocr_runtime.dart';
 import 'gutter_scan.dart';
 import 'screenshot_adapter.dart';
@@ -496,27 +497,10 @@ Future<List<GutterMark>> _decodePngMarks(
 const _missingModels =
     'OCR model files are missing or unreadable. Screenshot OCR is not formally available.';
 Future<String?> _checkModels(String root) async {
-  const names = [
-    'ppocrv5_dict.txt',
-    'PP_OCRv5_mobile_det.ncnn.param',
-    'PP_OCRv5_mobile_det.ncnn.bin',
-    'PP_OCRv5_mobile_rec.ncnn.param',
-    'PP_OCRv5_mobile_rec.ncnn.bin',
-  ];
-  for (final name in names) {
-    try {
-      final file = File('$root/ncnn/$name');
-      final handle = await file.open();
-      try {
-        if ((await handle.read(1)).isEmpty) return _missingModels;
-      } finally {
-        await handle.close();
-      }
-    } on FileSystemException {
-      return _missingModels;
-    }
-  }
-  return null;
+  // The file list lives in lib/ocr/ocr_assets.dart so the deployment check and
+  // the native loader cannot disagree about the layout.
+  final missing = await missingOcrModelFiles(root);
+  return missing.isEmpty ? null : _missingModels;
 }
 
 String _ocrFailure(String error) {

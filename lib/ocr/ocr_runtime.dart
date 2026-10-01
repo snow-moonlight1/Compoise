@@ -137,7 +137,10 @@ OcrImageResult _failure(String path, String error) => OcrImageResult(
       error: error,
     );
 
-String _defaultLibraryPath() {
+/// Library location for the current platform. Windows and Linux load the copy
+/// installed next to the executable (Linux from the bundle's [lib] directory),
+/// Android resolves the packaged shared object by name.
+String resolveOcrLibraryPath() {
   if (Platform.isAndroid) return 'libmatrixflow_ocr.so';
   final executable = File(Platform.resolvedExecutable).parent.path;
   if (Platform.isWindows) return '$executable\\matrixflow_ocr.dll';
@@ -151,7 +154,7 @@ OcrImageResult _recognizeOne(
   String? libraryPath,
   int threads,
 ) {
-  final library = DynamicLibrary.open(libraryPath ?? _defaultLibraryPath());
+  final library = DynamicLibrary.open(libraryPath ?? resolveOcrLibraryPath());
   final create = library.lookupFunction<_CreateNative, _CreateDart>('mf_ocr_create');
   final run = library.lookupFunction<_RunNative, _RunDart>('mf_ocr_run_file');
   final destroy = library.lookupFunction<_DestroyNative, _DestroyDart>('mf_ocr_destroy');

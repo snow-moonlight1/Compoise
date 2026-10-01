@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../ocr/ocr_assets.dart';
 import '../ocr/ocr_runtime.dart';
 import 'screenshot_capture.dart';
 import 'screenshot_saf.dart';
@@ -16,6 +17,37 @@ abstract interface class ScreenshotBackend {
   Future<void> dispose();
 }
 
+/// Read-only platform environment, injectable so the resolution order can be
+/// asserted without a real process environment.
+typedef OcrEnvironment = Map<String, String> Function();
+
+/// Application support directory provider, injectable so the fallback entry of
+/// the resolution order can be asserted without a platform channel.
+typedef OcrSupportDirectory = Future<Directory> Function();
+
+/// Asset root used when the caller supplies no [OcrRuntime].
+///
+/// Order: `WP17_OCR_ASSETS` environment variable (desktop development and
+/// unmanaged deployments), then the compile-time `--dart-define`
+/// `WP17_OCR_ASSETS`, then the application support directory. All three are
+/// local paths; nothing is downloaded and no path outside the requested root is
+/// searched.
+Future<String> resolveOcrAssetsRoot({
+  OcrEnvironment environment = _platformEnvironment,
+  OcrSupportDirectory? supportDirectory,
+}) async {
+  final fromEnvironment = environment()['WP17_OCR_ASSETS']?.trim();
+  if (fromEnvironment != null && fromEnvironment.isNotEmpty) {
+    return fromEnvironment;
+  }
+  const fromDefine = String.fromEnvironment('WP17_OCR_ASSETS');
+  if (fromDefine.isNotEmpty) return fromDefine;
+  final support = await (supportDirectory ?? getApplicationSupportDirectory)();
+  return '${support.path}/wp17r2-assets';
+}
+
+Map<String, String> _platformEnvironment() => Platform.environment;
+
 final class LocalScreenshotBackend implements ScreenshotBackend {
   LocalScreenshotBackend({
     OcrRuntime? runtime,
@@ -23,17 +55,20 @@ final class LocalScreenshotBackend implements ScreenshotBackend {
     ScreenshotSaf? saf,
     Future<String?> Function()? availability,
     bool? android,
+    OcrEnvironment environment = _platformEnvironment,
   }) : _runtime = runtime,
        _capture = capture,
        _saf = saf,
        _availability = availability,
-       _android = android ?? Platform.isAndroid;
+       _android = android ?? Platform.isAndroid,
+       _environment = environment;
 
   OcrRuntime? _runtime;
   ScreenshotCapture? _capture;
   ScreenshotSaf? _saf;
   final Future<String?> Function()? _availability;
   final bool _android;
+  final OcrEnvironment _environment;
   Future<ScreenshotCaptureResult>? _running;
   bool _disposed = false;
   int _generation = 0;
@@ -55,35 +90,13 @@ final class LocalScreenshotBackend implements ScreenshotBackend {
         return 'Unavailable';
       }
       _runtime ??= OcrRuntime(
-        assetsRoot: const String.fromEnvironment('WP17_OCR_ASSETS').isNotEmpty
-            ? const String.fromEnvironment('WP17_OCR_ASSETS')
-            : '${(await getApplicationSupportDirectory()).path}/wp17r2-assets',
+        assetsRoot: await resolveOcrAssetsRoot(environment: _environment),
       );
-      for (final name in const [
-        'ppocrv5_dict.txt',
-        'PP_OCRv5_mobile_det.ncnn.param',
-        'PP_OCRv5_mobile_det.ncnn.bin',
-        'PP_OCRv5_mobile_rec.ncnn.param',
-        'PP_OCRv5_mobile_rec.ncnn.bin',
-      ]) {
-        final f = File('${_runtime!.assetsRoot}/ncnn/$name');
-        if (!await f.exists() || await f.length() == 0) return 'ModelsMissing';
-        final handle = await f.open();
-        try {
-          if ((await handle.read(1)).isEmpty) return 'ModelsMissing';
-        } finally {
-          await handle.close();
-        }
-      }
+      final missing = await missingOcrModelFiles(_runtime!.assetsRoot);
+      if (missing.isNotEmpty) return 'ModelsMissing';
       try {
-        final exe = File(Platform.resolvedExecutable).parent.path;
         final library = DynamicLibrary.open(
-          _runtime!.libraryPath ??
-              (_android
-                  ? 'libmatrixflow_ocr.so'
-                  : Platform.isWindows
-                  ? '$exe/matrixflow_ocr.dll'
-                  : '$exe/lib/libmatrixflow_ocr.so'),
+          _runtime!.libraryPath ?? resolveOcrLibraryPath(),
         );
         for (final name in [
           'mf_ocr_create',

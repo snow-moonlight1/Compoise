@@ -89,6 +89,27 @@ include(flutter/generated_plugins.cmake)
 set(BUILD_BUNDLE_DIR "${PROJECT_BINARY_DIR}/bundle")
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
+elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
+  # A stale CMakeCache from an earlier configure can leave the prefix at the
+  # system default, and CMake then no longer reports
+  # CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT. Every install rule below has to
+  # stay inside the relocatable bundle, so treat that exact value as default too.
+  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
+endif()
+
+# The optional OCR shared object belongs in the bundle's lib/ directory. It is
+# copied by an install script declared *after* the bundle-reset block below,
+# because that block removes the whole bundle directory and would otherwise
+# delete a library installed by an earlier rule. The script is generated so
+# CMake resolves $<TARGET_FILE:...> while configuring; a generator expression
+# inside install(CODE ...) would reach the install script as literal text.
+set(WP17_OCR_BUNDLE_LIB "${CMAKE_INSTALL_PREFIX}/lib")
+if(TARGET matrixflow_ocr)
+  set(WP17_OCR_INSTALL_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/wp17_ocr_install.cmake")
+  file(GENERATE OUTPUT "${WP17_OCR_INSTALL_SCRIPT}" CONTENT
+"file(INSTALL DESTINATION \"${WP17_OCR_BUNDLE_LIB}\" TYPE SHARED_LIBRARY FILES \"$<TARGET_FILE:matrixflow_ocr>\")
+message(STATUS \"Installing: ${WP17_OCR_BUNDLE_LIB}/$<TARGET_FILE_NAME:matrixflow_ocr>\")
+")
 endif()
 
 # Start with a clean build bundle directory every time.
@@ -96,11 +117,12 @@ install(CODE "
   file(REMOVE_RECURSE \"${BUILD_BUNDLE_DIR}/\")
   " COMPONENT Runtime)
 
+if(TARGET matrixflow_ocr)
+  install(SCRIPT "${WP17_OCR_INSTALL_SCRIPT}" COMPONENT Runtime)
+endif()
+
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-if(TARGET matrixflow_ocr)
-  install(TARGETS matrixflow_ocr LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-endif()
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
