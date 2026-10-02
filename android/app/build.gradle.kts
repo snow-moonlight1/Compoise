@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.util.Base64
 import java.io.FileInputStream
 import java.io.File
 
@@ -41,6 +42,13 @@ val hasKeystore = keystorePropertiesFile != null
 if (hasKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile!!))
 }
+
+// Isolated identity for the opt-in WP15-D2 device entry. No effect on normal
+// debug/release builds, signing or the production applicationId.
+val wp15D2Device = (project.findProperty("dart-defines") as? String)
+    ?.split(",")?.any {
+        String(Base64.getDecoder().decode(it)) == "WP15_D2_DEVICE=true"
+    } == true
 
 android {
     namespace = "com.matrixflow.matrixflow_native"
@@ -109,6 +117,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (wp15D2Device) applicationIdSuffix = ".wp15d2"
+        }
         release {
             val releaseSigning = signingConfigs.getByName("release")
             if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {

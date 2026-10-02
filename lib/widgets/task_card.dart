@@ -282,7 +282,9 @@ class TaskCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                Row(
+                Wrap(
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _PlannedChip(
                       task: task,
@@ -298,19 +300,20 @@ class TaskCard extends StatelessWidget {
                         store.settings.urgencyThresholdDays,
                       ),
                     ),
-                    if (task.reminderAt != null) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.notifications_active_outlined,
-                        size: 14,
-                        color:
-                            task.completed
-                                ? theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.38,
-                                )
-                                : theme.colorScheme.primary,
+                    if (task.reminderAt != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.notifications_active_outlined,
+                          size: 14,
+                          color:
+                              task.completed
+                                  ? theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.38,
+                                  )
+                                  : theme.colorScheme.primary,
+                        ),
                       ),
-                    ],
                   ],
                 ),
               ],

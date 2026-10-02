@@ -81,9 +81,12 @@ class _ScheduleZoneDialogState extends State<_ScheduleZoneDialog> {
     final options = searchScheduleZoneIds(_query, limit: widget.limit);
     final typed = _query.trim();
     final typedIsValid =
-        typed.isNotEmpty && isKnownIanaTimeZone(typed) && !options.contains(typed);
+        typed.isNotEmpty &&
+        isKnownIanaTimeZone(typed) &&
+        !options.contains(typed);
     return AlertDialog(
       title: Text(t['scheduleZoneChoose'] ?? 'Choose time zone'),
+      scrollable: true,
       content: SizedBox(
         width: 420,
         child: Column(
@@ -138,27 +141,26 @@ class _ScheduleZoneDialogState extends State<_ScheduleZoneDialog> {
                 ),
               ),
             const SizedBox(height: 8),
-            Flexible(
-              child: ListView(
-                key: const ValueKey('schedule-zone-options'),
-                shrinkWrap: true,
-                children: [
-                  if (typedIsValid)
-                    ListTile(
-                      key: const ValueKey('schedule-zone-typed'),
-                      leading: const Icon(Icons.keyboard),
-                      title: Text(typed),
-                      onTap: () => Navigator.pop(context, typed),
-                    ),
-                  for (final id in options)
-                    ListTile(
-                      key: ValueKey('schedule-zone-option-$id'),
-                      selected: id == widget.current,
-                      title: Text(id),
-                      onTap: () => Navigator.pop(context, id),
-                    ),
-                ],
-              ),
+            // Scroll the guidance, search and results as one accessible area.
+            Column(
+              key: const ValueKey('schedule-zone-options'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (typedIsValid)
+                  ListTile(
+                    key: const ValueKey('schedule-zone-typed'),
+                    leading: const Icon(Icons.keyboard),
+                    title: Text(typed),
+                    onTap: () => Navigator.pop(context, typed),
+                  ),
+                for (final id in options)
+                  ListTile(
+                    key: ValueKey('schedule-zone-option-$id'),
+                    selected: id == widget.current,
+                    title: Text(id),
+                    onTap: () => Navigator.pop(context, id),
+                  ),
+              ],
             ),
           ],
         ),
