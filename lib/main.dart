@@ -11,17 +11,22 @@ import 'services/desktop_shell_service.dart';
 import 'services/desktop_shell_windows.dart';
 import 'services/single_instance.dart';
 import 'services/windows_data_upgrade.dart';
+import 'services/windows_upgrade_validation.dart';
 import 'storage.dart';
 import 'theme.dart';
 
 Future<void> main([List<String> args = const <String>[]]) async {
   WidgetsFlutterBinding.ensureInitialized();
+  final validation = const bool.fromEnvironment('WP28_U2_HARNESS')
+      ? await WindowsUpgradeValidation.open()
+      : null;
   await ensureWindowsWindowManager();
-  final reminders = ReminderService.instance;
+  final reminders = validation?.reminders ?? ReminderService.instance;
   final persistence = const SharedPreferencesStorePersistence();
   await SingleInstanceController.install(
     initialArguments: args,
     onActivated: (incoming) {
+      validation?.onActivation(incoming);
       dispatchSingleInstanceActivation(
         incoming,
         restoreWindow: DesktopShellService.instance.restoreWindow,
@@ -30,18 +35,29 @@ Future<void> main([List<String> args = const <String>[]]) async {
     },
   );
   if (shouldUseRealWindowsShell()) {
-    final upgrade = WindowsDataUpgrade();
-    runApp(
-      WindowsUpgradeStartup(
-        prepare: upgrade.prepare,
-        // No Store has opened, so there is no pending save to flush here.
-        closeBeforeStore: windowManager.destroy,
-        openApplication: () async {
-          await reminders.init();
-          return MatrixFlowApp(reminders: reminders, persistence: persistence);
-        },
-      ),
+    final upgrade = validation?.upgrade() ?? WindowsDataUpgrade();
+    var noticeConfirmed = false;
+    WindowsUpgradeResult? upgradeResult;
+    final startup = WindowsUpgradeStartup(
+      deviceLocales: validation == null ? null : const [Locale('en')],
+      prepare: () async =>
+          upgradeResult = await (validation?.prepare() ?? upgrade.prepare()),
+      onCredentialNoticeConfirmed: () => noticeConfirmed = true,
+      // No Store has opened, so there is no pending save to flush here.
+      closeBeforeStore: windowManager.destroy,
+      openApplication: () async {
+        await reminders.init();
+        return MatrixFlowApp(
+          reminders: reminders,
+          persistence: persistence,
+          acknowledgeWindowsCredentialNotice: noticeConfirmed,
+          windowsCredentialsRequiredOnOpen:
+              upgradeResult?.credentialsNeedSetup ?? false,
+          onStoreReady: validation?.onStoreReady,
+        );
+      },
     );
+    runApp(validation?.wrap(startup) ?? startup);
     return;
   }
   await reminders.init();
@@ -52,21 +68,37 @@ class MatrixFlowApp extends StatelessWidget {
   final List<Locale>? deviceLocales;
   final ReminderService? reminders;
   final StorePersistence? persistence;
+  final bool acknowledgeWindowsCredentialNotice;
+  final bool windowsCredentialsRequiredOnOpen;
+  final Future<void> Function(Store)? onStoreReady;
   const MatrixFlowApp({
     super.key,
     this.deviceLocales,
     this.reminders,
     this.persistence,
+    this.acknowledgeWindowsCredentialNotice = false,
+    this.windowsCredentialsRequiredOnOpen = false,
+    this.onStoreReady,
   });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => Store(
-        deviceLocales: deviceLocales,
-        reminders: reminders,
-        persistence: persistence,
-      )..init(),
+      create: (_) {
+        final store = Store(
+          deviceLocales: deviceLocales,
+          reminders: reminders,
+          persistence: persistence,
+          windowsCredentialsRequiredOnOpen: windowsCredentialsRequiredOnOpen,
+        );
+        store.init().then((_) async {
+          if (acknowledgeWindowsCredentialNotice) {
+            await store.acknowledgeWindowsCredentialNotice();
+          }
+          await onStoreReady?.call(store);
+        });
+        return store;
+      },
       child: Consumer<Store>(
         builder: (context, store, _) {
           if (!store.ready) {

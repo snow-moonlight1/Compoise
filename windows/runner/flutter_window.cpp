@@ -4,6 +4,7 @@
 #include <string>
 
 #include "single_instance.h"
+#include "utils.h"
 
 #include <vector>
 
@@ -37,7 +38,10 @@ std::string CurrentTimeZoneKeyName() {
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  WindowsValidationTrace("FlutterWindow destructor body");
+  Destroy();
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
@@ -193,6 +197,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  WindowsValidationTrace("window destroy begin");
   SingleInstanceBeginShutdown();
   SingleInstanceSetDispatcher(nullptr);
   single_instance_channel_.reset();
@@ -203,10 +208,13 @@ void FlutterWindow::OnDestroy() {
   }
   hotkey_channel_.reset();
   if (flutter_controller_) {
+    WindowsValidationTrace("engine destroy begin");
     flutter_controller_ = nullptr;
+    WindowsValidationTrace("engine destroy end");
   }
 
   Win32Window::OnDestroy();
+  WindowsValidationTrace("window destroy end");
 }
 
 LRESULT

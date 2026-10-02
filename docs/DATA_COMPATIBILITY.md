@@ -15,8 +15,18 @@ Android、Windows 与 Linux 预览版的任务库使用 SharedPreferences。`Sav
 | `matrixflow-settings` | 用户设置 JSON |
 | `matrixflow-active-board` | 当前任务板 ID |
 | `matrixflow-has-seen-onboarding` | 引导完成状态 |
+| `matrixflow-upgrade-credentials-required`（可选） | Windows 历史加密凭据未接纳，当前保护存储仍需重新配置 |
+| `matrixflow-upgrade-credential-notice-read`（可选） | 用户已明确确认旧密钥不能随文件搬迁的说明 |
 
 提交槽或启动数据损坏时，应用进入恢复流程，避免直接覆盖原始内容。旧版本明文密钥迁移时，须先写入并读回系统凭据存储，再清理本地槽与镜像；失败则保留可重试状态。Android 系统自动备份与设备转移不能作为密钥恢复方案。相关实现见 [save_protocol.dart](../lib/save_protocol.dart)、[storage.dart](../lib/storage.dart) 和 [credential_store.dart](../lib/credential_store.dart)。
+
+Windows 升级提示的两个状态相互独立。点击继续只代表说明已读；Store 成功打开、通过整库与凭据读取校验且未处于恢复锁时，才把已读状态与整库快照一起提交。关闭、恢复锁、打开失败或已读提交失败不消耗提示；已读提交失败回滚这项决策，可再次明确确认。已读但未配置的用户下次直接进入任务界面，设置页仍保留重配说明。
+
+两个状态在提交槽中采用严格的 `"true"` / `"false"` 字符串，外层 SharedPreferences 兼容镜像采用布尔值；不合法类型进入恢复。存在提交字段时只采用该字段，不采用可能滞后的镜像；旧槽缺少字段时，U1 与复制首选项共用原子提交的 `flutter.matrixflow-upgrade-credentials-required=true` 是启动状态，缺失的已读字段默认为 false。槽是唯一提交事实，镜像写入失败不构成另一套状态，后续保存修复镜像。只有旧加密文件、没有首选项的源，在有效 Store 打开后按同一快照规则建立这两个状态。没有升级状态的其他资料库不增加这些字段。
+
+仅在当前安全存储写入并读回相同的非空密钥后，Store 才提交 `credentials-required=false`；单次安全读取、已读确认和旧文件存在均不能代替这个验证。失败的普通保存保留待保存修订，重开仍读取上一提交，可用原保存重试；显式导入把凭据选择和此状态放在同一整库事务，提交失败回滚凭据且保留旧状态。已验证删除密钥会恢复 `credentials-required=true`，保留已读状态，因此提示留在设置而不会反复阻止启动。旧加密文件始终只读，不读取其内容、不迁移其密钥，也不将新密钥放进槽、镜像或日志。
+
+这些可选字段不改变槽格式、校验算法或备份 v3；它们属于本机升级状态，不随导出/导入备份转移。旧读取器可以忽略额外字段，但旧可执行文件重存可能丢弃升级状态和日程，因此不能保证回退后重写的状态保留；回退前须保留完整 v3 备份和本机资料的私有副本。
 
 旧提交槽缺少 `matrixflow-schedule` 时读取为空，不从较新镜像补读，也不从 plannedDate、deadline 或提醒合成日程；下一次正常提交写空数组。键存在但坏 JSON、重复 ID、坏时区或悬空引用时进入恢复，保留原始数据，只有用户显式丢弃才可清理。日程的格式、绝对时间、IANA 时区与引用校验和备份使用同一模型规则；文件另有数量/字节预算。
 

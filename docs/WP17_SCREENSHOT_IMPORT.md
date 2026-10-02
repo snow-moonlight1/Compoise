@@ -1,6 +1,6 @@
 # WP17：批量截图识别导入
 
-状态：I1–I4 已集成。默认构建未带原生 OCR 组件与模型，入口会说明缺失，**尚不属于正式支持功能**。[I4](WP17_I4_NOTES.md)已验证 Windows bundle、Linux bundle 库和 Android x86_64/arm64 原生识别；三端使用的仍是仅供验证的 nihui 转换权重。官方模型转换与分发、arm64 的完整 Flutter 选图导入流程、真实截图质量仍待验收。目标是用户一次选取多张待办截图，校对后一次导入。不读取其他应用数据库，也不自动抓屏。旧[系统笔记接口研究](evidence/wp17r/README.md)仅作历史证据。
+状态：I1–I5 已集成。默认构建未带原生 OCR 组件与模型，入口会说明缺失，**尚不属于正式支持功能**。[I5](WP17_I5_NOTES.md)已跑通官方模型转换，固定输入/工具链/产物并部署许可附件，在 Windows/Linux 原生库通过对照。I4 的三端 bundle/设备证据仍使用历史验证权重；官方模型的应用 bundle、Android 完整 Flutter 导入流程、真实截图质量与正式包装仍待验收。目标是用户一次选取多张待办截图，校对后一次导入。不读取其他应用数据库，也不自动抓屏。旧[系统笔记接口研究](evidence/wp17r/README.md)仅作历史证据。
 
 ## 用户流程与数据边界
 
@@ -36,7 +36,7 @@ OCR 只负责读取图中文字和位置，不能把截图中的勾选、缩进�
 | WP17-I3a | 已集成[多图 OCR 转草稿](WP17_I3A_NOTES.md)；Windows 合成样例经外部模型识别通过。Android 原 file_picker 入口保持禁用，产品改走 I3b SAF。 |
 | WP17-I3b | 已集成应用导航、校对确认后事务写库与有界 SAF 临时读取；[验收记录](WP17_I3B_NOTES.md)区分真实 Windows OCR 和注入 OCR 的 Android SAF 测试。 |
 | WP17-I4 | 已集成依赖准备、模型输入固定与三端可选构建；[验收记录](WP17_I4_NOTES.md)保留官方 PIR 转换阻塞及设备流程局限。 |
-| WP17-I5 | 跑通官方模型转换、固定产物哈希并验证部署与识别；不能用无 OCR 依赖的默认 CI 代替原生验收。后续设备与质量门禁见[路线图](ROADMAP.md#后续接线与门禁)。 |
+| WP17-I5 | 已跑通官方模型转换，固定六输入、六输出和许可附件；[验收记录](WP17_I5_NOTES.md)区分 Windows/Linux 原生对照与未做的应用 bundle/Android 流程。后续门禁见[路线图](ROADMAP.md#后续接线与门禁)。 |
 
 R2 的比较方法和未测项目由[实测报告](WP17_OCR_EVALUATION.md)保存。[PaddleOCR 官方 Android 示例](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/inference_deployment/cross_platform/android_deployment.md)本身要求 API 26，不能直接移植进 `minSdk=23` 的应用。
 

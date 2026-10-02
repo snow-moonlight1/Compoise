@@ -102,6 +102,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   final List<_CredentialImportReservation> _credentialImports = [];
   String? credentialError;
   bool _credentialMigrationPending = false;
+  final bool windowsCredentialsRequiredOnOpen;
+  bool _windowsCredentialStatePresent = false;
+  bool windowsCredentialsNeedSetup = false;
+  bool windowsCredentialNoticeRead = false;
   late SharedPreferences _prefs;
   SaveProtocol? _saveProtocol;
   Map<String, String>? _savedValues;
@@ -243,6 +247,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     this.saveWriter,
     CredentialStore? credentialStore,
     this.reminders,
+    this.windowsCredentialsRequiredOnOpen = false,
     StorePersistence? persistence,
   }) : ai = aiService ?? AIService(),
        credentialStore =
@@ -591,6 +596,20 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           : StartupDataState.corrupt,
     );
     hasSeenOnboarding = onboarding is bool ? onboarding : false;
+    try {
+      final state = WindowsCredentialState.read(_savedValues, _prefs.get);
+      _windowsCredentialStatePresent =
+          state.present || windowsCredentialsRequiredOnOpen;
+      windowsCredentialsNeedSetup = state.present
+          ? state.needsSetup
+          : windowsCredentialsRequiredOnOpen;
+      windowsCredentialNoticeRead = state.noticeRead;
+    } catch (_) {
+      mark(
+        SaveProtocol.windowsCredentialsRequiredKey,
+        StartupDataState.corrupt,
+      );
+    }
     if (hasStartupRecovery) corruptNotice = t['corruptData'];
 
     ready = true;
@@ -631,6 +650,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           _kSettings,
           _kActiveBoard,
           _kHasSeenOnboarding,
+          SaveProtocol.windowsCredentialsRequiredKey,
+          SaveProtocol.windowsCredentialNoticeReadKey,
           SaveProtocol.pointerKey,
           'matrixflow-save-a',
           'matrixflow-save-b',
@@ -1618,6 +1639,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<bool> updateAIConfig(AIConfig config) async {
+    if (hasStartupRecovery || !ready || _disposed) return false;
     if (_credentialMigrationPending) {
       aiConfig.apiKey = _legacyCredentialForMigration ?? aiConfig.apiKey;
       credentialError = t['credentialMigrationError'];
@@ -1640,6 +1662,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (requested == _confirmedCredential &&
         _queuedCredentialWrites == 0 &&
         _credentialImports.isEmpty &&
+        !(windowsCredentialsNeedSetup && requested.isNotEmpty) &&
         credentialError == null) {
       _pendingCredentialValue = null;
       return true;
@@ -1672,6 +1695,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           aiConfig.apiKey = requested;
           credentialError = null;
           _pendingCredentialValue = null;
+          _recordWindowsCredentialVerification(requested);
           // A failed earlier write blocked the ordinary config save. Persist
           // the latest non-secret fields now that the credential is verified.
           if (hadCredentialError) _saveConfig();
@@ -1699,6 +1723,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final rollback = _pendingCredentialRollback;
     if (rollback != null) return _restoreCredential(rollback);
     final legacy = _legacyCredentialForMigration ?? aiConfig.apiKey;
+    var wroteCredential = false;
     try {
       final secured = await credentialStore.read();
       if (secured != null) {
@@ -1709,6 +1734,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           throw StateError('Credential verification failed');
         }
         _confirmedCredential = legacy;
+        wroteCredential = true;
       } else {
         _confirmedCredential = '';
       }
@@ -1719,6 +1745,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       credentialError = null;
       _credentialMigrationPending = false;
       _legacyCredentialForMigration = null;
+      if (wroteCredential) _recordWindowsCredentialVerification(legacy);
       return true;
     } catch (_) {
       credentialError = t['credentialMigrationError'];
@@ -1752,6 +1779,48 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     }
     return success;
+  }
+
+  /// Confirming the explanation is separate from configuring a credential.
+  /// The Store must be open and validated, and the ordinary commit owner makes
+  /// this acknowledgement atomic with the whole library. A failed commit rolls
+  /// back only this decision; edits accepted during IO remain pending.
+  Future<bool> acknowledgeWindowsCredentialNotice() =>
+      _runTransaction(() async {
+        if (!ready ||
+            _disposed ||
+            hasStartupRecovery ||
+            startupError != null ||
+            credentialError != null ||
+            !_windowsCredentialStatePresent) {
+          return false;
+        }
+        if (windowsCredentialNoticeRead) return true;
+        windowsCredentialNoticeRead = true;
+        final atCommit = ++_dirtyRevision;
+        final values = _snapshotValues();
+        final result = await _saveProtocol!.commit(values);
+        lastSaveResult = result;
+        if (!result.success) {
+          windowsCredentialNoticeRead = false;
+          persistenceError = t['storageWriteError'];
+          if (!_disposed) notifyListeners();
+          return false;
+        }
+        _savedValues = values;
+        _savedRevision = atCommit;
+        persistenceError = null;
+        if (_dirtyRevision > _savedRevision) _scheduleCommit();
+        if (!_disposed) notifyListeners();
+        return true;
+      });
+
+  void _recordWindowsCredentialVerification(String value) {
+    if (!_windowsCredentialStatePresent) return;
+    final required = value.isEmpty;
+    if (windowsCredentialsNeedSetup == required) return;
+    windowsCredentialsNeedSetup = required;
+    _markDirty();
   }
 
   AIConfig _copyConfig(AIConfig source) => AIConfig(
@@ -1952,6 +2021,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     late ImportPlan effective;
     var oldCredential = _confirmedCredential;
     var newCredential = oldCredential;
+    var verifiedCredentialChange = false;
     try {
       await reservation.prior;
       if (_disposed ||
@@ -1969,7 +2039,11 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       newCredential = importCredential && initial.hasCredential
           ? initial.aiConfig!.apiKey
           : oldCredential;
-      if (newCredential != oldCredential) {
+      if (newCredential != oldCredential ||
+          (importCredential &&
+              initial.hasCredential &&
+              windowsCredentialsNeedSetup &&
+              newCredential.isNotEmpty)) {
         if (newCredential.isEmpty) {
           await credentialStore.delete();
         } else {
@@ -1980,6 +2054,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           throw StateError('Credential verification failed');
         }
         _confirmedCredential = newCredential;
+        verifiedCredentialChange = true;
       }
       // Commands may have changed the live library while secure storage was
       // pending. The final plan must use that library, as RF02 requires.
@@ -2011,7 +2086,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _applyImportState(effective);
     if (newerConfig != null) aiConfig = newerConfig;
     final atCommit = _dirtyRevision;
-    final values = _snapshotValues();
+    final values = _snapshotValues(
+      windowsCredentialSetupValue:
+          verifiedCredentialChange && intentAtStart == _credentialIntent
+          ? newCredential.isEmpty
+          : null,
+    );
     final result = await _saveProtocol!.commit(values);
     lastSaveResult = result;
     if (!result.success) {
@@ -2060,6 +2140,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (intentAtStart == _credentialIntent) {
       aiConfig.apiKey = newCredential;
       credentialError = null;
+      if (_windowsCredentialStatePresent && verifiedCredentialChange) {
+        windowsCredentialsNeedSetup = newCredential.isEmpty;
+      }
     }
     // Only the revisions up to the snapshot we just wrote are durable. A
     // command accepted while the batch was committing stays dirty and its
@@ -2498,6 +2581,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     AIConfig? configValue,
     AppSettings? settingsValue,
     String? activeValue,
+    bool? windowsCredentialSetupValue,
   }) => {
     _kTasks: jsonEncode(
       (tasksValue ?? tasks).map((task) => task.toJson()).toList(),
@@ -2512,6 +2596,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _kSettings: jsonEncode((settingsValue ?? settings).toJson()),
     _kActiveBoard: activeValue ?? activeBoardId,
     _kHasSeenOnboarding: hasSeenOnboarding.toString(),
+    if (_windowsCredentialStatePresent) ...{
+      SaveProtocol.windowsCredentialsRequiredKey:
+          (windowsCredentialSetupValue ?? windowsCredentialsNeedSetup)
+              .toString(),
+      SaveProtocol.windowsCredentialNoticeReadKey: windowsCredentialNoticeRead
+          .toString(),
+    },
   };
 
   // Each of these marks one accepted mutation dirty. They keep their names

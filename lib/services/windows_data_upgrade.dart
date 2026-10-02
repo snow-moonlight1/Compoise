@@ -28,6 +28,7 @@ enum WindowsUpgradeStatus {
 class WindowsUpgradeResult {
   final WindowsUpgradeStatus status;
   final bool credentialsNeedSetup;
+  final bool credentialNoticeRead;
   final bool protocolNeedsRecovery;
   final String? sourcePath;
   final String? currentPath;
@@ -35,6 +36,7 @@ class WindowsUpgradeResult {
   const WindowsUpgradeResult(
     this.status, {
     this.credentialsNeedSetup = false,
+    this.credentialNoticeRead = false,
     this.protocolNeedsRecovery = false,
     this.sourcePath,
     this.currentPath,
@@ -46,6 +48,9 @@ class WindowsUpgradeResult {
     WindowsUpgradeStatus.migrated => true,
     _ => false,
   };
+
+  bool get showCredentialNotice =>
+      credentialsNeedSetup && !credentialNoticeRead;
 }
 
 /// Production uses the actual plugin's RoamingAppData Known Folder resolver.
@@ -137,7 +142,7 @@ class WindowsUpgradeFiles {
 class WindowsDataUpgrade {
   static const preferencesName = 'shared_preferences.json';
   static const credentialNoticeKey =
-      'flutter.matrixflow-upgrade-credentials-required';
+      'flutter.${SaveProtocol.windowsCredentialsRequiredKey}';
   final Future<WindowsUpgradePaths> Function() paths;
   final WindowsUpgradeFiles files;
 
@@ -280,10 +285,12 @@ class WindowsDataUpgrade {
     WindowsUpgradeStatus status,
     WindowsUpgradePaths locations, {
     bool credentials = false,
+    bool noticeRead = false,
     bool recovery = false,
   }) => WindowsUpgradeResult(
     status,
     credentialsNeedSetup: credentials,
+    credentialNoticeRead: noticeRead,
     protocolNeedsRecovery: recovery,
     sourcePath: locations.source,
     currentPath: locations.current,
@@ -315,10 +322,28 @@ class WindowsDataUpgrade {
     } catch (_) {
       return _result(WindowsUpgradeStatus.currentUnreadable, locations);
     }
+    WindowsCredentialState state;
+    try {
+      final committed = SaveProtocol.readCommitted(
+        (key) => envelope['flutter.$key'],
+      );
+      state = WindowsCredentialState.read(
+        committed?.values,
+        (key) => envelope['flutter.$key'],
+      );
+    } catch (_) {
+      return _result(
+        WindowsUpgradeStatus.currentProfile,
+        locations,
+        credentials: envelope[credentialNoticeKey] == true,
+        recovery: true,
+      );
+    }
     return _result(
       WindowsUpgradeStatus.currentProfile,
       locations,
-      credentials: envelope[credentialNoticeKey] == true,
+      credentials: state.needsSetup,
+      noticeRead: state.noticeRead,
       recovery: _protocolDamaged(envelope),
     );
   }

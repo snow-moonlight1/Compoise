@@ -4,7 +4,23 @@ WP28 的发行准备材料：门禁命令、平台交付事实、安装与升级
 
 正式安装包、原位升级验证和 GitHub Release 必须使用同一个最终候选提交重新生成，包含已集成的日程 v3 与 Windows 升级适配。版本号在发行时统一确定；本文所有 `vX.Y.Z+N` 都是占位，不代表 `1.0.0+1` 可以打 tag。
 
-## 本轮集成检查（2026-10-01）
+## 本轮集成检查（2026-10-03）
+
+WP17-I5 已应用独立提交；WP28-U2 由集成端接收未提交实现、补齐恢复页修复、Release 验收和交接记录。WP15-D2 的进行中改动未加入这次集成。
+
+| 检查 | 本地结果 |
+|---|---|
+| `flutter analyze --no-pub` | 无问题，exit 0 |
+| 默认全量 `flutter test --no-pub` | 1396 项通过、7 项按条件跳过，exit 0 |
+| U2 凭据/确认/损坏恢复专属测试 | 20 项通过，exit 0 |
+| 官方模型 + Windows 外部 OCR 库定向测试 | 16 项通过，exit 0；不作为应用 bundle/Android 全流程证据 |
+| OCR 准备与转换回归 | Windows 16 项通过，exit 0 |
+| U2 隔离 Release 原生矩阵 | 12 场景、52 进程全部 exit 0；无超时或残留，harness exit 0 |
+| 正常入口 Windows Release | 构建 exit 0；复核 Dart/native 隔离门均已关闭 |
+
+原 Agent 的 U2 Debug 矩阵为 12 场景、52 进程，报告已经复核；Release 是集成端在当前源码上新运行的证据。I5 关闭官方模型转换技术阻塞，默认包仍不包含 OCR；正式包装和完整设备导入仍待完成。
+
+## 前轮集成检查（2026-10-01）
 
 WP15-D1、WP17-I4 与 WP28-U1 的独立提交已集成，公共导航与范围说明同步更新。
 
@@ -59,7 +75,7 @@ CI 侧 `.github/workflows/release.yml` 在推送 `v*` tag 时按 `preflight → 
 | 平台 | 交付物 | 签名事实 | 验证状态 |
 |---|---|---|---|
 | Android | `compoise-vX.Y.Z+N-android.apk` | 需用仓库 secret 中的发布 keystore 签名；CI 另要求 `ANDROID_RELEASE_CERT_SHA256` 给出期望证书指纹，调试签名或指纹不符即失败 | **未验证**：尚无发布 keystore，也没有真机安装证据 |
-| Windows | `compoise-vX.Y.Z+N-windows-portable.zip`（便携目录，非安装器） | **未做 Authenticode 签名**，SmartScreen 可能告警；脚本与 CI 都按“未签名”如实记录，签名状态异常（HashMismatch/NotTrusted）即拒绝暂存 | 打包门禁本机实测通过；原位升级见下节，**未验证** |
+| Windows | `compoise-vX.Y.Z+N-windows-portable.zip`（便携目录，非安装器） | **未做 Authenticode 签名**，SmartScreen 可能告警；脚本与 CI 都按“未签名”如实记录，签名状态异常（HashMismatch/NotTrusted）即拒绝暂存 | 打包门禁本机实测通过；U2 隔离 Debug/Release 升级退出已验证，正式版本原位升级仍待验证 |
 | Linux | 无交付物 | 不适用 | 预览：CI 用固定工具链编译并检查 `build/linux/x64/release/bundle/`（可执行文件名仍是 `matrixflow_native`），不启动界面、不打包、不签名 |
 
 发布说明中这三条必须原样表达；`RELEASE_METADATA.txt` 与 `RELEASE_MANIFEST.txt` 会写入 tag、完整 commit、工具链、Android 证书 DN 与 SHA-256、Windows 签名状态和 `license=GPL-3.0-only`。项目许可为 GPL-3.0-only，第三方素材见 `assets/licenses/THIRD_PARTY_NOTICES.txt`。
@@ -73,7 +89,7 @@ Windows 的任务库位置不是安装目录，而是 exe 版本信息派生出�
 
 WP28-U1 已集成启动升级适配：在提醒和 Store 打开前检查两处目录，当前目录已有资料时优先使用当前库；只在目标不存在时校验并复制旧首选项，使用不覆盖目标的原子提交。旧目录始终只读，损坏或失败提供恢复与重试，不初始化空库掩盖错误。加密凭据不跨目录复制，提示重新配置。`test/os26_release_test.dart` 仍固定当前身份。
 
-[U1 记录](WP28_U1_NOTES.md)已有隔离合成资料的首次启动与重开证据；首次探针退出曾超时，凭据提示仍保守地在后续启动显示，留给 U2 收口。真实发行升级、单实例与退出的完整设备验收通过前，“原位升级保留任务”仍不能勾选。
+[U2 记录](WP28_U2_NOTES.md)已收口提示生命周期与原生退出：已读说明不再反复阻断启动，配置状态只有安全写入/读回验证后清除；引擎在 COM 释放前销毁。隔离 Debug 与 Release 的升级、退出、重开及并发启动矩阵已有证据。真实发行安装包的原位升级验收通过前，“原位升级保留任务”仍不能勾选。
 
 ## 验证步骤
 

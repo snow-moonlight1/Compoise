@@ -356,8 +356,29 @@ bool SingleInstanceClaim(const std::vector<std::string>& arguments, int* exit_co
   }
 
   bool saw_existing = false;
+  std::wstring lock_identity = sid;
+#ifdef WP28_U2_HARNESS
+  wchar_t probe_namespace[64]{};
+  const DWORD length = GetEnvironmentVariableW(
+      L"WP28_U2_NAMESPACE", probe_namespace, 64);
+  if (length != 36) {
+    LocalFree(descriptor);
+    *exit_code = 2;
+    return false;
+  }
+  for (DWORD i = 0; i < length; ++i) {
+    const wchar_t c = probe_namespace[i];
+    if (!((c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'f') || c == L'-')) {
+      LocalFree(descriptor);
+      *exit_code = 2;
+      return false;
+    }
+  }
+  lock_identity += L".WP28-U2.";
+  lock_identity += probe_namespace;
+#endif
   for (int attempt = 0; attempt < 3; ++attempt) {
-    AcquireResult acquired = TryAcquire(sid, &attributes);
+    AcquireResult acquired = TryAcquire(lock_identity, &attributes);
     if (acquired.failed) {
       LocalFree(descriptor);
       ShowFailure(false);

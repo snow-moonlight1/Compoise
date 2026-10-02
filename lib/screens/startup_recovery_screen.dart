@@ -98,6 +98,10 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
       'matrixflow-schedule': 'scheduleTitle',
       'matrixflow-boards': 'recoveryBoards',
       'matrixflow-config': 'recoveryConfig',
+      SaveProtocol.windowsCredentialsRequiredKey:
+          'recoveryCredentialUpgradeState',
+      SaveProtocol.windowsCredentialNoticeReadKey:
+          'recoveryCredentialUpgradeState',
       'matrixflow-settings': 'recoverySettings',
       'matrixflow-active-board': 'recoveryActiveBoard',
       'matrixflow-has-seen-onboarding': 'recoveryOnboarding',

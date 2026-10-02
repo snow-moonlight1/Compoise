@@ -17,6 +17,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  WindowsValidationTrace("COM initialized");
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
@@ -35,6 +36,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"Compoise", origin, size)) {
+    window.Destroy();
+    ::CoUninitialize();
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
@@ -45,6 +48,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
+  WindowsValidationTrace("message loop exited");
+  // window_manager's destroy posts WM_QUIT without destroying the HWND.
+  // Tear down the derived window/engine while COM and the window are still
+  // alive. The base destructor cannot dispatch FlutterWindow::OnDestroy.
+  window.Destroy();
+  WindowsValidationTrace("COM uninitialize begin");
   ::CoUninitialize();
+  WindowsValidationTrace("COM uninitialize end");
   return EXIT_SUCCESS;
 }

@@ -735,6 +735,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+            if (store.windowsCredentialsNeedSetup)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(t['upgradeCredentials']!),
+              ),
             Row(
               children: [
                 Expanded(

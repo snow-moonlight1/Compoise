@@ -21,11 +21,54 @@ class SavedBatch {
   const SavedBatch(this.revision, this.values);
 }
 
+/// Non-secret Windows upgrade state. Committed values are authoritative;
+/// booleans outside a batch are bootstrap/compatibility mirrors only.
+class WindowsCredentialState {
+  final bool present;
+  final bool needsSetup;
+  final bool noticeRead;
+  const WindowsCredentialState(this.present, this.needsSetup, this.noticeRead);
+
+  static WindowsCredentialState read(
+    Map<String, String>? values,
+    Object? Function(String key) mirror,
+  ) {
+    bool flag(String key) {
+      if (values?.containsKey(key) == true) {
+        final raw = values![key];
+        if (raw != 'true' && raw != 'false') {
+          throw const FormatException('Invalid Windows credential state');
+        }
+        return raw == 'true';
+      }
+      final raw = mirror(key);
+      if (raw != null && raw is! bool) {
+        throw const FormatException('Invalid Windows credential mirror');
+      }
+      return raw == true;
+    }
+
+    final present = [
+      SaveProtocol.windowsCredentialsRequiredKey,
+      SaveProtocol.windowsCredentialNoticeReadKey,
+    ].any((key) => values?.containsKey(key) == true || mirror(key) != null);
+    return WindowsCredentialState(
+      present,
+      flag(SaveProtocol.windowsCredentialsRequiredKey),
+      flag(SaveProtocol.windowsCredentialNoticeReadKey),
+    );
+  }
+}
+
 class SaveProtocol {
   static const pointerKey = 'matrixflow-save-pointer';
 
   /// Optional in older committed batches; new Store snapshots always include it.
   static const scheduleKey = 'matrixflow-schedule';
+  static const windowsCredentialsRequiredKey =
+      'matrixflow-upgrade-credentials-required';
+  static const windowsCredentialNoticeReadKey =
+      'matrixflow-upgrade-credential-notice-read';
   static const _slotA = 'matrixflow-save-a';
   static const _slotB = 'matrixflow-save-b';
   final SharedPreferences prefs;
@@ -71,6 +114,16 @@ class SaveProtocol {
       throw const FormatException('Invalid committed batch');
     }
     final values = Map<String, String>.from(decoded['values'] as Map);
+    for (final key in [
+      windowsCredentialsRequiredKey,
+      windowsCredentialNoticeReadKey,
+    ]) {
+      if (values.containsKey(key) &&
+          values[key] != 'true' &&
+          values[key] != 'false') {
+        throw const FormatException('Invalid Windows credential state');
+      }
+    }
     if (!{
       'matrixflow-tasks',
       'matrixflow-boards',
@@ -132,7 +185,9 @@ class SaveProtocol {
     // repaired by a later save; startup always reads the committed slot.
     for (final entry in values.entries) {
       try {
-        if (entry.key == 'matrixflow-has-seen-onboarding') {
+        if (entry.key == 'matrixflow-has-seen-onboarding' ||
+            entry.key == windowsCredentialsRequiredKey ||
+            entry.key == windowsCredentialNoticeReadKey) {
           await prefs.setBool(entry.key, entry.value == 'true');
         } else {
           await _set(entry.key, entry.value);

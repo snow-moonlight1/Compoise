@@ -12,6 +12,7 @@ class WindowsUpgradeStartup extends StatefulWidget {
   final Future<Widget> Function() openApplication;
   final List<Locale>? deviceLocales;
   final Future<void> Function()? closeBeforeStore;
+  final VoidCallback? onCredentialNoticeConfirmed;
 
   const WindowsUpgradeStartup({
     super.key,
@@ -19,6 +20,7 @@ class WindowsUpgradeStartup extends StatefulWidget {
     required this.openApplication,
     this.deviceLocales,
     this.closeBeforeStore,
+    this.onCredentialNoticeConfirmed,
   });
 
   @override
@@ -51,7 +53,7 @@ class _WindowsUpgradeStartupState extends State<WindowsUpgradeStartup> {
     if (!mounted) return;
     setState(() => _result = result);
     if (result.canOpen &&
-        !result.credentialsNeedSetup &&
+        !result.showCredentialNotice &&
         !result.protocolNeedsRecovery) {
       await _open();
     } else {
@@ -110,7 +112,7 @@ class _WindowsUpgradeStartupState extends State<WindowsUpgradeStartup> {
                   if (result?.canOpen != true) Text(t[message]!),
                   if (result?.protocolNeedsRecovery == true)
                     Text(t['upgradeRecovery']!),
-                  if (result?.credentialsNeedSetup == true) ...[
+                  if (result?.showCredentialNotice == true) ...[
                     const SizedBox(height: 16),
                     Text(t['upgradeCredentials']!),
                   ],
@@ -123,7 +125,12 @@ class _WindowsUpgradeStartupState extends State<WindowsUpgradeStartup> {
                   const SizedBox(height: 24),
                   if (result?.canOpen == true)
                     FilledButton(
-                      onPressed: _open,
+                      onPressed: () {
+                        if (result?.showCredentialNotice == true) {
+                          widget.onCredentialNoticeConfirmed?.call();
+                        }
+                        _open();
+                      },
                       child: Text(t['upgradeContinue']!),
                     )
                   else ...[

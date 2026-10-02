@@ -21,6 +21,19 @@ add_executable(${BINARY_NAME} WIN32
 # that need different build settings.
 apply_standard_settings(${BINARY_NAME})
 
+# Explicit diagnostic builds only; production builds cannot select a test lock.
+file(READ "${FLUTTER_MANAGED_DIR}/ephemeral/generated_config.cmake" WP28_U2_FLUTTER_CONFIG)
+# Base64 encoding of WP28_U2_HARNESS=true in Flutter's generated DART_DEFINES.
+string(FIND "${WP28_U2_FLUTTER_CONFIG}" "V1AyOF9VMl9IQVJORVNTPXRydWU=" WP28_U2_DART_DEFINE)
+if("$ENV{WP28_U2_HARNESS_BUILD}" STREQUAL "1")
+  if(WP28_U2_DART_DEFINE EQUAL -1)
+    message(FATAL_ERROR "WP28_U2_HARNESS_BUILD=1 requires --dart-define=WP28_U2_HARNESS=true")
+  endif()
+  target_compile_definitions(${BINARY_NAME} PRIVATE "WP28_U2_HARNESS")
+elseif(NOT WP28_U2_DART_DEFINE EQUAL -1)
+  message(FATAL_ERROR "WP28_U2_HARNESS=true requires WP28_U2_HARNESS_BUILD=1")
+endif()
+
 # Add preprocessor definitions for the build version.
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION=\"${FLUTTER_VERSION}\"")
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_MAJOR=${FLUTTER_VERSION_MAJOR}")

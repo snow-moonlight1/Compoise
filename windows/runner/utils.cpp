@@ -7,6 +7,16 @@
 
 #include <iostream>
 
+void WindowsValidationTrace(const char* stage) {
+#ifdef WP28_U2_HARNESS
+  fprintf(stderr, "WP28-U2 pid=%lu thread=%lu tick=%llu %s\n",
+          GetCurrentProcessId(), GetCurrentThreadId(), GetTickCount64(), stage);
+  fflush(stderr);
+#else
+  (void)stage;
+#endif
+}
+
 void CreateAndAttachConsole() {
   if (::AllocConsole()) {
     FILE *unused;
