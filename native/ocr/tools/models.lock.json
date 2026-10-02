@@ -1,52 +1,192 @@
 {
+  "attachments": {
+    "licenses/APACHE-2.0.txt": {
+      "bytes": 11376,
+      "sha256": "3840c5c0c61c294264d2dd77b8777be6ddd90121ef4e0e64abcd22edea581d6e",
+      "source": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/LICENSE"
+    },
+    "licenses/PP-OCRv5_mobile_det.MODEL_CARD.md": {
+      "bytes": 16243,
+      "sha256": "4cc20ad6d41af86b3ce9885ffb0956e152574a2eb14179aeb07fd2d3956161ca",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/README.md"
+    },
+    "licenses/PP-OCRv5_mobile_rec.MODEL_CARD.md": {
+      "bytes": 16075,
+      "sha256": "b02727443cef4904a9ee12accdfaf66fcbada7b93a1a05c40dde7582291ba28c",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec/resolve/682f20538d8c086cb2128e5cfac775e6c4904e85/README.md"
+    },
+    "licenses/ncnn-BSD-3-Clause.txt": {
+      "bytes": 6427,
+      "sha256": "7c974bac98848df46be1af5bdaa3c3c9c01f6082a90f55caeb7f60c6208aa255",
+      "source": "https://raw.githubusercontent.com/Tencent/ncnn/c6b351b56fbe32e0381ae00331e3df649b20d7b7/LICENSE.txt"
+    },
+    "licenses/stb-LICENSE.txt": {
+      "bytes": 2510,
+      "sha256": "bebfe904b14301657e4e5d655c811d51fd31b97c455b9cc2d8600d6bac6cff63",
+      "source": "https://raw.githubusercontent.com/nothings/stb/master/LICENSE"
+    }
+  },
+  "conversion": {
+    "byte_identical": true,
+    "environment": {
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "pnnx_binary": "/home/ubuntu/wp17i5-tools/lib/python3.12/site-packages/pnnx/pnnx",
+      "pnnx_dir": "/home/ubuntu/wp17i5-tools/lib/python3.12/site-packages/pnnx",
+      "pnnx_sha256": "c3555c48e054245e50fa434a7673fbdad2b8f8c6cdca8c1579601f9882f474a0",
+      "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+      "versions": {
+        "anyio": "4.15.1",
+        "astor": "0.8.1",
+        "certifi": "2026.7.22",
+        "decorator": "5.3.1",
+        "h11": "0.16.0",
+        "httpcore": "1.0.9",
+        "httpx": "0.28.1",
+        "idna": "3.20",
+        "networkx": "3.7",
+        "numpy": "1.26.4",
+        "onnx": "1.17.0",
+        "onnxoptimizer": "0.4.2",
+        "opt-einsum": "3.3.0",
+        "packaging": "24.2",
+        "paddle2onnx": "2.1.0",
+        "paddlepaddle": "3.0.0",
+        "pillow": "12.3.0",
+        "pnnx": "20260526",
+        "polygraphy": "0.53.6",
+        "protobuf": "3.20.2",
+        "setuptools": "75.8.0",
+        "typing-extensions": "4.16.0"
+      }
+    },
+    "export_flags": [
+      "--opset_version",
+      "11",
+      "--enable_onnx_checker",
+      "True",
+      "--enable_auto_update_opset",
+      "False",
+      "--optimize_tool",
+      "onnxoptimizer"
+    ],
+    "pnnx_flags": [
+      "fp16=1",
+      "optlevel=2"
+    ],
+    "replays": 2
+  },
+  "dependencies": {
+    "ncnn/ppocrv5_dict.txt": {
+      "sha256": "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b",
+      "source": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/dict/ppocrv5_dict.txt"
+    },
+    "third_party/stb_image.h": {
+      "sha256": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+      "source": "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"
+    }
+  },
   "files": {
+    "PaddlePaddle/PP-OCRv5_mobile_det/PP_OCRv5_mobile_det.onnx": {
+      "bytes": 4767934,
+      "kind": "onnx",
+      "licence": "apache-2.0",
+      "sha256": "d4aa24d408cd70b8b9f66cc758e20f397fc31a9c69d8477cf8887fc53bd5fceb",
+      "source": "official pinned PIR inputs -> paddle2onnx -> pnnx"
+    },
     "PaddlePaddle/PP-OCRv5_mobile_det/inference.json": {
       "bytes": 229777,
       "kind": "paddle-inference-model",
       "licence": "apache-2.0",
+      "revision": "0d63e78e2b680928f6b1747d76a08db6e645efb7",
       "sha256": "05feef1acb00aa4cd7362b15f7f501fc4f99d7b1fa73c1c871e0c7b1504b0f5c",
-      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/main/inference.json"
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/inference.json"
     },
     "PaddlePaddle/PP-OCRv5_mobile_det/inference.pdiparams": {
       "bytes": 4692937,
       "kind": "paddle-inference-model",
       "licence": "apache-2.0",
+      "revision": "0d63e78e2b680928f6b1747d76a08db6e645efb7",
       "sha256": "afa1820cb16c1fd0dad589d0f8b389139061c1ef6d68019685fd07be997dda5b",
-      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/main/inference.pdiparams"
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/inference.pdiparams"
     },
     "PaddlePaddle/PP-OCRv5_mobile_det/inference.yml": {
       "bytes": 903,
       "kind": "paddle-inference-model",
       "licence": "apache-2.0",
+      "revision": "0d63e78e2b680928f6b1747d76a08db6e645efb7",
       "sha256": "98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699",
-      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/main/inference.yml"
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/inference.yml"
+    },
+    "PaddlePaddle/PP-OCRv5_mobile_rec/PP_OCRv5_mobile_rec.onnx": {
+      "bytes": 16537720,
+      "kind": "onnx",
+      "licence": "apache-2.0",
+      "sha256": "dc7de8ee31d9246783cf346f3b207b4cb871e11824b1cfab2ff20aa1f1f8e67b",
+      "source": "official pinned PIR inputs -> paddle2onnx -> pnnx"
     },
     "PaddlePaddle/PP-OCRv5_mobile_rec/inference.json": {
       "bytes": 217724,
       "kind": "paddle-inference-model",
       "licence": "apache-2.0",
+      "revision": "682f20538d8c086cb2128e5cfac775e6c4904e85",
       "sha256": "24587345250c7332d0fc6f9a44e794d078cdaeb64c302fef906f325619de2569",
-      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec/resolve/main/inference.json"
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec/resolve/682f20538d8c086cb2128e5cfac775e6c4904e85/inference.json"
     },
     "PaddlePaddle/PP-OCRv5_mobile_rec/inference.pdiparams": {
       "bytes": 16458665,
       "kind": "paddle-inference-model",
       "licence": "apache-2.0",
+      "revision": "682f20538d8c086cb2128e5cfac775e6c4904e85",
       "sha256": "2460da90875937c94db97eba74ae3d9e5d4c4c57c42f1f41531c09a26bcc771a",
-      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec/resolve/main/inference.pdiparams"
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec/resolve/682f20538d8c086cb2128e5cfac775e6c4904e85/inference.pdiparams"
     },
     "PaddlePaddle/PP-OCRv5_mobile_rec/inference.yml": {
       "bytes": 148345,
       "kind": "paddle-inference-model",
       "licence": "apache-2.0",
+      "revision": "682f20538d8c086cb2128e5cfac775e6c4904e85",
       "sha256": "5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e",
-      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec/resolve/main/inference.yml"
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec/resolve/682f20538d8c086cb2128e5cfac775e6c4904e85/inference.yml"
+    },
+    "ncnn-official/PP_OCRv5_mobile_det.ncnn.bin": {
+      "bytes": 2357216,
+      "kind": "ncnn.bin",
+      "licence": "apache-2.0",
+      "sha256": "857a96bc963725105b78a178dfcc3c0c3db1a7b9eef32244367b2cb105ccf60b",
+      "source": "official pinned PIR inputs -> paddle2onnx -> pnnx"
+    },
+    "ncnn-official/PP_OCRv5_mobile_det.ncnn.param": {
+      "bytes": 24256,
+      "kind": "ncnn.param",
+      "licence": "apache-2.0",
+      "sha256": "19359eea27e9f38b493a40ac11acbb95bbe6cbe174866e9e043cbe6a786f3ce6",
+      "source": "official pinned PIR inputs -> paddle2onnx -> pnnx"
+    },
+    "ncnn-official/PP_OCRv5_mobile_rec.ncnn.bin": {
+      "bytes": 8242276,
+      "kind": "ncnn.bin",
+      "licence": "apache-2.0",
+      "sha256": "49d9907a55ba20fa6637f9f788f66ab00793bc8ce57a733a09dbe86b9a2e3db0",
+      "source": "official pinned PIR inputs -> paddle2onnx -> pnnx"
+    },
+    "ncnn-official/PP_OCRv5_mobile_rec.ncnn.param": {
+      "bytes": 19632,
+      "kind": "ncnn.param",
+      "licence": "apache-2.0",
+      "sha256": "dbd3a743febb5d08157059d4ae31f9372b413b9739ef9d5963da68c987a2481c",
+      "source": "official pinned PIR inputs -> paddle2onnx -> pnnx"
     }
   },
   "schema": 1,
   "toolchain": {
-    "paddle2onnx": "1.3.1",
+    "numpy": "1.26.4",
+    "onnx": "1.17.0",
+    "onnxoptimizer": "0.4.2",
+    "packaging": "24.2",
+    "paddle2onnx": "2.1.0",
     "paddlepaddle": "3.0.0",
-    "pnnx": "20260526"
+    "pnnx": "20260526",
+    "protobuf": "3.20.2",
+    "setuptools": "75.8.0"
   }
 }

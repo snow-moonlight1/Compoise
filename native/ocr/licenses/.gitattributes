@@ -1,0 +1,4 @@
+*.txt text eol=lf
+*.md text eol=lf
+# Preserve byte-pinned upstream Markdown, including its original line breaks.
+*.MODEL_CARD.md whitespace=-blank-at-eol

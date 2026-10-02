@@ -14,6 +14,7 @@ NCNN="${WP17_NCNN_INSTALL:-$HOME/wp17i4-ncnn-linux/install}"
 FLUTTER="${WP17_FLUTTER:-$HOME/develop/flutter}"
 OUT="${WP17_LINUX_OUT:-$HOME/wp17i4-linux-deploy}"
 API="${WP17_API:-}"
+MODEL_SOURCE="${WP17_MODEL_SOURCE:-nihui}"
 
 export PATH="$FLUTTER/bin:$PATH"
 export WP17_OCR_NCNN_DIR="$NCNN/lib/cmake/ncnn"
@@ -47,8 +48,17 @@ test -f "$BUNDLE/lib/libmatrixflow_ocr.so" || {
 ls -l "$BUNDLE/matrixflow_native" "$BUNDLE/lib/" "$BUNDLE/data/flutter_assets" | head -30
 
 mkdir -p "$OUT"
+if [ "$MODEL_SOURCE" = official ]; then
+  "${WP17_PREP_PYTHON:-python3}" "$(dirname "$0")/prepare_ocr_assets.py" \
+    --assets "$ASSETS" --deploy "$OUT" --offline
+elif [ "$MODEL_SOURCE" = nihui ]; then
+  echo "validation-only nihui weights: redistribution is not cleared"
+  mkdir -p "$OUT/ncnn"
+  cp -f "$ASSETS"/ncnn/*.bin "$ASSETS"/ncnn/*.param "$ASSETS"/ncnn/ppocrv5_dict.txt "$OUT/ncnn/"
+else
+  echo "WP17_MODEL_SOURCE must be official or nihui" >&2
+  exit 2
+fi
 cp -f "$BUNDLE/lib/libmatrixflow_ocr.so" "$OUT/"
-mkdir -p "$OUT/ncnn"
-cp -f "$ASSETS"/ncnn/*.bin "$ASSETS"/ncnn/*.param "$ASSETS"/ncnn/ppocrv5_dict.txt "$OUT/ncnn/"
 echo "staged    : $OUT"
 ls -l "$OUT" "$OUT/ncnn"

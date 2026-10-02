@@ -1,29 +1,12 @@
 #!/usr/bin/env python3
-"""Convert the official PP-OCRv5 mobile inference models to the ncnn files the
-WP17 OCR runtime loads.
+"""Pinned official PIR -> ONNX -> ncnn conversion with independent replay.
 
-Provenance chain this script records and enforces:
-
-  PaddlePaddle/PP-OCRv5_mobile_{det,rec}  (Hugging Face, licence apache-2.0)
-    -> Paddle inference model (inference.json + inference.pdiparams, SHA-256 pinned)
-    -> ONNX (paddle2onnx, fixed paddlepaddle/paddle2onnx/pnnx versions)
-    -> ncnn param + bin (pnnx, fixed input shapes and fp16 setting)
-
-Every input file is verified against ``models.lock.json`` before conversion and
-every output file is hashed into the same lock file. A mismatch is a hard
-failure: the script never rewrites a pinned digest silently.
-
-Usage:
-    python convert_models.py --assets <assetsRoot> [--work <dir>] [--check]
-    python convert_models.py --assets <assetsRoot> --offline
-
-``--check`` only verifies hashes, ``--offline`` forbids downloads and requires
-that every input blob is already present. The converted files are written to
-``<assetsRoot>/ncnn-official/`` so they never overwrite the historical
-nihui-derived blobs in ``<assetsRoot>/ncnn/``.
+Normal runs require reviewed output pins. --record-outputs bootstraps pins only
+after two byte-identical conversions in fresh directories. Existing pins are
+never replaced. --check reads inputs and pinned outputs without importing tools;
+--offline prohibits downloads. Models/scratch data must stay outside Git.
 """
 from __future__ import annotations
-
 import argparse
 import hashlib
 import json
@@ -32,42 +15,37 @@ import platform
 import shutil
 import subprocess
 import sys
-import tarfile
+import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 LOCK_PATH = HERE / "models.lock.json"
-
-# Attempted conversion toolchain; official PIR export has not succeeded yet.
-# A working toolchain and its outputs must be recorded before release.
-TOOLCHAIN = {
-    "paddlepaddle": "3.0.0",
-    "paddle2onnx": "1.3.1",
-    "pnnx": "20260526",
-}
-
-# Hugging Face repositories with an explicit apache-2.0 model card. The
-# nihui/ncnn-android-ppocrv5 converted blobs previously used by WP17-R2 have no
-# declared licence for the weights, so they are not a conversion input.
+TOOLCHAIN = {"paddlepaddle": "3.0.0", "paddle2onnx": "2.1.0",
+             "onnx": "1.17.0", "onnxoptimizer": "0.4.2", "pnnx": "20260526",
+             "numpy": "1.26.4", "protobuf": "3.20.2", "setuptools": "75.8.0",
+             "packaging": "24.2"}
 MODELS = {
-    "det": {
-        "repo": "PaddlePaddle/PP-OCRv5_mobile_det",
-        "files": ["inference.json", "inference.pdiparams", "inference.yml"],
-        "onnx_shapes": ["inputshape=[1,3,320,320]", "inputshape2=[1,3,256,256]"],
-        "onnx_name": "PP_OCRv5_mobile_det.onnx",
-        "ncnn_prefix": "PP_OCRv5_mobile_det",
-    },
-    "rec": {
-        "repo": "PaddlePaddle/PP-OCRv5_mobile_rec",
-        "files": ["inference.json", "inference.pdiparams", "inference.yml"],
-        "onnx_shapes": ["inputshape=[1,3,48,160]", "inputshape2=[1,3,48,256]"],
-        "onnx_name": "PP_OCRv5_mobile_rec.onnx",
-        "ncnn_prefix": "PP_OCRv5_mobile_rec",
-    },
+    "det": {"repo": "PaddlePaddle/PP-OCRv5_mobile_det",
+            "files": ["inference.json", "inference.pdiparams", "inference.yml"],
+            "onnx_shapes": ["inputshape=[1,3,320,320]", "inputshape2=[1,3,256,256]"],
+            "onnx_name": "PP_OCRv5_mobile_det.onnx", "ncnn_prefix": "PP_OCRv5_mobile_det"},
+    "rec": {"repo": "PaddlePaddle/PP-OCRv5_mobile_rec",
+            "files": ["inference.json", "inference.pdiparams", "inference.yml"],
+            "onnx_shapes": ["inputshape=[1,3,48,160]", "inputshape2=[1,3,48,256]"],
+            "onnx_name": "PP_OCRv5_mobile_rec.onnx", "ncnn_prefix": "PP_OCRv5_mobile_rec"},
 }
-
+EXPORT_FLAGS = ["--opset_version", "11", "--enable_onnx_checker", "True",
+                "--enable_auto_update_opset", "False", "--optimize_tool", "onnxoptimizer"]
+PNNX_FLAGS = ["fp16=1", "optlevel=2"]
 HF = "https://huggingface.co/{repo}/resolve/main/{name}"
+
+
+class PreparationError(SystemExit):
+    def __init__(self, message: str, code: int = 3):
+        self.message, self.exit_code = message, code
+        super().__init__(message)
 
 
 def sha256(path: Path) -> str:
@@ -79,218 +57,224 @@ def sha256(path: Path) -> str:
 
 
 def load_lock() -> dict:
-    if LOCK_PATH.exists():
-        return json.loads(LOCK_PATH.read_text(encoding="utf-8"))
-    return {"schema": 1, "toolchain": TOOLCHAIN, "files": {}}
+    return json.loads(LOCK_PATH.read_text(encoding="utf-8"))
 
 
 def save_lock(lock: dict) -> None:
-    lock["schema"] = 1
-    lock["toolchain"] = TOOLCHAIN
-    LOCK_PATH.write_text(
-        json.dumps(lock, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    lock.update(schema=1, toolchain=TOOLCHAIN)
+    tmp = LOCK_PATH.with_suffix(".json.part")
+    tmp.write_text(json.dumps(lock, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, LOCK_PATH)
 
 
 def download(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_suffix(dest.suffix + ".part")
-    request = urllib.request.Request(url, headers={"User-Agent": "wp17i4-model-prep/1"})
-    with urllib.request.urlopen(request, timeout=300) as response, tmp.open("wb") as out:
-        shutil.copyfileobj(response, out)
-    os.replace(tmp, dest)
+    request = urllib.request.Request(url, headers={"User-Agent": "wp17i5-model-prep/1"})
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response, dest.open("wb") as out:
+            shutil.copyfileobj(response, out)
+    except (OSError, urllib.error.URLError) as error:
+        raise PreparationError(f"download failed for {url}: {error}", 4) from error
 
 
 def verify(path: Path, expected: str | None, label: str) -> str:
+    if not path.is_file():
+        raise PreparationError(f"missing {label}: {path}")
     digest = sha256(path)
     if expected is not None and digest != expected:
-        raise SystemExit(
-            f"checksum mismatch for {label}: expected {expected}, got {digest}"
-        )
+        raise PreparationError(f"checksum mismatch for {label}: expected {expected}, got {digest}")
     return digest
 
 
 def ensure_input(lock: dict, repo: str, name: str, dest: Path, offline: bool) -> str:
     key = f"{repo}/{name}"
-    pinned = lock["files"].get(key, {}).get("sha256")
+    entry = lock["files"].get(key, {})
+    pinned = entry.get("sha256")
     if pinned is None:
-        raise SystemExit(f"no pinned input hash for {key}")
+        raise PreparationError(f"no pinned input hash for {key}")
     if not dest.exists():
         if offline:
-            raise SystemExit(f"offline: missing pinned input {dest}")
-        print(f"[fetch] {key}")
-        download(HF.format(repo=repo, name=name), dest)
-    digest = verify(dest, pinned, key)
-    lock["files"][key] = {
-        "kind": "paddle-inference-model",
-        "source": HF.format(repo=repo, name=name),
-        "licence": "apache-2.0",
-        "bytes": dest.stat().st_size,
-        "sha256": digest,
-    }
-    return digest
+            raise PreparationError(f"offline: missing pinned input {dest}", 4)
+        print(f"[fetch] {key}", flush=True)
+        tmp = dest.with_suffix(dest.suffix + ".part")
+        try:
+            download(entry.get("source", HF.format(repo=repo, name=name)), tmp)
+            verify(tmp, pinned, key)
+            os.replace(tmp, dest)
+        finally:
+            tmp.unlink(missing_ok=True)
+    return verify(dest, pinned, key)
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> None:
-    printable = " ".join(str(part) for part in cmd)
-    print(f"[run] {printable}")
-    result = subprocess.run(cmd, cwd=str(cwd) if cwd else None)
-    if result.returncode != 0:
-        raise SystemExit(f"command failed with exit code {result.returncode}: {printable}")
+    print(f"[run] {json.dumps(cmd)}", flush=True)
+    try:
+        result = subprocess.run(cmd, cwd=cwd)
+    except OSError as error:
+        raise PreparationError(f"cannot execute conversion tool {cmd[0]}: {error}", 5) from error
+    if result.returncode:
+        code = result.returncode if result.returncode in (2, 3, 4, 5) else 3
+        raise PreparationError(f"command failed with exit code {result.returncode}: {cmd}", code)
 
 
-def _console_script(name: str, python: str) -> str:
-    """Locate a console script installed next to [python], then on PATH.
-
-    ``python -m paddle2onnx`` is not valid for 1.x: the package ships a console
-    entry point only. pnnx is installed the same way.
-    """
-    suffix = ".exe" if os.name == "nt" else ""
-    alongside = Path(python).resolve().parent / f"{name}{suffix}"
-    if alongside.exists():
-        return str(alongside)
-    found = shutil.which(name)
-    if found:
-        return found
-    raise SystemExit(
-        f"{name} was not found next to {python} or on PATH. Install "
-        f"{name}=={TOOLCHAIN['pnnx']} into the conversion environment."
-    )
+def check_toolchain(python: str) -> dict:
+    manifest = json.loads((HERE / "conversion_toolchain.lock.json").read_text(encoding="utf-8"))
+    expected = {name: entry["version"] for name, entry in manifest["packages"].items()}
+    if any(expected.get(name) != version for name, version in TOOLCHAIN.items()):
+        raise PreparationError("conversion package manifest disagrees with script pins", 5)
+    script = ("import json,sys,platform,importlib.metadata as m; "
+              "import paddle,paddle2onnx,onnx,onnxoptimizer; "
+              "print(json.dumps({'versions':{n:m.version(n) for n in " + repr(list(expected)) + "},"
+              "'python':sys.version,'platform':platform.platform(),"
+              "'pnnx_dir':str(m.distribution('pnnx').locate_file('pnnx'))}))")
+    try:
+        probe = subprocess.run([python, "-c", script], capture_output=True, text=True)
+    except OSError as error:
+        raise PreparationError(f"cannot execute conversion interpreter {python}: {error}", 5) from error
+    if probe.returncode:
+        raise PreparationError(f"{python} cannot load the conversion tools: {probe.stderr.strip()}", 5)
+    actual = json.loads(probe.stdout.strip().splitlines()[-1])
+    if actual["versions"] != expected:
+        raise PreparationError(f"toolchain mismatch: expected {expected}, got {actual['versions']}", 5)
+    binary = Path(actual["pnnx_dir"]) / ("pnnx.exe" if os.name == "nt" else "pnnx")
+    if not binary.is_file():
+        raise PreparationError(f"missing native pnnx executable: {binary}", 5)
+    actual.update(pnnx_binary=str(binary), pnnx_sha256=sha256(binary))
+    print(f"[toolchain] {json.dumps(actual, sort_keys=True)}", flush=True)
+    return actual
 
 
 def paddle2onnx_export(model_dir: Path, onnx_path: Path, python: str) -> None:
-    """Export with paddle2onnx.
-
-    The conversion interpreter is separate from the interpreter this script
-    runs under: paddle2onnx and paddlepaddle pins do not exist for every Python
-    version, so ``--python`` (or ``WP17_CONVERT_PYTHON``) names the environment
-    that has them. The PaddleX CLI equivalent is
-    ``paddlex --paddle2onnx --paddle_model_dir <dir> --onnx_model_dir <dir>``.
-    """
-    probe = subprocess.run(
-        [python, "-c", "import paddle, paddle2onnx; print(paddle2onnx.__version__)"],
-        capture_output=True,
-        text=True,
-    )
-    if probe.returncode != 0:
-        raise SystemExit(
-            f"{python} cannot import paddle and paddle2onnx: {probe.stderr.strip()}\n"
-            f"Install paddlepaddle=={TOOLCHAIN['paddlepaddle']} and "
-            f"paddle2onnx=={TOOLCHAIN['paddle2onnx']} into that interpreter."
-        )
-    cli = _console_script("paddle2onnx", python)
-    run(
-        [
-            cli,
-            "--model_dir",
-            str(model_dir),
-            "--model_filename",
-            "inference.json",
-            "--params_filename",
-            "inference.pdiparams",
-            "--save_file",
-            str(onnx_path),
-            "--opset_version",
-            "11",
-            "--enable_onnx_checker",
-            "False",
-            "--enable_auto_update_opset",
-            "True",
-        ]
-    )
+    graph = json.loads((model_dir / "inference.json").read_text(encoding="utf-8"))
+    if graph.get("base_code", {}).get("magic") != "pir":
+        raise PreparationError(f"expected official PIR inference.json in {model_dir}")
+    # Using the selected interpreter prevents accidentally running another
+    # environment's PATH entry point. Paddle2ONNX has no package __main__.
+    run([python, "-c", "from paddle2onnx.command import main; main()",
+         "--model_dir", str(model_dir), "--model_filename", "inference.json",
+         "--params_filename", "inference.pdiparams", "--save_file", str(onnx_path), *EXPORT_FLAGS])
+    run([python, "-c", "import onnx,sys; m=onnx.load(sys.argv[1]); onnx.checker.check_model(m); "
+         "assert len(m.graph.input)==1 and len(m.graph.output)==1; "
+         "print('ONNX opsets:',[(o.domain,o.version) for o in m.opset_import])", str(onnx_path)])
 
 
-def pnnx_convert(onnx_path: Path, shapes: list[str], work: Path, python: str) -> tuple[Path, Path]:
-    exe = _console_script("pnnx", python)
-    run([exe, str(onnx_path), *shapes, "fp16=1"], cwd=work)
-    param = work / f"{onnx_path.stem}.ncnn.param"
-    binary = work / f"{onnx_path.stem}.ncnn.bin"
-    if not param.exists() or not binary.exists():
-        raise SystemExit(f"pnnx did not produce {param.name} and {binary.name}")
-    return param, binary
+def convert_once(names: list[str], model_root: Path, destination: Path, python: str, actual: dict) -> dict[str, Path]:
+    outputs = {}
+    for name in names:
+        spec = MODELS[name]
+        model_work = destination / name
+        model_work.mkdir(parents=True)
+        onnx_path = model_work / spec["onnx_name"]
+        paddle2onnx_export(model_root / spec["repo"].split("/")[-1], onnx_path, python)
+        outputs[f"{spec['repo']}/{spec['onnx_name']}"] = onnx_path
+        run([actual["pnnx_binary"], str(onnx_path), *spec["onnx_shapes"], *PNNX_FLAGS], cwd=model_work)
+        for suffix in ("ncnn.param", "ncnn.bin"):
+            path = model_work / f"{spec['ncnn_prefix']}.{suffix}"
+            verify(path, None, path.name)
+            outputs[f"ncnn-official/{path.name}"] = path
+        param = outputs[f"ncnn-official/{spec['ncnn_prefix']}.ncnn.param"].read_text()
+        if "pnnx." in param or " in0" not in param or " out0" not in param:
+            raise PreparationError(f"unsupported ncnn graph or missing runtime in0/out0 in {name}")
+    return outputs
+
+
+def output_paths(names: list[str], work: Path, assets: Path) -> dict[str, Path]:
+    result = {}
+    for name in names:
+        spec = MODELS[name]
+        result[f"{spec['repo']}/{spec['onnx_name']}"] = work / name / spec["onnx_name"]
+        for suffix in ("ncnn.param", "ncnn.bin"):
+            file_name = f"{spec['ncnn_prefix']}.{suffix}"
+            result[f"ncnn-official/{file_name}"] = assets / "ncnn-official" / file_name
+    return result
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--assets", required=True, help="asset root that receives ncnn-official/")
-    parser.add_argument("--work", default=None, help="scratch directory (default: <assets>/convert-work)")
-    parser.add_argument("--check", action="store_true", help="verify hashes only")
-    parser.add_argument("--offline", action="store_true", help="never download")
-    parser.add_argument(
-        "--python",
-        default=os.environ.get("WP17_CONVERT_PYTHON", sys.executable),
-        help="interpreter holding the pinned paddlepaddle/paddle2onnx",
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--assets", required=True)
+    parser.add_argument("--work")
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--offline", action="store_true")
+    parser.add_argument("--record-outputs", action="store_true")
+    parser.add_argument("--python", default=os.environ.get("WP17_CONVERT_PYTHON", sys.executable))
     parser.add_argument("--only", choices=sorted(MODELS), action="append")
     args = parser.parse_args()
-
+    if args.check and args.record_outputs:
+        parser.error("--check cannot record output hashes")
     assets = Path(args.assets).expanduser().resolve()
     work = Path(args.work).expanduser().resolve() if args.work else assets / "convert-work"
-    model_root = work / "paddle"
-    out_root = assets / "ncnn-official"
+    checkout = HERE.parents[2]
+    if assets.is_relative_to(checkout) or work.is_relative_to(checkout):
+        parser.error("assets and work must be outside the repository")
     lock = load_lock()
-
-    print(f"host      : {platform.platform()}")
-    print(f"python    : {platform.python_version()} ({sys.executable})")
-    print(f"convert   : {args.python}")
-    print(f"assets    : {assets}")
-    print(f"work      : {work}")
-    print(f"toolchain : {json.dumps(TOOLCHAIN, sort_keys=True)}")
-
-    names = args.only or sorted(MODELS)
-    produced: list[Path] = []
+    names = sorted(set(args.only or MODELS))
+    model_root = work / "paddle"
+    expected_paths = output_paths(names, work, assets)
+    print(f"host: {platform.platform()}\nconvert: {args.python}\nassets: {assets}\nwork: {work}", flush=True)
     for name in names:
         spec = MODELS[name]
-        model_dir = model_root / spec["repo"].split("/")[-1]
         for file_name in spec["files"]:
-            ensure_input(lock, spec["repo"], file_name, model_dir / file_name, args.offline or args.check)
-
+            ensure_input(lock, spec["repo"], file_name, model_root / spec["repo"].split("/")[-1] / file_name,
+                         args.offline or args.check)
     if args.check:
-        print("inputs verified; --check does not run the conversion")
+        count = 0
+        for key, path in expected_paths.items():
+            pinned = lock["files"].get(key, {}).get("sha256")
+            if pinned:
+                verify(path, pinned, key)
+                count += 1
+        print(f"inputs verified; {count} pinned outputs verified; --check wrote nothing")
         return 0
-
-    out_root.mkdir(parents=True, exist_ok=True)
-    for name in names:
-        spec = MODELS[name]
-        model_dir = model_root / spec["repo"].split("/")[-1]
-        model_work = work / name
-        model_work.mkdir(parents=True, exist_ok=True)
-        onnx_path = model_work / spec["onnx_name"]
-        if not onnx_path.exists():
-            paddle2onnx_export(model_dir, onnx_path, args.python)
-        key = f"{spec['repo']}/{spec['onnx_name']}"
+    if not args.record_outputs:
+        for key in expected_paths:
+            if not lock["files"].get(key, {}).get("sha256"):
+                raise PreparationError(f"no pinned output hash for {key}; bootstrap with --record-outputs after review")
+    for key, path in expected_paths.items():
         pinned = lock["files"].get(key, {}).get("sha256")
-        digest = verify(onnx_path, pinned, key)
-        lock["files"][key] = {
-            "kind": "onnx",
-            "source": f"paddle2onnx {TOOLCHAIN['paddle2onnx']} from {spec['repo']}",
-            "bytes": onnx_path.stat().st_size,
-            "sha256": digest,
-        }
-        param, binary = pnnx_convert(onnx_path, spec["onnx_shapes"], model_work, args.python)
-        for produced_path, suffix in ((param, "ncnn.param"), (binary, "ncnn.bin")):
-            target = out_root / f"{spec['ncnn_prefix']}.{suffix}"
-            target_key = f"ncnn-official/{target.name}"
-            pinned_out = lock["files"].get(target_key, {}).get("sha256")
-            out_digest = verify(produced_path, pinned_out, target_key)
-            shutil.copyfile(produced_path, target)
-            lock["files"][target_key] = {
-                "kind": suffix,
-                "source": f"pnnx {TOOLCHAIN['pnnx']} {' '.join(spec['onnx_shapes'])}",
-                "bytes": target.stat().st_size,
-                "sha256": out_digest,
-            }
-            produced.append(target)
-            print(f"[out] {target}  {target.stat().st_size} bytes  {out_digest[:16]}")
-
-    save_lock(lock)
-    print(f"\nlock file: {LOCK_PATH}")
-    print(f"converted: {out_root}")
-    for path in produced:
-        print(f"  {path.name}  {path.stat().st_size} bytes  {sha256(path)}")
+        if path.exists() and pinned:
+            verify(path, pinned, key)
+    actual = check_toolchain(args.python)
+    pinned_native = lock.get("conversion", {}).get("environment", {}).get("pnnx_sha256")
+    if pinned_native and actual.get("pnnx_sha256") != pinned_native:
+        raise PreparationError(f"native pnnx hash mismatch: expected {pinned_native}, got {actual.get('pnnx_sha256')}", 5)
+    work.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="replay-", dir=work) as scratch:
+        first = convert_once(names, model_root, Path(scratch) / "a", args.python, actual)
+        second = convert_once(names, model_root, Path(scratch) / "b", args.python, actual)
+        for key, path in first.items():
+            digest = verify(path, lock["files"].get(key, {}).get("sha256"), key)
+            verify(second[key], digest, f"independent replay {key}")
+            lock["files"][key] = {"kind": "onnx" if key.endswith(".onnx") else "ncnn." + key.rsplit(".", 1)[-1],
+                "source": "official pinned PIR inputs -> paddle2onnx -> pnnx",
+                "licence": "apache-2.0", "bytes": path.stat().st_size, "sha256": digest}
+            print(f"[reproduced] {key} {path.stat().st_size} {digest}", flush=True)
+        from publish_models import replace_directories
+        targets = {}
+        official_stage = Path(scratch) / "ncnn-official"
+        official_stage.mkdir()
+        if (assets / "ncnn-official").exists():
+            shutil.copytree(assets / "ncnn-official", official_stage, dirs_exist_ok=True)
+        for key, path in first.items():
+            if key.startswith("ncnn-official/"):
+                shutil.copyfile(path, official_stage / path.name)
+            else:
+                stage = Path(scratch) / ("publish-" + path.parent.name)
+                stage.mkdir(exist_ok=True)
+                shutil.copyfile(path, stage / path.name)
+                targets[work / path.parent.name] = stage
+        targets[assets / "ncnn-official"] = official_stage
+        replace_directories(targets)
+    if args.record_outputs:
+        lock["conversion"] = {"export_flags": EXPORT_FLAGS, "pnnx_flags": PNNX_FLAGS,
+                              "replays": 2, "byte_identical": True, "environment": actual}
+        save_lock(lock)
+    print(f"verified conversion published: {assets / 'ncnn-official'}", flush=True)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except PreparationError as error:
+        print(f"ERROR: {error.message}", file=sys.stderr)
+        raise SystemExit(error.exit_code)

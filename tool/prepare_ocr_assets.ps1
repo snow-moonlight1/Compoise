@@ -36,6 +36,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+# Python launched from PowerShell 7 can inherit a PSModulePath that omits
+# Windows PowerShell 5's utility module. Load this shell's own built-in module.
+Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Utility') -ErrorAction Stop
 
 $exitOk = 0; $exitUsage = 2; $exitVerify = 3; $exitNetwork = 4; $exitTool = 5
 
@@ -251,7 +254,10 @@ if ($ModelSource -eq 'official') {
         if ($Offline) { $conversionArgs += '--offline' }
         Write-Note "converting official weights with $pythonExe (paddle2onnx + pnnx)"
         & $pythonExe @conversionArgs
-        if ($LASTEXITCODE -ne 0) { Fail $exitVerify 'model conversion failed; see the output above' }
+        if ($LASTEXITCODE -ne 0) {
+            $conversionExit = if ($LASTEXITCODE -in @(2, 3, 4, 5)) { $LASTEXITCODE } else { $exitVerify }
+            Fail $conversionExit 'model conversion failed; see the output above'
+        }
     }
     # Verify the entire converted set before replacing any historical model.
     foreach ($name in @('PP_OCRv5_mobile_det.ncnn.param', 'PP_OCRv5_mobile_det.ncnn.bin',
@@ -264,18 +270,8 @@ if ($ModelSource -eq 'official') {
             Fail $exitVerify "$name has sha256 $digest, pinned $($entry.sha256)"
         }
     }
-    foreach ($name in $NihuiModels.Keys) {
-        $source = Join-Path $converted $name
-        $dest = Join-Path (Join-Path $AssetRoot 'ncnn') $name
-        if ($Check) {
-            if (-not (Test-Path -LiteralPath $dest) -or (Get-Sha256 $dest) -ne (Get-Sha256 $source)) {
-                Fail $exitVerify "official deployment does not match the converted weight: $dest"
-            }
-        } else {
-            Copy-Item -LiteralPath $source -Destination $dest -Force
-        }
-        Add-Record "ncnn/$name" $dest 'apache-2.0 (PaddlePaddle/PP-OCRv5_mobile_*)' 'native/ocr/tools/convert_models.py' 'converted from the official Paddle inference model'
-    }
+    # Publication is deferred until dependencies/builds also succeed. The
+    # shared publisher stages complete directories and rolls back rename errors.
 } else {
     foreach ($name in $NihuiModels.Keys) {
         $url = $NihuiBase + $name
@@ -309,6 +305,16 @@ if ($Ncnn -eq 'host') {
 }
 
 # --- deployment layout -------------------------------------------------------
+if ($ModelSource -eq 'official') {
+    $hostPython = if ($Python) { $Python } elseif ($tools['python']) { $tools['python'] } else { $env:WP17_CONVERT_PYTHON }
+    if (-not $hostPython) { Fail $exitTool 'python is required for verified official publication' }
+    $officialArgs = @((Join-Path $RepoRoot 'native/ocr/tools/prepare_ocr_assets.py'), '--assets', $AssetRoot, '--deploy', $DeployRoot)
+    if ($Python) { $officialArgs += @('--python', $Python) }
+    if ($Check) { $officialArgs += '--check' }
+    if ($Offline) { $officialArgs += '--offline' }
+    & $hostPython @officialArgs
+    exit $LASTEXITCODE
+}
 Write-Step "deployment layout under $DeployRoot"
 $modelDir = Join-Path $DeployRoot 'ncnn'
 if (-not $Check) { New-Item -ItemType Directory -Force -Path $modelDir | Out-Null }

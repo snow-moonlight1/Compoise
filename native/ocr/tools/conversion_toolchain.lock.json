@@ -1,0 +1,118 @@
+{
+  "index": "https://pypi.org/simple",
+  "packages": {
+    "anyio": {
+      "sha256": "6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101",
+      "source": "https://files.pythonhosted.org/packages/12/b8/4bd346e22b28902df4d651910f5242c28d84e4a5c2435ca5c3f797ed7e2e/anyio-4.15.1-py3-none-any.whl",
+      "version": "4.15.1"
+    },
+    "astor": {
+      "sha256": "070a54e890cefb5b3739d19f30f5a5ec840ffc9c50ffa7d23cc9fc1a38ebbfc5",
+      "source": "https://files.pythonhosted.org/packages/c3/88/97eef84f48fa04fbd6750e62dcceafba6c63c81b7ac1420856c8dcc0a3f9/astor-0.8.1-py2.py3-none-any.whl",
+      "version": "0.8.1"
+    },
+    "certifi": {
+      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+      "source": "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl",
+      "version": "2026.7.22"
+    },
+    "decorator": {
+      "sha256": "f47fe6fdbd2edd623ecfe36875d37aba411624e2670dd395dddae1358689bb3c",
+      "source": "https://files.pythonhosted.org/packages/05/7f/798705f5296a58ca505d600456748d1be48078eac8a7050d8a98bc9edb89/decorator-5.3.1-py3-none-any.whl",
+      "version": "5.3.1"
+    },
+    "h11": {
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "source": "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl",
+      "version": "0.16.0"
+    },
+    "httpcore": {
+      "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+      "source": "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl",
+      "version": "1.0.9"
+    },
+    "httpx": {
+      "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+      "source": "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl",
+      "version": "0.28.1"
+    },
+    "idna": {
+      "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c",
+      "source": "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl",
+      "version": "3.20"
+    },
+    "networkx": {
+      "sha256": "e3fd2c13a7814cee3746340d8d7f8598a67f16a58bf47fb7f8793fab6efca1b0",
+      "source": "https://files.pythonhosted.org/packages/7e/cd/fe58041e9011f307c490e3e17dd48cc516448f7c698a3f2d9d9d65d7e6a8/networkx-3.7-py3-none-any.whl",
+      "version": "3.7"
+    },
+    "numpy": {
+      "sha256": "675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed",
+      "source": "https://files.pythonhosted.org/packages/0f/50/de23fde84e45f5c4fda2488c759b69990fd4512387a8632860f3ac9cd225/numpy-1.26.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "1.26.4"
+    },
+    "onnx": {
+      "sha256": "4f3fb5cc4e2898ac5312a7dc03a65133dd2abf9a5e520e69afb880a7251ec97a",
+      "source": "https://files.pythonhosted.org/packages/3d/7c/67f4952d1b56b3f74a154b97d0dd0630d525923b354db117d04823b8b49b/onnx-1.17.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "1.17.0"
+    },
+    "onnxoptimizer": {
+      "sha256": "af19ee4dd7a852a18511aeabdbe1e3c8b4dd8e02b187356965b269d480ac7147",
+      "source": "https://files.pythonhosted.org/packages/85/3e/d512bf70a66f85d3d7bfc79380da24c026d6409b28c5cd48f2d91e450046/onnxoptimizer-0.4.2-cp312-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "0.4.2"
+    },
+    "opt-einsum": {
+      "sha256": "2455e59e3947d3c275477df7f5205b30635e266fe6dc300e3d9f9646bfcea147",
+      "source": "https://files.pythonhosted.org/packages/bc/19/404708a7e54ad2798907210462fd950c3442ea51acc8790f3da48d2bee8b/opt_einsum-3.3.0-py3-none-any.whl",
+      "version": "3.3.0"
+    },
+    "packaging": {
+      "sha256": "09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759",
+      "source": "https://files.pythonhosted.org/packages/88/ef/eb23f262cca3c0c4eb7ab1933c3b1f03d021f2c48f54763065b6f0e321be/packaging-24.2-py3-none-any.whl",
+      "version": "24.2"
+    },
+    "paddle2onnx": {
+      "sha256": "7fef03d6c40bbe5e2ebc6e895b25b8860acd28803601195884e8ffec5ffa1109",
+      "source": "https://files.pythonhosted.org/packages/06/53/a775d7e27318f7a2f80ed494c28d8ede7a32359bf0f01c16444aaf3a9044/paddle2onnx-2.1.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "2.1.0"
+    },
+    "paddlepaddle": {
+      "sha256": "81a7c5b10150b07521d1cd1491dca1fb76ff621b14db10e899d959f3a77935ea",
+      "source": "https://files.pythonhosted.org/packages/01/1d/5dfdda57de184d8406d6757f764a1ecdf26923d78ec7c427cb55b085c4d4/paddlepaddle-3.0.0-cp312-cp312-manylinux1_x86_64.whl",
+      "version": "3.0.0"
+    },
+    "pillow": {
+      "sha256": "78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91",
+      "source": "https://files.pythonhosted.org/packages/84/21/a35af28dcc61f37ed850a2d64c65c701321dfbf25085e469d5559360cbbf/pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "12.3.0"
+    },
+    "pnnx": {
+      "sha256": "9990d88b77c4fab8fa120fda40ba371c6237a4c5b1134a81e6f1162aa65177bf",
+      "source": "https://files.pythonhosted.org/packages/2b/f6/2d79465686a0a6978dc4497b95bd8fcb5afa29a055ffdf8239cf2c38d6fa/pnnx-20260526-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "version": "20260526"
+    },
+    "polygraphy": {
+      "sha256": "539095f64054823aabac5d4c8d64875b5a1542b71ca76443e218a01fdc1a4e03",
+      "source": "https://files.pythonhosted.org/packages/8b/16/a3069a489c36e855d3a792a532a96e6434e1a454a21248effd3a26da2a7b/polygraphy-0.53.6-py3-none-any.whl",
+      "version": "0.53.6"
+    },
+    "protobuf": {
+      "sha256": "c9cdf251c582c16fd6a9f5e95836c90828d51b0069ad22f463761d27c6c19019",
+      "source": "https://files.pythonhosted.org/packages/8b/e6/2a47ce2eba1aaf287380a44270da897ada03d118a55c19595ec7b4f0831f/protobuf-3.20.2-py2.py3-none-any.whl",
+      "version": "3.20.2"
+    },
+    "setuptools": {
+      "sha256": "e3982f444617239225d675215d51f6ba05f845d4eec313da4418fdbb56fb27e3",
+      "source": "https://files.pythonhosted.org/packages/69/8a/b9dc7678803429e4a3bc9ba462fa3dd9066824d3c607490235c6a796be5a/setuptools-75.8.0-py3-none-any.whl",
+      "version": "75.8.0"
+    },
+    "typing-extensions": {
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "source": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "version": "4.16.0"
+    }
+  },
+  "platform": "Linux x86_64, CPython 3.12.3",
+  "pnnx_usage": "native executable only; install with --no-deps to avoid optional PyTorch wrapper",
+  "schema": 1
+}

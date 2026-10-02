@@ -14,10 +14,7 @@ if [ ! -d "$SRC/.git" ]; then
   exit 2
 fi
 
-wanted="$(tr -d '\r\n' < "$(dirname "$0")/../../third_party/ncnn_pin.txt" 2>/dev/null || true)"
-if [ -z "${wanted:-}" ]; then
-  wanted=c6b351b56fbe32e0381ae00331e3df649b20d7b7
-fi
+wanted="$(tr -d '\r\n' < "$(dirname "$0")/../../../third_party/ncnn_pin.txt")"
 have="$(git -C "$SRC" rev-parse HEAD)"
 if [ "$have" != "$wanted" ]; then
   printf 'ncnn source is %s, expected %s\n' "$have" "$wanted" >&2
