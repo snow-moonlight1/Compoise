@@ -21,11 +21,13 @@ case "$mode" in
     trap 'rm -rf -- "$session"' EXIT
     export XDG_DATA_HOME="$session/data" XDG_CONFIG_HOME="$session/config" XDG_CACHE_HOME="$session/cache"
     export GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1
+    unset WAYLAND_DISPLAY
     mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
     printf '%s\n' "$session" > "$WP17_I6_ROOT/logs/xdg-session.txt"
     driver_arguments=()
     if [ "$mode" = accept-file-entry ]; then driver_arguments+=(--file-entry); fi
-    xvfb-run -a dbus-run-session -- python3 native/ocr/tools/drive_official_import.py \
+    xvfb-run -a dbus-run-session -- bash -c 'export WP17_LINUX_PRIVATE_DISPLAY="$DISPLAY"; exec "$@"' bash \
+      python3 native/ocr/tools/drive_official_import.py \
       --platform linux --repo "$WP17_REPO" --root "$WP17_I6_ROOT" \
       --flutter "$WP17_FLUTTER/bin/flutter" \
       --application "$WP17_I6_ROOT/artifacts/linux-device/matrixflow_native" "${driver_arguments[@]}"

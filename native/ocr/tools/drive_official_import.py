@@ -152,13 +152,94 @@ class Android:
 
 
 class Linux:
-    def __init__(self, fixtures: Path, file_entry: bool = False):
+    def __init__(self, fixtures: Path, file_entry: bool = False, evidence: Path | None = None):
         self.fixtures = fixtures
         self.file_entry = file_entry
+        self.evidence = evidence
+        self.selections = 0
+
+    @staticmethod
+    def nodes(pid: int):
+        # Lazy import: Android and ordinary Python regressions need no GTK.
+        import gi
+        gi.require_version("Atspi", "2.0")
+        from gi.repository import Atspi, GLib
+        desktop = Atspi.get_desktop(0)
+        result = []
+
+        def walk(node, depth=0):
+            if node is None:
+                return  # GTK4 can remove a child during directory navigation.
+            if depth > 40 or len(result) > 4000:
+                raise RuntimeError("Unexpectedly large dedicated picker tree")
+            try:
+                node.get_role_name()  # Reject defunct nodes before retaining them.
+                result.append(node)
+                for index in range(node.get_child_count()):
+                    walk(node.get_child_at_index(index), depth + 1)
+            except GLib.GError:
+                return  # Re-read the tree on the caller's next bounded attempt.
+
+        for index in range(desktop.get_child_count()):
+            app = desktop.get_child_at_index(index)
+            if app is not None and app.get_process_id() == pid:
+                walk(app)
+        return result
+
+    @staticmethod
+    def matches(node, role: str, names):
+        from gi.repository import GLib
+        try:
+            return node.get_role_name() == role and node.get_name() in names
+        except GLib.GError:
+            return False
+
+    def cell(self, pid: int, name: str):
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            for node in self.nodes(pid):
+                if self.matches(node, "table cell", (name,)):
+                    return node
+            time.sleep(0.2)
+        raise RuntimeError("File row missing in real GTK picker: " + name)
+
+    def select_files(self, pid: int, names: list[str]):
+        for name in names:
+            self.cell(pid, name)
+        # GTK4 does not report usable screen coordinates under this Xvfb
+        # environment. Its real file-list Selection interface is available.
+        cell = self.cell(pid, names[0])
+        selection = cell.get_parent().get_parent().get_selection_iface()
+        if selection is None or not selection.select_all():
+            raise RuntimeError("GTK file-list selection failed")
+        selected = [selection.get_selected_child(index).get_child_at_index(0).get_name()
+                    for index in range(selection.get_n_selected_children())]
+        if sorted(selected) != names:
+            raise RuntimeError("GTK selected rows differ from dedicated PNGs: " + repr(selected))
+        return selected
+
+    def confirm(self, pid: int):
+        # Re-read after selecting: GTK4 destroys/recreates accessible nodes.
+        buttons = [node for node in self.nodes(pid) if self.matches(node, "push button",
+                   ("确定(O)", "OK", "Open", "打开(O)", "_Open", "_OK"))]
+        if len(buttons) != 1:
+            raise RuntimeError("Cannot identify GTK confirmation button")
+        button = buttons[0]
+        name = button.get_name()
+        if not button.get_action_iface().do_action(0):
+            raise RuntimeError("GTK confirmation action failed")
+        return name
+
+    def snapshot(self, window: str, label: str):
+        if self.evidence is not None:
+            run(["xwd", "-silent", "-id", window, "-out",
+                 str(self.evidence / f"picker-{self.selections}-{label}.xwd")])
 
     def choose(self, cancel: bool):
         if self.file_entry:
             return  # Explicit selection seam in Dart; disk bytes and OCR stay real.
+        if not os.environ.get("WP17_LINUX_PRIVATE_DISPLAY") or os.environ["WP17_LINUX_PRIVATE_DISPLAY"] != os.environ.get("DISPLAY"):
+            raise RuntimeError("Real picker requires the script's private Xvfb display")
         limit = time.monotonic() + 60
         window = None
         while time.monotonic() < limit:
@@ -168,20 +249,36 @@ class Linux:
                 break
             time.sleep(0.3)
         if window is None: raise RuntimeError("Real zenity picker did not open")
+        pid = int(run(["xdotool", "getwindowpid", window]).strip())
+        self.selections += 1
+        self.snapshot(window, "opened")
         run(["xdotool", "windowfocus", "--sync", window])
         if cancel:
             run(["xdotool", "key", "Escape"])
         else:
-            # The test only configures the native dialog's initialDirectory.
-            # Click its first file row, select all five real files, then activate
-            # GTK's Open mnemonic. Never return a fabricated picker result.
-            run(["xdotool", "mousemove", "--window", window, "260", "90", "click", "1"])
-            run(["xdotool", "key", "--clearmodifiers", "ctrl+a", "alt+o"])
+            # GTK4 --filename can select a folder in its parent. Use the
+            # actual Location UI to enter only a directory, never a file list.
+            run(["xdotool", "key", "--clearmodifiers", "ctrl+l", "ctrl+a"])
+            run(["xdotool", "type", "--clearmodifiers", "--", str(self.fixtures.resolve()) + "/"])
+            run(["xdotool", "key", "--clearmodifiers", "Return"])
+            names = [path.name for path in sorted(self.fixtures.glob("*.png"))]
+            if len(names) != 5:
+                raise RuntimeError("Expected exactly five dedicated PNG fixtures")
+            selected = self.select_files(pid, names)
+            self.snapshot(window, "selected")
+            confirmation = self.confirm(pid)
+            if self.evidence is not None:
+                (self.evidence / f"picker-{self.selections}.json").write_text(json.dumps({
+                    "dialog_pid": pid, "directory_navigation": str(self.fixtures.resolve()),
+                    "selected_real_rows": selected, "confirmation_action": confirmation,
+                    "selection": "GTK AT-SPI file-list Selection; no fabricated return value",
+                }, indent=2) + "\n")
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             visible = subprocess.run(["xdotool", "search", "--onlyvisible", "--class", "zenity"], capture_output=True, text=True)
             if window not in visible.stdout.splitlines(): return
             time.sleep(0.2)
+        self.snapshot(window, "failed")
         raise RuntimeError("GTK picker did not close after its real confirmation")
 
     def memory(self) -> int:
@@ -219,7 +316,7 @@ def main():
                            ("03-ja.png", "ja_light_base.png"), ("04-zh-duplicate.png", "zh_light_base.png")):
         shutil.copyfile(samples / source, fixtures / target)
     (fixtures / "05-corrupt.png").write_bytes(b"not a png")
-    device = Android(args.serial, args.application, args.sdk, root) if args.platform == "android" else Linux(fixtures, args.file_entry)
+    device = Android(args.serial, args.application, args.sdk, root) if args.platform == "android" else Linux(fixtures, args.file_entry, root / "logs")
     label = args.platform + ("-file-entry" if args.file_entry else "")
     log = root / "logs" / ("drive-" + label + ".log")
     report = root / "logs" / ("flow-" + label + ".json")
