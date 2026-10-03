@@ -214,4 +214,48 @@ void main() {
     expect(writer.batches, hasLength(batchesAfterDrain));
     store.dispose();
   });
+
+  testWidgets(
+    'a fake-clock case converges at creation and settles on request',
+    (tester) async {
+      final writer = GatedWriter();
+      late Store store;
+      await tester.runAsync(() async {
+        store = (await makeStore(
+          boards: [board('board-w')],
+          tasks: [task('w', 'board-w')],
+          saveWriter: writer.call,
+        )).$1;
+        expect(store.tasks.map((item) => item.id), ['w']);
+        expect(
+          writer.committed,
+          hasLength(1),
+          reason: 'the initial commit lands before makeStore returns',
+        );
+
+        store.addTasks([task('late-w', 'board-w')]);
+        await store.flush(waitForReminders: false);
+        expect(writer.committed, hasLength(2));
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          SaveProtocol.readCommitted(prefs.get)?.values[kTasks],
+          allOf(contains('w'), contains('late-w')),
+        );
+      });
+      store.dispose();
+    },
+  );
+
+  test('the case after a widget case still starts from its own seed', () async {
+    final (store, _) = await makeStore(
+      boards: [board('board-after-widget')],
+      tasks: [task('after-widget', 'board-after-widget')],
+    );
+    expect(store.tasks.map((item) => item.id), ['after-widget']);
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      SaveProtocol.readCommitted(prefs.get)?.values[kTasks],
+      isNot(contains('late-w')),
+    );
+  });
 }

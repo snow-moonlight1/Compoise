@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/models.dart';
 import 'package:matrixflow_native/storage.dart';
@@ -8,6 +9,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Stores whose current test case still owes them a save.
 final List<Store> _caseStores = <Store>[];
 bool _drainRegistered = false;
+
+/// True when awaiting a store's queued work can actually finish.
+///
+/// `WidgetsBinding.instance` only throws where no binding was initialized,
+/// which means no `testWidgets` fake clock can be running. Inside a
+/// `testWidgets` body the answer is false: a commit a widget interaction
+/// queued lives in the fake zone, and once the test ends nothing pumps it, so
+/// an await on it would stall the suite instead of settling a write. Those
+/// stranded writes never reach storage, so they cannot poison a later case.
+bool get _drainIsSafe {
+  try {
+    final binding = WidgetsBinding.instance;
+    return binding is! TestWidgetsFlutterBinding || !binding.inTest;
+  } on AssertionError {
+    return true;
+  }
+}
 
 /// Enrolls [store] so every save it queued lands before the case ends.
 ///
@@ -20,9 +38,12 @@ bool _drainRegistered = false;
 /// [makeStore] enrolls the store it builds. A test that opens a `Store`
 /// directly can call this to get the same guarantee; the drain only waits for
 /// work the store already queued, so it never commits state a test left
-/// deliberately dirty.
+/// deliberately dirty. Enrollment is skipped while a `testWidgets` fake clock
+/// owns the case (see [_drainIsSafe]); a widget test that mutates its store
+/// inside `runAsync` settles it there with
+/// `await store.flush(waitForReminders: false)`.
 void registerTestStore(Store store) {
-  if (_caseStores.contains(store)) return;
+  if (!_drainIsSafe || _caseStores.contains(store)) return;
   _caseStores.add(store);
   if (_drainRegistered) return;
   _drainRegistered = true;
