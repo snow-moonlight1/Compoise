@@ -477,14 +477,22 @@ Future<List<GutterMark>> _decodePngMarks(
       );
       if (pixels == null) throw const FormatException('bitmap unavailable');
       final transfer = TransferableTypedData.fromList([
-        pixels.buffer.asUint8List(pixels.offsetInBytes, pixels.lengthInBytes),
+        gutterLuminance(
+          pixels.buffer.asUint8List(pixels.offsetInBytes, pixels.lengthInBytes),
+          width,
+          height,
+        ),
       ]);
       // Dispose the original image before scanning; the codec is disposed
       // before returning, so native OCR never overlaps this decoded bitmap.
       frame.image.dispose();
       disposed = true;
       return await Isolate.run(
-        () => scanGutter(transfer.materialize().asUint8List(), width, height),
+        () => scanGutterLuminance(
+          transfer.materialize().asUint8List(),
+          width,
+          height,
+        ),
       );
     } finally {
       if (!disposed) frame.image.dispose();

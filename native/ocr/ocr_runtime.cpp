@@ -145,7 +145,9 @@ struct ImageResult
 struct Bitmap
 {
     int w = 0, h = 0;
-    std::vector<unsigned char> bgr; // 3 bytes per pixel, BGR, row-major
+    // Own stb's allocation directly; converting RGB to BGR in place avoids
+    // retaining a second full-size bitmap (36 MiB at the accepted pixel cap).
+    std::unique_ptr<unsigned char, decltype(&stbi_image_free)> bgr{nullptr, stbi_image_free};
 };
 
 static bool load_png_bgr(const std::string& path, Bitmap& bm)
@@ -156,14 +158,9 @@ static bool load_png_bgr(const std::string& path, Bitmap& bm)
         return false;
     bm.w = w;
     bm.h = h;
-    bm.bgr.resize((size_t)w * h * 3);
+    bm.bgr.reset(rgb);
     for (size_t i = 0, n = (size_t)w * h; i < n; i++)
-    {
-        bm.bgr[i * 3 + 0] = rgb[i * 3 + 2];
-        bm.bgr[i * 3 + 1] = rgb[i * 3 + 1];
-        bm.bgr[i * 3 + 2] = rgb[i * 3 + 0];
-    }
-    stbi_image_free(rgb);
+        std::swap(rgb[i * 3], rgb[i * 3 + 2]);
     return true;
 }
 
@@ -261,6 +258,12 @@ public:
         rec_.opt.use_vulkan_compute = false;
         det_.opt.num_threads = opt_.threads;
         rec_.opt.num_threads = opt_.threads;
+        // ncnn's Net-owned pools retain freed detection blobs/workspaces and
+        // oversized buffers across recognition widths until destruction. Direct
+        // allocation releases dead blobs/workspaces in lightmode, preserving
+        // the model, kernels and output while bounding a reused session.
+        det_.opt.use_local_pool_allocator = false;
+        rec_.opt.use_local_pool_allocator = false;
         // opt.lightmode stays at ncnn's default (true) so intermediate blobs are
         // recycled; keeping them alive multiplies peak RSS for no benefit.
 
@@ -338,7 +341,7 @@ private:
         if (w < 1) w = 1;
         if (h < 1) h = 1;
 
-        ncnn::Mat in = ncnn::Mat::from_pixels_resize(bm.bgr.data(), ncnn::Mat::PIXEL_BGR, img_w, img_h, w, h);
+        ncnn::Mat in = ncnn::Mat::from_pixels_resize(bm.bgr.get(), ncnn::Mat::PIXEL_BGR, img_w, img_h, w, h);
         if (in.empty())
         {
             err = "from_pixels_resize failed";
@@ -516,7 +519,7 @@ private:
         std::vector<unsigned char> crop((size_t)cw * ch * 3);
         for (int y = 0; y < ch; y++)
         {
-            const unsigned char* src = bm.bgr.data() + ((size_t)(y0 + y) * bm.w + x0) * 3;
+            const unsigned char* src = bm.bgr.get() + ((size_t)(y0 + y) * bm.w + x0) * 3;
             memcpy(crop.data() + (size_t)y * cw * 3, src, (size_t)cw * 3);
         }
 

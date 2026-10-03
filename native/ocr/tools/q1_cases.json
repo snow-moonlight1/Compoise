@@ -1,0 +1,5 @@
+{
+  "batch": ["zh_light_base", "zh_dark_base", "en_light_base", "ja_light_base",
+    "zh_small_text", "zh_scale_075", "en_small_text", "ja_dark_small_text",
+    "zh_light_base_dup", "en_light_base"]
+}

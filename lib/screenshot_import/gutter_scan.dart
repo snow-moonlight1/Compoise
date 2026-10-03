@@ -13,6 +13,16 @@ final class GutterMark {
 /// The capture module checks dimensions before allocating/decoding this bitmap.
 /// Thresholds and isolation gaps follow wp17r2/tools/wp17r2lib.py.
 List<GutterMark> scanGutter(Uint8List rgba, int width, int height) {
+  return scanGutterLuminance(
+    gutterLuminance(rgba, width, height),
+    width,
+    height,
+  );
+}
+
+/// Convert only the left quarter, using the same straight-alpha composite as
+/// [scanGutter]. This small buffer can be transferred to a scanning isolate.
+Uint8List gutterLuminance(Uint8List rgba, int width, int height) {
   if (width <= 0 ||
       height <= 0 ||
       width > 4096 ||
@@ -22,9 +32,7 @@ List<GutterMark> scanGutter(Uint8List rgba, int width, int height) {
     throw const FormatException('invalid bounded bitmap');
   }
   final gutter = width ~/ 4;
-  if (gutter == 0) return [];
   final gray = Uint8List(gutter * height);
-  final histogram = List<int>.filled(256, 0);
   for (var y = 0; y < height; y++) {
     for (var x = 0; x < gutter; x++) {
       final p = (y * width + x) * 4;
@@ -33,8 +41,26 @@ List<GutterMark> scanGutter(Uint8List rgba, int width, int height) {
           (299 * rgba[p] + 587 * rgba[p + 1] + 114 * rgba[p + 2] + 500) ~/ 1000;
       final value = (luminance * alpha + 255 * (255 - alpha) + 127) ~/ 255;
       gray[y * gutter + x] = value;
-      histogram[value]++;
     }
+  }
+  return gray;
+}
+
+/// Scan a precomposited left-quarter buffer, retaining full-image geometry.
+List<GutterMark> scanGutterLuminance(Uint8List gray, int width, int height) {
+  if (width <= 0 ||
+      height <= 0 ||
+      width > 4096 ||
+      height > 8192 ||
+      width * height > 12 * 1024 * 1024 ||
+      gray.length != (width ~/ 4) * height) {
+    throw const FormatException('invalid bounded gutter');
+  }
+  final gutter = width ~/ 4;
+  if (gutter == 0) return [];
+  final histogram = List<int>.filled(256, 0);
+  for (final value in gray) {
+    histogram[value]++;
   }
   var cumulative = 0;
   var background = 0;
