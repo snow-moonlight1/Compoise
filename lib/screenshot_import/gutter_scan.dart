@@ -3,9 +3,15 @@ import 'dart:typed_data';
 
 /// Image-side evidence only. OCR glyphs never supply a checkbox state.
 final class GutterMark {
-  const GutterMark(this.box, this.fill);
+  const GutterMark(this.box, this.fill, {this.sizedByWidthFraction = true});
+
   final List<double> box;
   final double fill;
+
+  /// True when both sides sit in the historical 2.2%–7.5% of image width.
+  /// False marks are isolated squares kept for a text-height check. They are
+  /// not checkboxes until the adapter agrees.
+  final bool sizedByWidthFraction;
   bool get checked => fill > 0.5;
 }
 
@@ -108,13 +114,25 @@ List<GutterMark> scanGutterLuminance(Uint8List gray, int width, int height) {
     // R2 uses exclusive x1 and adds one, so keep its measured box convention.
     final bw = x1 - x0 + 2;
     final bh = y1 - y0 + 1;
-    if (bw < .022 * width ||
-        bw > .075 * width ||
-        bh < .022 * width ||
-        bh > .075 * width ||
-        math.max(bw, bh) > 1.6 * math.min(bw, bh)) {
-      continue;
-    }
+    if (math.max(bw, bh) > 1.6 * math.min(bw, bh)) continue;
+    final minFraction = .022 * width;
+    final maxFraction = .075 * width;
+    final legacy =
+        bw >= minFraction &&
+        bh >= minFraction &&
+        bw <= maxFraction &&
+        bh <= maxFraction;
+    // A 29px control on a 1600px image is below 2.2% of width (35.2). Keep
+    // those isolated squares. The 18px floor drops specks and one-pixel-thin
+    // glyph fragments; the adapter still has to match character height.
+    const rescueFloor = 18;
+    final rescue =
+        !legacy &&
+        bw >= rescueFloor &&
+        bh >= rescueFloor &&
+        bw <= maxFraction &&
+        bh <= maxFraction;
+    if (!legacy && !rescue) continue;
     final gap = math.max(6, (.35 * bw).round());
     var isolated = true;
     for (var y = y0; y <= y1 && isolated; y++) {
@@ -129,15 +147,17 @@ List<GutterMark> scanGutterLuminance(Uint8List gray, int width, int height) {
     }
     if (!isolated) continue;
     if (marks.length == 2048) {
-      throw const FormatException('too many gutter marks');
+      // Legacy marks keep the hard cap. Extra rescued squares must not fail
+      // an image that the width-fraction scan would have accepted.
+      if (legacy) throw const FormatException('too many gutter marks');
+      continue;
     }
     marks.add(
-      GutterMark([
-        x0.toDouble(),
-        y0.toDouble(),
-        bw.toDouble(),
-        bh.toDouble(),
-      ], (tail / (bw * bh) * 1000).round() / 1000),
+      GutterMark(
+        [x0.toDouble(), y0.toDouble(), bw.toDouble(), bh.toDouble()],
+        (tail / (bw * bh) * 1000).round() / 1000,
+        sizedByWidthFraction: legacy,
+      ),
     );
   }
   marks.sort((a, b) {

@@ -27,20 +27,32 @@ final class ScreenshotDraftAdapter {
       throw const FormatException('invalid bounded OCR result');
     }
     var characters = 0;
+    var blankOutside = 0;
     final kept = <int>[];
     final noise = <Map<String, dynamic>>[];
     for (final (i, line) in result.lines.indexed) {
       characters += line.text.length;
-      if (characters > 128 * 1024 ||
-          line.text.length > 8192 ||
-          !_validBox(line.box, w, h) ||
-          !line.score.isFinite ||
-          line.score < 0 ||
-          line.score > 1) {
+      if (characters > 128 * 1024 || line.text.length > 8192) {
         throw const FormatException('invalid OCR line or result too large');
       }
-      if (_usable(line.text).isEmpty) {
-        noise.add({'box': List<double>.of(line.box), 'score': line.score});
+      if (!line.score.isFinite || line.score < 0 || line.score > 1) {
+        throw const FormatException('invalid OCR line or result too large');
+      }
+      final usable = _usable(line.text);
+      final boxOk = _validBox(line.box, w, h);
+      if (usable.isEmpty) {
+        // A blank recognizer box may sit outside a tiny image. That is an
+        // empty result, not a task and not a reason to reject the picture.
+        // Non-finite geometry is still corrupt.
+        if (boxOk) {
+          noise.add({'box': List<double>.of(line.box), 'score': line.score});
+        } else if (_finiteQuad(line.box)) {
+          blankOutside++;
+        } else {
+          throw const FormatException('invalid OCR line or result too large');
+        }
+      } else if (!boxOk) {
+        throw const FormatException('invalid OCR line or result too large');
       } else {
         kept.add(i);
       }
@@ -104,13 +116,39 @@ final class ScreenshotDraftAdapter {
               _center(sortedMarks[i].box) <= group.bottom + 8)
             i,
       ];
-      final mark = candidates.isEmpty ? null : sortedMarks[candidates.first];
-      // A chrome row must not consume a mark needed by the next real row.
-      if (mark != null && y >= .22 * w) used.add(candidates.first);
       final minX = members.map((i) => lines[i].box[0]).reduce(math.min);
+      final legacy = <int>[
+        for (final i in candidates)
+          if (sortedMarks[i].sizedByWidthFraction) i,
+      ];
+      // Chrome and the historical width band stay on the old path. A rescued
+      // square becomes a checkbox only when its shorter side matches the
+      // line's character height and it sits at the start of that line.
+      final rescued = y < .22 * w
+          ? <int>[]
+          : <int>[
+              for (final i in candidates)
+                if (!sortedMarks[i].sizedByWidthFraction &&
+                    _rescuedMatches(sortedMarks[i], lines, members))
+                  i,
+            ];
+      final chosen = legacy.isNotEmpty ? legacy : rescued;
+      final markIndex = chosen.isEmpty ? null : chosen.first;
+      final mark = markIndex == null ? null : sortedMarks[markIndex];
+      final uncertain =
+          mark == null &&
+          y >= .22 * w &&
+          minX <= .5 * w &&
+          candidates.any(
+            (i) =>
+                !sortedMarks[i].sizedByWidthFraction &&
+                _ambiguousRescue(sortedMarks[i], lines, members),
+          );
+      // A chrome row must not consume a mark needed by the next real row.
+      if (markIndex != null && y >= .22 * w) used.add(markIndex);
       final kind = y < .22 * w
           ? 'chrome'
-          : mark != null
+          : mark != null || uncertain
           ? 'task'
           : minX > .5 * w
           ? 'meta'
@@ -137,11 +175,23 @@ final class ScreenshotDraftAdapter {
       final textMembers = members
           .where((i) => !sortedMarks.any((cb) => _inside(lines[i].box, cb.box)))
           .toList();
+      if (mark == null) {
+        tasks.add(
+          _uncertainTask(
+            row: r,
+            lines: lines,
+            members: members,
+            textMembers: textMembers,
+            width: w,
+          ),
+        );
+        continue;
+      }
       final needs = <String>[
         'checkbox state needs review (gutter heuristic)',
         'indent/parent needs review',
       ];
-      if (candidates.length > 1) {
+      if (chosen.length > 1) {
         needs.add('multiple gutter marks match this row');
       }
       if (textMembers.isEmpty) {
@@ -165,7 +215,7 @@ final class ScreenshotDraftAdapter {
         needs.add('low OCR confidence; text needs review');
       }
       if (due.isNotEmpty) needs.add('date text needs review');
-      final level = mark!.box[0] < .07 * w ? 0 : 1;
+      final level = mark.box[0] < .07 * w ? 0 : 1;
       int? parent;
       if (level == 1) {
         for (final task in tasks.reversed) {
@@ -198,13 +248,22 @@ final class ScreenshotDraftAdapter {
         'needs_confirmation': needs,
       });
     }
-    if (sortedMarks.length > used.length) {
+    final unusedStructural = [
+      for (var i = 0; i < sortedMarks.length; i++)
+        if (sortedMarks[i].sizedByWidthFraction && !used.contains(i)) i,
+    ];
+    if (unusedStructural.isNotEmpty) {
       notes.add(
-        '${sortedMarks.length - used.length} gutter mark(s) matched no text row',
+        '${unusedStructural.length} gutter mark(s) matched no text row',
       );
     }
     if (noise.isNotEmpty) {
       notes.add('${noise.length} recognized block(s) had no usable text');
+    }
+    if (blankOutside > 0) {
+      notes.add(
+        '$blankOutside blank recognition box(es) were outside the image; no task was created',
+      );
     }
     if (tasks.isEmpty) {
       notes.add('No task rows detected; review excluded candidates.');
@@ -239,14 +298,120 @@ String _usable(String text) => text.replaceAll(
   '',
 );
 bool _validBox(List<double> b, int w, int h) =>
-    b.length == 4 &&
-    b.every((v) => v.isFinite) &&
+    _finiteQuad(b) &&
     b[0] >= 0 &&
     b[1] >= 0 &&
     b[2] > 0 &&
     b[3] > 0 &&
     b[0] + b[2] <= w &&
     b[1] + b[3] <= h;
+
+bool _finiteQuad(List<double> box) =>
+    box.length == 4 && box.every((value) => value.isFinite);
+
+/// Widest text block in the row. Its height is the character-height evidence
+/// and its horizontal span shows whether a square is a leading control.
+List<double>? _titleBox(List<OcrLine> lines, List<int> members) {
+  List<double>? box;
+  var width = -1.0;
+  for (final i in members) {
+    final candidate = lines[i].box;
+    if (candidate.length == 4 && candidate[2] > width) {
+      width = candidate[2];
+      box = candidate;
+    }
+  }
+  return box;
+}
+
+bool _leadingControl(GutterMark mark, List<double> line) {
+  final side = math.max(mark.box[2], mark.box[3]);
+  if (side <= 0 || line[3] <= 0) return false;
+  final markRight = mark.box[0] + mark.box[2];
+  // A glyph in the middle of a header is not a leading checkbox.
+  if (mark.box[0] > line[0] + side) return false;
+  return line[0] + line[2] >= markRight + side;
+}
+
+double _minSideRatio(GutterMark mark, List<double> line) {
+  if (line[3] <= 0) return 0;
+  return math.min(mark.box[2], mark.box[3]) / line[3];
+}
+
+bool _rescuedMatches(GutterMark mark, List<OcrLine> lines, List<int> members) {
+  final line = _titleBox(lines, members);
+  if (line == null || !_leadingControl(mark, line)) return false;
+  final ratio = _minSideRatio(mark, line);
+  // 29px on the recorded 57–66px long-line boxes is about 0.44–0.50.
+  // Shorter header fragments such as a 15px stroke on a 50px title stay below.
+  return ratio >= .38 && ratio <= 2;
+}
+
+bool _ambiguousRescue(GutterMark mark, List<OcrLine> lines, List<int> members) {
+  final line = _titleBox(lines, members);
+  if (line == null || !_leadingControl(mark, line)) return false;
+  final side = math.max(mark.box[2], mark.box[3]);
+  // Short headers stay sections. A long line is task-like text.
+  if (line[2] < side * 8) return false;
+  final ratio = _minSideRatio(mark, line);
+  return ratio >= .25 && ratio < .38;
+}
+
+Map<String, dynamic> _uncertainTask({
+  required int row,
+  required List<OcrLine> lines,
+  required List<int> members,
+  required List<int> textMembers,
+  required int width,
+}) {
+  final usableMembers = textMembers.isEmpty
+      ? List<int>.of(members)
+      : textMembers;
+  final titleMembers = usableMembers
+      .where((i) => lines[i].box[0] <= .5 * width)
+      .toList();
+  final due = usableMembers
+      .where((i) => lines[i].box[0] > .5 * width)
+      .map((i) => lines[i].text)
+      .join();
+  final needs = <String>[
+    'task structure is uncertain; checkbox size does not match the text',
+  ];
+  if (textMembers.isEmpty) {
+    needs.add('only checkbox glyphs were recognized; title needs review');
+  }
+  if (titleMembers.isEmpty) needs.add('task row has no left-aligned text');
+  if (usableMembers.length > 2 || titleMembers.length > 1) {
+    needs.add(
+      'row contains ${usableMembers.length} text blocks; split/merge needs review',
+    );
+  }
+  if (usableMembers.any((i) => lines[i].score < .8)) {
+    needs.add('low OCR confidence; text needs review');
+  }
+  if (due.isNotEmpty) needs.add('date text needs review');
+  int? anchor;
+  for (final i in titleMembers) {
+    if (anchor == null ||
+        _usable(lines[i].text).length > _usable(lines[anchor].text).length) {
+      anchor = i;
+    }
+  }
+  return {
+    'row': row,
+    'line_indices': usableMembers,
+    'anchor_line': anchor,
+    'title': titleMembers.map((i) => lines[i].text).join(),
+    'checked': false,
+    'checkbox_box': null,
+    'checkbox_fill': null,
+    'level': 0,
+    'parent': null,
+    'due': due.isEmpty ? null : due,
+    'needs_confirmation': needs,
+  };
+}
+
 bool _inside(List<double> a, List<double> b) {
   final cx = a[0] + a[2] / 2;
   final cy = a[1] + a[3] / 2;
