@@ -113,7 +113,7 @@ def main() -> int:
         if args.download:
             run(["git", "init", source])
             run(["git", "-C", source, "-c", "http.sslVerify=true", "fetch", "--depth=1", "https://github.com/Tencent/ncnn.git", PIN])
-            run(["git", "-C", source, "checkout", "--detach", "FETCH_HEAD"])
+            run(["git", "-C", source, "-c", "core.autocrlf=false", "checkout", "--detach", "FETCH_HEAD"])
         if run(["git", "-C", source, "rev-parse", "HEAD"]).strip() != PIN:
             raise PreparationError("ncnn source commit differs from reviewed pin")
         if run(["git", "-C", source, "status", "--porcelain", "--untracked-files=all"]).strip():
@@ -140,6 +140,7 @@ def main() -> int:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(args.assets / name, destination)
     record = {"schema": 1, "platform": args.platform, "ncnnCommit": PIN, "mode": mode,
+              "runtimePrerequisites": ["MSVC x64 runtime including VCOMP140.DLL"] if args.platform == "windows" else [],
               "sourceCommit": PIN if mode == "pinned-source" else None, "files": inventory(out / "install")}
     (out / "native-dependency.json").write_text(json.dumps(record, indent=2) + "\n")
     check(out, args.platform)

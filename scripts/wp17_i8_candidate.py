@@ -124,6 +124,10 @@ def main() -> int:
     env.update(PUB_CACHE=str(args.pub_cache.resolve()), GRADLE_USER_HOME=str(private / "gradle"),
                TMPDIR=str(tmp), TMP=str(tmp), TEMP=str(tmp), PYTHONDONTWRITEBYTECODE="1",
                CMAKE_BUILD_PARALLEL_LEVEL="2", CI="true")
+    # Source tracing may use GIT_DIR for a Windows-hosted worktree read from
+    # WSL. Flutter must inspect its own SDK Git repository instead.
+    env.pop("GIT_DIR", None)
+    env.pop("GIT_WORK_TREE", None)
     commands = []
     def run(command: list, cwd=REPO) -> bytes:
         command = [str(x) for x in command]

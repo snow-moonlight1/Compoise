@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 import zipfile
 import i8_assets
+from publish_models import MODEL_NAMES
 import test_ocr_bundle
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 import wp17_i8_candidate as candidate
@@ -28,7 +29,7 @@ class Resources(test_ocr_bundle.OfficialBundleTest):
     def test_missing_model_refuses_and_preserves_previous_install(self):
         i8_assets.stage_bundle(self.source, self.out)
         before = self.snapshot(self.out)
-        (self.source / "ncnn" / i8_assets.stage.__globals__["MODEL_NAMES"][0]).unlink()
+        (self.source / "ncnn" / MODEL_NAMES[0]).unlink()
         with self.assertRaises(candidate.PreparationError):
             i8_assets.stage_bundle(self.source, self.out)
         self.assertEqual(before, self.snapshot(self.out))
