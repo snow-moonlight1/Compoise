@@ -222,7 +222,7 @@ def main() -> int:
     identity = {}
     if args.platform == "windows":
         env["WP17_I8_EXE"] = str(built / "compoise.exe")
-        ps = "$f=Get-Item -LiteralPath $env:WP17_I8_EXE; $v=$f.VersionInfo; "
+        ps = "$ErrorActionPreference='Stop'; Import-Module \"$PSHOME/Modules/Microsoft.PowerShell.Security\"; Import-Module \"$PSHOME/Modules/Microsoft.PowerShell.Utility\"; $f=Get-Item -LiteralPath $env:WP17_I8_EXE; $v=$f.VersionInfo; "
         ps += "@{product=$v.ProductName;company=$v.CompanyName;version=$v.FileVersion;numeric=('{0}.{1}.{2}.{3}' -f $v.FileMajorPart,$v.FileMinorPart,$v.FileBuildPart,$v.FilePrivatePart);copyright=$v.LegalCopyright;signature=(Get-AuthenticodeSignature -LiteralPath $f.FullName).Status.ToString()} | ConvertTo-Json -Compress"
         identity = json.loads(run(["powershell", "-NoProfile", "-Command", ps]))
         if (identity["product"] != "Compoise" or identity["company"] != "Compoise" or
