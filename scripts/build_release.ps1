@@ -78,8 +78,8 @@ param (
 )
 
 $ErrorActionPreference = 'Stop'
-# Default candidates must never inherit opt-in OCR or upgrade harness builds.
-foreach ($gate in @('WP17_OCR_NCNN_DIR', 'WP17_OCR_STB_DIR', 'WP28_U2_HARNESS_BUILD')) {
+# Default candidates must never inherit opt-in OCR or diagnostic harness builds.
+foreach ($gate in @('WP17_OCR_NCNN_DIR', 'WP17_OCR_NCNN_ROOT', 'WP17_OCR_STB_DIR', 'WP28_U2_HARNESS_BUILD', 'WP15_D3_DEVICE_BUILD')) {
     if ([Environment]::GetEnvironmentVariable($gate)) { throw "Default release rejects active opt-in gate: $gate" }
 }
 
@@ -430,7 +430,7 @@ if ($BuildsAndroid) {
             # Keep the complete Material glyph font in release builds. The
             # screenshot-backed Android smoke showed that tree shaking dropped
             # glyphs referenced through shared/dynamic IconData call sites.
-            & $FlutterBin build apk --release --no-pub --no-tree-shake-icons
+            & $FlutterBin build apk --release --no-pub --no-tree-shake-icons -t lib/main.dart
             if ($LASTEXITCODE -ne 0) {
                 throw "Android release build failed with exit code: $LASTEXITCODE"
             }
@@ -494,7 +494,7 @@ if ($BuildsWindows) {
     Write-Host "`n[2/2] Building Windows release desktop application..." -ForegroundColor Yellow
     Push-Location $FlutterDir
     try {
-        & $FlutterBin build windows --release --no-pub
+        & $FlutterBin build windows --release --no-pub -t lib/main.dart
         if ($LASTEXITCODE -ne 0) {
             throw "Windows release build failed with exit code: $LASTEXITCODE"
         }

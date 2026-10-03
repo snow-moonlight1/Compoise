@@ -4,7 +4,27 @@ WP28 的发行准备材料：门禁命令、平台交付事实、安装与升级
 
 正式安装包、原位升级验证和 GitHub Release 必须使用同一个最终候选提交重新生成，包含已集成的日程 v3 与 Windows 升级适配。版本号在发行时统一确定；本文所有 `vX.Y.Z+N` 都是占位，不代表 `1.0.0+1` 可以打 tag。
 
-## 本轮集成检查（2026-10-03）
+## 当前候选规则（2026-10-03，D2/D3、I6、R1 集成）
+
+WP15-D2/D3、WP17-I6 与 WP28-R1 已接收独立提交。集成时保留两套 Android 验收身份，并禁止同时启用；发行脚本增加 D3 诊断环境拦截，明确构建 `lib/main.dart`。默认 CI 增加官方 OCR bundle 与候选校验的 Python 回归。
+
+| 集成树检查 | 实际结果 |
+|---|---|
+| 固定 SDK 分析与默认全量 | analyze exit 0；1402 项通过 / 10 条件跳过，test exit 0 |
+| 候选校验与 OCR Python 回归 | 24 项 / 21 项通过，均 exit 0；含五种诊断环境的实际预检拒绝 |
+| 两套 Android 诊断身份同时启用 | Gradle 按预期 exit 1，正常身份不变 |
+| 正常 Android Debug 主入口 | build exit 0，实际 APK 包名 `com.matrixflow.app`；未安装 |
+| D3 Windows 私有桌面矩阵 | 6 业务场景通过，build/driver/native/script 均 exit 0，无进程/临时库残留，宿主时区未改 |
+
+首轮全量暴露 OS25 旧断言仍要求 CI 直接执行 Flutter APK 构建；已按 R1 的统一发行脚本接线更新，未放宽签名门，随后全量通过。D3 原生证据记录 commit `8a9eea9bcb4287d144065c70addf7388de430722` 与 dirty=true（集成脚本/文档修改尚未提交），不是声称运行了后续提交的二进制；日志在忽略目录 `build/wave-20261003`，原生报告在 `build/wp15-d3/windows-result.json`。最后正常 Windows 候选从最终集成提交重新构建，云端结果以该提交的 Actions 记录为准。
+
+本地与 CI 共用 `scripts/release_candidate.py`，以 `proof → seal → verify` 检查二进制、完整 commit、工具链、源码差异指纹、身份/签名和 ZIP 每个文件。`RELEASE_MANIFEST.txt` 现为 **JSON schema 1**，metadata 从同一记录生成；旧轮的文本字段不适用于新候选。Windows 候选可记录有差异的源码，正式双平台 `assemble` 必须没有源码差异。
+
+手动运行 `.github/workflows/release.yml` 只做预检及 Windows 候选构建/上传，不使用生产签名凭据或创建 Release。`v*` tag 推送才会启用 Android、Linux 与草稿发布阶段。版本仍为 `1.0.0+1`，本轮没有批准该版本正式发行。
+
+I6 的官方模型 Android 真实 SAF 全流程已通过，Linux 的通过路径注入了文件选择；真实 GTK 多选、arm64、10 图、低端设备及独立进程重开仍缺证据。默认候选不含 OCR。细节分别见 [D3](WP15_D3_NOTES.md)、[I6](WP17_I6_NOTES.md)、[R1](WP28_R1_NOTES.md)。
+
+## 前轮集成检查（2026-10-03，I5/U2）
 
 WP17-I5 已应用独立提交；WP28-U2 由集成端接收未提交实现、补齐恢复页修复、Release 验收和交接记录。WP15-D2 的进行中改动未加入这次集成。
 
@@ -58,9 +78,10 @@ powershell -File scripts/build_release.ps1 -Platform Android -ExpectedTag vX.Y.Z
 |---|---|
 | `pubspec.yaml` 必须是 `X.Y.Z+N`，且与 `-ExpectedTag` 一致 | `Refusing to stage a release whose tag and version disagree.` |
 | Android 无发布签名材料时拒绝构建 | `Refusing to build a debug-signed release APK.` |
-| 暂存目录里出现非本次产物 | `The staging directory contains an unexpected file: ...` |
-| 工具链与 `toolchain.json` 不一致 | `The active Flutter SDK does not match or cannot be read ...`，只有显式 `-AllowUnpinnedSdk` 才继续 |
+| 暂存目录里出现非本次产物，或证明/摘要不匹配 | `Candidate file set differs ...` 或对应校验错误 |
+| 工具链与 `toolchain.json` 不一致 | `The active Flutter SDK does not match or cannot be read ...`；`-AllowUnpinnedSdk` 只允许预检计划，不能打包候选 |
 | 可执行文件版本、身份字段、ZIP 清单不符 | 抛出对应 `The built executable ...` / `The staged ZIP does not contain ...` |
+| 环境启用 OCR、U2 或 D3 诊断构建 | `Default release rejects active opt-in gate: ...`，预检与打包均拒绝 |
 
 产物校验和（Windows 上可用 `Get-FileHash`，其余平台用 `sha256sum`）：
 
@@ -68,7 +89,7 @@ powershell -File scripts/build_release.ps1 -Platform Android -ExpectedTag vX.Y.Z
 sha256sum -c --strict SHA256SUMS.txt
 ```
 
-CI 侧 `.github/workflows/release.yml` 在推送 `v*` tag 时按 `preflight → build-android / build-windows / build-linux → publish-release` 执行，只产出**草稿** Release，需人工复核后发布。权限默认 `contents: read`，只有 publish job 申请 `contents: write`。
+CI 侧 `.github/workflows/release.yml` 在推送 `v*` tag 时按 `preflight → build-android / build-windows / build-linux → publish-release` 执行，只产出**草稿** Release，需人工复核后发布。手动运行只走预检和 Windows 候选。权限默认 `contents: read`，只有 publish job 申请 `contents: write`。
 
 ## 平台交付事实
 
@@ -137,7 +158,7 @@ Android 的“同签名”是硬前提：换发布证书即视为不同应用，
 - **设备证据**：Android 真机的安装、同签名原位升级与提醒（minSdk 23 与当前 target 各一台）；Windows 从一个已发布构建到候选构建的原位升级（含上文数据目录判定）；Linux 桌面会话的启动与核心流程手动检查。CI 只覆盖编译与 mock 集成测试。
 - **渠道资料**：GitHub Release 的正式版本策略与 tag 约定、发行渠道选择（Direct APK / Google Play / F-Droid 等）及其账号、签名上传地址、隐私政策与支持的 URL、商店素材与截图。
 - **产品事实**：版本号、功能描述与截图以最终候选提交为准；默认构建不含 OCR，不能把实验识别写成正式支持。[商店介绍草稿](STORE_LISTING.md)需按最终界面复核。
-- **流程**：`.github/workflows/release.yml` 的 publish job 目前只在 tag 推送时运行；本包用沙箱输入验证过 job 内脚本逻辑，但完整工作流尚未在真实 GitHub Runner 上跑通，首个 tag 建议按草稿流程演练后再发布。
+- **流程**：`.github/workflows/release.yml` 的 publish job 只在 tag 推送时运行。手动 Windows 候选通过也不等于签名/双平台装配/发布阶段通过；首个正式 tag 仍须按草稿流程演练后复核。
 
 ## 验证记录（2026-09-28，WP28 准备轮，基线 `origin/main` `5b3b39e`）
 

@@ -1,7 +1,9 @@
 """Execute the shipping validator against synthetic candidates, never secrets/devices."""
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -225,6 +227,32 @@ class CandidateTests(unittest.TestCase):
         (inputs / 'windows-portable-zip' / 'extra.txt').write_text('stale')
         self.cli('assemble', 'All', ok=False, extra=['--inputs', inputs])
         self.assertFalse(self.directory.exists())
+
+
+class ReleaseBuildGateTests(unittest.TestCase):
+    def test_diagnostic_environments_reject_default_candidate_before_build(self):
+        shell = shutil.which('pwsh') or shutil.which('powershell')
+        if shell is None:
+            self.skipTest('PowerShell is required for the release build preflight')
+        gates = (
+            'WP17_OCR_NCNN_DIR', 'WP17_OCR_NCNN_ROOT', 'WP17_OCR_STB_DIR',
+            'WP28_U2_HARNESS_BUILD', 'WP15_D3_DEVICE_BUILD',
+        )
+        for active in gates:
+            with self.subTest(gate=active):
+                environment = dict(os.environ)
+                for name in gates:
+                    environment.pop(name, None)
+                environment[active] = '1'
+                result = subprocess.run(
+                    [shell, '-NoProfile', '-File', str(ROOT / 'scripts/build_release.ps1'),
+                     '-Platform', 'Windows', '-ValidateOnly'],
+                    env=environment, capture_output=True, text=True,
+                    encoding='utf-8', errors='replace', timeout=30,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f'Default release rejects active opt-in gate: {active}',
+                              result.stdout + result.stderr)
 
 
 if __name__ == '__main__':

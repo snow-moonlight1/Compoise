@@ -50,8 +50,11 @@ jobs:
       - name: Default tests
         run: flutter test --no-pub
 
-      - name: OCR preparation read-only regressions
-        run: python3 -m unittest discover -s native/ocr/tools -p test_ocr_preparation.py
+      - name: OCR preparation and bundle regressions
+        run: python3 -m unittest discover -s native/ocr/tools -p 'test_ocr*.py'
+
+      - name: Release candidate regressions
+        run: python3 -m unittest discover -s scripts/tests -p test_release_candidate.py
 
       - name: Record device smoke boundary
         shell: bash

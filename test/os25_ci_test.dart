@@ -102,11 +102,13 @@ void main() {
     expect(gradle.contains('assembleRelease'), isTrue);
     expect(gradle.contains('bundleRelease'), isTrue);
     expect(release.contains("REQUIRE_RELEASE_SIGNING: 'true'"), isTrue);
-    final releaseBuild = release.split('Build Android Release APK').last;
-    expect(releaseBuild.contains('flutter build apk --release'), isTrue);
+    final releaseBuild = release
+        .split('Build and validate Android Release APK')
+        .last;
+    expect(releaseBuild.contains('-Platform Android'), isTrue);
     expect(
       releaseBuild.indexOf("REQUIRE_RELEASE_SIGNING: 'true'"),
-      lessThan(releaseBuild.indexOf('flutter build apk --release')),
+      lessThan(releaseBuild.indexOf('-Platform Android')),
     );
   });
 
