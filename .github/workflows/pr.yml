@@ -56,6 +56,9 @@ jobs:
       - name: Release candidate regressions
         run: python3 -m unittest discover -s scripts/tests -p test_release_candidate.py
 
+      - name: Windows candidate audit regressions
+        run: python3 -m unittest discover -s scripts/tests -p test_wp28_r2_candidate_audit.py
+
       - name: Record device smoke boundary
         shell: bash
         run: |

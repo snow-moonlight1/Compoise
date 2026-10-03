@@ -26,6 +26,9 @@ jobs:
       - name: Run candidate validator regressions
         run: python -m unittest discover -s scripts/tests -p "test_release_candidate.py" -v
 
+      - name: Run Windows candidate audit regressions
+        run: python -m unittest discover -s scripts/tests -p "test_wp28_r2_candidate_audit.py" -v
+
       - name: Verify tag against pubspec.yaml
         shell: pwsh
         env:

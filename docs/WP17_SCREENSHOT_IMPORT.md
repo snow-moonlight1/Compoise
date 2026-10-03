@@ -1,6 +1,6 @@
 # WP17：批量截图识别导入
 
-状态：I1–I6 已集成。默认构建未带原生 OCR 组件与模型，入口会说明缺失，**尚不属于正式支持功能**。[I6](WP17_I6_NOTES.md)已用官方模型在 Android API 23 x86_64 完成真实 SAF → OCR → 校对 → 写库；Linux 官方 bundle 的识别与写库通过，但完整 GTK 多选失败，通过路径注入文件选择。真实截图质量、10 图资源负担、arm64、独立进程重开与正式包装仍待验收。目标是用户一次选取多张待办截图，校对后一次导入。不读取其他应用数据库，也不自动抓屏。旧[系统笔记接口研究](evidence/wp17r/README.md)仅作历史证据。
+状态：I1–I7 与 Q1 已集成。默认构建未带原生 OCR 组件与模型，入口会说明缺失，**尚不属于正式支持功能**。[I6](WP17_I6_NOTES.md)已用官方模型在 Android API 23 x86_64 完成真实 SAF → OCR → 校对 → 写库；[I7](WP17_I7_NOTES.md)完成 Linux 真实 GTK 多选和独立进程重开，集成端已用 Q1 运行时复验。[Q1](WP17_Q1_NOTES.md)降低资源驻留并完成十图压力测量，但耗时增加，仍有英文空格丢失和宽图长任务结构漏检。真实截图质量、低端设备、官方模型 arm64 与正式包装仍待验收。目标是用户一次选取多张待办截图，校对后一次导入。不读取其他应用数据库，也不自动抓屏。旧[系统笔记接口研究](evidence/wp17r/README.md)仅作历史证据。
 
 ## 用户流程与数据边界
 
@@ -38,6 +38,8 @@ OCR 只负责读取图中文字和位置，不能把截图中的勾选、缩进�
 | WP17-I4 | 已集成依赖准备、模型输入固定与三端可选构建；[验收记录](WP17_I4_NOTES.md)保留官方 PIR 转换阻塞及设备流程局限。 |
 | WP17-I5 | 已跑通官方模型转换，固定六输入、六输出和许可附件；[验收记录](WP17_I5_NOTES.md)区分 Windows/Linux 原生对照与未做的应用 bundle/Android 流程。后续门禁见[路线图](ROADMAP.md#后续接线与门禁)。 |
 | WP17-I6 | 已集成 Android 官方资源部署与三端资源查找；[验收记录](WP17_I6_NOTES.md)区分 Android 真实 SAF 全流程、Linux 注入选择流程，以及质量/内存/设备缺项。 |
+| WP17-I7 | 已集成真实 GTK 选择驱动与两个独立 Linux 应用进程的磁盘重开；[验收记录](WP17_I7_NOTES.md)限定为私有 Xvfb 下的诊断入口，不等于完整发行入口/所有桌面验收。 |
+| WP17-Q1 | 已集成原生缓存/位图和 Dart gutter 传输优化；[实测记录](WP17_Q1_NOTES.md)给出资源/速度权衡、十图压力、严格空格 CER 和长任务漏检，未宣称低端设备支持。 |
 
 R2 的比较方法和未测项目由[实测报告](WP17_OCR_EVALUATION.md)保存。[PaddleOCR 官方 Android 示例](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/inference_deployment/cross_platform/android_deployment.md)本身要求 API 26，不能直接移植进 `minSdk=23` 的应用。
 
