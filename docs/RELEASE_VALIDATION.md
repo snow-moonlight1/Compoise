@@ -10,13 +10,16 @@ WP15-D2/D3、WP17-I6 与 WP28-R1 已接收独立提交。集成时保留两套 A
 
 | 集成树检查 | 实际结果 |
 |---|---|
-| 固定 SDK 分析与默认全量 | analyze exit 0；1402 项通过 / 10 条件跳过，test exit 0 |
+| 固定 SDK 分析与默认全量 | analyze exit 0；短路径修复后 1404 项通过 / 10 条件跳过，test exit 0 |
 | 候选校验与 OCR Python 回归 | 24 项 / 21 项通过，均 exit 0；含五种诊断环境的实际预检拒绝 |
 | 两套 Android 诊断身份同时启用 | Gradle 按预期 exit 1，正常身份不变 |
 | 正常 Android Debug 主入口 | build exit 0，实际 APK 包名 `com.matrixflow.app`；未安装 |
 | D3 Windows 私有桌面矩阵 | 6 业务场景通过，build/driver/native/script 均 exit 0，无进程/临时库残留，宿主时区未改 |
+| Windows 升级/路径专项回归 | 73 项通过，exit 0；真实 8.3 短路径迁移与真实 junction 拒绝均通过 |
 
 首轮全量暴露 OS25 旧断言仍要求 CI 直接执行 Flutter APK 构建；已按 R1 的统一发行脚本接线更新，未放宽签名门，随后全量通过。D3 原生证据记录 commit `8a9eea9bcb4287d144065c70addf7388de430722` 与 dirty=true（集成脚本/文档修改尚未提交），不是声称运行了后续提交的二进制；日志在忽略目录 `build/wave-20261003`，原生报告在 `build/wp15-d3/windows-result.json`。最后正常 Windows 候选从最终集成提交重新构建，云端结果以该提交的 Actions 记录为准。
+
+首个手动云端候选在 Windows 全量测试中发现 41 项升级失败：Runner 临时目录使用 `RUNNER~1`，解析后的长名称被旧路径检查误判为重定向。本地真实 8.3 名称复现同一失败；现用 [Win32 长名称展开](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getlongpathnamew)比较同目录名称，逐级类型与重定向检查继续执行，真实 junction 仍拒绝。默认 Windows CI 已增加这些专项回归。未删除失败用例或更改 Runner 临时目录规避问题。
 
 本地与 CI 共用 `scripts/release_candidate.py`，以 `proof → seal → verify` 检查二进制、完整 commit、工具链、源码差异指纹、身份/签名和 ZIP 每个文件。`RELEASE_MANIFEST.txt` 现为 **JSON schema 1**，metadata 从同一记录生成；旧轮的文本字段不适用于新候选。Windows 候选可记录有差异的源码，正式双平台 `assemble` 必须没有源码差异。
 

@@ -79,9 +79,27 @@ bool _samePath(String a, String b) {
   final first = p.normalize(p.absolute(a));
   final second = p.normalize(p.absolute(b));
   return Platform.isWindows
-      ? first.toLowerCase() == second.toLowerCase()
+      ? _windowsLongName(first).toLowerCase() ==
+            _windowsLongName(second).toLowerCase()
       : first == second;
 }
+
+// Expand 8.3 names without resolving a directory junction/symlink to its target.
+// The caller separately checks every ancestor's type and resolved path.
+// https://learn.microsoft.com/windows/win32/api/fileapi/nf-fileapi-getlongpathnamew
+String _windowsLongName(String path) => using((arena) {
+  final expand = DynamicLibrary.open('kernel32.dll')
+      .lookupFunction<
+        Uint32 Function(Pointer<Utf16>, Pointer<Utf16>, Uint32),
+        int Function(Pointer<Utf16>, Pointer<Utf16>, int)
+      >('GetLongPathNameW');
+  const capacity = 32768;
+  final output = arena<Uint16>(capacity).cast<Utf16>();
+  final length = expand(path.toNativeUtf16(allocator: arena), output, capacity);
+  // Missing/inaccessible paths still have to pass the existing strict guard.
+  if (length == 0 || length >= capacity) return path;
+  return p.normalize(output.toDartString(length: length));
+});
 
 /// Inject filesystem operations (including failed writes/publish and races).
 /// publish must atomically move within a volume and must NEVER replace a target.
@@ -366,7 +384,7 @@ class WindowsDataUpgrade {
     if (await files.type(path) != FileSystemEntityType.file) {
       throw const FileSystemException('Unsafe upgrade file');
     }
-    // Resolve the file too: this also detects a Windows alias/reparse point.
+    // Resolve the file too: reject reparse redirection, allowing 8.3 names.
     final canonical = await files.canonicalDirectory(path);
     if (!_samePath(canonical, path)) {
       throw const FileSystemException('Aliased upgrade file');

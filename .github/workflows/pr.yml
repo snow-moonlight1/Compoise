@@ -176,6 +176,9 @@ jobs:
       - name: Mock integration test
         run: flutter test --no-pub integration_test/app_test.dart
 
+      - name: Windows upgrade and path regressions
+        run: flutter test --no-pub test/wp28_windows_path_alias_test.dart test/wp28_u1_upgrade_test.dart test/wp28_u1_boundaries_test.dart test/wp28_u1_windows_plugin_test.dart test/wp28_u2_credentials_test.dart
+
       - name: Build Windows debug
         run: flutter build windows --debug
 
