@@ -3,14 +3,18 @@ param(
     [switch]$Run,
     [ValidateSet('Build','Runtime')][string]$Kind='Runtime',
     [string]$Flutter='D:/Dev_SDKs/Flutter_3.32.8/bin/flutter.bat',
-    [string]$MatrixReport=''
+    [string]$MatrixReport='',
+    [string]$EvidenceDirectory='',
+    [int]$TimeoutMs=15000
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 if (!$Run) { Write-Output 'Blocked: R2 gate acceptance requires -Run.'; exit 2 }
+if ($TimeoutMs -le 0) { throw 'TimeoutMs must be positive.' }
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $workspace
-$logs=Join-Path $workspace "build/wp28-r2/gates-$Kind-$([guid]::NewGuid())"
+if (!$EvidenceDirectory) { $EvidenceDirectory = Join-Path $workspace 'build/wp28-r2' }
+$logs=Join-Path ([IO.Path]::GetFullPath($EvidenceDirectory)) "gates-$Kind-$([guid]::NewGuid())"
 New-Item -ItemType Directory -Path $logs | Out-Null
 $priorU2=$env:WP28_U2_HARNESS_BUILD
 $priorD3=$env:WP15_D3_DEVICE_BUILD
@@ -35,9 +39,14 @@ try {
                 'combined' { $env:WP28_U2_HARNESS_BUILD='1'; $env:WP15_D3_DEVICE_BUILD='1'; $arguments+=@('--dart-define=WP28_U2_HARNESS=true','--dart-define=WP15_D3_DEVICE=true'); $expected='D3 and U2 harness builds cannot be combined' }
             }
             $log=Join-Path $logs "$case.log"
+            $prevEA=$ErrorActionPreference
+            $ErrorActionPreference='Continue'
             & $Flutter @arguments *> $log
             $code=$LASTEXITCODE
-            if ($code -eq 0 -or !(Get-Content $log -Raw).Contains($expected)) { throw "Wrong build rejection: $case (exit $code)." }
+            $ErrorActionPreference=$prevEA
+            $text=[IO.File]::ReadAllText($log)
+            if (!$text.Contains($expected)) { $text=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($log)) }
+            if ($code -eq 0 -or !$text.Contains($expected)) { throw "Wrong build rejection: $case (exit $code)." }
             $cases.Add(@{case=$case;exitCode=$code;expected=$expected;log=$log})
             # A rejected first configure leaves CMake's default Program Files
             # prefix cached before the Flutter template can set its bundle dir.
@@ -92,7 +101,7 @@ try {
             $stdout=$process.StandardOutput.ReadToEndAsync(); $stderr=$process.StandardError.ReadToEndAsync()
             $timedOut=$false; $cleanup='not-needed'; $code=$null
             try {
-                if (!$process.WaitForExit(15000)) { $timedOut=$true; throw 'Native runtime gate timed out.' }
+                if (!$process.WaitForExit($TimeoutMs)) { $timedOut=$true; throw 'Native runtime gate timed out.' }
                 $code=$process.ExitCode
                 $stdout.Result | Set-Content -LiteralPath (Join-Path $logs "$case.stdout.log")
                 $stderr.Result | Set-Content -LiteralPath (Join-Path $logs "$case.stderr.log")

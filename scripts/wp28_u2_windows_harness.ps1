@@ -8,12 +8,23 @@ param(
     [ValidateSet('Core', 'ReproU1')][string]$Mode = 'Core',
     [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug',
     [string[]]$Scenarios = @('mirror', 'slots', 'legacy-mirror', 'legacy-slots', 'empty', 'current', 'current-corrupt', 'corrupt', 'pointer', 'schedule-corrupt', 'slot-schedule-corrupt', 'envelope', 'retry', 'credentials-only', 'unconfirmed', 'race', 'concurrent'),
-    [string]$EvidenceDirectory = ''
+    [string]$EvidenceDirectory = '',
+    [string]$DiagnosticProof = '',
+    [int]$ReportTimeoutMs = 30000,
+    [int]$ExitTimeoutMs = 45000
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (!$Run) { Write-Output 'Blocked: pass -Run for synthetic private-desktop acceptance.'; exit 2 }
+if ($ReportTimeoutMs -le 0 -or $ExitTimeoutMs -le 0) { throw 'Timeouts must be positive.' }
+$script:ReportTimeoutMs = $ReportTimeoutMs
+$script:ExitTimeoutMs = $ExitTimeoutMs
+Write-Output "Harness timeouts report=$ReportTimeoutMs exit=$ExitTimeoutMs"
+function Read-Utf8Json([string]$Path) {
+    $reader = New-Object IO.StreamReader($Path, [Text.UTF8Encoding]::new($false), $true)
+    try { $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Close() }
+}
 if ($Mode -ne 'Core') { throw 'R2 requires the normal lib/main.dart diagnostic entry; the historical U1 probe is not desktop isolated.' }
 if (@($Scenarios | Where-Object { $_ -notin @('mirror', 'slots', 'legacy-mirror', 'legacy-slots', 'empty', 'current', 'current-corrupt', 'corrupt', 'pointer', 'schedule-corrupt', 'slot-schedule-corrupt', 'envelope', 'retry', 'credentials-only', 'unconfirmed', 'race', 'concurrent') }).Count) { throw 'Unknown scenario.' }
 $exe = (Resolve-Path -LiteralPath (Join-Path $workspace "build/windows/x64/runner/$Configuration/compoise.exe")).Path
@@ -32,6 +43,7 @@ $script:results = [Collections.Generic.List[object]]::new()
 $script:roots = [Collections.Generic.List[string]]::new()
 $runId = [guid]::NewGuid().ToString()
 if (!$EvidenceDirectory) { $EvidenceDirectory = Join-Path $workspace "build/wp28-r2/$Configuration" }
+if (!$DiagnosticProof) { $DiagnosticProof = Join-Path $workspace "build/wp28-r2/diagnostic-$Configuration.json" }
 $runRoot = Join-Path ([IO.Path]::GetFullPath($EvidenceDirectory)) $runId
 New-Item -ItemType Directory -Path $runRoot | Out-Null
 $revision = (& git -C $workspace rev-parse HEAD).Trim()
@@ -39,8 +51,8 @@ $validator = Join-Path $workspace 'scripts/release_candidate.py'
 $trace = (& python $validator source --directory $runRoot --platform Windows --tag v1.0.0+1 --commit $revision) | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'Cannot trace diagnostic source.' }
 $hostZone = (Get-TimeZone).Id
-$buildProofPath = Join-Path $workspace "build/wp28-r2/diagnostic-$Configuration.json"
-$buildProof = Get-Content -LiteralPath $buildProofPath -Raw | ConvertFrom-Json
+$buildProofPath = [IO.Path]::GetFullPath($DiagnosticProof)
+$buildProof = Read-Utf8Json $buildProofPath
 if ($buildProof.normalCandidate -ne $false -or $buildProof.buildExitCode -ne 0 -or
     $buildProof.commit -ne $revision -or $buildProof.source.diffSha256 -ne $trace.diffSha256 -or
     $buildProof.executableSHA256 -ne (Get-FileHash -LiteralPath $exe).Hash) { throw 'Diagnostic build proof is stale or differs from this source.' }
@@ -91,20 +103,26 @@ function Launch-App($Fixture, [string]$Arguments = '') {
     $script:launches.Add($launch)
     return $launch
 }
-function Read-Report($Launch, [string]$Name, [int]$TimeoutMs = 30000) {
+function Read-Report($Launch, [string]$Name, [int]$TimeoutMs = 0) {
+    if ($TimeoutMs -le 0) { $TimeoutMs = $script:ReportTimeoutMs }
+    if ($TimeoutMs -le 0) { $TimeoutMs = 30000 }
     $path = Join-Path $Launch.Root "$Name-$($Launch.Id).json"
     $watch = [Diagnostics.Stopwatch]::StartNew()
     while ($watch.ElapsedMilliseconds -lt $TimeoutMs) {
         if (Test-Path -LiteralPath $path) {
+            $candidate = $null
             try {
-                $candidate = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-                if ($null -ne $candidate -and $candidate.pid -eq $Launch.Id) {
-                    $native = $candidate.native
-                    Assert-True ($native.nativeGate -eq $true -and $native.privateDesktop -eq $true -and $native.foregroundOwned -eq $false) 'Native desktop isolation failed.'
-                    Assert-True ($native.pid -eq $Launch.Id -and $native.root -eq $Launch.Root -and $native.namespace -eq $Launch.Namespace -and $native.desktop -eq "wp28-u2-$($Launch.Namespace)") 'Native isolation identity differs.'
-                    return $candidate
+                $raw = [IO.File]::ReadAllText($path, [Text.UTF8Encoding]::new($false))
+                if ($raw -and $raw.Trim().StartsWith('{') -and $raw.Trim().EndsWith('}')) {
+                    $candidate = $raw | ConvertFrom-Json
                 }
-            } catch [ArgumentException] { }
+            } catch { $candidate = $null }
+            if ($null -ne $candidate -and [int]$candidate.pid -eq [int]$Launch.Id) {
+                $native = $candidate.native
+                Assert-True ($native.nativeGate -eq $true -and $native.privateDesktop -eq $true -and $native.foregroundOwned -eq $false) 'Native desktop isolation failed.'
+                Assert-True ($native.pid -eq $Launch.Id -and $native.root -eq $Launch.Root -and $native.namespace -eq $Launch.Namespace -and $native.desktop -eq "wp28-u2-$($Launch.Namespace)") 'Native isolation identity differs.'
+                return $candidate
+            }
         }
         if ($Launch.Process.HasExited) {throw "Native process exited before $Name report (PID $($Launch.Id))."}
         Start-Sleep -Milliseconds 100
@@ -127,7 +145,8 @@ function Send-Command($Fixture, $Launch, [string]$Action, [bool]$Exiting = $fals
     Assert-True (Test-Path -LiteralPath (Join-Path $Fixture.Root "ui-$($Fixture.Command)-$($Launch.Id).png")) 'Actual rendered UI capture missing.'
     return $report
 }
-function Wait-Exit($Launch, [int]$TimeoutMs = 45000) {
+function Wait-Exit($Launch, [int]$TimeoutMs = 0) {
+    if ($TimeoutMs -le 0) { $TimeoutMs = $script:ExitTimeoutMs }
     $exited = $Launch.Process.WaitForExit($TimeoutMs)
     $Launch.TimedOut = !$exited
     if ($exited) {
@@ -154,7 +173,7 @@ function Run-Backup($Origin) {
     foreach ($version in @(3, 1, 2)) {
         $fixture = New-Fixture 'backup-v3'
         Copy-Item -LiteralPath (Join-Path $Origin.Fixture.Root "backup-v$version.json") -Destination (Join-Path $fixture.Root "backup-v$version.json")
-        $file = Get-Content -LiteralPath (Join-Path $fixture.Root "backup-v$version.json") -Raw | ConvertFrom-Json
+        $file = Read-Utf8Json (Join-Path $fixture.Root "backup-v$version.json")
         $expected = @{boards=$file.boards; tasks=$file.tasks; schedule=@(); config=$file.aiConfig; settings=$file.settings}
         if ($version -eq 3) { $expected.schedule = $file.scheduleItems }
         $launch = Launch-App $fixture
@@ -206,7 +225,7 @@ function Run-Core([string]$Scenario) {
     if ($Scenario -eq 'concurrent') {
         Read-Report $first 'copy-wait' | Out-Null
         $duringCopy = Launch-App $fixture
-        Wait-Exit $duringCopy 30000
+        Wait-Exit $duringCopy
         Assert-True (!(Test-Path -LiteralPath (Join-Path $fixture.Root 'Compoise/Compoise/shared_preferences.json'))) 'Second launch raced the pending copy.'
     }
     $prepared = Read-Report $first 'prepared-1'
@@ -266,7 +285,7 @@ function Run-Core([string]$Scenario) {
         $resolved = Send-Command $fixture $second 'observe'
         Assert-True ($resolved.recovery -eq $false -and $resolved.noticeRead -eq $true) 'Resolved recovery did not acknowledge after valid Store.'
         if ($Scenario -in @('schedule-corrupt','slot-schedule-corrupt')) {
-            $expected = Get-Content -LiteralPath (Join-Path $fixture.Root 'expected-library.json') -Raw | ConvertFrom-Json
+            $expected = Read-Utf8Json (Join-Path $fixture.Root 'expected-library.json')
             $expected.schedule = @()
             Assert-True ((Library-Json $expected) -eq (Library-Json $resolved)) 'Schedule-only recovery changed unrelated task/board/config fields.'
         }
@@ -282,7 +301,7 @@ function Run-Core([string]$Scenario) {
     if ($Scenario -eq 'empty') {Assert-True ($initial.tasks.Count -eq 0 -and $initial.schedule.Count -eq 0) 'Legal empty target was replaced.'}
     elseif ($Scenario -in @('current','race')) {Assert-True ($initial.tasks[0].id -eq 'synthetic-current') 'Existing target lost priority.'}
     elseif ($Scenario -ne 'credentials-only') {
-        $expected = Get-Content -LiteralPath (Join-Path $fixture.Root 'expected-library.json') -Raw | ConvertFrom-Json
+        $expected = Read-Utf8Json (Join-Path $fixture.Root 'expected-library.json')
         Assert-True ((Library-Json $expected) -eq (Library-Json $initial)) 'Initial upgrade differs field by field from synthetic seed.'
         Assert-True ($initial.tasks.Count -eq 3 -and $initial.boards.Count -eq 3 -and $initial.tasks[0].id -eq 'synthetic-task') 'Rich task migration failed.'
         Assert-True ($initial.tasks[0].subtasks[0].id -eq 'synthetic-subtask' -and $initial.tasks[0].plannedDate -eq 1790812800000) 'Task fields changed.'
@@ -292,7 +311,7 @@ function Run-Core([string]$Scenario) {
         Assert-True ($submission.passed -eq $true -and $submission.publicSubmission -eq $true -and $submission.ocrLoaded -eq $false -and $submission.rejectedPointerCommit -eq $true -and $submission.statePreservedOnFailure -eq $true) 'Public screenshot submission evidence missing.'
     }
     if ($Scenario -eq 'current') {
-        $expectedCurrent = Get-Content -LiteralPath (Join-Path $fixture.Root 'expected-current.json') -Raw | ConvertFrom-Json
+        $expectedCurrent = Read-Utf8Json (Join-Path $fixture.Root 'expected-current.json')
         Assert-True ((Library-Json $expectedCurrent) -eq (Library-Json $initial)) 'Current library fields changed.'
     }
     if ($Scenario -eq 'race') {
@@ -301,10 +320,10 @@ function Run-Core([string]$Scenario) {
     }
     $beforeSecond = (Get-FileHash -LiteralPath (Join-Path $fixture.Root 'Compoise/Compoise/shared_preferences.json')).Hash
     $secondary = Launch-App $fixture
-    Wait-Exit $secondary 30000
+    Wait-Exit $secondary
     $payload = [Uri]::EscapeDataString('{"boardId":"synthetic-board","taskId":"synthetic-task"}')
     $notification = Launch-App $fixture ('--matrixflow-notification-payload=' + $payload)
-    Wait-Exit $notification 30000
+    Wait-Exit $notification
     $activated = Send-Command $fixture $first 'observe'
     Assert-True ($activated.activations -ge 2 -and $activated.notificationActivations -eq 1) 'Second-launch activation wiring failed.'
     $afterSecond = (Get-FileHash -LiteralPath (Join-Path $fixture.Root 'Compoise/Compoise/shared_preferences.json')).Hash
@@ -363,11 +382,11 @@ try {
         $fixture = New-Fixture 'u1-reproduction' $true
         $launch = Launch-App $fixture
         Wait-Exit $launch
-        $firstReport = Get-Content -LiteralPath (Join-Path $fixture.Root 'probe-migrated.json') -Raw | ConvertFrom-Json
+        $firstReport = Read-Utf8Json (Join-Path $fixture.Root 'probe-migrated.json')
         Assert-True ($firstReport.passed -eq $true) 'U1 first migration report failed.'
         $second = Launch-App $fixture
         Wait-Exit $second
-        $secondReport = Get-Content -LiteralPath (Join-Path $fixture.Root 'probe-currentProfile.json') -Raw | ConvertFrom-Json
+        $secondReport = Read-Utf8Json (Join-Path $fixture.Root 'probe-currentProfile.json')
         Assert-True ($secondReport.passed -eq $true) 'U1 reopen report failed.'
         $script:results.Add(@{scenario='u1-reproduction'; root=$fixture.Root; pid=$launch.Id; passed=$true; exitCode=$launch.ExitCode;
             reopenPid=$second.Id; reopenExitCode=$second.ExitCode; firstReport=$firstReport; reopenReport=$secondReport})

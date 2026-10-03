@@ -2,14 +2,16 @@
 param(
     [switch]$Run,
     [ValidateSet('Debug','Release')][string]$Configuration='Debug',
-    [string]$Flutter='D:/Dev_SDKs/Flutter_3.32.8/bin/flutter.bat'
+    [string]$Flutter='D:/Dev_SDKs/Flutter_3.32.8/bin/flutter.bat',
+    [string]$EvidenceDirectory=''
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 if (!$Run) { Write-Output 'Blocked: R2 diagnostic build requires -Run.'; exit 2 }
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $workspace
-$evidence=Join-Path $workspace 'build/wp28-r2'
+if (!$EvidenceDirectory) { $EvidenceDirectory = Join-Path $workspace 'build/wp28-r2' }
+$evidence=[IO.Path]::GetFullPath($EvidenceDirectory)
 New-Item -ItemType Directory -Force -Path $evidence | Out-Null
 $proof=Join-Path $evidence "diagnostic-$Configuration.json"
 if (Test-Path -LiteralPath $proof) { Remove-Item -LiteralPath $proof }
@@ -32,14 +34,20 @@ try {
     }
     $env:WP28_U2_HARNESS_BUILD='1'; $env:WP15_D3_DEVICE_BUILD=$null
     $log=Join-Path $evidence "diagnostic-$Configuration-build.log"
+    $prevEA=$ErrorActionPreference
+    $ErrorActionPreference='Continue'
     & $Flutter build windows "--$($Configuration.ToLowerInvariant())" --no-pub --dart-define=WP28_U2_HARNESS=true -t lib/main.dart *> $log
     $code=$LASTEXITCODE
+    $ErrorActionPreference=$prevEA
     if ($code -ne 0) { throw "Diagnostic build failed (exit $code): $log" }
     $after=(& python $validator source --directory $evidence --platform Windows --tag v1.0.0+1 --commit $revision) | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or (& git rev-parse HEAD).Trim() -ne $revision -or $after.diffSha256 -ne $trace.diffSha256) { throw 'Source changed during diagnostic build.' }
     $bundle=Join-Path $workspace "build/windows/x64/runner/$Configuration"
+    $bundleRoot=[IO.Path]::GetFullPath($bundle).TrimEnd('\') + '\'
     $files=@(Get-ChildItem -LiteralPath $bundle -File -Recurse | ForEach-Object {
-        @{path=[IO.Path]::GetRelativePath($bundle,$_.FullName).Replace('\','/'); bytes=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName).Hash}
+        $rel=[IO.Path]::GetFullPath($_.FullName)
+        if ($rel.StartsWith($bundleRoot, [StringComparison]::OrdinalIgnoreCase)) { $rel=$rel.Substring($bundleRoot.Length) }
+        @{path=$rel.Replace('\','/'); bytes=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName).Hash}
     } | Sort-Object { $_.path })
     @{schema=1;normalCandidate=$false;configuration=$Configuration;commit=$revision;source=$trace;toolchain=$toolchain;
       nativeGate='WP28_U2_HARNESS';dartGate='WP28_U2_HARNESS=true';target='lib/main.dart';buildExitCode=$code;

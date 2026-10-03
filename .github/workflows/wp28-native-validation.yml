@@ -1,0 +1,83 @@
+# Isolated diagnostic matrix for Debug and Release. A hosted runner without a
+# usable interactive desktop is a failure, not a skip, and must upload evidence.
+name: WP28 native Windows validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: wp28-native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-native-matrix:
+    name: Isolated Windows Debug and Release matrix
+    runs-on: windows-2022
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Allocate private evidence root
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          $guid = [guid]::NewGuid().ToString()
+          $root = Join-Path $env:RUNNER_TEMP "wp28-r3-$guid"
+          New-Item -ItemType Directory -Path $root | Out-Null
+          $commit = (git rev-parse HEAD).Trim()
+          @{schema=1; status='allocated'; passed=$false; skip=$false; normalCandidate=$false; commit=$commit; guid=$root} |
+            ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'ci-report.json') -Encoding utf8
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "WP28_R3_EVIDENCE=$root"
+          Write-Output "Evidence root $root"
+
+      - name: Workflow and evidence contract tests
+        run: python -m unittest discover -s scripts/tests -p "test_wp28_r3*.py" -v
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Require the pinned Flutter revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version --machine | node scripts/verify_flutter_version.js
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies without upgrading the lockfile
+        run: flutter pub get --enforce-lockfile
+
+      - name: Isolated Debug and Release native matrix
+        shell: pwsh
+        env:
+          PUB_CACHE: ${{ runner.temp }}/wp28-r3-pub-cache
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          if (-not $env:WP28_R3_EVIDENCE) { throw 'Private evidence root was not allocated.' }
+          $flutter = (Get-Command flutter).Source
+          & .\scripts\wp28_r3_windows_ci.ps1 -Run -Flutter $flutter -EvidenceDirectory $env:WP28_R3_EVIDENCE -ReportTimeoutMs 180000 -ExitTimeoutMs 180000 -GateTimeoutMs 30000
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload native validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp28-native-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.WP28_R3_EVIDENCE }}
+          if-no-files-found: error
+          retention-days: 14
