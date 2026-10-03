@@ -193,7 +193,7 @@ def seal(directory, platform, ctx, cert):
         (directory / RECORDS[0]).write_bytes(json_bytes(manifest))
         (directory / RECORDS[1]).write_bytes(metadata(manifest))
         sums = sorted(names + list(RECORDS[:2]))
-        (directory / RECORDS[2]).write_text("".join(f"{snapshot(directory / n)['sha256']}  {n}\n" for n in sums), encoding="ascii", newline="\n")
+        (directory / RECORDS[2]).write_bytes("".join(f"{snapshot(directory / n)['sha256']}  {n}\n" for n in sums).encode("ascii"))
         verify(directory, platform, ctx, cert)
     except Exception:
         for name in RECORDS:
