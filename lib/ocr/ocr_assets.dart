@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
-/// Optional verified assets installed with the APK or Linux bundle. Default
+/// Optional verified assets installed with the APK or desktop bundle. Default
 /// builds have none. Android materializes the APK-local files on its IO worker;
-/// Linux reads the bundle copy in place, without installing to a system path.
+/// Desktop reads the bundle copy in place, without installing to a system path.
 Future<String?> bundledOcrAssetsRoot({
   String? executable,
   bool? android,
@@ -18,7 +18,7 @@ Future<String?> bundledOcrAssetsRoot({
       return null;
     }
   }
-  if (executable != null || Platform.isLinux) {
+  if (executable != null || Platform.isLinux || Platform.isWindows) {
     final parent = File(executable ?? Platform.resolvedExecutable).parent.path;
     final root = '$parent/data/wp17-ocr';
     if (await File('$root/bundle-manifest.json').exists()) return root;

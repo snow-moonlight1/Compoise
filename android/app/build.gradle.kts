@@ -43,6 +43,12 @@ val wp17OcrEnabled = wp17NcnnRoot != null && wp17StbDir != null
 // Opt-in, private validation identity. The normal applicationId is unchanged.
 val wp17Validation = wp17ExternalPath("wp17OcrValidation") == "true"
 val wp17Models = wp17ExternalPath("wp17OcrModels")
+// I8 compile/packaging checks deliberately produce unsigned APKs. This is an
+// explicit local opt-in and cannot satisfy the formal signing gate below.
+val wp17I8Unsigned = wp17ExternalPath("wp17I8Unsigned") == "true"
+val wp17I8Abi = wp17ExternalPath("wp17I8Abi")
+check(wp17I8Abi == null || (wp17I8Unsigned && wp17Models != null &&
+    wp17I8Abi in listOf("x86_64", "arm64-v8a"))) { "I8 ABI requires an unsigned official OCR packaging check" }
 if (wp17Models != null) {
     check(wp17OcrEnabled) { "Official OCR assets require the native OCR component" }
     val root = file(wp17Models).resolve("wp17-ocr")
@@ -88,6 +94,9 @@ val wp15D2Device = (project.findProperty("dart-defines") as? String)
 check(!(wp15D2Device && wp17Validation)) {
     "WP15-D2 and WP17-I6 validation identities cannot be combined"
 }
+check(!(wp17I8Unsigned && (wp15D2Device || wp17Validation))) {
+    "I8 candidates cannot use a diagnostic application identity"
+}
 
 android {
     namespace = "com.matrixflow.matrixflow_native"
@@ -111,7 +120,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         if (wp17OcrEnabled) {
-            ndk { abiFilters.addAll(listOf("x86_64", "arm64-v8a")) }
+            ndk { abiFilters.addAll(if (wp17I8Abi != null) listOf(wp17I8Abi) else listOf("x86_64", "arm64-v8a")) }
             externalNativeBuild {
                 cmake {
                     arguments.addAll(listOf(
@@ -162,7 +171,9 @@ android {
         }
         release {
             val releaseSigning = signingConfigs.getByName("release")
-            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+            if (wp17I8Unsigned) {
+                signingConfig = null
+            } else if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
                 signingConfig = releaseSigning
             } else {
                 // Keyless debug and PR builds keep the debug key. Formal release
@@ -224,6 +235,7 @@ tasks.register("verifyFormalReleaseSigning") {
         if (System.getenv("REQUIRE_RELEASE_SIGNING") != "true") {
             return@doLast
         }
+        check(!wp17I8Unsigned) { "Unsigned I8 packaging checks cannot be formal release candidates" }
         val store = android.signingConfigs.findByName("release")?.storeFile
         if (store == null || !store.exists()) {
             throw GradleException(
