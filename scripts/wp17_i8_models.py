@@ -28,7 +28,9 @@ def main():
     command = [sys.executable, str(REPO / "native/ocr/tools/prepare_ocr_assets.py"),
                "--assets", str(root / "assets"), "--deploy", str(root / "deploy")]
     if args.convert_python:
-        command += ["--python", str(args.convert_python.resolve())]
+        # Resolving a venv's python symlink selects the system interpreter and
+        # loses the pinned environment. Preserve the executable path.
+        command += ["--python", str(args.convert_python.expanduser().absolute())]
     if not args.download:
         command.append("--offline")
     if args.check:
