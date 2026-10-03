@@ -5,6 +5,7 @@
 
 #include "single_instance.h"
 #include "utils.h"
+#include "wp15_d3_validation.h"
 
 #include <vector>
 
@@ -176,16 +177,75 @@ bool FlutterWindow::OnCreate() {
       flutter::EncodableMap reply;
       reply[flutter::EncodableValue("platform")] =
           flutter::EncodableValue("windows");
+      auto identity = CurrentTimeZoneKeyName();
+#ifdef WP15_D3_DEVICE
+      Wp15D3ZoneRead();
+      identity = Wp15D3EffectiveZone(identity);
+#endif
       reply[flutter::EncodableValue("identity")] =
-          flutter::EncodableValue(CurrentTimeZoneKeyName());
+          flutter::EncodableValue(identity);
       result->Success(flutter::EncodableValue(reply));
       return;
     }
     result->NotImplemented();
   });
 
+#ifdef WP15_D3_DEVICE
+  d3_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "matrixflow/wp15_d3",
+          &flutter::StandardMethodCodec::GetInstance());
+  d3_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
+    if (call.method_name() == "status") {
+      auto data = Wp15D3Status(GetHandle());
+      data[flutter::EncodableValue("actualIdentity")] =
+          flutter::EncodableValue(CurrentTimeZoneKeyName());
+      result->Success(flutter::EncodableValue(data));
+      return;
+    }
+    if (call.method_name() == "queryOverride") {
+      const auto* identity = call.arguments()
+          ? std::get_if<std::string>(call.arguments()) : nullptr;
+      result->Success(flutter::EncodableValue(Wp15D3SetZoneOverride(identity)));
+      return;
+    }
+    if (call.method_name() == "settingsEvent" || call.method_name() == "timeEvent") {
+      const UINT message = call.method_name() == "settingsEvent" ? WM_SETTINGCHANGE : WM_TIMECHANGE;
+      result->Success(flutter::EncodableValue(
+          Wp15D3SendWindowEvent(GetHandle(), message)));
+      return;
+    }
+    if (call.method_name() == "resumeEvent") {
+      // Framework lifecycle delivery is an explicit process-local injection,
+      // never activation of the user's foreground window or keyboard focus.
+      for (const std::string state : {"AppLifecycleState.inactive", "AppLifecycleState.resumed"}) {
+        flutter_controller_->engine()->messenger()->Send("flutter/lifecycle",
+            reinterpret_cast<const uint8_t*>(state.data()), state.size());
+      }
+      result->Success(flutter::EncodableValue(true));
+      return;
+    }
+    if (call.method_name() == "resize" && call.arguments()) {
+      const auto* size = std::get_if<flutter::EncodableList>(call.arguments());
+      if (size && size->size() == 2 && std::holds_alternative<int>((*size)[0]) &&
+          std::holds_alternative<int>((*size)[1])) {
+        result->Success(flutter::EncodableValue(Wp15D3Resize(
+            GetHandle(), std::get<int>((*size)[0]), std::get<int>((*size)[1]))));
+        return;
+      }
+    }
+    result->NotImplemented();
+  });
+#endif
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
+#ifdef WP15_D3_DEVICE
+    ::ShowWindow(GetHandle(), SW_SHOWNOACTIVATE);
+    ::SetWindowPos(GetHandle(), HWND_BOTTOM, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+#else
     this->Show();
+#endif
   });
 
   // Flutter can complete the first frame before the "show window" callback is
@@ -201,6 +261,9 @@ void FlutterWindow::OnDestroy() {
   SingleInstanceBeginShutdown();
   SingleInstanceSetDispatcher(nullptr);
   single_instance_channel_.reset();
+#ifdef WP15_D3_DEVICE
+  d3_channel_.reset();
+#endif
   timezone_channel_.reset();
   if (hotkey_registered_) {
     ::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId);
@@ -225,6 +288,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     SingleInstanceDrainOnUiThread();
     return 0;
   }
+
+#ifdef WP15_D3_DEVICE
+  Wp15D3WindowEvent(message);
+#endif
 
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {

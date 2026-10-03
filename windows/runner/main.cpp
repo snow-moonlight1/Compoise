@@ -5,6 +5,7 @@
 #include "flutter_window.h"
 #include "single_instance.h"
 #include "utils.h"
+#include "wp15_d3_validation.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
@@ -13,6 +14,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
     CreateAndAttachConsole();
   }
+
+#ifdef WP15_D3_DEVICE
+  if (!Wp15D3ClaimIsolatedProcess()) return 2;
+#endif
 
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
@@ -23,11 +28,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       GetCommandLineArguments();
 
   // A second process must exit before Flutter or the task library starts.
+#ifndef WP15_D3_DEVICE
   int forwarded_exit = EXIT_SUCCESS;
   if (!SingleInstanceClaim(command_line_arguments, &forwarded_exit)) {
     ::CoUninitialize();
     return forwarded_exit;
   }
+
+#endif
 
   flutter::DartProject project(L"data");
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
@@ -38,6 +46,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!window.Create(L"Compoise", origin, size)) {
     window.Destroy();
     ::CoUninitialize();
+#ifdef WP15_D3_DEVICE
+    Wp15D3ReleaseIsolatedProcess();
+#endif
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
@@ -56,5 +67,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   WindowsValidationTrace("COM uninitialize begin");
   ::CoUninitialize();
   WindowsValidationTrace("COM uninitialize end");
+#ifdef WP15_D3_DEVICE
+  Wp15D3ReleaseIsolatedProcess();
+#endif
   return EXIT_SUCCESS;
 }

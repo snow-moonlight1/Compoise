@@ -43,6 +43,10 @@ class FlutterWindow : public Win32Window {
   // the schedule can re-render after a system zone change.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       timezone_channel_;
+#ifdef WP15_D3_DEVICE
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      d3_channel_;
+#endif
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_
