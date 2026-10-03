@@ -68,6 +68,17 @@ def candidate(directory, extracted, ctx):
             "diagnosticMarkersAbsent": list(DIAGNOSTIC_MARKERS)}
 
 
+def inspect_normal_build_gates(root):
+    config = (root / "windows/flutter/ephemeral/generated_config.cmake").read_text(encoding="utf-8-sig")
+    project = (root / "build/windows/x64/runner/compoise.vcxproj").read_text(encoding="utf-8-sig")
+    for define in ("V1AyOF9VMl9IQVJORVNTPXRydWU=", "V1AxNV9EM19ERVZJQ0U9dHJ1ZQ=="):
+        gate.require(define not in config, "Normal Dart build has a diagnostic gate")
+    for line in project.splitlines():
+        if "<PreprocessorDefinitions>" in line:
+            gate.require("WP28_U2_HARNESS" not in line and "WP15_D3_DEVICE" not in line,
+                         "Normal native build has a diagnostic gate")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
@@ -86,14 +97,7 @@ def main():
         gate.require(head == args.commit, "Current source HEAD differs from candidate commit")
         trace = gate.source_trace(args.root)
         gate.require(trace["diffSha256"] == hashlib.sha256(b"").hexdigest(), "Current source has uncommitted differences")
-        config = (args.root / "windows/flutter/ephemeral/generated_config.cmake").read_text()
-        project = (args.root / "build/windows/x64/runner/compoise.vcxproj").read_text()
-        for define in ("V1AyOF9VMl9IQVJORVNTPXRydWU=", "V1AxNV9EM19ERVZJQ0U9dHJ1ZQ=="):
-            gate.require(define not in config, "Normal Dart build has a diagnostic gate")
-        for line in project.splitlines():
-            if "<PreprocessorDefinitions>" in line:
-                gate.require("WP28_U2_HARNESS" not in line and "WP15_D3_DEVICE" not in line,
-                             "Normal native build has a diagnostic gate")
+        inspect_normal_build_gates(args.root)
         ctx = gate.context(args.root, args.tag, args.commit)
         first = candidate(args.first, args.extracted_first, ctx)
         second = candidate(args.second, args.extracted_second, ctx)

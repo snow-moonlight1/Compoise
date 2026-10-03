@@ -13,6 +13,24 @@ _spec.loader.exec_module(audit)
 
 
 class R2AuditTests(unittest.TestCase):
+    def test_utf8_bom_build_files_preserve_both_gate_rejections(self):
+        with tempfile.TemporaryDirectory(prefix="wp28-r2-audit-") as root:
+            root = Path(root)
+            config = root / "windows/flutter/ephemeral/generated_config.cmake"
+            project = root / "build/windows/x64/runner/compoise.vcxproj"
+            config.parent.mkdir(parents=True)
+            project.parent.mkdir(parents=True)
+            config.write_text("# 中文合成生成文件\n", encoding="utf-8-sig")
+            project.write_text("<!-- 中文合成生成文件 -->\n", encoding="utf-8-sig")
+            audit.inspect_normal_build_gates(root)
+            config.write_text("# 中文\nV1AyOF9VMl9IQVJORVNTPXRydWU=", encoding="utf-8-sig")
+            with self.assertRaisesRegex(ValueError, "Normal Dart build"):
+                audit.inspect_normal_build_gates(root)
+            config.write_text("# 中文\n", encoding="utf-8-sig")
+            project.write_text("<!-- 中文 -->\n<PreprocessorDefinitions>WP28_U2_HARNESS</PreprocessorDefinitions>", encoding="utf-8-sig")
+            with self.assertRaisesRegex(ValueError, "Normal native build"):
+                audit.inspect_normal_build_gates(root)
+
     def test_failed_cli_invalidates_an_old_success_report(self):
         with tempfile.TemporaryDirectory(prefix="wp28-r2-audit-") as root:
             output = Path(root) / "report.json"
