@@ -2,6 +2,8 @@ import java.util.Properties
 import java.util.Base64
 import java.io.FileInputStream
 import java.io.File
+import java.security.MessageDigest
+import groovy.json.JsonSlurper
 
 plugins {
     id("com.android.application")
@@ -38,6 +40,39 @@ fun wp17ExternalPath(name: String): String? {
 val wp17NcnnRoot = wp17ExternalPath("wp17OcrNcnnRoot")
 val wp17StbDir = wp17ExternalPath("wp17OcrStbDir")
 val wp17OcrEnabled = wp17NcnnRoot != null && wp17StbDir != null
+// Opt-in, private validation identity. The normal applicationId is unchanged.
+val wp17Validation = wp17ExternalPath("wp17OcrValidation") == "true"
+val wp17Models = wp17ExternalPath("wp17OcrModels")
+if (wp17Models != null) {
+    check(wp17OcrEnabled) { "Official OCR assets require the native OCR component" }
+    val root = file(wp17Models).resolve("wp17-ocr")
+    val json = JsonSlurper()
+    val manifest = json.parse(root.resolve("bundle-manifest.json")) as Map<*, *>
+    val deployment = json.parse(root.resolve("deployed.json")) as Map<*, *>
+    val lock = json.parse(file("../../native/ocr/tools/models.lock.json")) as Map<*, *>
+    check(manifest["modelSource"] == "official" && deployment["modelSource"] == "official")
+    check(deployment["conversion"] == lock["conversion"]) { "Unreviewed conversion provenance" }
+    val files = manifest["files"] as Map<*, *>
+    val locked = lock["files"] as Map<*, *>
+    val attachments = lock["attachments"] as Map<*, *>
+    val expected = mutableMapOf<String, String>()
+    for (kind in listOf("det", "rec")) for (suffix in listOf("param", "bin")) {
+        val name = "PP_OCRv5_mobile_$kind.ncnn.$suffix"
+        expected["ncnn/$name"] = (locked["ncnn-official/$name"] as Map<*, *>)["sha256"] as String
+    }
+    expected["ncnn/ppocrv5_dict.txt"] = "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b"
+    for ((name, record) in attachments) expected[name as String] = (record as Map<*, *>)["sha256"] as String
+    check(files.keys == expected.keys + setOf("deployed.json", "licenses/THIRD_PARTY_OCR_NOTICES.md"))
+    for ((rawName, rawRecord) in files) {
+        val name = rawName as String
+        val record = rawRecord as Map<*, *>
+        val data = root.resolve(name)
+        val digest = MessageDigest.getInstance("SHA-256").digest(data.readBytes())
+            .joinToString("") { "%02x".format(it.toInt() and 255) }
+        check(data.length() == (record["bytes"] as Number).toLong() && digest == record["sha256"])
+        check(expected[name] == null || digest == expected[name]) { "Official asset pin mismatch: $name" }
+    }
+}
 val hasKeystore = keystorePropertiesFile != null
 if (hasKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile!!))
@@ -49,6 +84,10 @@ val wp15D2Device = (project.findProperty("dart-defines") as? String)
     ?.split(",")?.any {
         String(Base64.getDecoder().decode(it)) == "WP15_D2_DEVICE=true"
     } == true
+
+check(!(wp15D2Device && wp17Validation)) {
+    "WP15-D2 and WP17-I6 validation identities cannot be combined"
+}
 
 android {
     namespace = "com.matrixflow.matrixflow_native"
@@ -119,6 +158,7 @@ android {
     buildTypes {
         debug {
             if (wp15D2Device) applicationIdSuffix = ".wp15d2"
+            else if (wp17Validation) applicationIdSuffix = ".wp17i6"
         }
         release {
             val releaseSigning = signingConfigs.getByName("release")
@@ -130,6 +170,13 @@ android {
                 signingConfig = signingConfigs.getByName("debug")
             }
         }
+    }
+    if (wp17Models != null) sourceSets.getByName("main").assets.srcDir(file(wp17Models))
+}
+
+if (wp17Validation) {
+    tasks.matching { it.name.contains("Release") }.configureEach {
+        doFirst { error("wp17OcrValidation is debug-only; use the dedicated debug package") }
     }
 }
 

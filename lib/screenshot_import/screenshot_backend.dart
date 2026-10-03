@@ -24,17 +24,20 @@ typedef OcrEnvironment = Map<String, String> Function();
 /// Application support directory provider, injectable so the fallback entry of
 /// the resolution order can be asserted without a platform channel.
 typedef OcrSupportDirectory = Future<Directory> Function();
+typedef OcrBundledDirectory = Future<String?> Function();
 
 /// Asset root used when the caller supplies no [OcrRuntime].
 ///
 /// Order: `WP17_OCR_ASSETS` environment variable (desktop development and
 /// unmanaged deployments), then the compile-time `--dart-define`
-/// `WP17_OCR_ASSETS`, then the application support directory. All three are
+/// `WP17_OCR_ASSETS`, then optional APK/bundle assets, then application support.
+/// All entries are
 /// local paths; nothing is downloaded and no path outside the requested root is
 /// searched.
 Future<String> resolveOcrAssetsRoot({
   OcrEnvironment environment = _platformEnvironment,
   OcrSupportDirectory? supportDirectory,
+  OcrBundledDirectory bundledDirectory = bundledOcrAssetsRoot,
 }) async {
   final fromEnvironment = environment()['WP17_OCR_ASSETS']?.trim();
   if (fromEnvironment != null && fromEnvironment.isNotEmpty) {
@@ -42,6 +45,8 @@ Future<String> resolveOcrAssetsRoot({
   }
   const fromDefine = String.fromEnvironment('WP17_OCR_ASSETS');
   if (fromDefine.isNotEmpty) return fromDefine;
+  final bundled = await bundledDirectory();
+  if (bundled != null && bundled.isNotEmpty) return bundled;
   final support = await (supportDirectory ?? getApplicationSupportDirectory)();
   return '${support.path}/wp17r2-assets';
 }

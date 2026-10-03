@@ -15,12 +15,12 @@ final class OcrLine {
   final double score;
 
   factory OcrLine.fromJson(Map<String, dynamic> json) => OcrLine(
-        text: json['text'] as String,
-        box: (json['box'] as List<dynamic>)
-            .map((value) => (value as num).toDouble())
-            .toList(growable: false),
-        score: (json['score'] as num).toDouble(),
-      );
+    text: json['text'] as String,
+    box: (json['box'] as List<dynamic>)
+        .map((value) => (value as num).toDouble())
+        .toList(growable: false),
+    score: (json['score'] as num).toDouble(),
+  );
 }
 
 /// One image's raw result. No task parsing or database write occurs here.
@@ -73,7 +73,8 @@ typedef _FreeNative = Void Function(Pointer<Utf8>);
 typedef _FreeDart = void Function(Pointer<Utf8>);
 
 /// Offline ncnn CPU bridge. The caller supplies verified model files in
-/// [assetsRoot]/ncnn; the app does not currently bundle converted weights.
+/// [assetsRoot]/ncnn. Optional builds can stage the reviewed official weights;
+/// the default build still has no OCR models or native component.
 ///
 /// Every image executes in a background isolate. Calls across all instances
 /// are serialized to avoid overlapping 400+ MiB model/bitmap allocations.
@@ -130,12 +131,12 @@ final class OcrRuntime {
 }
 
 OcrImageResult _failure(String path, String error) => OcrImageResult(
-      path: path,
-      width: 0,
-      height: 0,
-      lines: const [],
-      error: error,
-    );
+  path: path,
+  width: 0,
+  height: 0,
+  lines: const [],
+  error: error,
+);
 
 /// Library location for the current platform. Windows and Linux load the copy
 /// installed next to the executable (Linux from the bundle's [lib] directory),
@@ -155,9 +156,13 @@ OcrImageResult _recognizeOne(
   int threads,
 ) {
   final library = DynamicLibrary.open(libraryPath ?? resolveOcrLibraryPath());
-  final create = library.lookupFunction<_CreateNative, _CreateDart>('mf_ocr_create');
+  final create = library.lookupFunction<_CreateNative, _CreateDart>(
+    'mf_ocr_create',
+  );
   final run = library.lookupFunction<_RunNative, _RunDart>('mf_ocr_run_file');
-  final destroy = library.lookupFunction<_DestroyNative, _DestroyDart>('mf_ocr_destroy');
+  final destroy = library.lookupFunction<_DestroyNative, _DestroyDart>(
+    'mf_ocr_destroy',
+  );
   final free = library.lookupFunction<_FreeNative, _FreeDart>('mf_ocr_free');
   final assetPtr = assetsRoot.toNativeUtf8();
   final pathPtr = path.toNativeUtf8();
@@ -165,7 +170,9 @@ OcrImageResult _recognizeOne(
   try {
     session = create(assetPtr, threads);
     final output = run(session, pathPtr);
-    if (output == nullptr) return _failure(path, 'native result allocation failed');
+    if (output == nullptr) {
+      return _failure(path, 'native result allocation failed');
+    }
     try {
       return OcrImageResult.fromJson(
         path,

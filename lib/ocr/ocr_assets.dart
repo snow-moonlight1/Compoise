@@ -1,5 +1,31 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
+/// Optional verified assets installed with the APK or Linux bundle. Default
+/// builds have none. Android materializes the APK-local files on its IO worker;
+/// Linux reads the bundle copy in place, without installing to a system path.
+Future<String?> bundledOcrAssetsRoot({
+  String? executable,
+  bool? android,
+}) async {
+  if (android ?? Platform.isAndroid) {
+    try {
+      return await const MethodChannel(
+        'com.matrixflow/ocr_assets',
+      ).invokeMethod<String>('prepare');
+    } on MissingPluginException {
+      return null;
+    }
+  }
+  if (executable != null || Platform.isLinux) {
+    final parent = File(executable ?? Platform.resolvedExecutable).parent.path;
+    final root = '$parent/data/wp17-ocr';
+    if (await File('$root/bundle-manifest.json').exists()) return root;
+  }
+  return null;
+}
+
 /// Files the native session loads from `<assetsRoot>/ncnn`.
 ///
 /// The native side keeps these names fixed, so the deployment step and the
