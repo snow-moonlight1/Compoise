@@ -21,6 +21,8 @@ WP15-D2/D3、WP17-I6 与 WP28-R1 已接收独立提交。集成时保留两套 A
 
 首个手动云端候选在 Windows 全量测试中发现 41 项升级失败：Runner 临时目录使用 `RUNNER~1`，解析后的长名称被旧路径检查误判为重定向。本地真实 8.3 名称复现同一失败；现用 [Win32 长名称展开](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getlongpathnamew)比较同目录名称，逐级类型与重定向检查继续执行，真实 junction 仍拒绝。默认 Windows CI 已增加这些专项回归。未删除失败用例或更改 Runner 临时目录规避问题。
 
+第二次候选全量只有 RF08 的一项时间断言失败（1403 通过 / 1 失败 / 10 跳过）：测试把同一毫秒的两个失败时间当作同一代重试，实际次数和预算已正确重置。现从带明确旧时间的持久化耗尽记录开始，继续断言无关编辑保留原预算/时间、用户重试清零预算并重置年龄、变更触发时间替换原记录；不靠睡眠等待时间戳不同，提醒产品代码未修改。
+
 本地与 CI 共用 `scripts/release_candidate.py`，以 `proof → seal → verify` 检查二进制、完整 commit、工具链、源码差异指纹、身份/签名和 ZIP 每个文件。`RELEASE_MANIFEST.txt` 现为 **JSON schema 1**，metadata 从同一记录生成；旧轮的文本字段不适用于新候选。Windows 候选可记录有差异的源码，正式双平台 `assemble` 必须没有源码差异。
 
 手动运行 `.github/workflows/release.yml` 只做预检及 Windows 候选构建/上传，不使用生产签名凭据或创建 Release。`v*` tag 推送才会启用 Android、Linux 与草稿发布阶段。版本仍为 `1.0.0+1`，本轮没有批准该版本正式发行。

@@ -249,21 +249,33 @@ void main() {
 
     test('only a real reminder change or a user retry opens a new generation', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final trigger = _nowMs() + 600000;
+      // Start with a persisted, older exhausted failure. Two live calls can
+      // share a millisecond (especially on Windows), so elapsed wall time is
+      // not evidence that the retry age and budget were renewed.
+      final failedAt = _nowMs() - 60000;
+      final ledger = InMemoryReminderLedgerStore()
+        ..value = jsonEncode({
+          'v': 1,
+          'jobs': [
+            ReminderPendingJob(
+              kind: ReminderPendingKind.reschedule,
+              notificationId: _id('t1'),
+              boardId: 'b1',
+              taskId: 't1',
+              triggerAtMs: trigger,
+              attempts: ReminderService.maxAutomaticRetries,
+              firstFailedAtMs: failedAt,
+              updatedAtMs: failedAt,
+              exhausted: true,
+            ).toJson(),
+          ],
+        });
       final service = await _service(
         CountingPlugin(),
-        InMemoryReminderLedgerStore(),
+        ledger,
       );
-      final trigger = _nowMs() + 600000;
-      // The user edit that armed the reminder was rejected.
-      await service.scheduleReminder(
-        boardId: 'b1',
-        taskId: 't1',
-        title: 'Synthetic t1',
-        triggerAtMs: trigger,
-      );
-      for (var pass = 1; pass <= ReminderService.maxAutomaticRetries; pass++) {
-        await service.reconcilePending([_task('t1', reminderAt: trigger)]);
-      }
+      await service.loadPendingJobs();
       final spent = service.pendingJobs[_key('t1')]!;
       expect(spent.exhausted, isTrue);
       final spentSince = spent.firstFailedAtMs;
@@ -289,7 +301,7 @@ void main() {
       final restarted = service.pendingJobs[_key('t1')]!;
       expect(restarted.exhausted, isFalse);
       expect(restarted.attempts, 0);
-      expect(restarted.firstFailedAtMs, isNot(spentSince));
+      expect(restarted.firstFailedAtMs, greaterThan(spentSince!));
 
       // A changed trigger time is a new generation too, and it replaces the
       // outdated record instead of adding a second one.
