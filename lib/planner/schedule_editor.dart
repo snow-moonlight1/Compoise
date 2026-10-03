@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../schedule_item.dart';
 import '../schedule_time.dart';
@@ -29,11 +32,110 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
   bool _busy = false;
   bool _taskAssociation = false;
   String? _error;
+  late final String _initialDraft;
+  bool _initialProposal = false;
+  bool _confirmingLeave = false;
+  final _reviewFocus = FocusNode();
+  final _saveFocus = FocusNode();
+  final _overlapFocus = FocusNode();
+  final _retryFocus = FocusNode();
+  final _cancelFocus = FocusNode();
+
+  String get _draft => jsonEncode([
+    s.title,
+    s.taskId,
+    s.boardId,
+    s.timeZoneId,
+    s.start.date,
+    s.start.time,
+    s.start.offset?.inMinutes,
+    s.end.date,
+    s.end.time,
+    s.end.offset?.inMinutes,
+  ]);
+
+  bool get _hasDraft =>
+      !s.accepted && (_initialProposal || _draft != _initialDraft);
 
   @override
   void initState() {
     super.initState();
     _taskAssociation = s.kind == ScheduleItemKind.timeBlock || s.taskId != null;
+    _initialDraft = _draft;
+    if (s.original != null && s.mode != ScheduleEditMode.edit) {
+      try {
+        _initialProposal =
+            jsonEncode(s.review().item.toJson()) !=
+            jsonEncode(s.original!.toJson());
+      } on ScheduleTimeException {
+        _initialProposal = true;
+      } on FormatException {
+        _initialProposal = true;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _reviewFocus.dispose();
+    _saveFocus.dispose();
+    _overlapFocus.dispose();
+    _retryFocus.dispose();
+    _cancelFocus.dispose();
+    super.dispose();
+  }
+
+  void _focusAfterBuild(FocusNode node) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !node.canRequestFocus) return;
+      node.requestFocus();
+      final focusContext = node.context;
+      if (focusContext != null) {
+        Scrollable.ensureVisible(
+          focusContext,
+          alignment: 0.15,
+          duration: const Duration(milliseconds: 150),
+        );
+      }
+    });
+  }
+
+  Future<void> _confirmLeave() async {
+    if (_busy || _confirmingLeave || !_hasDraft) return;
+    _confirmingLeave = true;
+    final discard = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              Navigator.pop(context, false),
+        },
+        child: AlertDialog(
+          key: const ValueKey('schedule-editor-discard-confirm'),
+          scrollable: true,
+          title: Text(t['discardChangesTitle']!),
+          content: Text(t['discardChangesConfirm']!),
+          actions: [
+            TextButton(
+              key: const ValueKey('schedule-editor-keep-editing'),
+              autofocus: true,
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(t['scheduleEditorKeepEditing']!),
+            ),
+            TextButton(
+              key: const ValueKey('schedule-editor-discard'),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(t['discard']!),
+            ),
+          ],
+        ),
+      ),
+    );
+    _confirmingLeave = false;
+    if (discard == true && mounted && !_busy && !s.accepted) {
+      Navigator.pop(context, false);
+    }
   }
 
   void _changed(VoidCallback update) => setState(() {
@@ -63,6 +165,7 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
         _allowOverlap = false;
         _error = null;
       });
+      _focusAfterBuild(_review!.overlaps.isEmpty ? _saveFocus : _overlapFocus);
     } on ScheduleTimeException catch (error) {
       setState(() => _error = _timeError(error));
     } on FormatException {
@@ -96,6 +199,9 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
         _allowOverlap = false;
       }
     });
+    _focusAfterBuild(
+      result == ScheduleSubmitResult.unsaved ? _retryFocus : _cancelFocus,
+    );
   }
 
   Future<void> _chooseAssociation() async {
@@ -369,6 +475,7 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
             ),
           CheckboxListTile(
             key: const ValueKey('schedule-editor-allow-overlap'),
+            focusNode: _overlapFocus,
             value: _allowOverlap,
             title: Text(t['scheduleEditorAllowOverlap']!),
             onChanged: _busy || s.accepted
@@ -392,76 +499,97 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
           ? t['scheduleRecovery']
           : _error;
       return PopScope(
-        canPop: !_busy,
-        child: AlertDialog(
-          key: const ValueKey('schedule-editor'),
-          scrollable: true,
-          title: Text(
-            t[s.original == null
-                ? 'scheduleEditorNew'
-                : switch (s.mode) {
-                    ScheduleEditMode.edit => 'scheduleEditorEdit',
-                    ScheduleEditMode.move => 'scheduleEditorMove',
-                    ScheduleEditMode.resizeStart => 'scheduleEditorResizeStart',
-                    ScheduleEditMode.resizeEnd => 'scheduleEditorResizeEnd',
-                  }]!,
-          ),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AbsorbPointer(
-                  absorbing: _busy || s.accepted || blocked,
-                  child: _review == null ? _form() : _summary(),
+        canPop: !_busy && !_hasDraft,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _confirmLeave();
+        },
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): () =>
+                Navigator.maybePop(context),
+          },
+          child: AlertDialog(
+            key: const ValueKey('schedule-editor'),
+            scrollable: true,
+            title: Text(
+              t[s.original == null
+                  ? 'scheduleEditorNew'
+                  : switch (s.mode) {
+                      ScheduleEditMode.edit => 'scheduleEditorEdit',
+                      ScheduleEditMode.move => 'scheduleEditorMove',
+                      ScheduleEditMode.resizeStart =>
+                        'scheduleEditorResizeStart',
+                      ScheduleEditMode.resizeEnd => 'scheduleEditorResizeEnd',
+                    }]!,
+            ),
+            content: SizedBox(
+              width: 480,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AbsorbPointer(
+                    absorbing: _busy || s.accepted || blocked,
+                    child: ExcludeFocus(
+                      excluding: _busy || s.accepted || blocked,
+                      child: _review == null ? _form() : _summary(),
+                    ),
+                  ),
+                  if (message != null)
+                    Semantics(liveRegion: true, child: Text(message)),
+                  if (_busy) Text(t['scheduleEditorSaving']!),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                key: const ValueKey('schedule-editor-cancel'),
+                focusNode: _cancelFocus,
+                onPressed: _busy ? null : () => Navigator.pop(context, false),
+                child: Text(t[s.accepted ? 'close' : 'cancel']!),
+              ),
+              if (s.accepted)
+                TextButton(
+                  key: const ValueKey('schedule-editor-retry'),
+                  focusNode: _retryFocus,
+                  onPressed: _busy || blocked
+                      ? null
+                      : () => _submit(retry: true),
+                  child: Text(t['scheduleEditorRetry']!),
+                )
+              else if (_review == null)
+                FilledButton(
+                  key: const ValueKey('schedule-editor-review'),
+                  focusNode: _reviewFocus,
+                  autofocus: true,
+                  onPressed: _busy || blocked ? null : _prepare,
+                  child: Text(t['scheduleEditorReview']!),
+                )
+              else ...[
+                TextButton(
+                  key: const ValueKey('schedule-editor-modify'),
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() {
+                          _review = null;
+                          _allowOverlap = false;
+                          _focusAfterBuild(_reviewFocus);
+                        }),
+                  child: Text(t['scheduleEditorModify']!),
                 ),
-                if (message != null)
-                  Semantics(liveRegion: true, child: Text(message)),
-                if (_busy) Text(t['scheduleEditorSaving']!),
+                FilledButton(
+                  key: const ValueKey('schedule-editor-save'),
+                  focusNode: _saveFocus,
+                  onPressed:
+                      _busy ||
+                          blocked ||
+                          (_review!.overlaps.isNotEmpty && !_allowOverlap)
+                      ? null
+                      : () => _submit(),
+                  child: Text(t['scheduleEditorSave']!),
+                ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              key: const ValueKey('schedule-editor-cancel'),
-              onPressed: _busy ? null : () => Navigator.pop(context, false),
-              child: Text(t[s.accepted ? 'close' : 'cancel']!),
-            ),
-            if (s.accepted)
-              TextButton(
-                key: const ValueKey('schedule-editor-retry'),
-                onPressed: _busy || blocked ? null : () => _submit(retry: true),
-                child: Text(t['scheduleEditorRetry']!),
-              )
-            else if (_review == null)
-              FilledButton(
-                key: const ValueKey('schedule-editor-review'),
-                onPressed: _busy || blocked ? null : _prepare,
-                child: Text(t['scheduleEditorReview']!),
-              )
-            else ...[
-              TextButton(
-                key: const ValueKey('schedule-editor-modify'),
-                onPressed: _busy
-                    ? null
-                    : () => setState(() {
-                        _review = null;
-                        _allowOverlap = false;
-                      }),
-                child: Text(t['scheduleEditorModify']!),
-              ),
-              FilledButton(
-                key: const ValueKey('schedule-editor-save'),
-                onPressed:
-                    _busy ||
-                        blocked ||
-                        (_review!.overlaps.isNotEmpty && !_allowOverlap)
-                    ? null
-                    : () => _submit(),
-                child: Text(t['scheduleEditorSave']!),
-              ),
             ],
-          ],
+          ),
         ),
       );
     },
@@ -519,65 +647,72 @@ class _ScheduleDeleteState extends State<_ScheduleDelete> {
             s.outdated || s.store.hasStartupRecovery || !s.store.ready;
         return PopScope(
           canPop: !_busy,
-          child: AlertDialog(
-            key: const ValueKey('schedule-delete-confirm'),
-            scrollable: true,
-            title: Text(t['scheduleEditorDelete']!),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t['scheduleEditorDeleteHint']!),
-                Text(
-                  s.original!.title ??
-                      s.store.tasks
-                          .where((task) => task.id == s.original!.taskId)
-                          .firstOrNull
-                          ?.title ??
-                      '',
-                ),
-                Text(
-                  scheduleInstantLabel(
-                    s.original!.startAt,
-                    s.original!.timeZoneId,
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.escape): () =>
+                  Navigator.maybePop(context),
+            },
+            child: AlertDialog(
+              key: const ValueKey('schedule-delete-confirm'),
+              scrollable: true,
+              title: Text(t['scheduleEditorDelete']!),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t['scheduleEditorDeleteHint']!),
+                  Text(
+                    s.original!.title ??
+                        s.store.tasks
+                            .where((task) => task.id == s.original!.taskId)
+                            .firstOrNull
+                            ?.title ??
+                        '',
                   ),
-                ),
-                Text(
-                  scheduleInstantLabel(
-                    s.original!.endAt,
-                    s.original!.timeZoneId,
-                  ),
-                ),
-                if (blocked || _error != null)
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      blocked
-                          ? t[s.store.hasStartupRecovery
-                                ? 'scheduleRecovery'
-                                : 'scheduleEditorStale']!
-                          : _error!,
+                  Text(
+                    scheduleInstantLabel(
+                      s.original!.startAt,
+                      s.original!.timeZoneId,
                     ),
                   ),
-                if (_busy) Text(t['scheduleEditorSaving']!),
+                  Text(
+                    scheduleInstantLabel(
+                      s.original!.endAt,
+                      s.original!.timeZoneId,
+                    ),
+                  ),
+                  if (blocked || _error != null)
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        blocked
+                            ? t[s.store.hasStartupRecovery
+                                  ? 'scheduleRecovery'
+                                  : 'scheduleEditorStale']!
+                            : _error!,
+                      ),
+                    ),
+                  if (_busy) Text(t['scheduleEditorSaving']!),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  key: const ValueKey('schedule-delete-cancel'),
+                  autofocus: true,
+                  onPressed: _busy ? null : () => Navigator.pop(context, false),
+                  child: Text(t[s.accepted ? 'close' : 'cancel']!),
+                ),
+                FilledButton(
+                  key: const ValueKey('schedule-delete-submit'),
+                  onPressed: _busy || blocked ? null : _submit,
+                  child: Text(
+                    t[s.accepted
+                        ? 'scheduleEditorRetry'
+                        : 'scheduleEditorDelete']!,
+                  ),
+                ),
               ],
             ),
-            actions: [
-              TextButton(
-                key: const ValueKey('schedule-delete-cancel'),
-                onPressed: _busy ? null : () => Navigator.pop(context, false),
-                child: Text(t[s.accepted ? 'close' : 'cancel']!),
-              ),
-              FilledButton(
-                key: const ValueKey('schedule-delete-submit'),
-                onPressed: _busy || blocked ? null : _submit,
-                child: Text(
-                  t[s.accepted
-                      ? 'scheduleEditorRetry'
-                      : 'scheduleEditorDelete']!,
-                ),
-              ),
-            ],
           ),
         );
       },

@@ -25,6 +25,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'upgradeManual': 'Recovery and manual import steps',
     'upgradeManualInstructions':
         'Close both versions and keep copies of the affected files privately; they may contain credentials. Restore an unreadable preferences file from a known intact copy at the same path, then retry. Once the old library is readable, its version can use its recovery screen or export a supported backup in Settings. After startup succeeds, use Settings → Import JSON and review the backup preview. Recovery copies of preferences are not importable backups. This screen never discards or overwrites either library.',
+    'scheduleEditorKeepEditing': 'Keep editing',
     'scheduleEditorNew': 'New schedule item',
     'scheduleEditorEdit': 'Edit schedule item',
     'scheduleEditorAdd': 'Add schedule item',
@@ -847,6 +848,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'upgradeClose': '关闭应用',
     'upgradeManual': '查看恢复与手动导入步骤',
     'upgradeManualInstructions': '关闭两个版本，并私下保留受影响文件的副本，文件可能包含凭据。对于无法读取的首选项文件，请用已知完整副本在原路径恢复后重试。旧库可读后，可使用旧版的恢复页面，或在设置中导出其支持的备份。启动成功后，在“设置 → 导入 JSON”中核对备份预览。首选项恢复副本不是可导入备份。本页面不会丢弃或覆盖任何一个库。',
+    'scheduleEditorKeepEditing': '继续编辑',
     'scheduleEditorNew': '新建日程记录',
     'scheduleEditorEdit': '编辑日程记录',
     'scheduleEditorAdd': '添加日程记录',
@@ -1554,6 +1556,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'upgradeClose': 'アプリを閉じる',
     'upgradeManual': '復旧と手動インポートの手順',
     'upgradeManualInstructions': '両方の版を閉じ、対象ファイルのコピーを非公開で保管してください。認証情報を含む場合があります。読み取れない設定ファイルは、正常なコピーを同じ場所に復元して再試行します。旧ライブラリが読み取れるようになったら、旧版の復旧画面を使用するか、設定から対応するバックアップをエクスポートしてください。起動後に「設定 → JSON インポート」でプレビューを確認してください。設定の復旧コピーはインポート用バックアップではありません。この画面はどちらのライブラリも破棄・上書きしません。',
+    'scheduleEditorKeepEditing': '編集を続ける',
     'scheduleEditorNew': 'スケジュール項目を作成',
     'scheduleEditorEdit': 'スケジュール項目を編集',
     'scheduleEditorAdd': 'スケジュール項目を追加',

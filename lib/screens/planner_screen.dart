@@ -69,6 +69,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   late PlannerView _view;
   String? _boardId;
   final _horizontal = ScrollController();
+  final _addFocus = FocusNode();
   bool _editorOpen = false;
   bool _retryingStore = false;
   String? _adjustingId;
@@ -160,6 +161,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _ownedZone?.dispose();
     _ownedZone = null;
     _horizontal.dispose();
+    _addFocus.dispose();
     super.dispose();
   }
 
@@ -174,9 +176,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (_zone == null) return;
     _startedPreselectedBlock = true;
     if (!store.tasks.any((task) => task.id == taskId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(store.t['scheduleTaskMissing']!)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(store.t['scheduleTaskMissing']!)));
       return;
     }
     await _create(
@@ -506,6 +508,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 else ...[
                   TextButton.icon(
                     key: const ValueKey('schedule-add'),
+                    focusNode: _addFocus,
                     onPressed: _editorOpen
                         ? null
                         : () => _create(liveStore, _date),
@@ -768,7 +771,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (entry.taskTitle != null) '${t['scheduleTask']}: ${entry.taskTitle}',
     if (entry.quadrant != null)
       'Q${entry.quadrant} · ${t['q${entry.quadrant}Short']}',
-    if (entry.completed) t['completed']!,
+    if (entry.taskTitle != null)
+      '${t['scheduleTask']}: ${t[entry.completed ? 'completed' : 'incomplete']}',
   ].join(' · ');
 
   Widget _dayColumn(
@@ -871,7 +875,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         '${scheduleClockLabel(slice.startAt, _zone!)} – '
         '${scheduleClockLabel(slice.endAt, _zone!)}';
     final label =
-        '${_entryLabel(entry, t)} · $dateLabel · $time'
+        '${_entryLabel(entry, t)} · '
+        '${t['scheduleStart']}: ${scheduleInstantLabel(slice.startAt, _zone!)} · '
+        '${t['scheduleEnd']}: ${scheduleInstantLabel(slice.endAt, _zone!)}'
         '${continuation.isEmpty ? '' : ' · $continuation'}';
     final card = MergeSemantics(
       key: ValueKey('schedule-semantics-$dateLabel-${entry.item.id}'),
@@ -988,124 +994,152 @@ class _PlannerScreenState extends State<PlannerScreen> {
     StoreSnapshot snapshot,
     Map<String, String> t,
     Store? liveStore,
-  ) => showDialog<void>(
-    context: context,
-    builder: (context) {
-      Widget detail() {
-        final current = liveStore?.captureSnapshot() ?? snapshot;
-        final entry = scheduleEntries(
-          items: current.scheduleItems,
-          tasks: current.tasks,
-          boards: current.boards,
-        ).where((entry) => entry.item.id == id).firstOrNull;
-        return AlertDialog(
-          key: const ValueKey('schedule-detail'),
-          title: Text(entry?.title ?? t['scheduleUnavailable']!),
-          scrollable: true,
-          content: SizedBox(
-            width: 440,
-            child: entry == null
-                ? Text(t['scheduleUnavailable']!)
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_entryLabel(entry, t)),
-                      Text(
-                        '${t['scheduleDisplayZone']}: ${_zone!}',
+  ) async {
+    // Keep the actual grid focus across the detail -> editor/delete route chain.
+    // The intermediate detail button is disposed before the editor closes.
+    final origin = FocusManager.instance.primaryFocus;
+    ScheduleItem? chosenItem;
+    int? chosenRevision;
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        Widget detail() {
+          final current = liveStore?.captureSnapshot() ?? snapshot;
+          final entry = scheduleEntries(
+            items: current.scheduleItems,
+            tasks: current.tasks,
+            boards: current.boards,
+          ).where((entry) => entry.item.id == id).firstOrNull;
+          return AlertDialog(
+            key: const ValueKey('schedule-detail'),
+            title: Text(entry?.title ?? t['scheduleUnavailable']!),
+            scrollable: true,
+            content: SizedBox(
+              width: 440,
+              child: entry == null
+                  ? Text(t['scheduleUnavailable']!)
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_entryLabel(entry, t)),
+                        Text('${t['scheduleDisplayZone']}: ${_zone!}'),
+                        Text(
+                          '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, _zone!)}',
+                        ),
+                        Text(
+                          '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, _zone!)}',
+                        ),
+                        Text(
+                          '${t['scheduleRecordedZone']}: ${entry.item.timeZoneId}',
+                        ),
+                        Text(
+                          '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, entry.item.timeZoneId)}',
+                        ),
+                        Text(
+                          '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, entry.item.timeZoneId)}',
+                        ),
+                        Text(
+                          '${t['scheduleElapsed']}: '
+                          '${Duration(milliseconds: entry.item.endAt - entry.item.startAt)}',
+                        ),
+                        if (liveStore == null) Text(t['scheduleReadOnly']!),
+                      ],
+                    ),
+            ),
+            actions: [
+              if (liveStore != null &&
+                  entry != null &&
+                  !liveStore.hasStartupRecovery) ...[
+                TextButton(
+                  key: const ValueKey('schedule-detail-edit'),
+                  onPressed: () {
+                    chosenItem = entry.item;
+                    chosenRevision = current.scheduleRevisionFor(id);
+                    Navigator.pop(context, 'edit');
+                  },
+                  child: Text(t['scheduleEditorEdit']!),
+                ),
+                PopupMenuButton<String>(
+                  key: const ValueKey('schedule-detail-actions'),
+                  tooltip: t['scheduleEditorMore'],
+                  itemBuilder: (_) => [
+                    for (final choice in [
+                      ('move', 'scheduleEditorMove'),
+                      ('resizeStart', 'scheduleEditorResizeStart'),
+                      ('resizeEnd', 'scheduleEditorResizeEnd'),
+                      ('handles', 'scheduleEditorHandles'),
+                      ('delete', 'scheduleEditorDelete'),
+                    ])
+                      PopupMenuItem(
+                        value: choice.$1,
+                        child: Text(t[choice.$2]!),
                       ),
-                      Text(
-                        '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, _zone!)}',
-                      ),
-                      Text(
-                        '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, _zone!)}',
-                      ),
-                      Text(
-                        '${t['scheduleRecordedZone']}: ${entry.item.timeZoneId}',
-                      ),
-                      Text(
-                        '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, entry.item.timeZoneId)}',
-                      ),
-                      Text(
-                        '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, entry.item.timeZoneId)}',
-                      ),
-                      Text(
-                        '${t['scheduleElapsed']}: '
-                        '${Duration(milliseconds: entry.item.endAt - entry.item.startAt)}',
-                      ),
-                      if (liveStore == null) Text(t['scheduleReadOnly']!),
-                    ],
-                  ),
-          ),
-          actions: [
-            if (liveStore != null &&
-                entry != null &&
-                !liveStore.hasStartupRecovery) ...[
+                  ],
+                  onSelected: (action) {
+                    chosenItem = entry.item;
+                    chosenRevision = current.scheduleRevisionFor(id);
+                    Navigator.pop(context, action);
+                  },
+                  icon: const Icon(Icons.more_horiz),
+                ),
+              ],
               TextButton(
-                key: const ValueKey('schedule-detail-edit'),
-                onPressed: () {
-                  Navigator.pop(context);
-                  _edit(
-                    liveStore,
-                    entry.item,
-                    ScheduleEditMode.edit,
-                    revision: current.scheduleRevisionFor(id),
-                  );
-                },
-                child: Text(t['scheduleEditorEdit']!),
-              ),
-              PopupMenuButton<String>(
-                key: const ValueKey('schedule-detail-actions'),
-                tooltip: t['scheduleEditorMore'],
-                itemBuilder: (_) => [
-                  for (final choice in [
-                    ('move', 'scheduleEditorMove'),
-                    ('resizeStart', 'scheduleEditorResizeStart'),
-                    ('resizeEnd', 'scheduleEditorResizeEnd'),
-                    ('handles', 'scheduleEditorHandles'),
-                    ('delete', 'scheduleEditorDelete'),
-                  ])
-                    PopupMenuItem(value: choice.$1, child: Text(t[choice.$2]!)),
-                ],
-                onSelected: (action) {
-                  Navigator.pop(context);
-                  if (action == 'handles') {
-                    setState(() => _adjustingId = id);
-                    return;
-                  }
-                  _edit(
-                    liveStore,
-                    entry.item,
-                    switch (action) {
-                      'move' => ScheduleEditMode.move,
-                      'resizeStart' => ScheduleEditMode.resizeStart,
-                      'resizeEnd' => ScheduleEditMode.resizeEnd,
-                      _ => ScheduleEditMode.edit,
-                    },
-                    revision: current.scheduleRevisionFor(id),
-                    delete: action == 'delete',
-                  );
-                },
-                icon: const Icon(Icons.more_horiz),
+                key: const ValueKey('schedule-detail-close'),
+                onPressed: () => Navigator.pop(context),
+                child: Text(t['close']!),
               ),
             ],
-            TextButton(
-              key: const ValueKey('schedule-detail-close'),
-              onPressed: () => Navigator.pop(context),
-              child: Text(t['close']!),
-            ),
-          ],
-        );
-      }
+          );
+        }
 
-      return liveStore == null
-          ? detail()
-          : ListenableBuilder(
-              listenable: liveStore,
-              builder: (_, _) => detail(),
-            );
-    },
-  );
+        return liveStore == null
+            ? detail()
+            : ListenableBuilder(
+                listenable: liveStore,
+                builder: (_, _) => detail(),
+              );
+      },
+    );
+    if (!mounted) return;
+    if (action == 'handles') {
+      setState(() => _adjustingId = id);
+    } else if (action != null && liveStore != null && chosenItem != null) {
+      await _edit(
+        liveStore,
+        chosenItem!,
+        switch (action) {
+          'move' => ScheduleEditMode.move,
+          'resizeStart' => ScheduleEditMode.resizeStart,
+          'resizeEnd' => ScheduleEditMode.resizeEnd,
+          _ => ScheduleEditMode.edit,
+        },
+        revision: chosenRevision,
+        delete: action == 'delete',
+      );
+    }
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final removed =
+          liveStore != null &&
+          !liveStore.scheduleItems.any((item) => item.id == id);
+      if (!removed && origin?.context != null && origin!.canRequestFocus) {
+        origin.requestFocus();
+      } else if (liveStore != null) {
+        _addFocus.requestFocus();
+        final addContext = _addFocus.context;
+        if (addContext != null) {
+          Scrollable.ensureVisible(
+            addContext,
+            duration: const Duration(milliseconds: 150),
+          );
+        }
+      }
+    });
+    // A read-only dialog may close without another frame being scheduled.
+    WidgetsBinding.instance.scheduleFrame();
+  }
 }
 
 /// Opens the schedule for the live library. Every entry point uses this so the
