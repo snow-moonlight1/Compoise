@@ -5,6 +5,10 @@ import 'package:matrixflow_native/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Creates a Store backed by mock SharedPreferences with the given seed data.
+///
+/// [saveWriter] replaces the Store's own write path, so a test can see exactly
+/// when the library bytes reach the mock platform store. It defaults to null,
+/// which keeps every existing caller on the plain SharedPreferences route.
 Future<(Store, Map<String, Object>)> makeStore({
   List<Board>? boards,
   List<Task>? tasks,
@@ -12,6 +16,7 @@ Future<(Store, Map<String, Object>)> makeStore({
   AIConfig? aiConfig,
   List<Locale>? deviceLocales,
   bool hasSeenOnboarding = true,
+  SaveWrite? saveWriter,
 }) async {
   final backend = <String, Object>{
     if (boards != null) 'matrixflow-boards': jsonEncode(boards.map((b) => b.toJson()).toList()),
@@ -21,7 +26,10 @@ Future<(Store, Map<String, Object>)> makeStore({
     'matrixflow-has-seen-onboarding': hasSeenOnboarding,
   };
   SharedPreferences.setMockInitialValues(backend);
-  final store = Store(deviceLocales: deviceLocales);
+  final store = Store(
+    deviceLocales: deviceLocales,
+    saveWriter: saveWriter,
+  );
   await store.init();
   return (store, backend);
 }
