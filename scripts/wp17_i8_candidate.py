@@ -46,7 +46,9 @@ def inspect(bundle: Path, platform: str, enabled: bool, assets: Path | None) -> 
     if platform.startswith("android"):
         with zipfile.ZipFile(bundle) as archive:
             names = archive.namelist()
-            if len(names) != len(set(n.casefold() for n in names)):
+            # APK paths are case-sensitive. Java dependencies legitimately
+            # include META-INF/LICENSE and META-INF/license as separate files.
+            if len(names) != len(set(names)):
                 raise PreparationError("duplicate APK entries")
             files = {n: archive.read(n) for n in names if not n.endswith("/")}
         if (b"APK Sig Block 42" in bundle.read_bytes() or
@@ -203,16 +205,20 @@ def main() -> int:
         # cache in this disposable mirror's launcher before Gradle starts.
         launcher = mirror / "android" / ("gradlew.bat" if os.name == "nt" else "gradlew")
         original = launcher.read_text()
+        java_options = f'-Djava.io.tmpdir="{tmp}" -Duser.home="{private / "java-home"}"'
+        (private / "java-home").mkdir(exist_ok=True)
         if os.name == "nt":
-            cache_line = f'@set "GRADLE_USER_HOME={private / "gradle"}"\n'
+            cache_line = f'@set "GRADLE_USER_HOME={private / "gradle"}"\n@set JAVA_OPTS={java_options}\n'
             launcher.write_text(cache_line + original)
         else:
             lines = original.splitlines(keepends=True)
             lines.insert(1, "export GRADLE_USER_HOME=" + shlex.quote(str(private / "gradle")) + "\n")
+            lines.insert(2, "export JAVA_OPTS=" + shlex.quote(java_options) + "\n")
             launcher.write_text("".join(lines))
             launcher.chmod(0o755)
         with (mirror / "android/gradle.properties").open("a") as stream:
-            stream.write("\norg.gradle.workers.max=2\norg.gradle.daemon=false\n")
+            stream.write("\norg.gradle.workers.max=2\norg.gradle.daemon=false\nkotlin.compiler.execution.strategy=in-process\n")
+            stream.write(f"org.gradle.jvmargs=-Xmx4G -Djava.io.tmpdir=\"{tmp}\" -Duser.home=\"{private / 'java-home'}\"\n")
         run([args.flutter, "build", "apk", "--release", "--no-pub", "--no-tree-shake-icons", "--target-platform", target, "-t", "lib/main.dart"], mirror)
         built = mirror / "build/app/outputs/flutter-apk/app-release.apk"
     else:

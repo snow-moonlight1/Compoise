@@ -84,6 +84,8 @@ class Resources(test_ocr_bundle.OfficialBundleTest):
                     if p.is_file():
                         archive.write(p, "assets/wp17-ocr/" + p.relative_to(root).as_posix())
                 archive.writestr("lib/arm64-v8a/libmatrixflow_ocr.so", elf)
+                archive.writestr("META-INF/LICENSE", "upstream licence A")
+                archive.writestr("META-INF/license", "upstream licence B")
         write_apk(62)
         with self.assertRaisesRegex(candidate.PreparationError, "ABI"):
             candidate.inspect(apk, "android-arm64-v8a", True, root)
