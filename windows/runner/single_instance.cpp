@@ -266,7 +266,9 @@ void ActivateForeignWindow(uint64_t raw) {
   if (window == nullptr || !IsWindow(window)) return;
   DWORD process_id = 0;
   GetWindowThreadProcessId(window, &process_id);
+#ifndef WP28_U2_HARNESS
   if (process_id != 0) AllowSetForegroundWindow(process_id);
+#endif
   SingleInstanceRestoreWindow(window);
 }
 
@@ -448,12 +450,16 @@ std::string SingleInstanceScope() {
 
 void SingleInstanceRestoreWindow(HWND window) {
   if (window == nullptr || !IsWindow(window)) return;
+#ifdef WP28_U2_HARNESS
+  ShowWindow(window, SW_SHOWNOACTIVATE);
+#else
   if (IsIconic(window)) {
     ShowWindow(window, SW_RESTORE);
   } else {
     ShowWindow(window, SW_SHOW);
   }
   SetForegroundWindow(window);
+#endif
 }
 
 void SingleInstanceDrainOnUiThread() {

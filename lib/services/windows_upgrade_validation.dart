@@ -11,6 +11,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
 // ignore: depend_on_referenced_packages
@@ -27,9 +28,11 @@ import 'package:window_manager/window_manager.dart';
 import '../models.dart';
 import '../schedule_item.dart';
 import '../storage.dart';
+import '../screenshot_import/screenshot_submission.dart';
 import 'desktop_shell_service.dart';
 import 'single_instance.dart';
 import 'windows_data_upgrade.dart';
+import 'windows_upgrade_validation_fixture.dart';
 
 class _ValidationPaths extends PathProviderWindows {
   final String root;
@@ -53,6 +56,8 @@ class WindowsUpgradeValidation {
   int _preparation = 0;
   bool _commandBusy = false;
   bool _failCopyOnce = false;
+  bool _failPointer = false;
+  static const _native = MethodChannel('matrixflow/single_instance');
 
   WindowsUpgradeValidation._(this.root, this.scenario);
 
@@ -69,13 +74,18 @@ class WindowsUpgradeValidation {
         'Explicit isolated validation root and namespace required',
       );
     }
+    if (!await Directory(injected).exists()) {
+      throw StateError('Validation root must be an existing directory');
+    }
     final actual = await Directory(injected).resolveSymbolicLinks();
     final temp = await Directory.systemTemp.resolveSymbolicLinks();
-    if (!p.isWithin(temp, actual) ||
+    if (Platform.environment['WP28_U2_RUN'] != '1' ||
+        !p.equals(p.dirname(actual), temp) ||
         p.basename(actual) != 'wp28-u2-device-$namespace' ||
         !p.equals(p.normalize(p.absolute(injected)), actual)) {
       throw StateError('Refusing a non-isolated validation root');
     }
+    await _checkNative(actual, namespace);
     final request =
         jsonDecode(await File(p.join(actual, 'fixture.json')).readAsString())
             as Map;
@@ -105,45 +115,32 @@ class WindowsUpgradeValidation {
     return session;
   }
 
-  Map<String, String> _syntheticValues() => {
-    'matrixflow-tasks': jsonEncode([
-      Task(
-        id: 'synthetic-task',
-        boardId: 'synthetic-board',
-        title: 'Synthetic task',
-        quadrant: 2,
-        createdAt: 1,
-        plannedDate: 1790812800000,
-        deadline: 2000000000000,
-        notesMarkdown: 'Synthetic private note',
-        subtasks: [SubTask(id: 'synthetic-subtask', title: 'Synthetic child')],
-      ).toJson(),
-    ]),
-    'matrixflow-boards': jsonEncode([
-      Board(
-        id: 'synthetic-board',
-        name: 'Synthetic board',
-        createdAt: 1,
-      ).toJson(),
-    ]),
-    'matrixflow-config': jsonEncode(
-      AIConfig(model: 'synthetic-model').toJson(includeCredential: false),
-    ),
-    'matrixflow-settings': jsonEncode(
-      AppSettings(language: Language.en, globalShortcut: '').toJson(),
-    ),
-    'matrixflow-active-board': 'synthetic-board',
-    'matrixflow-has-seen-onboarding': 'true',
-    SaveProtocol.scheduleKey: jsonEncode([
-      ScheduleItem.timeBlock(
-        id: 'synthetic-block',
-        taskId: 'synthetic-task',
-        startAt: 1790812800000,
-        endAt: 1790816400000,
-        timeZoneId: 'Asia/Shanghai',
-      ).toJson(),
-    ]),
-  };
+  static Future<Map<String, Object?>> _checkNative(
+    String root,
+    String namespace,
+  ) async {
+    final status = await _native.invokeMapMethod<String, Object?>(
+      'wp28U2Status',
+    );
+    if (status == null ||
+        status['nativeGate'] != true ||
+        status['privateDesktop'] != true ||
+        status['foregroundOwned'] != false ||
+        status['pid'] != pid ||
+        status['root'] != root ||
+        status['namespace'] != namespace ||
+        status['desktop'] != 'wp28-u2-$namespace') {
+      throw StateError('Native desktop isolation was not verified');
+    }
+    return status;
+  }
+
+  Future<bool> write(String key, String value) async {
+    if (_failPointer && key == SaveProtocol.pointerKey) return false;
+    return (await SharedPreferences.getInstance()).setString(key, value);
+  }
+
+  Map<String, String> _syntheticValues() => r2SyntheticValues();
 
   Map<String, Object> _envelope(Map<String, String> values) => {
     for (final e in values.entries)
@@ -154,12 +151,137 @@ class WindowsUpgradeValidation {
 
   Future<void> _seed() async {
     if (await File(p.join(root, 'seeded')).exists()) return;
+    final target = File(
+      p.join(paths.current, WindowsDataUpgrade.preferencesName),
+    );
+    await Directory(paths.current).create(recursive: true);
+    if (scenario == 'backup-v3') {
+      final empty = _syntheticValues()
+        ..['matrixflow-tasks'] = '[]'
+        ..[SaveProtocol.scheduleKey] = '[]';
+      await target.writeAsString(jsonEncode(_envelope(empty)), flush: true);
+      await File(
+        p.join(root, 'seeded'),
+      ).writeAsString('synthetic', flush: true);
+      return;
+    }
+    final values = _syntheticValues();
+    await target.writeAsString(jsonEncode(_envelope(values)), flush: true);
+    SharedPreferences.resetStatic();
+    SharedPreferencesStorePlatform.instance = SharedPreferencesWindows()
+      ..pathProvider = _ValidationPaths(root);
+    final seededStore = Store(
+      reminders: NoopReminderService(),
+      credentialStore: R2SeedCredentials(),
+      saveWriter: write,
+    );
+    try {
+      await seededStore.init();
+      if (!(await seededStore.flush()).success) throw StateError('Seed failed');
+      final prefs = await SharedPreferences.getInstance();
+      final before = jsonEncode(r2Library(seededStore));
+      final committedBefore = SaveProtocol(prefs).load()!;
+      final batch = r2ScreenshotBatch('synthetic-second-board');
+      final submitted = batch.snapshot(); // Public detached ImportSubmission.
+      var allocated = 0;
+      final submission = ScreenshotSubmission(
+        batch,
+        idFactory: () => 'synthetic-screenshot-${allocated++}',
+      );
+      _failPointer = true;
+      var rejected = false;
+      try {
+        await submission.commit(seededStore, submitted);
+      } on StateError {
+        rejected = true;
+      }
+      final failedBatch = SaveProtocol(prefs).load()!;
+      if (!rejected ||
+          before != jsonEncode(r2Library(seededStore)) ||
+          committedBefore.revision != failedBatch.revision ||
+          jsonEncode(committedBefore.values) !=
+              jsonEncode(failedBatch.values) ||
+          allocated != 2) {
+        throw StateError('Screenshot transaction did not roll back');
+      }
+      _failPointer = false;
+      await submission.commit(seededStore, submitted);
+      await submission.commit(seededStore, submitted);
+      final imported = seededStore.tasks.singleWhere(
+        (task) => task.id == 'synthetic-screenshot-0',
+      );
+      if (allocated != 2 ||
+          imported.subtasks.single.id != 'synthetic-screenshot-1' ||
+          imported.deadline != null ||
+          imported.plannedDate != null ||
+          imported.reminderAt != null ||
+          !imported.subtasks.single.completed ||
+          imported.notesMarkdown != r2DateNotes ||
+          imported.subtasks.single.notesMarkdown != r2ChildDateNotes ||
+          imported.subtasks.single.deadline != null ||
+          imported.subtasks.single.reminderAt != null ||
+          jsonEncode(imported.toJson()).contains('synthetic-image')) {
+        throw StateError('Screenshot retry changed ids or inferred a date');
+      }
+      seededStore.addScheduleItem(
+        ScheduleItem.timeBlock(
+          id: 'synthetic-screenshot-block',
+          taskId: imported.id,
+          startAt: 1790812800000,
+          endAt: 1790816400000,
+          timeZoneId: 'Asia/Shanghai',
+        ),
+      );
+      seededStore.addScheduleItem(
+        ScheduleItem.event(
+          id: 'synthetic-empty-board-event',
+          title: 'Independent event on an empty board',
+          boardId: 'synthetic-empty-board',
+          startAt: 1790812800000,
+          endAt: 1790816400000,
+          timeZoneId: 'Asia/Tokyo',
+        ),
+      );
+      if (!(await seededStore.flush()).success) {
+        throw StateError('Seed save failed');
+      }
+      values.addAll(SaveProtocol(prefs).load()!.values);
+      await _report('screenshot-transaction', {
+        'passed': true,
+        'publicSubmission': true,
+        'ocrLoaded': false,
+        'rejectedPointerCommit': rejected,
+        'statePreservedOnFailure': true,
+        'committedRevisionOnFailure': failedBatch.revision,
+        'before': jsonDecode(before),
+        'afterFailure': r2LibraryFromValues(failedBatch.values),
+        'committedBefore': committedBefore.values,
+        'committedAfterFailure': failedBatch.values,
+        'stableIds': [imported.id, imported.subtasks.single.id],
+        'dateText': r2DateText,
+        'childDateText': r2ChildDateText,
+        'imported': imported.toJson(),
+      });
+    } finally {
+      _failPointer = false;
+      seededStore.dispose();
+    }
+    final legacy = scenario.startsWith('legacy-');
+    if (legacy) values.remove(SaveProtocol.scheduleKey);
+    await File(
+      p.join(root, 'expected-library.json'),
+    ).writeAsString(jsonEncode(r2LibraryFromValues(values)), flush: true);
     await Directory(paths.source).create(recursive: true);
     final source = File(
       p.join(paths.source, WindowsDataUpgrade.preferencesName),
     );
-    final envelope = _envelope(_syntheticValues());
-    if (scenario == 'slots') {
+    final envelope = _envelope(values);
+    if (scenario == 'slots' ||
+        scenario == 'legacy-slots' ||
+        scenario == 'slot-schedule-corrupt') {
+      if (scenario == 'slot-schedule-corrupt') {
+        values[SaveProtocol.scheduleKey] = '[broken';
+      }
       SharedPreferences.resetStatic();
       SharedPreferencesStorePlatform.instance = SharedPreferencesWindows()
         ..pathProvider = _ValidationPaths(root);
@@ -167,17 +289,16 @@ class WindowsUpgradeValidation {
       // the two slots with the real protocol, then place that synthetic file.
       final prefs = await SharedPreferences.getInstance();
       final protocol = SaveProtocol(prefs);
-      await protocol.commit(_syntheticValues());
-      await protocol.commit(_syntheticValues());
+      // Load the real pointer first; don't replace the currently selected slot.
+      protocol.load();
+      await protocol.commit(values);
+      await protocol.commit(values);
       await source.writeAsBytes(
         await File(
           p.join(paths.current, WindowsDataUpgrade.preferencesName),
         ).readAsBytes(),
         flush: true,
       );
-      await File(
-        p.join(paths.current, WindowsDataUpgrade.preferencesName),
-      ).delete();
     } else if (scenario != 'credentials-only') {
       if (scenario == 'corrupt') {
         envelope['flutter.matrixflow-tasks'] = '[broken';
@@ -185,20 +306,26 @@ class WindowsUpgradeValidation {
       if (scenario == 'pointer') {
         envelope['flutter.matrixflow-save-pointer'] = 'invalid';
       }
+      if (scenario == 'schedule-corrupt') {
+        envelope['flutter.${SaveProtocol.scheduleKey}'] = '[broken';
+      }
       await source.writeAsString(
         scenario == 'envelope' ? '{broken' : jsonEncode(envelope),
         flush: true,
       );
     }
+    await target.delete();
     await File(
       p.join(paths.source, 'flutter_secure_storage.dat'),
     ).writeAsString('SYNTHETIC_OLD_ENCRYPTED_FILE_NEVER_READ', flush: true);
-    if (scenario == 'empty' || scenario == 'current') {
+    if (scenario == 'empty' ||
+        scenario == 'current' ||
+        scenario == 'current-corrupt') {
       await Directory(paths.current).create(recursive: true);
       final target = scenario == 'empty'
           ? <String, Object>{}
           : _envelope(
-              _syntheticValues()
+              values
                 ..['matrixflow-tasks'] = jsonEncode([
                   Task(
                     id: 'synthetic-current',
@@ -212,7 +339,15 @@ class WindowsUpgradeValidation {
             );
       await File(
         p.join(paths.current, WindowsDataUpgrade.preferencesName),
-      ).writeAsString(jsonEncode(target), flush: true);
+      ).writeAsString(
+        scenario == 'current-corrupt' ? '{broken' : jsonEncode(target),
+        flush: true,
+      );
+      if (scenario == 'current') {
+        await File(
+          p.join(root, 'expected-current.json'),
+        ).writeAsString(jsonEncode(r2LibraryFromValues(values)), flush: true);
+      }
     }
     await File(p.join(root, 'seeded')).writeAsString('synthetic', flush: true);
   }
@@ -250,7 +385,24 @@ class WindowsUpgradeValidation {
 
   Future<void> onStoreReady(Store value) async {
     store = value;
+    if (!value.hasStartupRecovery && !(await value.flush()).success) {
+      throw StateError('Isolated Store startup save failed');
+    }
     await _report('ready', await _library());
+  }
+
+  Future<void> waitForStoreApproval() async {
+    // Let the controller measure the published upgrade file before Store can
+    // write it. A Windows evidence reader must not hold a deny-write file
+    // handle across the real preferences plugin's startup commit.
+    final approved = File(p.join(root, 'store-open-approved-$pid'));
+    final deadline = DateTime.now().add(const Duration(seconds: 30));
+    while (!await approved.exists()) {
+      if (DateTime.now().isAfter(deadline)) {
+        throw StateError('Isolated Store approval timed out');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
   }
 
   Future<Map<String, Object?>> _library() async {
@@ -280,9 +432,18 @@ class WindowsUpgradeValidation {
   }
 
   Future<void> _report(String name, Map<String, Object?> values) async {
+    final native = await _checkNative(
+      root,
+      p.basename(root).substring('wp28-u2-device-'.length),
+    );
     final stage = File(p.join(root, '$name-$pid.stage'));
     await stage.writeAsString(
-      jsonEncode({'pid': pid, 'scenario': scenario, ...values}),
+      jsonEncode({
+        'pid': pid,
+        'scenario': scenario,
+        'native': native,
+        ...values,
+      }),
       flush: true,
     );
     await stage.rename(p.join(root, '$name-$pid.json'));
@@ -341,6 +502,91 @@ class WindowsUpgradeValidation {
           await _tap('Retry upgrade');
         case 'observe':
           break;
+        case 'export-backups':
+          await File(
+            p.join(root, 'backup-v3.json'),
+          ).writeAsString(store!.exportJson(), flush: true);
+          for (final version in [1, 2]) {
+            var loss = -1;
+            try {
+              store!.exportJson(version: version);
+            } on ScheduleExportLossException catch (error) {
+              loss = error.lostScheduleItems;
+            }
+            if (store!.scheduleItems.isNotEmpty &&
+                loss != store!.scheduleItems.length) {
+              throw StateError('Legacy export did not report schedule loss');
+            }
+            final result = store!.exportJsonResult(
+              version: version,
+              allowScheduleLoss: true,
+            );
+            await File(
+              p.join(root, 'backup-v$version.json'),
+            ).writeAsString(result.json, flush: true);
+            await _report('downgrade-v$version', {
+              'ordinaryExportBlocked': loss > 0,
+              'lostScheduleItems': result.lostScheduleItems,
+              'lossNotice':
+                  'Explicit downgrade loses ${result.lostScheduleItems} schedule records; v1 also loses v2 task fields.',
+            });
+          }
+        case 'import-v1':
+        case 'import-v2':
+        case 'import-v3':
+          final backup = ImportPreflight.decode(
+            await File(
+              p.join(root, 'backup-${action.substring(7)}.json'),
+            ).readAsBytes(),
+          );
+          final plan = store!.previewImport(backup, 'overwrite');
+          if (plan.conflicts != 0 ||
+              !(await store!.applyImport(plan)).success) {
+            throw StateError('Native backup import failed');
+          }
+          final expectedTasks = (backup['tasks'] as List)
+              .map(
+                (task) => Task.fromJson(
+                  Map<String, dynamic>.from(task as Map),
+                ).toJson(),
+              )
+              .toList();
+          if (jsonEncode(expectedTasks) !=
+              jsonEncode(store!.tasks.map((task) => task.toJson()).toList())) {
+            throw StateError('Native backup task fields differ');
+          }
+        case 'import-failure-retry':
+          final before = r2Library(store!);
+          final prefs = await SharedPreferences.getInstance();
+          final prior = SaveProtocol(prefs).load()!;
+          final payload =
+              jsonDecode(store!.exportJson()) as Map<String, dynamic>;
+          (payload['tasks'] as List).first['title'] =
+              'Synthetic transaction retry';
+          final plan = store!.previewImport(payload, 'overwrite');
+          _failPointer = true;
+          final failed = await store!.applyImport(plan);
+          final after = SaveProtocol(prefs).load()!;
+          if (failed.success ||
+              jsonEncode(before) != jsonEncode(r2Library(store!)) ||
+              prior.revision != after.revision ||
+              jsonEncode(prior.values) != jsonEncode(after.values)) {
+            throw StateError('Native import failure changed committed state');
+          }
+          await _report('failed-import', {
+            'passed': true,
+            'commitRejected': true,
+            'memoryPreserved': true,
+            'committedStatePreserved': true,
+            'before': before,
+            'after': r2Library(store!),
+            'committedBefore': prior.values,
+            'committedAfter': after.values,
+          });
+          _failPointer = false;
+          if (!(await store!.applyImport(plan)).success) {
+            throw StateError('Native import retry failed');
+          }
         case 'configure':
         case 'delete':
           final config =
@@ -354,11 +600,11 @@ class WindowsUpgradeValidation {
             throw StateError('Synthetic secure configuration failed');
           }
         case 'modify':
-          final task = Task.fromJson(store!.tasks.single.toJson())
+          final task = Task.fromJson(store!.tasks.first.toJson())
             ..title = 'Synthetic edited task'
             ..plannedDate = 1790899200000;
           store!.updateTask(task);
-          final item = store!.scheduleItems.single;
+          final item = store!.scheduleItems.first;
           if (!store!.updateScheduleItem(
             ScheduleItem.fromJson({
               ...item.toJson(),
@@ -400,10 +646,12 @@ class WindowsUpgradeValidation {
         'action': action,
         ...await _library(),
       });
-    } catch (_) {
+    } catch (error, stack) {
+      _failPointer = false;
       await _report('command-$_lastCommand', {
         'passed': false,
-        'failure': 'Isolated validation command failed',
+        'failure': 'Isolated validation command failed: $error',
+        'stack': '$stack',
       });
     } finally {
       _commandBusy = false;
@@ -444,6 +692,7 @@ class _RacedPublish extends WindowsUpgradeFiles {
     await File(
       target,
     ).writeAsString(jsonEncode(session._envelope(values)), flush: true);
+    await session._report('raced-current', r2LibraryFromValues(values));
     // Exercise the actual no-replace OS publish failure and production retry.
     await super.publish(staged, target);
   }

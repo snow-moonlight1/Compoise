@@ -6,6 +6,7 @@
 #include "single_instance.h"
 #include "utils.h"
 #include "wp15_d3_validation.h"
+#include "wp28_u2_desktop.h"
 
 #include <vector>
 
@@ -141,8 +142,14 @@ bool FlutterWindow::OnCreate() {
           std::make_unique<flutter::EncodableValue>(encoded));
     }
   });
-  single_instance_channel_->SetMethodCallHandler([](const auto& call,
+  single_instance_channel_->SetMethodCallHandler([this](const auto& call,
                                                     auto result) {
+#ifdef WP28_U2_HARNESS
+    if (call.method_name() == "wp28U2Status") {
+      result->Success(flutter::EncodableValue(Wp28U2DesktopStatus(GetHandle())));
+      return;
+    }
+#endif
     if (call.method_name() == "listen") {
       const auto pending = SingleInstanceListenAndTakePending();
       flutter::EncodableList batch;
@@ -239,7 +246,7 @@ bool FlutterWindow::OnCreate() {
 #endif
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-#ifdef WP15_D3_DEVICE
+#if defined(WP15_D3_DEVICE) || defined(WP28_U2_HARNESS)
     ::ShowWindow(GetHandle(), SW_SHOWNOACTIVATE);
     ::SetWindowPos(GetHandle(), HWND_BOTTOM, 0, 0, 0, 0,
                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);

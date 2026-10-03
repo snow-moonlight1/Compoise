@@ -6,6 +6,7 @@
 #include "single_instance.h"
 #include "utils.h"
 #include "wp15_d3_validation.h"
+#include "wp28_u2_desktop.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
@@ -17,6 +18,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
 #ifdef WP15_D3_DEVICE
   if (!Wp15D3ClaimIsolatedProcess()) return 2;
+#endif
+#ifdef WP28_U2_HARNESS
+  if (!Wp28U2ClaimDesktop()) return 2;
 #endif
 
   // Initialize COM, so that it is available for use in the library and/or
@@ -32,6 +36,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   int forwarded_exit = EXIT_SUCCESS;
   if (!SingleInstanceClaim(command_line_arguments, &forwarded_exit)) {
     ::CoUninitialize();
+#ifdef WP28_U2_HARNESS
+    Wp28U2ReleaseDesktop();
+#endif
     return forwarded_exit;
   }
 
@@ -48,6 +55,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::CoUninitialize();
 #ifdef WP15_D3_DEVICE
     Wp15D3ReleaseIsolatedProcess();
+#endif
+#ifdef WP28_U2_HARNESS
+    Wp28U2ReleaseDesktop();
 #endif
     return EXIT_FAILURE;
   }
@@ -69,6 +79,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   WindowsValidationTrace("COM uninitialize end");
 #ifdef WP15_D3_DEVICE
   Wp15D3ReleaseIsolatedProcess();
+#endif
+#ifdef WP28_U2_HARNESS
+  Wp28U2ReleaseDesktop();
 #endif
   return EXIT_SUCCESS;
 }

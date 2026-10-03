@@ -46,10 +46,14 @@ Future<void> main([List<String> args = const <String>[]]) async {
       // No Store has opened, so there is no pending save to flush here.
       closeBeforeStore: windowManager.destroy,
       openApplication: () async {
+        if (validation != null) {
+          await validation.waitForStoreApproval();
+        }
         await reminders.init();
         return MatrixFlowApp(
           reminders: reminders,
           persistence: persistence,
+          saveWriter: validation?.write,
           acknowledgeWindowsCredentialNotice: noticeConfirmed,
           windowsCredentialsRequiredOnOpen:
               upgradeResult?.credentialsNeedSetup ?? false,
@@ -68,6 +72,7 @@ class MatrixFlowApp extends StatelessWidget {
   final List<Locale>? deviceLocales;
   final ReminderService? reminders;
   final StorePersistence? persistence;
+  final SaveWrite? saveWriter;
   final bool acknowledgeWindowsCredentialNotice;
   final bool windowsCredentialsRequiredOnOpen;
   final Future<void> Function(Store)? onStoreReady;
@@ -76,6 +81,7 @@ class MatrixFlowApp extends StatelessWidget {
     this.deviceLocales,
     this.reminders,
     this.persistence,
+    this.saveWriter,
     this.acknowledgeWindowsCredentialNotice = false,
     this.windowsCredentialsRequiredOnOpen = false,
     this.onStoreReady,
@@ -89,6 +95,7 @@ class MatrixFlowApp extends StatelessWidget {
           deviceLocales: deviceLocales,
           reminders: reminders,
           persistence: persistence,
+          saveWriter: saveWriter,
           windowsCredentialsRequiredOnOpen: windowsCredentialsRequiredOnOpen,
         );
         store.init().then((_) async {

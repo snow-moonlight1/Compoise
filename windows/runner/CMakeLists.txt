@@ -9,6 +9,7 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "wp15_d3_validation.cpp"
+  "wp28_u2_desktop.cpp"
   "main.cpp"
   "single_instance.cpp"
   "utils.cpp"
