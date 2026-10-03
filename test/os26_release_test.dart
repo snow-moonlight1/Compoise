@@ -76,20 +76,27 @@ void main() {
     expect(release.contains('needs: preflight'), isTrue);
     expect('needs: preflight'.allMatches(release).length, 3);
     expect(release.contains('build-linux:'), isTrue);
-    expect(release.contains('needs: [preflight, build-android, build-windows, build-linux]'), isTrue);
+    expect(
+      release.contains(
+        'needs: [preflight, build-android, build-windows, build-linux]',
+      ),
+      isTrue,
+    );
     expect(release.contains('Verify tag against pubspec.yaml'), isTrue);
     expect(release.contains('-ValidateOnly'), isTrue);
     expect(release.contains('-ExpectedTag'), isTrue);
 
     // The Android build still opts into the formal signing gate.
-    final androidBuild = release.split('Build Android Release APK').last;
+    final androidBuild = release
+        .split('Build and validate Android Release APK')
+        .last;
     expect(androidBuild.contains("REQUIRE_RELEASE_SIGNING: 'true'"), isTrue);
-    expect(androidBuild.contains('flutter build apk --release'), isTrue);
+    expect(androidBuild.contains('-Platform Android'), isTrue);
     expect(
       androidBuild.indexOf("REQUIRE_RELEASE_SIGNING: 'true'"),
-      lessThan(androidBuild.indexOf('flutter build apk --release')),
+      lessThan(androidBuild.indexOf('-Platform Android')),
     );
-    expect(release.contains('CN=Android Debug'), isTrue);
+    expect(script.contains('CN=Android Debug'), isTrue);
     expect(release.contains('apksigner'), isTrue);
 
     expect(
@@ -97,26 +104,25 @@ void main() {
       isTrue,
     );
     expect(release.contains('steps.version.outputs.BUILD'), isTrue);
-    expect(
-      release.contains('\${ANDROID_SDK_ROOT:-\${ANDROID_HOME:-}}'),
-      isTrue,
-    );
+    expect(script.contains("'ANDROID_HOME', 'ANDROID_SDK_ROOT'"), isTrue);
 
-    // Checksums are generated for the two binaries plus the metadata record,
-    // and re-verified inside the job before anything is uploaded.
+    // Both jobs and assembly use the same executable validator; its real
+    // positive/negative cases run in preflight without production secrets.
     expect(
-      release.contains(
-        "printf '%s\\n' \"\$artifacts\" RELEASE_METADATA.txt | sort | "
-        'xargs -d \'\\n\' sha256sum > SHA256SUMS.txt',
-      ),
+      release.contains('python scripts/release_candidate.py assemble'),
       isTrue,
     );
-    expect(release.contains('sha256sum -c --strict SHA256SUMS.txt'), isTrue);
     expect(
-      release.contains(
-        'Refusing to publish: expected exactly one APK and one '
-        'Windows ZIP, nothing else.',
-      ),
+      release.contains('python scripts/release_candidate.py seal @gate'),
+      isTrue,
+    );
+    expect(
+      release.contains('python scripts/release_candidate.py verify @gate'),
+      isTrue,
+    );
+    expect(release.contains('test_release_candidate.py'), isTrue);
+    expect(
+      release.contains("if: github.event_name == 'push' && startsWith"),
       isTrue,
     );
     expect(release.contains('draft: true'), isTrue);
@@ -131,25 +137,17 @@ void main() {
       isTrue,
     );
     expect(
-      script.contains('Remove-Item -Path \$StagingDir -Recurse -Force'),
+      script.contains(r'Remove-Item -LiteralPath $StagingDir -Recurse -Force'),
       isTrue,
     );
-    expect(
-      script.contains('The staging directory contains an unexpected file:'),
-      isTrue,
-    );
-    expect(script.contains("'SHA256SUMS.txt'"), isTrue);
-    expect(script.contains("'RELEASE_MANIFEST.txt'"), isTrue);
-    expect(script.contains('Get-FileHash'), isTrue);
-
-    // Checksums come from this run's artifact list, not from a directory glob.
-    expect(
-      script.contains('foreach (\$Artifact in \$ExpectedArtifacts)'),
-      isTrue,
-    );
-    expect(script.contains('sha256sum *'), isFalse);
-    expect(script.contains('\$ChecksumLines = @(Get-ChildItem'), isFalse);
-
+    expect(script.contains('release_candidate.py'), isTrue);
+    expect(script.contains('seal @GateArgs'), isTrue);
+    expect(script.contains('verify @GateArgs'), isTrue);
+    final validator = text('scripts/release_candidate.py');
+    expect(validator.contains('RELEASE_MANIFEST.txt'), isTrue);
+    expect(validator.contains('RELEASE_METADATA.txt'), isTrue);
+    expect(validator.contains('SHA256SUMS.txt'), isTrue);
+    expect(validator.contains('Candidate file set differs'), isTrue);
     expect(script.contains('ExpectedTag'), isTrue);
     expect(
       script.contains(
@@ -293,10 +291,10 @@ void main() {
 
   test('release workflow traces the build and states each platform fact', () {
     // The Android gate pins the certificate, not just "not the debug key".
-    expect('secrets.ANDROID_RELEASE_CERT_SHA256'.allMatches(release).length, 2);
+    expect('secrets.ANDROID_RELEASE_CERT_SHA256'.allMatches(release).length, 4);
     expect(release.contains('Refusing to publish a debug-signed APK.'), isTrue);
-    expect(release.contains('apkSignerCheck=matches'), isTrue);
-    expect(release.contains('name: android-signing-proof'), isTrue);
+    expect(script.contains(r'SignerDigest -ne $AndroidCertSha256'), isTrue);
+    expect(release.contains('ANDROID_PROOF.json'), isTrue);
     expect(
       release.contains('without the Android signing proof'),
       isTrue,
@@ -305,9 +303,20 @@ void main() {
 
     // Published provenance: full commit, pinned toolchain, verified checksums.
     expect(release.contains('RELEASE_METADATA.txt'), isTrue);
-    expect(release.contains(r"^commit=[0-9a-f]\{40\}$"), isTrue);
-    expect(release.contains('pin flutterVersion'), isTrue);
-    expect(release.contains('rm -rf release_artifacts build_proofs'), isTrue);
+    expect(
+      text('scripts/release_candidate.py').contains('[0-9a-f]{40}'),
+      isTrue,
+    );
+    expect(
+      text('scripts/release_candidate.py').contains('toolchain.json'),
+      isTrue,
+    );
+    expect(
+      text(
+        'scripts/release_candidate.py',
+      ).contains('Assembly output already exists'),
+      isTrue,
+    );
 
     expect(release.contains('Not code-signed'), isTrue);
     expect(release.contains('linuxDesktop=preview only'), isTrue);
@@ -330,12 +339,20 @@ void main() {
     // The Linux target keeps its historical binary name; renaming it there must
     // not be confused with the Windows compoise.exe identity checked elsewhere.
     expect(
-      text('linux/CMakeLists.txt').contains('set(BINARY_NAME "matrixflow_native")'),
+      text(
+        'linux/CMakeLists.txt',
+      ).contains('set(BINARY_NAME "matrixflow_native")'),
       isTrue,
     );
 
     final published = release.split('Create GitHub Release').last;
-    for (final package in ['.deb', '.AppImage', '.tar.', 'snapcraft', 'flatpak']) {
+    for (final package in [
+      '.deb',
+      '.AppImage',
+      '.tar.',
+      'snapcraft',
+      'flatpak',
+    ]) {
       expect(published.contains(package), isFalse, reason: package);
     }
   });
@@ -343,7 +360,10 @@ void main() {
   test('packaging script stays runnable on the Linux preflight runner', () {
     expect(script.contains('function Join-RepoPath'), isTrue);
     expect(script.contains(r'[System.IO.Path]::Combine'), isTrue);
-    expect(script.contains(r'[System.IO.Path]::DirectorySeparatorChar'), isTrue);
+    expect(
+      script.contains(r'[System.IO.Path]::DirectorySeparatorChar'),
+      isTrue,
+    );
     expect(script.contains('[System.PlatformID]::Win32NT'), isTrue);
 
     // A backslash baked into a joined path silently stops existing on POSIX,
@@ -360,10 +380,7 @@ void main() {
 
     // storeFile resolves the way android/app/build.gradle.kts resolves it, so a
     // documented layout is never refused by the packaging gate.
-    expect(
-      script.contains(r"@('android', 'app', $Declared)"),
-      isTrue,
-    );
+    expect(script.contains(r"@('android', 'app', $Declared)"), isTrue);
     expect(
       script.contains(
         r"Join-RepoPath $FlutterDir @('android', 'app', 'key.properties')",
@@ -387,25 +404,34 @@ void main() {
     expect(script.contains('license=GPL-3.0-only'), isTrue);
   });
 
-  test('Windows identity fields are the library location and are documented', () {
-    // path_provider_windows builds %APPDATA%\<CompanyName>\<ProductName> from
-    // these fields, so changing either one moves the task library on upgrade.
-    expect(runnerRc.contains('"CompanyName", "Compoise"'), isTrue);
-    expect(runnerRc.contains('"ProductName", "Compoise"'), isTrue);
-    expect(script.contains(r"if ($ExeInfo.CompanyName -ne 'Compoise')"), isTrue);
-    expect(script.contains('appDataDir='), isTrue);
-    expect(release.contains('appDataDir='), isTrue);
+  test(
+    'Windows identity fields are the library location and are documented',
+    () {
+      // path_provider_windows builds %APPDATA%\<CompanyName>\<ProductName> from
+      // these fields, so changing either one moves the task library on upgrade.
+      expect(runnerRc.contains('"CompanyName", "Compoise"'), isTrue);
+      expect(runnerRc.contains('"ProductName", "Compoise"'), isTrue);
+      expect(
+        script.contains(r"if ($ExeInfo.CompanyName -ne 'Compoise')"),
+        isTrue,
+      );
+      expect(script.contains('appDataDir='), isTrue);
+      expect(release.contains('appDataDir='), isTrue);
 
-    final validation = text('docs/RELEASE_VALIDATION.md');
-    expect(validation.contains(r'%APPDATA%\Compoise\Compoise'), isTrue);
-    expect(validation.contains(r'%APPDATA%\com.matrixflow\MatrixFlow AI'), isTrue);
-    expect(validation.contains('d9e3b56'), isTrue);
-    expect(
-      text('docs/README.md').contains('RELEASE_VALIDATION.md'),
-      isTrue,
-      reason: 'the release checklist has to be reachable from the doc index',
-    );
-  });
+      final validation = text('docs/RELEASE_VALIDATION.md');
+      expect(validation.contains(r'%APPDATA%\Compoise\Compoise'), isTrue);
+      expect(
+        validation.contains(r'%APPDATA%\com.matrixflow\MatrixFlow AI'),
+        isTrue,
+      );
+      expect(validation.contains('d9e3b56'), isTrue);
+      expect(
+        text('docs/README.md').contains('RELEASE_VALIDATION.md'),
+        isTrue,
+        reason: 'the release checklist has to be reachable from the doc index',
+      );
+    },
+  );
 
   test('GPL-3.0-only is the license every release surface states', () {
     final license = text('LICENSE');

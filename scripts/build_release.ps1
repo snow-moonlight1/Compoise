@@ -4,7 +4,8 @@
 .DESCRIPTION
     Builds the Flutter Android release APK and/or the Windows portable ZIP for a
     single version, stages the artifacts in a clean per-version directory, and
-    writes SHA256SUMS.txt plus RELEASE_MANIFEST.txt.
+    writes SHA256SUMS.txt covering binaries, RELEASE_MANIFEST.txt,
+    RELEASE_METADATA.txt and hash-bound platform proofs (Python 3.9+ required).
 
     Release rules enforced by this script:
       * pubspec.yaml must declare X.Y.Z+N, and -ExpectedTag must agree with it.
@@ -13,9 +14,8 @@
       * The staging directory is recreated for every run, so Android-only,
         Windows-only, All and repeated runs never mix artifacts from older runs.
       * Secrets are never printed. Only the credential source path is reported.
-      * The Windows file version and, when the build tools exist, the APK
-        package id, versionCode and signing certificate DN are checked against
-        pubspec.yaml.
+      * Windows identity and APK package/version are checked against the source.
+        Android requires apksigner, aapt2 and a pinned release certificate.
 
     Toolchain: the Flutter version in toolchain.json is required unless
     -AllowUnpinnedSdk is explicitly supplied.
@@ -38,8 +38,10 @@
     any artifact. Signing prerequisites are reported, not enforced, so this can
     run as a preflight before credentials are installed.
 .PARAMETER AllowUnpinnedSdk
-    Continue when the active Flutter SDK does not match the OS24 pin recorded in
-    toolchain.json.
+    Permit an unpinned SDK for a ValidateOnly plan. Candidate packaging always
+    requires the exact pin in toolchain.json.
+.PARAMETER AndroidCertSha256
+    Pinned formal Android certificate SHA-256; defaults to ANDROID_RELEASE_CERT_SHA256.
 .EXAMPLE
     powershell -File scripts\build_release.ps1 -Platform Windows -ExpectedTag v1.0.0
 .EXAMPLE
@@ -70,10 +72,16 @@ param (
 
     [switch]$ValidateOnly,
 
-    [switch]$AllowUnpinnedSdk
+    [switch]$AllowUnpinnedSdk,
+
+    [string]$AndroidCertSha256 = $env:ANDROID_RELEASE_CERT_SHA256
 )
 
 $ErrorActionPreference = 'Stop'
+# Default candidates must never inherit opt-in OCR or upgrade harness builds.
+foreach ($gate in @('WP17_OCR_NCNN_DIR', 'WP17_OCR_STB_DIR', 'WP28_U2_HARNESS_BUILD')) {
+    if ([Environment]::GetEnvironmentVariable($gate)) { throw "Default release rejects active opt-in gate: $gate" }
+}
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
@@ -367,23 +375,48 @@ if ($ValidateOnly) {
         Write-Host "Windows artifact would be: $WindowsArtifactName (unsigned; Authenticode is not configured)"
     }
     Write-Host 'Linux desktop: preview only. CI compiles the release bundle to prove the toolchain still builds; this script stages and publishes no Linux artifact.'
-    Write-Host "SHA256SUMS.txt would list only the artifacts staged by that run."
+    Write-Host "SHA256SUMS.txt would cover artifacts, proofs, RELEASE_MANIFEST.txt and RELEASE_METADATA.txt."
     exit 0
 }
 
+# Canonical containment was checked above before this recursive deletion.
+if (Test-Path $StagingDir) {
+    if ((Get-Item -LiteralPath $StagingDir).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        throw 'Refusing to clean a linked staging directory.'
+    }
+    Write-Host "Cleaning previous staging directory: $StagingDir" -ForegroundColor Gray
+    Remove-Item -LiteralPath $StagingDir -Recurse -Force
+}
 if ($BuildsAndroid -and -not $SigningReady) {
     throw "Formal release signing credentials are required. $SigningProblem. Refusing to build a debug-signed release APK. See android/key.properties.example."
 }
-
-if (Test-Path $StagingDir) {
-    Write-Host "Cleaning previous staging directory: $StagingDir" -ForegroundColor Gray
-    Remove-Item -Path $StagingDir -Recurse -Force
+if ($BuildsAndroid) {
+    $AndroidCertSha256 = ($AndroidCertSha256 -replace ':', '').ToLowerInvariant()
+    if ($AndroidCertSha256 -notmatch '^[0-9a-f]{64}$') {
+        throw 'Formal Android release requires the pinned ANDROID_RELEASE_CERT_SHA256 (or -AndroidCertSha256).'
+    }
+    if (-not (Find-BuildToolsExe 'apksigner') -or -not (Find-BuildToolsExe 'aapt2')) {
+        throw 'Formal Android release requires apksigner and aapt2; unverified proofs are refused.'
+    }
+}
+if ($ToolchainPinState -ne 'matches') { throw 'Candidate packaging requires a verified pinned toolchain.' }
+$Python = (Get-Command python -ErrorAction Stop).Source
+$Validator = Join-Path $ScriptDir 'release_candidate.py'
+$GitCommit = (& git -C $ProjectRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $GitCommit -notmatch '^[0-9a-f]{40}$') { throw 'Cannot trace candidate to a full commit.' }
+$TagRecord = if ($ExpectedTag) { $ExpectedTag } else { "v$VersionLabel" }
+$SourceJson = & $Python $Validator source --directory $StagingDir --platform $Platform --tag $TagRecord --commit $GitCommit
+if ($LASTEXITCODE -ne 0) { throw 'Cannot fingerprint the candidate source.' }
+$SourceTrace = $SourceJson | ConvertFrom-Json
+$ToolchainRecord = [ordered]@{
+    flutterVersion = $FlutterInfo.frameworkVersion
+    revision = $FlutterInfo.frameworkRevision
+    engineRevision = $FlutterInfo.engineRevision
+    dartVersion = $FlutterInfo.dartSdkVersion
 }
 New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
-$ExpectedArtifacts = @()
 $AndroidProof = @()
 $WindowsProof = @()
-$WindowsSigning = 'not staged by this run'
 
 # ---------------------------------------------------------------- Android ---
 
@@ -419,7 +452,6 @@ if ($BuildsAndroid) {
 
     $ApkTarget = Join-Path $StagingDir $AndroidArtifactName
     Copy-Item -Path $ApkSource -Destination $ApkTarget -Force
-    $ExpectedArtifacts += $ApkTarget
 
     $GradlePath = Join-RepoPath $FlutterDir @('android', 'app', 'build.gradle.kts')
     $GradleText = Get-Content $GradlePath -Raw
@@ -429,57 +461,31 @@ if ($BuildsAndroid) {
     $AndroidProof += "namespace=$Namespace"
 
     $ApkSigner = Find-BuildToolsExe 'apksigner'
-    if ($ApkSigner) {
-        $SignerOutput = (& $ApkSigner verify --print-certs $ApkTarget 2>&1 | Out-String)
-        $SignerExit = $LASTEXITCODE
-        $DnMatch = [regex]::Match($SignerOutput, '(?m)^(?:Signer #1 certificate DN|V[0-9]+ Signer: certificate DN):\s*(.+)')
-        $SignerDn = if ($DnMatch.Success) { $DnMatch.Groups[1].Value.Trim() } else { 'unknown' }
-        $DigestMatch = [regex]::Match($SignerOutput, '(?im)certificate SHA-256 digest:\s*([0-9a-f]{2,})')
-        $SignerDigest = if ($DigestMatch.Success) { $DigestMatch.Groups[1].Value.Trim().ToLower() } else { 'unknown' }
-        if ($SignerExit -ne 0) {
-            if ($SignerOutput -match '(?i)does not verify|not signed|unsigned|Missing') {
-                throw "apksigner reports that $AndroidArtifactName is not properly signed. Refusing to stage it as a formal release."
-            }
-            Write-Host '  WARNING: apksigner could not verify the staged APK; recorded as unverified.' -ForegroundColor Yellow
-            $AndroidProof += 'apkSignature=unverified (apksigner could not run)'
-        } elseif ($SignerDn -match 'CN=Android Debug') {
-            throw "The staged APK is signed with the Android debug certificate (CN=Android Debug). Refusing to stage it as a formal release."
-        } elseif ($SignerDn -eq 'unknown') {
-            Write-Host '  WARNING: apksigner verified the APK but printed no signer certificate DN; the manifest records the signature as unparsed.' -ForegroundColor Yellow
-            $AndroidProof += 'apkSignature=unparsed (no signer certificate DN in apksigner output)'
-        } else {
-            $AndroidProof += "apkSignatureDN=$SignerDn"
-            $AndroidProof += "apkSignatureCertSha256=$SignerDigest"
-        }
-    } else {
-        Write-Host '  WARNING: apksigner was not found in the Android build-tools; the staged APK signature stays unverified.' -ForegroundColor Yellow
-        $AndroidProof += 'apkSignature=unverified (apksigner not found)'
-    }
-
+    $SignerOutput = (& $ApkSigner verify --print-certs $ApkTarget 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) { throw 'apksigner failed; unverified signatures cannot be staged.' }
+    $DnMatch = [regex]::Match($SignerOutput, '(?m)^(?:Signer #1 certificate DN|V[0-9]+ Signer: certificate DN):\s*(.+)')
+    $DigestMatch = [regex]::Match($SignerOutput, '(?im)certificate SHA-256 digest:\s*([0-9a-f]{64})\s*$')
+    if (-not $DnMatch.Success -or -not $DigestMatch.Success) { throw 'Missing Android signer DN or certificate SHA-256.' }
+    $SignerDn = $DnMatch.Groups[1].Value.Trim()
+    if ($SignerDn -match 'CN=Android Debug') { throw 'Debug Android certificate refused.' }
+    $SignerDigest = $DigestMatch.Groups[1].Value.ToLowerInvariant()
+    if ($SignerDigest -ne $AndroidCertSha256) { throw 'Android certificate does not match the pinned release certificate.' }
+    $AndroidProof += 'apkSignatureVerified=true'
+    $AndroidProof += "apkSignatureDN=$SignerDn"
+    $AndroidProof += "apkSignatureCertSha256=$SignerDigest"
     $Aapt2 = Find-BuildToolsExe 'aapt2'
-    if ($Aapt2) {
-        $Badging = (& $Aapt2 dump badging $ApkTarget 2>&1 | Out-String)
-        $PackageMatch = [regex]::Match($Badging, "package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'")
-        if (-not $PackageMatch.Success) {
-            $AndroidProof += 'apkPackage=unparsed'
-        } else {
-            if ($PackageMatch.Groups[1].Value -ne $ApplicationId) {
-                throw "The staged APK declares package '$($PackageMatch.Groups[1].Value)' but applicationId is '$ApplicationId'. Refusing to stage a mismatched release."
-            }
-            if ($PackageMatch.Groups[2].Value -ne "$BuildNumber") {
-                throw "The staged APK declares versionCode '$($PackageMatch.Groups[2].Value)' but pubspec.yaml declares build $BuildNumber."
-            }
-            if ($PackageMatch.Groups[3].Value -ne $AppVersion) {
-                throw "The staged APK declares versionName '$($PackageMatch.Groups[3].Value)' but pubspec.yaml declares $AppVersion."
-            }
-            $AndroidProof += "apkPackage=$($PackageMatch.Groups[1].Value)"
-            $AndroidProof += "apkVersionCode=$($PackageMatch.Groups[2].Value)"
-            $AndroidProof += "apkVersionName=$($PackageMatch.Groups[3].Value)"
-        }
-    } else {
-        Write-Host '  WARNING: aapt2 was not found in the Android build-tools; the APK package id and version stay unverified.' -ForegroundColor Yellow
-        $AndroidProof += 'apkPackage=unverified (aapt2 not found)'
+    $Badging = (& $Aapt2 dump badging $ApkTarget 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) { throw 'aapt2 failed; APK identity cannot be verified.' }
+    $PackageMatch = [regex]::Match($Badging, "package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'")
+    if (-not $PackageMatch.Success) { throw 'APK package identity could not be parsed.' }
+    if ($PackageMatch.Groups[1].Value -ne $ApplicationId -or $ApplicationId -ne 'com.matrixflow.app' -or
+        $PackageMatch.Groups[2].Value -ne "$BuildNumber" -or $PackageMatch.Groups[3].Value -ne $AppVersion) {
+        throw 'APK package/versionCode/versionName disagrees with the source.'
     }
+    $AndroidProof += "apkPackage=$($PackageMatch.Groups[1].Value)"
+    $AndroidProof += "apkVersionCode=$($PackageMatch.Groups[2].Value)"
+    $AndroidProof += "apkVersionName=$($PackageMatch.Groups[3].Value)"
+
 }
 
 # ---------------------------------------------------------------- Windows ---
@@ -528,27 +534,17 @@ if ($BuildsWindows) {
     }
 
     $Authenticode = Get-AuthenticodeSignature -FilePath $ExePath
-    # A release is either cleanly unsigned (today) or carries a valid signature;
-    # a broken or untrusted signature must never reach the staging directory.
-    switch ($Authenticode.Status) {
-        'Valid' {
-            $WindowsSigning = "signed (Authenticode valid; signer $($Authenticode.SignerCertificate.Subject))"
-        }
-        'NotSigned' {
-            $WindowsSigning = 'unsigned (Authenticode is not configured)'
-        }
-        default {
-            throw "The Windows executable reports Authenticode status '$($Authenticode.Status)'. Refusing to stage a binary whose signature is broken or untrusted."
-        }
+    # The current distribution contract is an unsigned Windows portable ZIP.
+    if ($Authenticode.Status -ne 'NotSigned') {
+        throw "The Windows executable reports Authenticode status '$($Authenticode.Status)'; this unsigned portable contract requires NotSigned."
     }
     # path_provider_windows builds the application-support directory out of
     # CompanyName and ProductName, so this pair decides which task library the
     # build opens. Changing either value moves the library: see
     # docs/RELEASE_VALIDATION.md before doing it.
-    $WindowsAppDataDir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) (Join-Path $ExeInfo.CompanyName $ExeInfo.ProductName)
     $WindowsProof += "productName=$($ExeInfo.ProductName)"
     $WindowsProof += "companyName=$($ExeInfo.CompanyName)"
-    $WindowsProof += "appDataDir=$WindowsAppDataDir"
+    $WindowsProof += 'appDataDir=%APPDATA%\Compoise\Compoise'
     $WindowsProof += "fileVersionString=$($ExeInfo.FileVersion)"
     $WindowsProof += "fileVersionNumeric=$(($NumericActual -join '.'))"
     $WindowsProof += "fileDescription=$($ExeInfo.FileDescription)"
@@ -559,7 +555,6 @@ if ($BuildsWindows) {
     $WindowsZipPath = Join-Path $StagingDir $WindowsArtifactName
     Write-Host 'Creating Windows portable ZIP archive...' -ForegroundColor Gray
     Compress-Archive -Path "$WindowsReleaseDir\*" -DestinationPath $WindowsZipPath -CompressionLevel Optimal
-    $ExpectedArtifacts += $WindowsZipPath
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $Archive = [System.IO.Compression.ZipFile]::OpenRead($WindowsZipPath)
@@ -578,84 +573,45 @@ if ($BuildsWindows) {
     $WindowsProof += "zipEntries=$($EntryNames.Count)"
 }
 
-# ------------------------------------------------- staging and checksums ----
-
-$StagedFiles = @(Get-ChildItem -Path $StagingDir -File | ForEach-Object { $_.FullName })
-$ExpectedNames = @($ExpectedArtifacts | ForEach-Object { Split-Path -Leaf $_ })
-foreach ($Staged in $StagedFiles) {
-    if ($ExpectedNames -notcontains (Split-Path -Leaf $Staged)) {
-        throw "The staging directory contains an unexpected file: $(Split-Path -Leaf $Staged). Old artifacts must not be mixed into a new release."
+# ------------------------------------------------ shared candidate gate ----
+# A proof records the same tag, complete commit and toolchain as its binary,
+# including every ZIP file hash. seal/verify are also used by CI assembly.
+function Write-PlatformProof([string]$TargetPlatform, [string[]]$Lines) {
+    $Evidence = [ordered]@{}
+    foreach ($Line in $Lines) {
+        $Pair = $Line.Split('=', 2)
+        if ($Pair.Count -eq 2) { $Evidence[$Pair[0]] = $Pair[1] }
+    }
+    $Facts = [ordered]@{
+        version = $VersionLabel; tag = $TagRecord; commit = $GitCommit
+        toolchain = $ToolchainRecord; source = $SourceTrace; evidence = $Evidence
+    }
+    $FactsPath = Join-Path ([IO.Path]::GetTempPath()) ("wp28-r1-facts-" + [Guid]::NewGuid().ToString() + '.json')
+    try {
+        $Facts | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $FactsPath -Encoding utf8
+        $BundleArgs = @()
+        if ($TargetPlatform -eq 'Windows') { $BundleArgs = @('--bundle', $WindowsReleaseDir) }
+        if ($TargetPlatform -eq 'Android') { $BundleArgs = @('--android-cert-sha256', $AndroidCertSha256) }
+        & $Python $Validator proof @BundleArgs --directory $StagingDir --platform $TargetPlatform --tag $TagRecord --commit $GitCommit --facts $FactsPath
+        if ($LASTEXITCODE -ne 0) { throw 'Platform proof generation failed.' }
+    } finally {
+        Remove-Item -LiteralPath $FactsPath -ErrorAction SilentlyContinue
     }
 }
-
-$ChecksumLines = @()
-foreach ($Artifact in $ExpectedArtifacts) {
-    $FileName = Split-Path -Leaf $Artifact
-    $FileHash = (Get-FileHash -Path $Artifact -Algorithm SHA256).Hash.ToLower()
-    $FileSize = (Get-Item $Artifact).Length
-    $ChecksumLines += "$FileHash  $FileName"
-    Write-Host ("  {0}  {1} ({2:N0} bytes)" -f $FileHash, $FileName, $FileSize) -ForegroundColor Gray
+$AfterJson = & $Python $Validator source --directory $StagingDir --platform $Platform --tag $TagRecord --commit $GitCommit
+if ($LASTEXITCODE -ne 0 -or (& git -C $ProjectRoot rev-parse HEAD).Trim() -ne $GitCommit -or ($AfterJson | ConvertFrom-Json).diffSha256 -ne $SourceTrace.diffSha256) {
+    throw 'Source changed during build; refusing candidate proofs.'
 }
-
-$ChecksumFilePath = Join-Path $StagingDir 'SHA256SUMS.txt'
-$ChecksumLines | Out-File -FilePath $ChecksumFilePath -Encoding ASCII -Force
-
-# ------------------------------------------------------------- manifest -----
-
-$GitCommit = (& git -C $ProjectRoot rev-parse HEAD 2>$null)
-$GitBranch = (& git -C $ProjectRoot rev-parse --abbrev-ref HEAD 2>$null)
-# Untracked noise counts as dirty: `flutter pub get` regenerates
-# linux/flutter/generated_*, which the repository does not track. The paths are
-# recorded so a reviewer can tell that apart from a real source change.
-$GitStatus = @(& git -C $ProjectRoot status --porcelain 2>$null)
-$GitDirty = $GitStatus.Count -gt 0
-$GitDirtyPaths = (($GitStatus | ForEach-Object { $_.Trim() }) -join ' | ')
-$TagRecord = if ($ExpectedTag) { $ExpectedTag } else { 'not-provided' }
-
-$ManifestLines = @(
-    'Compoise release manifest',
-    "version=$AppVersion",
-    "buildNumber=$BuildNumber",
-    "tag=$TagRecord",
-    "platform=$Platform",
-    "stagedAtUtc=$([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))",
-    "gitCommit=$GitCommit",
-    "gitBranch=$GitBranch",
-    "gitWorkingTreeDirty=$GitDirty",
-    "gitWorkingTreePaths=$GitDirtyPaths",
-    "flutterSdk=$FlutterSdk",
-    "flutterVersion=$FlutterVersionText",
-    "dartVersion=$DartVersionText",
-    "toolchainPinState=$ToolchainPinState",
-    "toolchainPinMatches=$($ToolchainPinState -eq 'matches')",
-    "signingSource=$SigningSource",
-    "windowsCodeSigning=$WindowsSigning",
-    'license=GPL-3.0-only',
-    ''
-)
-if ($AndroidProof.Count -gt 0) {
-    $ManifestLines += '[android]'
-    $ManifestLines += $AndroidProof
-    $ManifestLines += ''
-}
-if ($WindowsProof.Count -gt 0) {
-    $ManifestLines += '[windows]'
-    $ManifestLines += $WindowsProof
-    $ManifestLines += ''
-}
-$ManifestLines += '[artifacts]'
-foreach ($Line in $ChecksumLines) { $ManifestLines += $Line }
-$ManifestLines += ''
-$ManifestLines += 'SHA256SUMS.txt lists exactly the artifact lines above, one per staged file.'
-
-$ManifestPath = Join-Path $StagingDir 'RELEASE_MANIFEST.txt'
-$ManifestLines | Out-File -FilePath $ManifestPath -Encoding UTF8 -Force
-
-Write-Host ''
-Write-Host '=================================================' -ForegroundColor Green
-Write-Host ' Compoise packaging completed' -ForegroundColor Green
-Write-Host '=================================================' -ForegroundColor Green
+if ($BuildsAndroid) { Write-PlatformProof 'Android' $AndroidProof }
+if ($BuildsWindows) { Write-PlatformProof 'Windows' $WindowsProof }
+$GateArgs = @('--directory', $StagingDir, '--platform', $Platform, '--tag', $TagRecord, '--commit', $GitCommit)
+if ($BuildsAndroid) { $GateArgs += @('--android-cert-sha256', $AndroidCertSha256) }
+& $Python $Validator seal @GateArgs
+if ($LASTEXITCODE -ne 0) { throw 'Candidate seal failed; no success manifest is accepted.' }
+& $Python $Validator verify @GateArgs
+if ($LASTEXITCODE -ne 0) { throw 'Candidate verification failed.' }
+Write-Host 'Compoise packaging completed: shared candidate validation passed.' -ForegroundColor Green
 Write-Host "Staging dir: $StagingDir"
-Write-Host 'Manifest:    RELEASE_MANIFEST.txt'
-Write-Host 'Checksums:   SHA256SUMS.txt'
-Get-ChildItem $StagingDir | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
+Write-Host 'Manifest: RELEASE_MANIFEST.txt; metadata: RELEASE_METADATA.txt; checksums: SHA256SUMS.txt'
+Write-Host 'toolchainPinState=matches; license=GPL-3.0-only; Linux desktop: preview only.'
+Get-ChildItem -LiteralPath $StagingDir | Select-Object Name, Length | Format-Table -AutoSize

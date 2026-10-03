@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
+  workflow_dispatch: # Windows candidate only; no signing secrets or publishing
 
 # OS26 least privilege: the workflow may only read by default. The publish job
 # is the single place that asks for contents:write.
@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Run candidate validator regressions
+        run: python -m unittest discover -s scripts/tests -p "test_release_candidate.py" -v
 
       - name: Verify tag against pubspec.yaml
         shell: pwsh
@@ -41,6 +44,7 @@ jobs:
 
   build-android:
     name: Build Android Release APK
+    if: github.event_name == 'push'
     needs: preflight
     runs-on: ubuntu-latest
     steps:
@@ -128,59 +132,17 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
           echo "BUILD=$BUILD" >> "$GITHUB_OUTPUT"
 
-      - name: Build Android Release APK
+      - name: Build and validate Android Release APK
+        shell: pwsh
         env:
           REQUIRE_RELEASE_SIGNING: 'true'
-        run: flutter build apk --release --no-pub --no-tree-shake-icons
-
-      - name: Verify the APK signing certificate
-        shell: bash
-        env:
+          RELEASE_TAG: ${{ github.ref_name }}
           ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
-          set -euo pipefail
-          APK=build/app/outputs/flutter-apk/app-release.apk
-          SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-          if [ -z "$SDK_DIR" ]; then
-            echo "The Android SDK location is unknown, so the release certificate cannot be checked."
-            exit 1
-          fi
-          APKSIGNER=$(ls "$SDK_DIR"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1 || true)
-          if [ -z "$APKSIGNER" ]; then
-            echo "apksigner was not found in the Android build-tools, so the release certificate cannot be checked."
-            exit 1
-          fi
-          "$APKSIGNER" verify --print-certs "$APK" > apk-certs.txt
-          grep -E 'certificate DN|certificate SHA-256 digest' apk-certs.txt
-          if grep -q 'CN=Android Debug' apk-certs.txt; then
-            echo "The release APK is signed with the Android debug certificate. Refusing to stage it."
-            exit 1
-          fi
-          actual=$(grep -Eo 'certificate SHA-256 digest: [0-9a-fA-F]+' apk-certs.txt | head -n 1 | awk '{print $NF}' | tr 'A-Z' 'a-z')
-          expected=$(printf '%s' "$ANDROID_RELEASE_CERT_SHA256" | tr -d ':' | tr 'A-Z' 'a-z')
-          if [ -z "$actual" ] || [ -z "$expected" ]; then
-            echo "No certificate fingerprint was available, so the APK signing cannot be traced to a release key."
-            exit 1
-          fi
-          if [ "$actual" != "$expected" ]; then
-            echo "The APK is signed with certificate $actual but the pinned release certificate is $expected. Refusing to stage it."
-            exit 1
-          fi
-          {
-            echo "apkSignerCertSha256=$actual"
-            echo "apkSignerCheck=matches the pinned ANDROID_RELEASE_CERT_SHA256"
-            cat apk-certs.txt
-          } > android-signing-proof.txt
-          echo "The staged APK carries the pinned release certificate."
-
-      - name: Stage Android artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release_artifacts
-          cp build/app/outputs/flutter-apk/app-release.apk \
-            "release_artifacts/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-android.apk"
-          ls -l release_artifacts
+          # Shared local gate requires apksigner, aapt2 and the pinned certificate.
+          # Refusing to publish a debug-signed APK. Missing proof is fatal.
+          ./scripts/build_release.ps1 -Platform Android -ExpectedTag $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Remove release signing material
         if: always()
@@ -189,18 +151,11 @@ jobs:
           rm -f android/key.properties android/app/release.jks
           echo "Temporary signing material removed from the runner workspace."
 
-      - name: Upload Android APK artifact
+      - name: Upload Android APK artifact and hash-bound signing proof
         uses: actions/upload-artifact@v4
         with:
           name: android-release-apk
-          path: release_artifacts/*.apk
-          if-no-files-found: error
-
-      - name: Upload Android signing proof
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-signing-proof
-          path: android-signing-proof.txt
+          path: release_dist/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}/*
           if-no-files-found: error
 
   build-windows:
@@ -245,65 +200,28 @@ jobs:
           "VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "BUILD=$($Matches[2])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Build Windows Release
-        run: flutter build windows --release --no-pub
-
-      - name: Verify Windows file version and signature state
+      - name: Build and validate Windows portable candidate
         shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
         run: |
-          $exe = 'build/windows/x64/runner/Release/compoise.exe'
-          if (-not (Test-Path $exe)) { throw "Missing release executable: $exe" }
-          $info = (Get-Item $exe).VersionInfo
-          $expected = "${{ steps.version.outputs.VERSION }}.${{ steps.version.outputs.BUILD }}"
-          $expectedLabel = "${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}"
-          Write-Host "ProductName=$($info.ProductName) FileVersion=$($info.FileVersion) ProductVersion=$($info.ProductVersion)"
-          Write-Host "CompanyName=$($info.CompanyName) LegalCopyright=$($info.LegalCopyright)"
-          if ($info.ProductName -ne 'Compoise') { throw "Unexpected ProductName: $($info.ProductName)" }
-          if ($info.CompanyName -ne 'Compoise') { throw "Unexpected CompanyName: $($info.CompanyName)" }
-          if ($info.LegalCopyright -notmatch 'Compoise contributors') { throw "Unexpected LegalCopyright: $($info.LegalCopyright)" }
-          # path_provider_windows builds the application-support directory from
-          # CompanyName and ProductName, so this pair decides which task library
-          # the build opens. Changing it between releases moves the library and
-          # an in-place upgrade starts empty: see docs/RELEASE_VALIDATION.md.
-          Write-Host "appDataDir=$env:APPDATA\$($info.CompanyName)\$($info.ProductName)"
-          $numericVersion = "$($info.FileMajorPart).$($info.FileMinorPart).$($info.FileBuildPart).$($info.FilePrivatePart)"
-          if ($numericVersion -ne $expected) { throw "Numeric FileVersion $numericVersion does not match pubspec $expected" }
-          if (@($expected, $expectedLabel) -notcontains $info.FileVersion) { throw "FileVersion $($info.FileVersion) does not match pubspec $expectedLabel" }
-          $signature = Get-AuthenticodeSignature -FilePath $exe
-          Write-Host "Authenticode=$($signature.Status)"
-          if ($signature.Status -ne 'NotSigned') {
-            throw "This workflow does not sign Windows binaries, yet the executable reports $($signature.Status)."
-          }
-          Write-Host 'Windows binaries are unsigned on purpose; the release notes disclose this.'
+          $tag = "v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}"
+          if ($env:RELEASE_EVENT -eq 'push') { $tag = $env:RELEASE_TAG }
+          # Shared identity gate checks appDataDir=Compoise/Compoise.
+          ./scripts/build_release.ps1 -Platform Windows -ExpectedTag $tag
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Package Windows Portable ZIP
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path release_artifacts -Force | Out-Null
-          $zipPath = "release_artifacts/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}-windows-portable.zip"
-          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath $zipPath -CompressionLevel Optimal
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zipPath))
-          try {
-            # ZIP entries always use '/', independent of the host separator.
-            $names = $archive.Entries | ForEach-Object { $_.FullName -replace '\\', '/' }
-            if ($names -notcontains 'compoise.exe') { throw 'The ZIP does not contain compoise.exe.' }
-            if ($names -notcontains 'data/app.so') { throw 'The ZIP does not contain data/app.so.' }
-            Write-Host "ZIP entries: $($names.Count)"
-          } finally {
-            $archive.Dispose()
-          }
-
-      - name: Upload Windows Portable artifact
+      - name: Upload Windows Portable artifact and hash-bound proof
         uses: actions/upload-artifact@v4
         with:
           name: windows-portable-zip
-          path: release_artifacts/*.zip
+          path: release_dist/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}/*
           if-no-files-found: error
 
   build-linux:
     name: Validate Linux desktop release build
+    if: github.event_name == 'push'
     needs: preflight
     runs-on: ubuntu-24.04
     steps:
@@ -352,7 +270,7 @@ jobs:
   publish-release:
     name: Publish GitHub Release draft
     needs: [preflight, build-android, build-windows, build-linux]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     # The only job that may write to the repository.
     permissions:
@@ -367,22 +285,17 @@ jobs:
           path: build_outputs
           merge-multiple: false
 
-      - name: Assemble the release artifact set
-        shell: bash
+      - name: Assemble the release artifact set with the shared validator
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
-          set -euo pipefail
-          # A job re-run keeps the runner workspace, so start from empty: a stale
-          # binary or proof from the previous attempt must not reach the release.
-          rm -rf release_artifacts build_proofs
-          mkdir -p release_artifacts build_proofs
-          find build_outputs -type f -name 'compoise-v*-android.apk' -exec cp {} release_artifacts/ \;
-          find build_outputs -type f -name 'compoise-v*-windows-portable.zip' -exec cp {} release_artifacts/ \;
-          find build_outputs -type f -name 'android-signing-proof.txt' -exec cp {} build_proofs/ \;
-          if [ ! -f build_proofs/android-signing-proof.txt ]; then
-            echo 'Refusing to publish: without the Android signing proof the binaries cannot be traced to a release key.'
-            exit 1
-          fi
-          ls -l release_artifacts build_proofs
+          # No recursive globs or silent overwrite of stale/duplicate artifacts.
+          # This fails without the Android signing proof bound to APK and commit.
+          $commit = (git rev-parse HEAD).Trim()
+          python scripts/release_candidate.py assemble --directory release_artifacts --inputs build_outputs --platform All --tag $env:RELEASE_TAG --commit $commit --android-cert-sha256 $env:ANDROID_RELEASE_CERT_SHA256
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Write the release notes with the real platform state
         shell: bash
@@ -390,7 +303,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          signer=$(grep -E '^apkSignerCertSha256=' build_proofs/android-signing-proof.txt | cut -d= -f2)
+          signer=$(python -c 'import json; print(json.load(open("release_artifacts/ANDROID_PROOF.json"))["evidence"]["apkSignatureCertSha256"])')
           cat > release_artifacts/RELEASE_NOTES.md <<EOF
           Draft prepared by the Compoise release workflow. Review it before publishing.
 
@@ -403,79 +316,25 @@ jobs:
           | Linux | no artifact | Preview. CI compiles the release bundle with the pinned toolchain to prove it still builds; there is no installer, no signature and no package channel. |
 
           - License: GPL-3.0-only. See LICENSE and assets/licenses/THIRD_PARTY_NOTICES.txt.
-          - SHA256SUMS.txt covers both binaries and RELEASE_METADATA.txt. Check it with: sha256sum -c SHA256SUMS.txt
-          - Tasks stay on the device. Export a JSON backup from Settings before upgrading. Install, in-place upgrade, backup round-trip and clean-start checks are listed in docs/RELEASE_VALIDATION.md; they are run against the merged product build, not this draft.
+          - SHA256SUMS.txt covers both binaries, platform proofs, RELEASE_MANIFEST.txt, RELEASE_METADATA.txt and these notes. Check it with: sha256sum -c SHA256SUMS.txt
+          - Tasks stay on the device. Export a v3 JSON backup from Settings before upgrading. Backup files do not transfer local credential state; old Windows credentials require reconfiguration. Install, in-place upgrade, backup round-trip and clean-start checks are listed in docs/RELEASE_VALIDATION.md; they are run against the merged product build, not this draft.
           EOF
           cat release_artifacts/RELEASE_NOTES.md
 
-      - name: Record what this release was built from
-        shell: bash
+      - name: Seal and verify notes, manifest, metadata, proofs and SHA256SUMS
+        shell: pwsh
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-          REPOSITORY: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
+          ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
-          set -euo pipefail
-          pin() { sed -nE 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' toolchain.json | head -n 1; }
-          signer_dn=$(grep -E 'certificate DN' build_proofs/android-signing-proof.txt | head -n 1 | sed -E 's/.*certificate DN:[[:space:]]*//')
-          signer_sha=$(grep -E '^apkSignerCertSha256=' build_proofs/android-signing-proof.txt | cut -d= -f2)
-          {
-            echo 'Compoise release metadata'
-            echo "tag=${RELEASE_TAG}"
-            echo "commit=$(git rev-parse HEAD)"
-            echo "commitSubject=$(git log -1 --format=%s)"
-            echo "repository=${REPOSITORY}"
-            echo "workflowRun=https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}/attempt/${RUN_ATTEMPT}"
-            echo "toolchainFlutter=$(pin flutterVersion)"
-            echo "toolchainRevision=$(pin revision)"
-            echo "toolchainEngine=$(pin engineRevision)"
-            echo "toolchainDart=$(pin dartVersion)"
-            echo 'androidSigning=release keystore from repository secrets, certificate pinned by ANDROID_RELEASE_CERT_SHA256'
-            echo "androidSignerDn=${signer_dn}"
-            echo "androidSignerCertSha256=${signer_sha}"
-            echo 'windowsCodeSigning=unsigned (Authenticode is not configured)'
-            echo 'linuxDesktop=preview only; compiled by CI with the pinned toolchain, no artifact published'
-            echo 'license=GPL-3.0-only'
-            echo ''
-            echo '[artifacts]'
-            find release_artifacts -maxdepth 1 -type f \( -name 'compoise-v*-android.apk' -o -name 'compoise-v*-windows-portable.zip' \) \
-              -printf '%f\t%s bytes\n' | sort
-          } > release_artifacts/RELEASE_METADATA.txt
-          cat release_artifacts/RELEASE_METADATA.txt
-
-      - name: Verify the artifact set and generate SHA256SUMS
-        working-directory: release_artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          ls -l
-          pattern='^compoise-v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+-(android\.apk|windows-portable\.zip)$'
-          allowed='^(RELEASE_NOTES\.md|RELEASE_METADATA\.txt|SHA256SUMS\.txt)$'
-          all=$(find . -maxdepth 1 -type f -printf '%f\n' | sort)
-          # `|| true` keeps a clean set from tripping pipefail: grep exits 1 when
-          # it filters everything out, which is the expected success case here.
-          artifacts=$(printf '%s\n' "$all" | grep -E "$pattern" || true)
-          unexpected=$(printf '%s\n' "$all" | grep -Ev "$pattern" | grep -Ev "$allowed" || true)
-          count=$(printf '%s\n' "$artifacts" | grep -c . || true)
-          unexpected_count=$(printf '%s\n' "$unexpected" | grep -c . || true)
-          echo "Artifacts: $count; unexpected files: $unexpected_count"
-          if [ "$count" -ne 2 ] || [ "$unexpected_count" -ne 0 ]; then
-            echo "Refusing to publish: expected exactly one APK and one Windows ZIP, nothing else."
-            exit 1
-          fi
-          if ! printf '%s\n' "$artifacts" | grep -q -- '-android\.apk$' || ! printf '%s\n' "$artifacts" | grep -q -- '-windows-portable\.zip$'; then
-            echo "Refusing to publish: both the Android APK and the Windows ZIP must be present."
-            exit 1
-          fi
-          if ! grep -q '^commit=[0-9a-f]\{40\}$' RELEASE_METADATA.txt; then
-            echo "Refusing to publish: RELEASE_METADATA.txt does not record a full commit hash."
-            exit 1
-          fi
-          rm -f SHA256SUMS.txt
-          printf '%s\n' "$artifacts" RELEASE_METADATA.txt | sort | xargs -d '\n' sha256sum > SHA256SUMS.txt
-          sha256sum -c --strict SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          # One shared schema: commit is a full SHA; toolchain is pinned.
+          # windowsCodeSigning=unsigned; linuxDesktop=preview only; license=GPL-3.0-only
+          $commit = (git rev-parse HEAD).Trim()
+          $gate = @('--directory', 'release_artifacts', '--platform', 'All', '--tag', $env:RELEASE_TAG, '--commit', $commit, '--android-cert-sha256', $env:ANDROID_RELEASE_CERT_SHA256)
+          python scripts/release_candidate.py seal @gate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/release_candidate.py verify @gate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -483,6 +342,9 @@ jobs:
           files: |
             release_artifacts/SHA256SUMS.txt
             release_artifacts/RELEASE_METADATA.txt
+            release_artifacts/RELEASE_MANIFEST.txt
+            release_artifacts/RELEASE_NOTES.md
+            release_artifacts/*_PROOF.json
             release_artifacts/*.apk
             release_artifacts/*.zip
           body_path: release_artifacts/RELEASE_NOTES.md
