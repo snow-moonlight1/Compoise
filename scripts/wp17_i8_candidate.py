@@ -6,11 +6,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import shlex
 import struct
 import subprocess
 import sys
+import tempfile
 import uuid
 import zipfile
 sys.dont_write_bytecode = True
@@ -114,6 +116,7 @@ def main() -> int:
     logs, tmp = run_root / "logs", run_root / "tmp"
     logs.mkdir()
     tmp.mkdir()
+    tempfile.tempdir = str(tmp)
     env = dict(os.environ)
     for key in list(env):
         if key.startswith(("WP17_", "ORG_GRADLE_PROJECT_wp17", "ANDROID_KEY", "ANDROID_STORE")) or key == "REQUIRE_RELEASE_SIGNING":
@@ -137,6 +140,8 @@ def main() -> int:
         return process.stdout
     pin = json.loads((REPO / "toolchain.json").read_text())["verified"]
     info = json.loads(run([args.flutter, "--version", "--machine"]))
+    if info["channel"] != pin["channel"]:
+        raise PreparationError("Flutter channel differs from reviewed pin")
     for key, sdk_key in {"flutterVersion": "frameworkVersion", "revision": "frameworkRevision",
                          "engineRevision": "engineRevision", "dartVersion": "dartSdkVersion"}.items():
         if info[sdk_key] != pin[key]:
@@ -210,6 +215,31 @@ def main() -> int:
         run([args.flutter, "build", args.platform, "--release", "--no-pub", "-t", "lib/main.dart"], mirror)
         built = mirror / ("build/windows/x64/runner/Release" if args.platform == "windows" else "build/linux/x64/release/bundle")
     facts = inspect(built, args.platform, enabled, assets)
+    version_match = re.search(r"^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$", (REPO / "pubspec.yaml").read_text(), re.M)
+    if not version_match:
+        raise PreparationError("invalid application version")
+    version, build_number = version_match.groups()
+    identity = {}
+    if args.platform == "windows":
+        env["WP17_I8_EXE"] = str(built / "compoise.exe")
+        ps = "$f=Get-Item -LiteralPath $env:WP17_I8_EXE; $v=$f.VersionInfo; "
+        ps += "@{product=$v.ProductName;company=$v.CompanyName;version=$v.FileVersion;numeric=('{0}.{1}.{2}.{3}' -f $v.FileMajorPart,$v.FileMinorPart,$v.FileBuildPart,$v.FilePrivatePart);copyright=$v.LegalCopyright;signature=(Get-AuthenticodeSignature -LiteralPath $f.FullName).Status.ToString()} | ConvertTo-Json -Compress"
+        identity = json.loads(run(["powershell", "-NoProfile", "-Command", ps]))
+        if (identity["product"] != "Compoise" or identity["company"] != "Compoise" or
+                identity["numeric"] != version + "." + build_number or identity["signature"] != "NotSigned" or
+                identity["version"] not in (version + "+" + build_number, version + "." + build_number) or
+                "Compoise contributors" not in identity["copyright"]):
+            raise PreparationError("Windows normal identity/version/signature differs")
+        identity["appDataDir"] = r"%APPDATA%\Compoise\Compoise"
+    elif args.platform.startswith("android"):
+        tools = sorted(args.android_sdk.glob("build-tools/*/aapt2*"))
+        if not tools:
+            raise PreparationError("aapt2 required for APK identity")
+        badging = run([tools[-1], "dump", "badging", built]).decode("utf-8")
+        match = re.search(r"package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging)
+        if not match or match.groups() != ("com.matrixflow.app", build_number, version):
+            raise PreparationError("APK normal identity/version differs")
+        identity = dict(zip(("package", "versionCode", "versionName"), match.groups()))
     runtime = None
     if enabled and not args.platform.startswith("android"):
         report = run_root / "native12.json"
@@ -236,6 +266,7 @@ def main() -> int:
              "commit": commit, "source": source, "sourceFiles": source_files, "toolchain": pin,
              "modelLock": record(REPO / "native/ocr/tools/models.lock.json") if enabled else None,
              "nativeDependency": dependency, "artifact": facts, "native12": runtime, "r1": r1_fact,
+             "identity": identity,
              "signing": "unsigned", "deviceQualityGate": "unverified", "publication": "not authorized by this build"}
     if enabled:
         model_lock = json.loads((REPO / "native/ocr/tools/models.lock.json").read_text())
