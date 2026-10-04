@@ -14,6 +14,7 @@ import 'package:matrixflow_native/experiments/wp18_sync/planner.dart';
 import 'package:matrixflow_native/experiments/wp18_sync/snapshot.dart';
 import 'package:matrixflow_native/import_preflight.dart';
 import 'package:matrixflow_native/models.dart';
+import 'package:matrixflow_native/recovery_text.dart' show recoverySha256Hex;
 import 'package:matrixflow_native/schedule_item.dart';
 
 Map<String, dynamic> _decode(Map<String, dynamic> payload) =>
@@ -316,7 +317,10 @@ void main() {
       expect(left, right);
       expect(contentDigest({'x': 1}), contentDigest({'x': 1}));
       expect(contentDigest({'x': 1}), isNot(contentDigest({'x': 2})));
-      expect(contentDigest(null).length, 16);
+      expect(contentDigest(null).length, 64);
+      // Same function the recovery archive uses for archiveId, so an envelope
+      // tag and a recovery tag are comparable.
+      expect(contentDigest('abc'), recoverySha256Hex(utf8.encode('"abc"')));
     });
 
     test('a civil day agrees across zones only when it should', () {

@@ -429,22 +429,6 @@ class LocalDirectoryTransport implements SyncTransport {
     final index = trimmed.lastIndexOf(Platform.pathSeparator);
     return index < 0 ? trimmed : trimmed.substring(index + 1);
   }
-
-  /// Writes a snapshot aside as plain v3 so a human can open it with the tools
-  /// that already understand backups.
-  static void writeV3Copy(SyncSnapshot snapshot, Directory into, String name) {
-    if (!into.existsSync()) into.createSync(recursive: true);
-    File('${into.path}${Platform.pathSeparator}$name.v3.json')
-        .writeAsStringSync(
-          const JsonEncoder.withIndent('  ').convert(snapshot.toV3Payload()),
-          flush: true,
-        );
-    File('${into.path}${Platform.pathSeparator}$name.envelope.json')
-        .writeAsStringSync(
-          const JsonEncoder.withIndent('  ').convert(snapshot.toEnvelope()),
-          flush: true,
-        );
-  }
 }
 
 class TransportCancelled implements Exception {

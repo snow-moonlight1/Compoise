@@ -84,9 +84,8 @@ const scheduleFields = {
 };
 
 /// Kept in the live library but not comparable across devices: a chunk cursor
-/// and a subtask's place in its parent's list.
+/// for partially restored text.
 const deviceLocalTaskFields = {'recoveryPending'};
-const deviceLocalSubtaskFields = {'recoveryPending'};
 
 /// Fields whose meaning is a local civil day, not an absolute instant.
 const civilDayTaskFields = {'deadline', 'plannedDate'};
@@ -499,22 +498,6 @@ class SyncSnapshot {
         if (existing.key != tombstone.key) existing,
       tombstone,
     ],
-    recordStates: recordStates,
-    settings: settings,
-    aiConfig: aiConfig,
-    carriesCredential: carriesCredential,
-    unknownTopLevel: unknownTopLevel,
-    referenceFindings: referenceFindings,
-  );
-
-  SyncSnapshot withRecords(Map<String, SyncRecord> nextRecords) => SyncSnapshot(
-    device: device,
-    snapshotId: snapshotId,
-    sequence: sequence,
-    takenAtMs: takenAtMs,
-    parentSnapshotId: parentSnapshotId,
-    records: nextRecords,
-    tombstones: tombstones,
     recordStates: recordStates,
     settings: settings,
     aiConfig: aiConfig,

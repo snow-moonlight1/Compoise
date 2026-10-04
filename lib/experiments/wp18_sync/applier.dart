@@ -74,7 +74,13 @@ class MergeApplier {
   final SyncPlan plan;
 
   bool _changesContent(SyncDecision decision) {
-    if (decision.configSlot != null) return decision.configValue != null;
+    if (decision.configSlot != null) {
+      final current = decision.configSlot == 'settings'
+          ? plan.left.settings
+          : plan.left.aiConfig;
+      final next = decision.configValue;
+      return next != null && canonicalJson(current) != canonicalJson(next);
+    }
     final current = plan.left.records[decision.key]?.fields;
     final next = decision.fields;
     if (next == null) return current != null;

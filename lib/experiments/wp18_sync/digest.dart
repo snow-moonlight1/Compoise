@@ -1,18 +1,16 @@
 /// Content tags and civil-day helpers for the WP18-R sync experiment.
 ///
-/// The digests here are prototype-grade: FNV-1a plus a djb2 second stream is
-/// enough to notice a torn or reordered payload inside this offline lab, and it
-/// is not a security property. A real transport has to negotiate a stronger
-/// digest before any of this is wired to the Store.
+/// The digest is the product's own pure-Dart SHA-256 (`recoverySha256Hex`, the
+/// same function a recovery archive uses for its `archiveId` and
+/// `prefixSha256`), so an envelope tag is comparable with the bytes the backup
+/// flow already checks, and no new dependency is needed.
 library;
 
 import 'dart:convert';
 
-const _fnvOffset = 0x811c9dc5;
-const _fnvPrime = 16777619;
-const _mask32 = 0xffffffff;
+import 'package:matrixflow_native/recovery_text.dart' show recoverySha256Hex;
 
-/// Encumes [value] so equal content always produces equal text, regardless of
+/// Encodes [value] so equal content always produces equal text, regardless of
 /// the order a device happened to write its JSON keys in.
 String canonicalJson(Object? value) {
   if (value is Map) {
@@ -32,19 +30,9 @@ String canonicalJson(Object? value) {
   return jsonEncode(value);
 }
 
-/// A 16-hex-character content tag over the canonical form of [value].
-String contentDigest(Object? value) => _digestOf(canonicalJson(value));
-
-String _digestOf(String text) {
-  var fnv = _fnvOffset;
-  var djb = 5381;
-  for (final byte in utf8.encode(text)) {
-    fnv = ((fnv ^ byte) * _fnvPrime) & _mask32;
-    djb = ((djb * 33) + byte) & _mask32;
-  }
-  return '${fnv.toRadixString(16).padLeft(8, '0')}'
-      '${djb.toRadixString(16).padLeft(8, '0')}';
-}
+/// Lowercase hex SHA-256 over the canonical form of [value].
+String contentDigest(Object? value) =>
+    recoverySha256Hex(utf8.encode(canonicalJson(value)));
 
 const _msPerDay = 86400000;
 
