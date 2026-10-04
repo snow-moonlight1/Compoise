@@ -174,9 +174,9 @@ def lint_workflow(doc: dict, text: str) -> list[str]:
     permissions = doc.get("permissions")
     if not isinstance(permissions, dict) or permissions.get("contents") != "read":
         errors.append("permissions.contents must be read")
-    if permissions and permissions.get("actions") != "write":
-        errors.append("permissions.actions must be write for evidence upload")
-    extra_perm = set(permissions or []) - {"contents", "actions"}
+    # upload-artifact uses the runner's artifact token; it does not require
+    # write access to the Actions API via GITHUB_TOKEN.
+    extra_perm = set(permissions or []) - {"contents"}
     if extra_perm:
         errors.append(f"extra permissions {sorted(extra_perm)}")
     concurrency = doc.get("concurrency")

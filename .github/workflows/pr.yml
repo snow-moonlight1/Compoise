@@ -53,11 +53,21 @@ jobs:
       - name: OCR preparation and bundle regressions
         run: python3 -m unittest discover -s native/ocr/tools -p 'test_ocr*.py'
 
+      - name: OCR quality, experiment, device driver and packaging contracts
+        run: |
+          python3 -m unittest discover -s native/ocr/tools -p q3_selftest.py
+          python3 -m unittest discover -s native/ocr/tools -p p2_tools_test.py
+          python3 -m unittest discover -s native/ocr/tools -p a1_driver_test.py
+          python3 -m unittest discover -s native/ocr/tools -p i8_test_packaging.py
+
       - name: Release candidate regressions
         run: python3 -m unittest discover -s scripts/tests -p test_release_candidate.py
 
       - name: Windows candidate audit regressions
         run: python3 -m unittest discover -s scripts/tests -p test_wp28_r2_candidate_audit.py
+
+      - name: Windows native validation workflow contracts
+        run: python3 -m unittest discover -s scripts/tests -p 'test_wp28_r3*.py'
 
       - name: Record device smoke boundary
         shell: bash

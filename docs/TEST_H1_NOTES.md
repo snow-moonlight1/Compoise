@@ -80,6 +80,8 @@ Expected: ['case-b']  Actual: ['leak-me']   # 下一用例从上一个库启动
 
 ## 未验证事项
 
+2026-10-04 集成端也给 `bug_regression_test.dart` 中四个直接创建的 Store 登记了清理，补齐本记录提到的已知遗漏；未改变生产持久化路径。
+
 - 未在 Linux/Windows CI runner 上跑本套件（本机 Windows 10.0.26200 + 固定 SDK）；WSL Ubuntu-24.04 的 `/home/ubuntu/develop/flutter` 未用于本包，因为改动只在 Dart 测试生命周期，不含平台侧。
 - 未做真机/独立进程验证：本包不涉及设备、GPU、AVD、原生 GUI 会话。没有任何 skip、注入或强杀被描述为真机通过。
 - 未跑 `flutter build`：本包只改测试 helper 与新增测试，不改产品入口、构建脚本或资源；以 `flutter analyze --no-pub` 0 issues 与默认全量套件全绿作为"正常应用默认测试入口未被改变"的证据。

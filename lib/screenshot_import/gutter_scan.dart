@@ -80,7 +80,8 @@ List<GutterMark> scanGutterLuminance(Uint8List gray, int width, int height) {
   }
   final visited = Uint8List(ink.length);
   final queue = Int32List(ink.length);
-  final marks = <GutterMark>[];
+  final legacyMarks = <GutterMark>[];
+  final rescuedMarks = <GutterMark>[];
   for (var start = 0; start < ink.length; start++) {
     if (ink[start] == 0 || visited[start] != 0) continue;
     var head = 0;
@@ -146,13 +147,14 @@ List<GutterMark> scanGutterLuminance(Uint8List gray, int width, int height) {
       }
     }
     if (!isolated) continue;
-    if (marks.length == 2048) {
+    final target = legacy ? legacyMarks : rescuedMarks;
+    if (target.length == 2048) {
       // Legacy marks keep the hard cap. Extra rescued squares must not fail
       // an image that the width-fraction scan would have accepted.
       if (legacy) throw const FormatException('too many gutter marks');
       continue;
     }
-    marks.add(
+    target.add(
       GutterMark(
         [x0.toDouble(), y0.toDouble(), bw.toDouble(), bh.toDouble()],
         (tail / (bw * bh) * 1000).round() / 1000,
@@ -160,6 +162,13 @@ List<GutterMark> scanGutterLuminance(Uint8List gray, int width, int height) {
       ),
     );
   }
+  // Reserve capacity for historical marks regardless of scan order. Rescue
+  // noise must never exhaust their budget and turn an accepted image into an
+  // error (or displace its actual checkboxes).
+  final marks = <GutterMark>[
+    ...legacyMarks,
+    ...rescuedMarks.take(2048 - legacyMarks.length),
+  ];
   marks.sort((a, b) {
     final vertical = a.box[1].compareTo(b.box[1]);
     return vertical != 0 ? vertical : a.box[0].compareTo(b.box[0]);

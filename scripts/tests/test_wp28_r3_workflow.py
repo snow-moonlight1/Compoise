@@ -48,6 +48,7 @@ jobs:
         self.assertGreaterEqual(job["timeout-minutes"], 120)
         self.assertEqual(doc["on"]["workflow_dispatch"], None)
         self.assertEqual(doc["permissions"]["contents"], "read")
+        self.assertEqual(doc["permissions"], {"contents": "read"})
         self.assertTrue(doc["concurrency"]["cancel-in-progress"])
         upload = [step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/upload-artifact@")][0]
         self.assertEqual(upload["if"], "always()")

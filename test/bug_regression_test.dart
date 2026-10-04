@@ -23,6 +23,7 @@ void main() {
     await store.flush();
     store.dispose();
     final reopened = Store();
+    registerTestStore(reopened);
     addTearDown(reopened.dispose);
     await reopened.init();
     expect(reopened.activeBoardId, active);
@@ -35,6 +36,7 @@ void main() {
       'matrixflow-config': 42,
     });
     final store = Store();
+    registerTestStore(store);
     addTearDown(store.dispose);
     await store.init();
     expect(store.ready, isTrue);
@@ -81,8 +83,9 @@ void main() {
       final (store, _) = await makeStore();
       addTearDown(store.dispose);
       final task = store.newTask('soon', quadrant: qPlan)
-        ..deadline =
-            DateTime.now().add(const Duration(days: 7)).millisecondsSinceEpoch;
+        ..deadline = DateTime.now()
+            .add(const Duration(days: 7))
+            .millisecondsSinceEpoch;
       store.addTasks([task]);
       expect(task.quadrant, qPlan);
       store.updateSettings((settings) => settings..urgencyThresholdDays = 8);
@@ -161,14 +164,20 @@ void main() {
       store.setActiveBoard('a');
       store.updateSettings((s) => s..hideCompleted = true);
       expect(store.visibleTasks.map((task) => task.id), ['a-open']);
-      expect(store.tasks.firstWhere((task) => task.id == 'a-done').completed, isTrue);
-      expect(store.tasks.firstWhere((task) => task.id == 'b-done').completed, isTrue);
+      expect(
+        store.tasks.firstWhere((task) => task.id == 'a-done').completed,
+        isTrue,
+      );
+      expect(
+        store.tasks.firstWhere((task) => task.id == 'b-done').completed,
+        isTrue,
+      );
       store.setActiveBoard('b');
       expect(store.visibleTasks, isEmpty);
-      expect(store.tasks.where((task) => task.completed).map((task) => task.id), [
-        'a-done',
-        'b-done',
-      ]);
+      expect(
+        store.tasks.where((task) => task.completed).map((task) => task.id),
+        ['a-done', 'b-done'],
+      );
     },
   );
 
@@ -198,6 +207,7 @@ void main() {
         ]),
       });
       final store = Store();
+      registerTestStore(store);
       addTearDown(store.dispose);
       await store.init();
       expect(store.ready, isTrue);
@@ -380,7 +390,9 @@ void main() {
 
       // But completedTasks query is NOT affected by hideCompleted
       expect(store.completedTasks().map((t) => t.id).toList(), ['t1', 't3']);
-      expect(store.completedTasks(boardId: 'b1').map((t) => t.id).toList(), ['t1']);
+      expect(store.completedTasks(boardId: 'b1').map((t) => t.id).toList(), [
+        't1',
+      ]);
     },
   );
 
@@ -421,7 +433,10 @@ void main() {
       expect(task.subtasks.every((s) => !s.completed), isTrue);
 
       // autoCompleteParent did NOT re-mark it complete
-      expect(store.tasks.firstWhere((t) => t.id == 'parent1').completed, isFalse);
+      expect(
+        store.tasks.firstWhere((t) => t.id == 'parent1').completed,
+        isFalse,
+      );
 
       // Because it is now active, it immediately reappears in visibleTasks at its original quadrant
       expect(store.visibleTasks.length, 1);
@@ -435,6 +450,7 @@ void main() {
       // Flush and reopen: persists uncompleted state
       await store.flush();
       final reopened = Store();
+      registerTestStore(reopened);
       addTearDown(reopened.dispose);
       await reopened.init();
       final reopenedTask = reopened.tasks.firstWhere((t) => t.id == 'parent1');
@@ -452,8 +468,22 @@ void main() {
           Board(id: 'b2', name: 'Board 2', createdAt: 200),
         ],
         tasks: [
-          Task(id: 't1', boardId: 'b1', title: 'B1 Done', quadrant: qDo, completed: true, createdAt: 1),
-          Task(id: 't2', boardId: 'b2', title: 'B2 Done', quadrant: qPlan, completed: true, createdAt: 2),
+          Task(
+            id: 't1',
+            boardId: 'b1',
+            title: 'B1 Done',
+            quadrant: qDo,
+            completed: true,
+            createdAt: 1,
+          ),
+          Task(
+            id: 't2',
+            boardId: 'b2',
+            title: 'B2 Done',
+            quadrant: qPlan,
+            completed: true,
+            createdAt: 2,
+          ),
         ],
       );
       addTearDown(store.dispose);

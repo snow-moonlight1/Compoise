@@ -10,7 +10,7 @@
 
 - 独立工作流 `.github/workflows/wp28-native-validation.yml`：`pull_request` 与
   `workflow_dispatch`，`windows-2022`，`timeout-minutes: 180`，并发取消旧跑。
-  权限仅 `contents: read` + `actions: write`（上传证据）。无密钥、无签名、无发布。
+  集成端将权限收敛为 `contents: read`；上传使用 runner 的 artifact token，无需 Actions API 写权限。无密钥、无签名、无发布。
 - 分配 `RUNNER_TEMP` 下唯一 GUID 证据根；`if: always()` 上传成功报告与失败证据，
   `if-no-files-found: error`。缺桌面写成失败证据，不是 skip-success。
 - 编排脚本 `scripts/wp28_r3_windows_ci.ps1` 默认无 `-Run` 不启动应用（退出 2）。

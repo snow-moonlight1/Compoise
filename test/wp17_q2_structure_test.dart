@@ -71,6 +71,29 @@ const _scenes = [
 ];
 
 void main() {
+  test('rescued noise cannot exhaust the historical checkbox budget', () {
+    const width = 2048;
+    const height = 6000;
+    const gutter = width ~/ 4;
+    final gray = Uint8List(gutter * height)..fillRange(0, gutter * height, 255);
+    void square(int x, int y, int side) {
+      for (var row = y; row < y + side; row++) {
+        gray.fillRange(row * gutter + x, row * gutter + x + side, 0);
+      }
+    }
+
+    // More than 2048 isolated rescue-sized squares are encountered first.
+    for (var row = 0; row < 150; row++) {
+      for (var col = 0; col < 14; col++) {
+        square(10 + col * 34, 10 + row * 34, 20);
+      }
+    }
+    square(20, 5500, 50);
+    final marks = scanGutterLuminance(gray, width, height);
+    expect(marks, hasLength(2048));
+    expect(marks.where((mark) => mark.sizedByWidthFraction), hasLength(1));
+    expect(marks.singleWhere((mark) => mark.sizedByWidthFraction).box[1], 5500);
+  });
   TestWidgetsFlutterBinding.ensureInitialized();
   const adapter = ScreenshotDraftAdapter();
 

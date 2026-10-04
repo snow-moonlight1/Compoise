@@ -24,6 +24,8 @@ Q1 生成器 `native/ocr/tools/q1_quality.py` 有 8 景、30 条真值。复选�
 
 ## 前后
 
+2026-10-04 集成审查补修扫描额度：旧带宽标记与救援方块分别计数，最后优先保留旧标记并裁剪救援方块到总上限 2048。新增 2100 个救援方块先于正常复选框的回归，避免噪声占满额度后误报整图失败。
+
 | 项 | 修复前 | 修复后 |
 |---|---|---|
 | long-lines 两条任务 | 文字在，草稿 0 | 两条都进草稿，未勾选/已勾选、level 0、无父任务、无日期、未确认 |
@@ -38,7 +40,7 @@ mixed-light 的官方 OCR 把邻近字形 “√夜” 粘进 “確認Task12完
 
 ## 官方模型实跑
 
-只读 `%LOCALAPPDATA%\wp17r2-assets`。五个文件的 SHA256 与 `docs/evidence/wp17r2/assets.lock.json` 一致；字典为 PaddleOCR `ppocrv5_dict.txt`，Apache-2.0（见 `docs/WP17_I4_NOTES.md`）。库是 Q1 after Release `matrixflow_ocr.dll`，没有复制进仓库，也没有下载。
+原 Agent 只读 `%LOCALAPPDATA%\wp17r2-assets`，五个文件匹配历史 `docs/evidence/wp17r2/assets.lock.json`；该锁的转换权重来源是 nihui 验证仓库，并非 I5 官方可再分发部署。此处原“官方模型”表述不成立，历史结果仅作验证证据。2026-10-04 集成端另用 I5 官方部署和 I8 Release DLL 重跑八图及生产适配回归，结果单独记录在集成日志，不以历史锁替代官方许可核验。
 
 八张 Q1 合成图再识别一次。文字与框和已保存的 `native-raw.json` 一致，框差为 0。`long-lines`、`small-light`、`large-dark`、`japanese` 的 JSON 正文（去掉 id）完全一致。`mixed-light`、`mixed-dark`、`dense-subtasks`、`tiny-dense` 只有分数抖动，最大绝对差 0.0007，没有一行跨过 0.8 的低置信复核线。摘要在 `%LOCALAPPDATA%\wp17q2-private\live-ocr.json`。默认单测不读这个目录，也不下载模型。
 
