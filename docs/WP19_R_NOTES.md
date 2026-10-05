@@ -102,3 +102,7 @@ flutter run -t lib/experiments/wp19_dev_mode/main.dart
 1. 共享 `D:/Dev_project/martix/.git/config` 里 `[user] name = wp18-r-agent`（WP18-R 写进了 common config，不是 worktree 作用域）。所有没有自己 `config.worktree` 身份的新工作树都会继承它。建议集成端清掉并让各包用 `git config --worktree`。
 2. 基线 `459f9a2` 之后 main 已有 21 个提交（含 `f6d0c6e` planner 键盘修复、`abc182d` 八包集成）。本包按分派固定在 `459f9a2`，未跟随后续 main；集成时若基线漂移需重跑本包三条定向用例。
 3. 本包只新增文件，无共享契约改动；`docs/README.md`、`docs/ROADMAP.md` 的 WP19 状态由集成端决定改不改（建议改成“已用隔离原型验证，结论：仅依赖关系缺位”，或直接标注不做）。
+
+## 集成复验（2026-10-05）
+
+`76d968e2fde3b042cb621aa5f38e5d6fb8ccbb37` 已摘到当前 `main`，新提交 `dbce1b193fdbc9e5bfda2d9e6bea3dec39053b88`。基线漂移后的复验与三个原型一起跑：分析无问题；定向 167 项通过，其中本包模型 12 项、界面 16 项、`tool/wp19_dev_mode_compare.dart` 2 项；默认全量 `+1623 ~13`，退出码都是 0。共享 git 配置里现在没有 `[user]`，本次集成没有改它。路线图记为隔离原型：不新建整套模式，正常构建不进入该入口。

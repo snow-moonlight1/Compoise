@@ -118,3 +118,7 @@ pubspec 与 lock 无差异。主检出 `D:/Dev_project/martix` 保持干净。
 和构建入口差异为空作为边界证据。OpenAI 短/长上下文的 token 分界、
 百炼页面更新时间、`doubao-pro-32k` 价格、DeepSeek 与火山方舟的保留期限
 都没有被补成报价。
+
+## 集成复验（2026-10-05）
+
+`69c1ea1341937227c84322686e710e9420ddbcc6` 已摘到当前 `main`，新提交 `71cd621b9cbd871dee05ab6f3a28aff4df962520`。`dart run tool/wp29_hosted_ai_demo.dart` 退出 0，输出含 `demo_ok`。定向 167 项通过，其中本包 17 项；分析与默认全量 `+1623 ~13` 退出码都是 0。生产 AI 请求、密钥存储和用户自带密钥没有改。没有账号、服务端或可宣称的长期免费额度。

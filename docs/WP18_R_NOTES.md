@@ -135,3 +135,9 @@ dart run tool/wp18_sync_lab.dart transport [--root DIR] [--keep]
 - `flutter test --no-pub`（默认全量）：退出 0，`+1501 ~11`，无 `[E]`。基线 1414 + 本包 87 = 1501，说明默认套件既没有被本包改动，也没有被削弱；11 个条件跳过是既有项。
 - 构建入口未变：`lib/main.dart`、`lib/screens`、`lib/widgets`、`lib/services`、`integration_test/`、各平台 runner 目录相对基线无差异；除本包文件与工具/测试生成的 `windows|linux/flutter/generated_*`（未提交）外没有其它改动。
 - 隔离性：只有 `tool/wp18_sync_lab.dart` 与 4 个 `test/wp18_sync_*` 引用 `lib/experiments/wp18_sync/`，产品代码零引用，因此实验不会被应用入口带入发行包。
+
+## 11. 集成复验（2026-10-05）
+
+集成端把 `376120fc2420d5aba191650bcb00a3e6491eaf26` 与 `baf1d3000866a8d7a33dee133984684ec18b8919` 摘到八包之后的 `main`，新提交是 `bbd1ea5f9baca3a144dc53f5f56ae6a0d7a93e74` 与 `c7d461a4909f71dffcdaf45c8ac889c171e4acf5`。相对 `abc182ddc41ccbdcdb9d3ae5be0c3b16a3b25831` 只增加本包文件。
+
+在 `D:/Dev_project/martix`、Flutter 3.32.8 上与另外三个原型一起复验：`flutter analyze --no-pub` 退出 0（`No issues found`，33.7s）；`dart run tool/wp18_sync_lab.dart catalog` 退出 0（`scenarios=33 mismatches=0`）；`dart run tool/wp18_sync_lab.dart transport` 退出 0（`transport failures: 0`）。四个原型的定向测试共 167 项通过，其中本包 87 项。默认全量 `flutter test --no-pub` 退出 0，`+1623 ~13`；本包没有 skip。仍不接入 Store、账号、云盘或后台同步。

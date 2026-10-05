@@ -15,6 +15,7 @@
 | 理解 JSON 文件、导入和多卷恢复 | [备份格式](BACKUP_FORMAT.md) |
 | 修改本地保存或数据模型 | [本地数据与兼容性](DATA_COMPATIBILITY.md) |
 | 配置或修改 AI 请求 | [AI 服务商配置](AI_PROVIDER_PRESETS.md) |
+| 查看尚未上线的隔离原型 | [WP18 冲突模拟](WP18_R_NOTES.md)、[WP19 开发视角](WP19_R_NOTES.md)、[WP29 无密钥协议](WP29_R_NOTES.md)、[轻拟态实验](UIEXP1_NOTES.md) |
 | 修改提醒 | [提醒设计](REMINDERS_DESIGN.md) |
 | 检查数据与隐私行为 | [隐私说明 / Privacy Notice](PRIVACY_POLICY.md) |
 | 处理 Android 安装身份与升级 | [Android 应用身份](ANDROID_PACKAGE_MIGRATION.md) |

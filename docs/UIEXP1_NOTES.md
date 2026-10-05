@@ -20,4 +20,8 @@ high_contrast_micros=175671 high_contrast_shadow_layers=0 high_contrast_pixels=1
 
 对比图在 `D:\Dev_project\martix-uiexp-1-private\shots\`：`compare-light-800-zh`、`narrow-320-zh`、`narrow-390-en-scale2`、`narrow-320-ja-dark`、`narrow-390-zh-contrast`、`narrow-320-zh-scale3-motion`。合成任务，不入库。
 
-未验：Android 真机、Linux SDK、前台 `flutter run` / `flutter build`、设备 GPU、默认全量 `flutter test`。产品行为文件未改；边界测试确认默认入口未引用实验。
+未验：Android 真机、Linux SDK、前台 `flutter run` / `flutter build`、设备 GPU。产品行为文件未改；边界测试确认默认入口未引用实验。
+
+## 集成复验（2026-10-05）
+
+`3c9c2b2754b4e1310719df8b361ebf9239be4687` 已摘到当前 `main`，新提交 `b7aebf0926b2f989640482cb67d8bb99728db33a`。定向 167 项通过，其中本包 33 项；`flutter analyze --no-pub` 与默认全量 `flutter test --no-pub`（`+1623 ~13`）退出码都是 0。默认主题和 `lib/main.dart` 未改。Android 真机、设备 GPU 和前台窗口仍未验。建议继续不要把这套皮肤换成默认主题。
