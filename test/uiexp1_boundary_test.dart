@@ -5,16 +5,26 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/neumorphic_demo.dart' as demo;
 
 void main() {
-  test('production libraries do not import the experiment', () {
+  test('only settings opens the experiment from the product app', () {
     final hits = <String>[];
     for (final entity in Directory('lib').listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final norm = entity.path.replaceAll('\\', '/');
       if (norm.contains('/lib/experiments/neumorphic/')) continue;
+      if (norm.endsWith('lib/screens/settings_screen.dart')) continue;
       final text = entity.readAsStringSync();
       if (text.contains('experiments/neumorphic')) hits.add(norm);
     }
     expect(hits, isEmpty);
+    final settings = File(
+      'lib/screens/settings_screen.dart',
+    ).readAsStringSync();
+    expect(
+      settings.contains('experiments/neumorphic/neu_gallery.dart'),
+      isTrue,
+    );
+    final theme = File('lib/theme.dart').readAsStringSync();
+    expect(theme.contains('experiments/neumorphic'), isFalse);
   });
 
   test('pubspec and the production entry stay free of the experiment', () {

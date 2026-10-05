@@ -255,6 +255,12 @@ const Map<Language, Map<String, String>> _dicts = {
     'themeLight': 'Light',
     'themeDark': 'Dark',
     'themeColor': 'Accent Color',
+    'experimentalSection': 'Experiments',
+    'experimentalSectionDesc':
+        'These are here so you can look. Nothing here is the everyday app, and your tasks stay as they are.',
+    'neumorphicCompare': 'Soft neumorphic look',
+    'neumorphicCompareDesc':
+        'Opens a page with the current buttons beside the soft look. A wide window shows both at once. A phone can switch between them. Your task list stays as it is.',
     'colorBlue': 'Blue',
     'colorPurple': 'Purple',
     'colorGreen': 'Green',
@@ -1045,6 +1051,11 @@ const Map<Language, Map<String, String>> _dicts = {
     'themeLight': '浅色',
     'themeDark': '深色',
     'themeColor': '强调色',
+    'experimentalSection': '实验性功能',
+    'experimentalSectionDesc': '这些先留着看效果，还没决定要不要正式采用。不会改你的待办。',
+    'neumorphicCompare': '轻拟态外观',
+    'neumorphicCompareDesc':
+        '点开后对比现在的按钮和轻拟态。宽屏幕左右并排，手机上可以切换。待办主页仍是现在的样子。',
     'colorBlue': '天空蓝',
     'colorPurple': '罗兰紫',
     'colorGreen': '薄荷绿',
@@ -1759,6 +1770,11 @@ const Map<Language, Map<String, String>> _dicts = {
     'themeLight': 'ライト',
     'themeDark': 'ダーク',
     'themeColor': 'アクセントカラー',
+    'experimentalSection': '実験機能',
+    'experimentalSectionDesc': '効果を見るためのものです。正式採用は未定で、タスクは変わりません。',
+    'neumorphicCompare': 'ニューモーフィックの見た目',
+    'neumorphicCompareDesc':
+        '開くと、今のボタンと柔らかい立体の見た目を比べられます。広い画面は左右に並び、狭い画面は切り替えます。タスクの画面はそのままです。',
     'colorBlue': 'ブルー',
     'colorPurple': 'パープル',
     'colorGreen': 'グリーン',

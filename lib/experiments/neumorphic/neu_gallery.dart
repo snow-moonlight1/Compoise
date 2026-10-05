@@ -15,9 +15,16 @@ enum NeuSkin { material, neumorphic }
 /// Side-by-side or toggled comparison of the current Material theme and the
 /// neumorphic experiment. It does not read or write the task store.
 class NeuGallery extends StatefulWidget {
-  const NeuGallery({super.key, this.initialScene = NeuScene.single});
+  const NeuGallery({
+    super.key,
+    this.initialScene = NeuScene.single,
+    this.showBackButton = false,
+  });
 
   final NeuScene initialScene;
+
+  /// Settings opens the comparison inside the app. The standalone demo does not.
+  final bool showBackButton;
 
   @override
   State<NeuGallery> createState() => NeuGalleryState();
@@ -70,6 +77,9 @@ class NeuGalleryState extends State<NeuGallery> {
               highContrast: highContrast,
               reduceMotion: reduceMotion,
             ).canvas,
+            appBar: widget.showBackButton
+                ? AppBar(title: Text(copy.galleryTitle))
+                : null,
             body: LayoutBuilder(
               builder: (context, constraints) {
                 final wide = constraints.maxWidth >= 720;

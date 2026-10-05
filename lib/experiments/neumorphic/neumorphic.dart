@@ -1,8 +1,8 @@
-/// Standalone appearance experiment.
+/// Appearance experiment.
 ///
-/// `lib/main.dart` does not import this library, so a default `flutter run`
-/// or `flutter build` does not show it. Launch the gallery with
-/// `flutter run -t tool/neumorphic_demo.dart`.
+/// The everyday task list does not use this skin. Settings opens [NeuGallery]
+/// from the experimental section so the two looks can be compared. The
+/// standalone demo remains `flutter run -t tool/neumorphic_demo.dart`.
 library;
 
 export 'neu_button.dart';

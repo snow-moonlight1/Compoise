@@ -1,6 +1,6 @@
 # UIEXP-1 轻拟态可访问性实验
 
-建议：不要把这套皮肤换成应用的默认主题。阴影只作装饰。按钮和状态靠填充、边框、图标和文字区分。高对比和减少动画时去掉阴影，保留清晰边框。默认 `flutter run` / `flutter build`（`lib/main.dart`）不进入本实验。单独入口是 `flutter run -t tool/neumorphic_demo.dart`。
+待办，不放弃。设置里的「实验性功能 → 轻拟态外观」打开对比页：宽屏幕左右并排，窄屏幕可以切换。待办主页仍是现在的样子，阴影只作装饰。高对比和减少动画时去掉阴影，保留清晰边框。单独入口仍是 `flutter run -t tool/neumorphic_demo.dart`。
 
 工作树 `D:/Dev_project/martix-uiexp-1`，分支 `codex/uiexp-1`，基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`。未改生产主题、主页面、输入面板、Store、依赖和 `pubspec.lock`。
 

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../ai_capabilities.dart';
 import '../ai_presets.dart';
+import '../experiments/neumorphic/neu_gallery.dart';
 import '../models.dart';
 import '../services/desktop_shell_service.dart';
 import '../shortcuts.dart';
@@ -1162,6 +1163,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ],
+            const SizedBox(height: 20),
+            _sectionTitle(
+              theme,
+              t['experimentalSection']!,
+              Icons.science_outlined,
+            ),
+            Text(
+              t['experimentalSectionDesc']!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            ListTile(
+              key: const ValueKey('neumorphic-compare-tile'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.layers_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(t['neumorphicCompare']!),
+              subtitle: Text(
+                t['neumorphicCompareDesc']!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const NeuGallery(showBackButton: true),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 20),
             _sectionTitle(
               theme,
