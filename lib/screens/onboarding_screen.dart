@@ -50,13 +50,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _pageController.jumpToPage(target);
       _turnTarget = null;
     } else {
-      _pageController.animateToPage(
-        target,
-        duration: MotionPolicy.pageTurn,
-        curve: Curves.easeInOut,
-      ).whenComplete(() {
-        if (generation == _turnGeneration) _turnTarget = null;
-      });
+      _pageController
+          .animateToPage(
+            target,
+            duration: MotionPolicy.pageTurn,
+            curve: Curves.easeInOut,
+          )
+          .whenComplete(() {
+            if (generation == _turnGeneration) _turnTarget = null;
+          });
     }
   }
 
@@ -105,10 +107,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final step1Desc =
         '${t['onboardingStep1Desc']!} ${policy.isTouchLayout ? t['onboardingNavAndroid']! : t['onboardingNavWindows']!}'
             .trim();
-    final step2Desc =
-        policy.isTouchLayout
-            ? t['onboardingStep2DescAndroid']!
-            : t['onboardingStep2Desc']!;
+    final step2Desc = policy.isTouchLayout
+        ? t['onboardingStep2DescAndroid']!
+        : t['onboardingStep2Desc']!;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -125,7 +126,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               children: [
                 // Top App Bar: Skip or Close button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -213,7 +217,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                 // Bottom Navigation: Indicator Dots & Action Buttons
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
                   child: Row(
                     children: [
                       // Back button
@@ -240,7 +247,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             decoration: BoxDecoration(
                               color: _currentPage == index
                                   ? theme.colorScheme.primary
-                                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                                  : theme.colorScheme.outlineVariant.withValues(
+                                      alpha: 0.6,
+                                    ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -256,8 +265,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: Text(
                           _currentPage == _pageCount - 1
                               ? (widget.isReviewMode
-                                  ? t['onboardingClose']!
-                                  : t['onboardingStart']!)
+                                    ? t['onboardingClose']!
+                                    : t['onboardingStart']!)
                               : t['onboardingNext']!,
                         ),
                       ),
@@ -283,43 +292,51 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }) {
     final theme = Theme.of(context);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 580),
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 40, color: iconColor),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const padding = EdgeInsets.symmetric(horizontal: 24, vertical: 8);
+        final minHeight = constraints.maxHeight - padding.vertical;
+        return SingleChildScrollView(
+          padding: padding,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: minHeight < 0 ? 0 : minHeight,
             ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 40, color: iconColor),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                mockup,
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 24),
-            mockup,
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -329,7 +346,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         children: [
@@ -394,14 +413,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           Row(
             children: [
-              Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
               ),
             ],
@@ -428,7 +455,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         children: [
@@ -436,7 +465,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(8),
@@ -447,12 +479,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       offset: const Offset(0, 2),
                     ),
                   ],
-                  border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.drag_indicator, size: 16, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.drag_indicator,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       t['onboardingSampleDragTask']!,
@@ -468,7 +506,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Icon(Icons.arrow_forward, color: theme.colorScheme.primary),
               const SizedBox(width: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E88E5).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -476,7 +517,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 child: Text(
                   t['q2']!,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E88E5),
+                  ),
                 ),
               ),
             ],
@@ -484,7 +529,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 12),
           Text(
             t['onboardingDragHint']!,
-            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -497,7 +544,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,7 +557,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(width: 6),
               Text(
                 t['onboardingSampleDetailTask']!,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
               Container(
@@ -519,9 +571,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.alarm, size: 12, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.alarm,
+                      size: 12,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 3),
-                    Text('09:00', style: TextStyle(fontSize: 10, color: theme.colorScheme.primary)),
+                    Text(
+                      '09:00',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -534,7 +596,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.check_circle, size: 14, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.check_circle,
+                      size: 14,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       '1. ${t['onboardingSampleSubtask1']!}',
@@ -545,7 +611,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.radio_button_unchecked, size: 14, color: theme.colorScheme.outline),
+                    Icon(
+                      Icons.radio_button_unchecked,
+                      size: 14,
+                      color: theme.colorScheme.outline,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       '2. ${t['onboardingSampleSubtask2']!}',
@@ -567,7 +637,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +652,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           Wrap(
             spacing: 16,
-            children: [Text(t['restoreTask']!), Text(t['deleteCompletedTask']!)],
+            children: [
+              Text(t['restoreTask']!),
+              Text(t['deleteCompletedTask']!),
+            ],
           ),
         ],
       ),
@@ -593,7 +668,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         children: [
@@ -613,11 +690,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.shield_outlined, size: 16, color: theme.colorScheme.primary),
+              Icon(
+                Icons.shield_outlined,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: 6),
               Text(
                 t['onboardingLocalBadge']!,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ],
           ),
@@ -634,7 +719,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

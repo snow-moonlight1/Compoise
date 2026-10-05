@@ -8,6 +8,7 @@ import 'package:matrixflow_native/ui/font_policy.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
+import 'support/settings_panels.dart';
 
 void main() {
   test('UX04: Windows sans uses YaHei UI; Android does not', () {
@@ -19,12 +20,19 @@ void main() {
       contains('Microsoft YaHei UI'),
     );
     expect(windows.familyFor(FontFamilyPref.monospace), 'Consolas');
+    expect(windows.familyFor(FontFamilyPref.serif), 'Noto Serif SC');
+    expect(android.familyFor(FontFamilyPref.serif), 'Noto Serif SC');
+    expect(windows.fallbackFor(FontFamilyPref.serif), isNull);
+    expect(android.fallbackFor(FontFamilyPref.serif), isNull);
     expect(windows.familyFor(FontFamilyPref.system), isNull);
     expect(
       windows.fallbackFor(FontFamilyPref.system),
       contains('Microsoft YaHei UI'),
     );
-    expect(android.familyFor(FontFamilyPref.sansSerif), isNot('Microsoft YaHei UI'));
+    expect(
+      android.familyFor(FontFamilyPref.sansSerif),
+      isNot('Microsoft YaHei UI'),
+    );
     expect(
       android.fallbackFor(FontFamilyPref.system) ?? const <String>[],
       isNot(contains('Microsoft YaHei UI')),
@@ -33,28 +41,31 @@ void main() {
     expect(windows.bodyWeight, FontWeight.w400);
   });
 
-  testWidgets('UX04: theme applies Consolas plus CJK fallback and title weight', (
-    tester,
-  ) async {
-    final theme = buildTheme(
-      Brightness.light,
-      ThemeColor.blue,
-      fontFamilyPref: FontFamilyPref.monospace,
-      platform: TargetPlatform.windows,
-    );
-    expect(theme.textTheme.bodyMedium?.fontWeight, FontWeight.w400);
-    expect(theme.textTheme.titleMedium?.fontWeight, FontWeight.w600);
-    expect(theme.textSelectionTheme.selectionColor, isNotNull);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: theme,
-        home: const Scaffold(body: Text('sample')),
-      ),
-    );
-    final style = DefaultTextStyle.of(tester.element(find.text('sample'))).style;
-    expect(style.fontFamily, 'Consolas');
-    expect(style.fontFamilyFallback, contains('Microsoft YaHei UI'));
-  });
+  testWidgets(
+    'UX04: theme applies Consolas plus CJK fallback and title weight',
+    (tester) async {
+      final theme = buildTheme(
+        Brightness.light,
+        ThemeColor.blue,
+        fontFamilyPref: FontFamilyPref.monospace,
+        platform: TargetPlatform.windows,
+      );
+      expect(theme.textTheme.bodyMedium?.fontWeight, FontWeight.w400);
+      expect(theme.textTheme.titleMedium?.fontWeight, FontWeight.w600);
+      expect(theme.textSelectionTheme.selectionColor, isNotNull);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(body: Text('sample')),
+        ),
+      );
+      final style = DefaultTextStyle.of(
+        tester.element(find.text('sample')),
+      ).style;
+      expect(style.fontFamily, 'Consolas');
+      expect(style.fontFamilyFallback, contains('Microsoft YaHei UI'));
+    },
+  );
 
   testWidgets('UX04: preview shows CJK sample and keeps stored monospace', (
     tester,
@@ -81,6 +92,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openSettingsPanel(tester, 'settings-font-row');
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('font-preview-card')),
       400,

@@ -110,7 +110,7 @@ class NeuCopy {
     compare: '比较外观',
     stateMatrixTitle: '状态样本：填充、边框和图标，不只靠阴影',
     recommendation:
-        '这一页用来对比。阴影只作装饰；按钮和状态靠填充、边框、图标和文字区分。高对比和减少动画时去掉阴影，留下清晰边框。待办主页仍是现在的样子，看完再决定要不要换成整个应用。',
+        '这一页只是单独样本，应用里已经不再从这里进入。同一套粗描边可以由设置里的开关用到整份应用。这里的阴影只是装饰。',
   );
 
   static const en = NeuCopy(
@@ -154,7 +154,7 @@ class NeuCopy {
     compare: 'Compare appearance',
     stateMatrixTitle: 'State samples: fill, border, and icon, not shadow alone',
     recommendation:
-        'This page is for comparison. Shadows are decoration. Buttons and states are told apart by fill, border, and text. High contrast and reduced motion drop the shadow and keep a clear border. The task list stays as it is until you decide the whole app should change.',
+        'This page is only a standalone sample. The app no longer opens it. The same thick outline can be turned on for the whole app from Settings. Shadows here are decoration.',
   );
 
   static const ja = NeuCopy(
@@ -193,7 +193,7 @@ class NeuCopy {
     compare: '外観を比較',
     stateMatrixTitle: '状態サンプル：塗り、枠線、アイコン。影だけに頼らない',
     recommendation:
-        'このページは見比べるためのものです。影は装飾です。ボタンと状態は塗り、枠線、文字で区別します。高コントラストとアニメーション削減では影を外し、明確な枠線を残します。タスクの画面はそのままで、アプリ全体を変えるかは見てから決めます。',
+        'このページは単体の見本です。アプリからは開かなくなりました。同じ太い枠線は設定のスイッチでアプリ全体に使えます。ここでの影は装飾です。',
   );
 
   static NeuCopy of(Locale locale) {

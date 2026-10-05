@@ -20,6 +20,8 @@ import 'package:matrixflow_native/widgets/task_edit_draft.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/settings_panels.dart';
+
 /// OS21 / F18: pages orchestrate display and input only. These cover the
 /// ownership that moved out of the widgets — the edit draft, the detail session
 /// shared by the three pages, the subtask dialog's controllers, and the
@@ -348,6 +350,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Open settings'));
       await tester.pumpAndSettle();
+      await openSettingsPanel(tester, 'settings-assistant-row');
 
       await tester.enterText(
         find.byKey(const ValueKey('api-key-input')),
@@ -358,6 +361,12 @@ void main() {
       await tester.pump();
       expect(gates, hasLength(1));
 
+      // The assistant page is inside settings. One back returns to the list
+      // and keeps the request. The next back leaves settings and drops it.
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('settings-list')), findsOneWidget);
+      expect(gates, hasLength(1));
       await tester.pageBack();
       await tester.pumpAndSettle();
       gates.first.complete(_modelsNamed('late-model'));

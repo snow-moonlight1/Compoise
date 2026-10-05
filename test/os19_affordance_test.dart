@@ -12,6 +12,7 @@ import 'package:matrixflow_native/widgets/task_hierarchy_checkbox.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
+import 'support/settings_panels.dart';
 
 Widget _app(
   Store store,
@@ -47,10 +48,7 @@ FocusNode _nodeAt(WidgetTester tester, Key key) =>
 FocusNode _nodeBeneath(WidgetTester tester, Finder base, Type descendant) =>
     Focus.of(
       tester.element(
-        find.descendant(
-          of: base,
-          matching: find.byType(descendant),
-        ).first,
+        find.descendant(of: base, matching: find.byType(descendant)).first,
       ),
     );
 
@@ -257,10 +255,7 @@ void main() {
         'Mark parent task "Ship release notes" complete',
       );
       expect(childAData.label, 'Mark subtask "Draft changelog" complete');
-      expect(
-        childBData.label,
-        'Mark subtask "Screenshot the matrix" complete',
-      );
+      expect(childBData.label, 'Mark subtask "Screenshot the matrix" complete');
 
       for (final data in [parentData, childAData, childBData]) {
         expect(data.hasFlag(SemanticsFlag.hasCheckedState), isTrue);
@@ -329,10 +324,7 @@ void main() {
       final collapsed = _data(tester, toggle);
       expect(collapsed.hasFlag(SemanticsFlag.hasExpandedState), isTrue);
       expect(collapsed.hasFlag(SemanticsFlag.isExpanded), isFalse);
-      expect(
-        collapsed.label,
-        'Subtasks of "Ship release notes", 0 of 2 done',
-      );
+      expect(collapsed.label, 'Subtasks of "Ship release notes", 0 of 2 done');
 
       await tester.tapAt(_tl(tester, toggle) + const Offset(4, 1));
       await tester.pumpAndSettle();
@@ -417,6 +409,7 @@ void main() {
     final (store, _) = await makeStore();
     await tester.pumpWidget(_app(store, const SettingsScreen()));
     await tester.pumpAndSettle();
+    await openSettingsPanel(tester, 'settings-color-row');
 
     const blue = ValueKey('theme-color-hit-blue');
     const green = ValueKey('theme-color-hit-green');

@@ -9,9 +9,11 @@ import 'package:matrixflow_native/screens/search_screen.dart';
 import 'package:matrixflow_native/screens/matrix_screen.dart';
 import 'package:matrixflow_native/screens/settings_screen.dart';
 import 'package:matrixflow_native/storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:matrixflow_native/widgets/task_detail_panel.dart';
 import 'foundation_regression_test.dart' as fixture;
 import 'support/foundation_second_test_support.dart' as review;
+import 'support/settings_panels.dart';
 
 class SnapshotDiscovery extends fixture.DiscoveryAI {
   AIConfig? received;
@@ -158,6 +160,7 @@ void main() {
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(1000, 2200));
         addTearDown(() => tester.binding.setSurfaceSize(null));
+        SharedPreferences.setMockInitialValues({});
         final ai = SnapshotDiscovery();
         final store = Store(aiService: ai);
         await store.init();
@@ -170,6 +173,7 @@ void main() {
         );
         await tester.pumpWidget(fixture.app(store, const SettingsScreen()));
         await tester.pumpAndSettle();
+        await openSettingsPanel(tester, 'settings-assistant-row');
         await tester.tap(find.byKey(const ValueKey('refresh-models-btn')));
         await tester.pump();
         final original = ai.received!.toJson();

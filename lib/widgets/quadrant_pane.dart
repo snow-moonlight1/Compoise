@@ -207,17 +207,15 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           duration: MotionPolicy.hoverHighlight,
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color:
-                highlighted
-                    ? accent.withValues(alpha: 0.10)
-                    : Colors.transparent,
-            border:
-                highlighted
-                    ? Border.all(
-                      color: accent.withValues(alpha: 0.55),
-                      width: 1.5,
-                    )
-                    : null,
+            color: highlighted
+                ? accent.withValues(alpha: 0.10)
+                : Colors.transparent,
+            border: highlighted
+                ? Border.all(
+                    color: accent.withValues(alpha: 0.55),
+                    width: 1.5,
+                  )
+                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

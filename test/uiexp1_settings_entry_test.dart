@@ -3,12 +3,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/models.dart';
 import 'package:matrixflow_native/screens/settings_screen.dart';
+import 'package:matrixflow_native/theme.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
 
 void main() {
-  testWidgets('settings opens the neumorphic comparison and can switch it', (
+  testWidgets('settings switch turns the comic outline on for the whole app', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 900));
@@ -29,33 +30,51 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final tile = find.byKey(const ValueKey('neumorphic-compare-tile'));
+    expect(find.text('外观'), findsOneWidget);
+    final tile = find.byKey(const ValueKey('comic-outline-switch'));
     await tester.dragUntilVisible(
       tile,
       find.byKey(const ValueKey('settings-list')),
       const Offset(0, -240),
     );
     await tester.pump();
-    expect(find.text('实验性功能'), findsOneWidget);
-    expect(find.text('轻拟态外观'), findsOneWidget);
+    expect(find.text('漫画描边'), findsOneWidget);
+    expect(store.settings.comicOutline, isFalse);
 
     await tester.tap(tile);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    expect(store.settings.comicOutline, isTrue);
 
-    expect(find.byKey(const Key('uiexp1-scroll')), findsOneWidget);
-    expect(find.byKey(const Key('uiexp1-skin-neu')), findsOneWidget);
-    expect(find.byKey(const Key('uiexp1-skin-material')), findsNothing);
+    final comic = buildTheme(
+      Brightness.light,
+      ThemeColor.blue,
+      comicOutline: true,
+    );
+    expect(comic.extension<ComicOutline>(), isNotNull);
+    expect(comic.scaffoldBackgroundColor, const Color(0xFFE6E9EF));
+    final side = comic.filledButtonTheme.style?.side?.resolve({});
+    expect(side?.width, 2);
 
-    await tester.tap(find.byKey(const Key('uiexp1-show-material')));
-    await tester.pump();
-    expect(find.byKey(const Key('uiexp1-skin-material')), findsOneWidget);
-    expect(find.byKey(const Key('uiexp1-skin-neu')), findsNothing);
+    final plain = buildTheme(Brightness.light, ThemeColor.blue);
+    expect(plain.extension<ComicOutline>(), isNull);
+    expect(comic.colorScheme.primary, plain.colorScheme.primary);
+    expect(side?.color, plain.colorScheme.primary);
 
-    await tester.tap(find.byType(BackButton));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byKey(const ValueKey('neumorphic-compare-tile')), findsOneWidget);
+    final pink = buildTheme(
+      Brightness.light,
+      ThemeColor.pink,
+      comicOutline: true,
+    );
+    expect(pink.colorScheme.primary, isNot(comic.colorScheme.primary));
+
+    final dark = buildTheme(
+      Brightness.dark,
+      ThemeColor.blue,
+      comicOutline: true,
+    );
+    final darkPlain = buildTheme(Brightness.dark, ThemeColor.blue);
+    expect(dark.colorScheme.primary, darkPlain.colorScheme.primary);
+    expect(dark.scaffoldBackgroundColor, const Color(0xFF151A21));
 
     await tester.pumpWidget(const SizedBox());
     store.dispose();

@@ -303,6 +303,7 @@ class ImportPreflight {
         'hideCompleted',
         'showCompletionRate',
         'reduceMotion',
+        'comicOutline',
         'urgencyThresholdDays',
         'closeToTray',
         'globalShortcut',

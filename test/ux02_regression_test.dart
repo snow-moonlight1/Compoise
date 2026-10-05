@@ -184,7 +184,20 @@ void main() {
     await tester.tap(rateToggle);
     await tester.pumpAndSettle();
     expect(store.settings.showCompletionRate, isTrue);
-    expect(find.byKey(const ValueKey('shortcuts-help-tile')), findsOneWidget);
+    final shortcuts = find.byKey(const ValueKey('shortcuts-help-tile'));
+    await tester.scrollUntilVisible(
+      shortcuts,
+      300,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('settings-list')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      ),
+    );
+    expect(shortcuts, findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     store.dispose();
   });

@@ -1,8 +1,8 @@
-/// Appearance experiment.
+/// Standalone appearance sample.
 ///
-/// The everyday task list does not use this skin. Settings opens [NeuGallery]
-/// from the experimental section so the two looks can be compared. The
-/// standalone demo remains `flutter run -t tool/neumorphic_demo.dart`.
+/// Settings no longer opens this gallery. The product switch applies the same
+/// thick outline to the whole app. This sample stays available as
+/// `flutter run -t tool/neumorphic_demo.dart`.
 library;
 
 export 'neu_button.dart';

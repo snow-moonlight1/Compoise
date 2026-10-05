@@ -13,6 +13,8 @@ import 'package:matrixflow_native/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/settings_panels.dart';
+
 const _secret = 'synthetic-os10-key';
 
 AIConfig sample({
@@ -72,7 +74,12 @@ void main() {
     expect(a.toString(), isNot(contains(_secret)));
     expect(a!.diagnosticLabel, contains('credential:redacted'));
     expect(tryModelDiscoveryIdentity(sample(key: '   ')), isNull);
-    expect(tryModelDiscoveryIdentity(sample(base: 'https://example.invalid?token=$_secret')), isNull);
+    expect(
+      tryModelDiscoveryIdentity(
+        sample(base: 'https://example.invalid?token=$_secret'),
+      ),
+      isNull,
+    );
   });
 
   test('each identity dimension misses the cache', () async {
@@ -88,14 +95,11 @@ void main() {
     expect(await service.fetchModels(config: base), ['m1']);
     expect(await service.fetchModels(config: sample()), ['m1']);
 
+    expect(await service.fetchModels(config: sample(provider: 'deepseek')), [
+      'm2',
+    ]);
     expect(
-      await service.fetchModels(config: sample(provider: 'deepseek')),
-      ['m2'],
-    );
-    expect(
-      await service.fetchModels(
-        config: sample(base: 'https://other.invalid'),
-      ),
+      await service.fetchModels(config: sample(base: 'https://other.invalid')),
       ['m3'],
     );
     expect(
@@ -113,51 +117,66 @@ void main() {
     expect(urls, contains('other.invalid'));
     expect(urls, isNot(contains(_secret)));
     expect(service.modelCacheDiagnostic, isNot(contains(_secret)));
-    expect(service.modelCacheDiagnostic, isNot(contains('synthetic-other-key')));
+    expect(
+      service.modelCacheDiagnostic,
+      isNot(contains('synthetic-other-key')),
+    );
   });
 
-  test('same normalized URL reuses the cache; force refresh does not', () async {
-    var calls = 0;
-    final service = AIService(
-      client: MockClient((request) async {
-        calls++;
-        return modelsNamed('once');
-      }),
-    );
-    addTearDown(service.close);
-    await service.fetchModels(config: sample(base: 'https://Example.Invalid/'));
-    final cached = await service.fetchModels(
-      config: sample(base: 'https://example.invalid'),
-    );
-    expect(cached, ['once']);
-    expect(calls, 1);
-    await service.fetchModels(
-      config: sample(base: 'https://example.invalid'),
-      forceRefresh: true,
-    );
-    expect(calls, 2);
-  });
+  test(
+    'same normalized URL reuses the cache; force refresh does not',
+    () async {
+      var calls = 0;
+      final service = AIService(
+        client: MockClient((request) async {
+          calls++;
+          return modelsNamed('once');
+        }),
+      );
+      addTearDown(service.close);
+      await service.fetchModels(
+        config: sample(base: 'https://Example.Invalid/'),
+      );
+      final cached = await service.fetchModels(
+        config: sample(base: 'https://example.invalid'),
+      );
+      expect(cached, ['once']);
+      expect(calls, 1);
+      await service.fetchModels(
+        config: sample(base: 'https://example.invalid'),
+        forceRefresh: true,
+      );
+      expect(calls, 2);
+    },
+  );
 
-  test('failures are not cached and the next attempt hits the network', () async {
-    var calls = 0;
-    final service = AIService(
-      client: MockClient((request) async {
-        calls++;
-        if (calls == 1) return http.Response('nope', 500);
-        return modelsNamed('retried');
-      }),
-    );
-    addTearDown(service.close);
-    await expectLater(
-      service.fetchModels(config: sample()),
-      throwsA(
-        isA<AIException>().having((error) => error.code, 'code', 'aiHttpError'),
-      ),
-    );
-    expect(await service.fetchModels(config: sample()), ['retried']);
-    expect(calls, 2);
-    expect(service.modelCacheDiagnostic, isNot(contains(_secret)));
-  });
+  test(
+    'failures are not cached and the next attempt hits the network',
+    () async {
+      var calls = 0;
+      final service = AIService(
+        client: MockClient((request) async {
+          calls++;
+          if (calls == 1) return http.Response('nope', 500);
+          return modelsNamed('retried');
+        }),
+      );
+      addTearDown(service.close);
+      await expectLater(
+        service.fetchModels(config: sample()),
+        throwsA(
+          isA<AIException>().having(
+            (error) => error.code,
+            'code',
+            'aiHttpError',
+          ),
+        ),
+      );
+      expect(await service.fetchModels(config: sample()), ['retried']);
+      expect(calls, 2);
+      expect(service.modelCacheDiagnostic, isNot(contains(_secret)));
+    },
+  );
 
   test('returning to a previous identity reuses that identity cache', () async {
     var calls = 0;
@@ -232,68 +251,73 @@ void main() {
     expect(service.modelCacheDiagnostic, isEmpty);
   });
 
-  testWidgets('settings clears discovery when protocol or advanced URL changes', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(900, 2200));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final gates = <Completer<http.Response>>[];
-    final paths = <String>[];
-    final service = AIService(
-      client: MockClient((request) async {
-        paths.add(request.url.path);
-        final gate = Completer<http.Response>();
-        gates.add(gate);
-        return gate.future;
-      }),
-    );
-    final store = await _openStore(tester, service);
-    await tester.pumpWidget(_app(store));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'settings clears discovery when protocol or advanced URL changes',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 2200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final gates = <Completer<http.Response>>[];
+      final paths = <String>[];
+      final service = AIService(
+        client: MockClient((request) async {
+          paths.add(request.url.path);
+          final gate = Completer<http.Response>();
+          gates.add(gate);
+          return gate.future;
+        }),
+      );
+      final store = await _openStore(tester, service);
+      await tester.pumpWidget(_app(store));
+      await tester.pumpAndSettle();
+      await openSettingsPanel(tester, 'settings-assistant-row');
 
-    await _chooseProvider(tester, store.t['providerCustom']!);
-    await tester.enterText(
-      find.byKey(const ValueKey('base-url-input')),
-      'https://example.invalid',
-    );
-    await tester.pump();
-    await tester.enterText(find.byKey(const ValueKey('api-key-input')), _secret);
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-    expect(gates, hasLength(1));
-    gates[0].complete(modelsNamed('chat-model'));
-    await tester.pumpAndSettle();
-    expect(find.text('chat-model'), findsWidgets);
+      await _chooseProvider(tester, store.t['providerCustom']!);
+      await tester.enterText(
+        find.byKey(const ValueKey('base-url-input')),
+        'https://example.invalid',
+      );
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('api-key-input')),
+        _secret,
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(gates, hasLength(1));
+      gates[0].complete(modelsNamed('chat-model'));
+      await tester.pumpAndSettle();
+      expect(find.text('chat-model'), findsWidgets);
 
-    await tester.tap(find.byKey(const ValueKey('protocol-selector')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(store.t['providerAnthropic']!).last);
-    await tester.pump();
-    expect(find.byKey(const ValueKey('model-selector')), findsNothing);
-    expect(find.byKey(const ValueKey('model-input')), findsOneWidget);
-    expect(paths, ['/models']);
-    await tester.tap(find.byKey(const ValueKey('refresh-models-btn')));
-    await tester.pump();
-    expect(paths, ['/models', '/v1/models']);
-    gates[1].complete(modelsNamed('anthropic-model'));
-    await tester.pumpAndSettle();
-    expect(find.text('anthropic-model'), findsWidgets);
-    expect(find.text('chat-model'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('protocol-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(store.t['providerAnthropic']!).last);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('model-selector')), findsNothing);
+      expect(find.byKey(const ValueKey('model-input')), findsOneWidget);
+      expect(paths, ['/models']);
+      await tester.tap(find.byKey(const ValueKey('refresh-models-btn')));
+      await tester.pump();
+      expect(paths, ['/models', '/v1/models']);
+      gates[1].complete(modelsNamed('anthropic-model'));
+      await tester.pumpAndSettle();
+      expect(find.text('anthropic-model'), findsWidgets);
+      expect(find.text('chat-model'), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('protocol-selector')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(store.t['providerOpenAI']!).last);
-    await tester.pump();
-    expect(find.byKey(const ValueKey('model-selector')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('api-key-input')));
-    await tester.pump();
-    FocusManager.instance.primaryFocus?.unfocus();
-    await tester.pump();
-    await tester.pump();
-    expect(paths, ['/models', '/v1/models']);
-    expect(find.text('chat-model'), findsWidgets);
-    expect(find.text('anthropic-model'), findsNothing);
-  });
+      await tester.tap(find.byKey(const ValueKey('protocol-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(store.t['providerOpenAI']!).last);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('model-selector')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('api-key-input')));
+      await tester.pump();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.pump();
+      expect(paths, ['/models', '/v1/models']);
+      expect(find.text('chat-model'), findsWidgets);
+      expect(find.text('anthropic-model'), findsNothing);
+    },
+  );
 
   testWidgets('advanced preset URL edit drops the previous model list', (
     tester,
@@ -313,7 +337,11 @@ void main() {
     final store = await _openStore(tester, service);
     await tester.pumpWidget(_app(store));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('api-key-input')), _secret);
+    await openSettingsPanel(tester, 'settings-assistant-row');
+    await tester.enterText(
+      find.byKey(const ValueKey('api-key-input')),
+      _secret,
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     gates.single.complete(modelsNamed('deepseek-flash'));
@@ -354,7 +382,11 @@ void main() {
     final store = await _openStore(tester, service);
     await tester.pumpWidget(_app(store));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('api-key-input')), _secret);
+    await openSettingsPanel(tester, 'settings-assistant-row');
+    await tester.enterText(
+      find.byKey(const ValueKey('api-key-input')),
+      _secret,
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     await tester.pumpWidget(const SizedBox.shrink());

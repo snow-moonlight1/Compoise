@@ -14,6 +14,7 @@ import 'services/windows_data_upgrade.dart';
 import 'services/windows_upgrade_validation.dart';
 import 'storage.dart';
 import 'theme.dart';
+import 'ui/songti_font.dart';
 
 Future<void> main([List<String> args = const <String>[]]) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -135,42 +136,51 @@ class MatrixFlowApp extends StatelessWidget {
               home: const StartupRecoveryScreen(),
             );
           }
-          return MaterialApp(
-            title: store.t['appTitle']!,
-            debugShowCheckedModeBanner: false,
-            theme: buildTheme(
-              Brightness.light,
-              store.settings.themeColor,
-              fontFamilyPref: store.settings.fontFamily,
+          return SongtiWarmup(
+            load: store.settings.fontFamily == FontFamilyPref.serif,
+            builder: (context) => MaterialApp(
+              title: store.t['appTitle']!,
+              debugShowCheckedModeBanner: false,
+              theme: buildTheme(
+                Brightness.light,
+                store.settings.themeColor,
+                fontFamilyPref: store.settings.fontFamily,
+                comicOutline: store.settings.comicOutline,
+              ),
+              darkTheme: buildTheme(
+                Brightness.dark,
+                store.settings.themeColor,
+                fontFamilyPref: store.settings.fontFamily,
+                comicOutline: store.settings.comicOutline,
+              ),
+              themeMode: switch (store.settings.theme) {
+                ThemeModePref.light => ThemeMode.light,
+                ThemeModePref.dark => ThemeMode.dark,
+                ThemeModePref.system => ThemeMode.system,
+              },
+              locale: switch (store.settings.language) {
+                Language.zh => const Locale('zh'),
+                Language.ja => const Locale('ja'),
+                Language.en => const Locale('en'),
+              },
+              supportedLocales: const [
+                Locale('en'),
+                Locale('zh'),
+                Locale('ja'),
+              ],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              builder: (context, child) {
+                final systemScaler = MediaQuery.textScalerOf(context);
+                final appScale = fontScaleFactor(store.settings.fontSize);
+                return MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: CombinedTextScaler(systemScaler, appScale),
+                  ),
+                  child: child!,
+                );
+              },
+              home: const MatrixHome(),
             ),
-            darkTheme: buildTheme(
-              Brightness.dark,
-              store.settings.themeColor,
-              fontFamilyPref: store.settings.fontFamily,
-            ),
-            themeMode: switch (store.settings.theme) {
-              ThemeModePref.light => ThemeMode.light,
-              ThemeModePref.dark => ThemeMode.dark,
-              ThemeModePref.system => ThemeMode.system,
-            },
-            locale: switch (store.settings.language) {
-              Language.zh => const Locale('zh'),
-              Language.ja => const Locale('ja'),
-              Language.en => const Locale('en'),
-            },
-            supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            builder: (context, child) {
-              final systemScaler = MediaQuery.textScalerOf(context);
-              final appScale = fontScaleFactor(store.settings.fontSize);
-              return MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: CombinedTextScaler(systemScaler, appScale),
-                ),
-                child: child!,
-              );
-            },
-            home: const MatrixHome(),
           );
         },
       ),

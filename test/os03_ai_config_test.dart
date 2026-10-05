@@ -13,6 +13,7 @@ import 'package:matrixflow_native/storage.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
+import 'support/settings_panels.dart';
 
 Widget settingsApp(Store store) => ChangeNotifierProvider.value(
   value: store,
@@ -150,31 +151,30 @@ void main() {
             (jsonDecode(request.body) as Map<String, dynamic>)['model']
                 as String,
           );
-          final payload =
-              request.url.path.endsWith('/chat/completions')
-                  ? {
-                    'choices': [
-                      {
-                        'message': {'content': 'ok'},
-                      },
-                    ],
-                  }
-                  : request.url.path.endsWith('/responses')
-                  ? {
-                    'output': [
-                      {
-                        'type': 'message',
-                        'content': [
-                          {'type': 'output_text', 'text': 'ok'},
-                        ],
-                      },
-                    ],
-                  }
-                  : {
-                    'content': [
-                      {'type': 'text', 'text': 'ok'},
-                    ],
-                  };
+          final payload = request.url.path.endsWith('/chat/completions')
+              ? {
+                  'choices': [
+                    {
+                      'message': {'content': 'ok'},
+                    },
+                  ],
+                }
+              : request.url.path.endsWith('/responses')
+              ? {
+                  'output': [
+                    {
+                      'type': 'message',
+                      'content': [
+                        {'type': 'output_text', 'text': 'ok'},
+                      ],
+                    },
+                  ],
+                }
+              : {
+                  'content': [
+                    {'type': 'text', 'text': 'ok'},
+                  ],
+                };
           return http.Response(jsonEncode(payload), 200);
         }),
       );
@@ -197,24 +197,24 @@ void main() {
         );
         expect(seen.last, restored.model);
       }
-    expect(seen, [
-      'chosen-openai',
-      'chosen-openaiResponses',
-      'chosen-anthropic',
-    ]);
-    final spaced = AIConfig(
-      provider: 'custom',
-      baseUrl: 'https://example.invalid/v1',
-      apiKey: 'synthetic',
-      model: ' selected-model ',
-    );
-    await service.requestCompletion(
-      config: AIConfig.fromJson(spaced.toJson()),
-      systemInstruction: 's',
-      userPrompt: 'u',
-      forceJsonObject: false,
-    );
-    expect(seen.last, spaced.model);
+      expect(seen, [
+        'chosen-openai',
+        'chosen-openaiResponses',
+        'chosen-anthropic',
+      ]);
+      final spaced = AIConfig(
+        provider: 'custom',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'synthetic',
+        model: ' selected-model ',
+      );
+      await service.requestCompletion(
+        config: AIConfig.fromJson(spaced.toJson()),
+        systemInstruction: 's',
+        userPrompt: 'u',
+        forceJsonObject: false,
+      );
+      expect(seen.last, spaced.model);
     },
   );
 
@@ -269,6 +269,7 @@ void main() {
       await tester.pumpWidget(settingsApp(store));
       expect(tester.takeException(), isNull);
       expect(store.aiConfig.provider, 'custom');
+      await openSettingsPanel(tester, 'settings-assistant-row');
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('provider-selector')),
         350,

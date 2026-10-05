@@ -15,6 +15,7 @@ import 'package:matrixflow_native/widgets/task_card.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
+import 'support/settings_panels.dart';
 
 /// Non-linear scaling of the shape platforms use: identical at 1 dp, a separate
 /// step for real glyph sizes. Two instances are indistinguishable through the
@@ -124,9 +125,8 @@ const _mixed = '方寸 待办：ship OS18 notes 日本語テスト and re-measur
 
 const _texts = [_en, _zh, _ja, _mixed];
 
-/// [SettingsScreen] is a lazily built [ListView]: scrolling to the font
-/// preview unmounts the theme color row above it, so the motion tests pump
-/// without scrolling.
+/// Font preview and theme color each live on their own settings page.
+/// [toPreview] opens the font page. Motion tests open the color page themselves.
 Future<Store> _pumpSettings(
   WidgetTester tester, {
   AppSettings? settings,
@@ -139,6 +139,7 @@ Future<Store> _pumpSettings(
   );
   await tester.pumpAndSettle();
   if (toPreview) {
+    await openSettingsPanel(tester, 'settings-font-row');
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('font-preview-card')),
       400,
@@ -236,6 +237,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      // The font page is its own route, so the reference line on the page
+      // underneath is covered once that route is open. Measure it first.
+      final referenceHeight = tester
+          .getSize(find.byKey(const ValueKey('reference-title')))
+          .height;
+      await openSettingsPanel(tester, 'settings-font-row');
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('font-preview-card')),
         400,
@@ -247,10 +254,7 @@ void main() {
       // direct read-out of the effective font size the scaler produced.
       expect(
         tester.getSize(find.byKey(const ValueKey('font-preview-title'))).height,
-        closeTo(
-          tester.getSize(find.byKey(const ValueKey('reference-title'))).height,
-          0.5,
-        ),
+        closeTo(referenceHeight, 0.5),
         reason: 'the preview scaled a 16 dp line differently from the app body',
       );
       store.dispose();
@@ -438,6 +442,7 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(420, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final store = await _pumpSettings(tester, toPreview: false);
+      await openSettingsPanel(tester, 'settings-color-row');
 
       expect(
         _dot(tester, ThemeColor.purple).duration,
@@ -472,6 +477,7 @@ void main() {
         settings: AppSettings()..reduceMotion = true,
         toPreview: false,
       );
+      await openSettingsPanel(tester, 'settings-color-row');
 
       expect(_dot(tester, ThemeColor.purple).duration, Duration.zero);
       final unselected = _dotSize(tester, ThemeColor.purple).width;

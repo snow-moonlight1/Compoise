@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../planned_policy.dart';
 import '../storage.dart';
+import '../theme.dart';
 import '../ui/motion_policy.dart';
 import 'anim.dart';
 import 'animated_task_title.dart';
@@ -12,6 +13,44 @@ import 'date_edit_fields.dart';
 import 'task_hierarchy_checkbox.dart';
 
 export '../deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
+
+Widget _taskSurface({
+  required ThemeData theme,
+  required bool selected,
+  required Widget child,
+}) {
+  final comic = theme.extension<ComicOutline>();
+  if (comic == null) {
+    return Material(
+      color: selected
+          ? (theme.brightness == Brightness.light
+                ? const Color(0xFFE6EEFF)
+                : theme.colorScheme.primary.withValues(alpha: 0.18))
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: child,
+    );
+  }
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(4, 3, 4, 3),
+    child: Material(
+      color: selected
+          ? Color.alphaBlend(
+              comic.primary.withValues(alpha: 0.16),
+              comic.field,
+            )
+          : comic.field,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(ComicOutline.radius),
+        side: BorderSide(
+          color: selected ? comic.primary : comic.edge,
+          width: selected ? 3 : 2,
+        ),
+      ),
+      child: child,
+    ),
+  );
+}
 
 /// Matrix rows share one column; focus/list rows indent children 16dp.
 enum TaskRowLayout { matrixCompact, hierarchical }
@@ -160,14 +199,9 @@ class TaskCard extends StatelessWidget {
             }
           }
         },
-        child: Material(
-          color:
-              selected
-                  ? (theme.brightness == Brightness.light
-                      ? const Color(0xFFE6EEFF)
-                      : theme.colorScheme.primary.withValues(alpha: 0.18))
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+        child: _taskSurface(
+          theme: theme,
+          selected: selected,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
             child: Column(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models.dart';
+import 'songti_font.dart';
 
 /// Platform-aware font family and CJK fallbacks.
 /// Window width is irrelevant: Android never receives Windows face names.
@@ -23,11 +24,9 @@ class AppFontPolicy {
   ];
 
   static const windowsLatinSans = <String>['Segoe UI', 'Tahoma', 'Arial'];
-  static const windowsLatinSerif = <String>['Georgia', 'Times New Roman'];
   static const windowsLatinMono = <String>['Consolas', 'Courier New'];
 
   static const androidSans = <String>['Roboto', 'sans-serif'];
-  static const androidSerif = <String>['serif'];
   static const androidMono = <String>['monospace'];
 
   String? familyFor(FontFamilyPref pref) {
@@ -37,7 +36,7 @@ class AppFontPolicy {
       case FontFamilyPref.sansSerif:
         return isWindows ? windowsCjkSans.first : androidSans.first;
       case FontFamilyPref.serif:
-        return isWindows ? windowsLatinSerif.first : androidSerif.first;
+        return SongtiFonts.family;
       case FontFamilyPref.monospace:
         return isWindows ? windowsLatinMono.first : androidMono.first;
     }
@@ -59,11 +58,6 @@ class AppFontPolicy {
         }
         break;
       case FontFamilyPref.serif:
-        if (isWindows) {
-          faces.addAll(windowsLatinSerif.skip(1));
-          faces.addAll(windowsCjkSans);
-          faces.add('serif');
-        }
         break;
       case FontFamilyPref.monospace:
         if (isWindows) {

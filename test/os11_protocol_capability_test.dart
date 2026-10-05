@@ -14,6 +14,8 @@ import 'package:matrixflow_native/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/settings_panels.dart';
+
 Future<Store> _openStore(WidgetTester tester, AIService service) async {
   SharedPreferences.setMockInitialValues({
     'matrixflow-has-seen-onboarding': true,
@@ -666,6 +668,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(calls, isEmpty);
+      await openSettingsPanel(tester, 'settings-assistant-row');
 
       await tester.enterText(
         find.byKey(const ValueKey('api-key-input')),
@@ -746,6 +749,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openSettingsPanel(tester, 'settings-assistant-row');
     await tester.enterText(
       find.byKey(const ValueKey('api-key-input')),
       _secret,

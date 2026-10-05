@@ -1,0 +1,7 @@
+Source Han Serif, also published as Noto Serif SC.
+The license is OFL.txt in this folder (SIL Open Font License 1.1).
+
+The font file is not stored in this repository. The app downloads
+NotoSerifSC-Regular.otf, the Simplified Chinese subset, the first time
+someone chooses the serif face, then keeps that file on the device.
+The addresses are listed in lib/ui/songti_font.dart.

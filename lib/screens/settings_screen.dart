@@ -5,13 +5,13 @@ import 'package:provider/provider.dart';
 
 import '../ai_capabilities.dart';
 import '../ai_presets.dart';
-import '../experiments/neumorphic/neu_gallery.dart';
 import '../models.dart';
 import '../services/desktop_shell_service.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
 import '../theme.dart';
 import '../ui/font_policy.dart';
+import '../ui/songti_font.dart';
 import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/accessible_tap_target.dart';
@@ -19,6 +19,8 @@ import 'onboarding_screen.dart';
 import 'settings_backup_flow.dart';
 import 'settings_desktop.dart';
 import 'settings_model_request.dart';
+
+enum _SettingsPanel { assistant, font }
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -38,6 +40,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _lastSyncedBaseUrl;
   String? _lastSyncedModel;
 
+  // Bumps while a detail route is up, because that route does not rebuild
+  // when this screen's setState runs underneath it.
+  final _detailUpdates = ValueNotifier<int>(0);
+
   // The model-list request and the backup files each own their lifecycle; the
   // screen renders their state and reports the outcome it gets back.
   late final ModelRequestSession _models = ModelRequestSession(
@@ -49,6 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _editAIConfig(store, (config) => config.model = model);
     },
   );
+
   late final SettingsBackupFlow _backup = SettingsBackupFlow(
     onBusyChanged: (_) {
       if (mounted) setState(() {});
@@ -164,7 +171,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    // The font and provider pages are their own routes. Rebuilding this
+    // screen does not rebuild them, so tell the open page to build again.
+    if (_detailUpdates.hasListeners) _detailUpdates.value++;
+  }
+
+  @override
   void dispose() {
+    _detailUpdates.dispose();
     _models.dispose();
     _backup.close();
     _apiKeyFocusNode.removeListener(_handleApiKeyFocusChange);
@@ -185,14 +201,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final policy = PlatformUiPolicy.of(context);
     final preset = getAIProviderPreset(store.aiConfig.provider);
 
-    if (_lastSyncedBaseUrl != store.aiConfig.baseUrl) {
-      _lastSyncedBaseUrl = store.aiConfig.baseUrl;
-      _baseUrlController.text = store.aiConfig.baseUrl;
-    }
-    if (_lastSyncedModel != store.aiConfig.model) {
-      _lastSyncedModel = store.aiConfig.model;
-      _modelController.text = store.aiConfig.model;
-    }
     _models.syncWithLiveConfig(store);
 
     return Scaffold(
@@ -205,74 +213,112 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             _sectionTitle(
               theme,
-              t['settingsDisplay'] ?? t['fontAndDisplay']!,
+              t['settingsAppearance']!,
               Icons.display_settings_outlined,
             ),
-            Text(
-              t['language']!,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            _SettingsExpander(
+              id: 'settings-language-row',
+              title: t['language']!,
+              value: _languageLabel(store.settings.language),
+              child: SegmentedButton<Language>(
+                segments: const [
+                  ButtonSegment(value: Language.en, label: Text('EN')),
+                  ButtonSegment(value: Language.zh, label: Text('中文')),
+                  ButtonSegment(value: Language.ja, label: Text('日本語')),
+                ],
+                selected: {store.settings.language},
+                onSelectionChanged: (selected) {
+                  store.updateSettings(
+                    (settings) => settings..language = selected.first,
+                  );
+                  unawaited(applyDesktopSettings(store));
+                },
               ),
             ),
-            const SizedBox(height: 6),
-            SegmentedButton<Language>(
-              segments: const [
-                ButtonSegment(value: Language.en, label: Text('EN')),
-                ButtonSegment(value: Language.zh, label: Text('中文')),
-                ButtonSegment(value: Language.ja, label: Text('日本語')),
-              ],
-              selected: {store.settings.language},
-              onSelectionChanged: (s) {
-                store.updateSettings(
-                  (settings) => settings..language = s.first,
-                );
-                unawaited(applyDesktopSettings(store));
-              },
-            ),
-            const SizedBox(height: 20),
-
-            _sectionTitle(theme, t['theme']!, Icons.brightness_6_outlined),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final mode in ThemeModePref.values)
-                  ChoiceChip(
-                    label: Text(
-                      t[switch (mode) {
-                        ThemeModePref.light => 'themeLight',
-                        ThemeModePref.dark => 'themeDark',
-                        _ => 'themeSystem',
-                      }]!,
+            _SettingsExpander(
+              id: 'settings-theme-row',
+              title: t['theme']!,
+              value:
+                  t[switch (store.settings.theme) {
+                    ThemeModePref.light => 'themeLight',
+                    ThemeModePref.dark => 'themeDark',
+                    _ => 'themeSystem',
+                  }]!,
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  for (final mode in ThemeModePref.values)
+                    ChoiceChip(
+                      label: Text(
+                        t[switch (mode) {
+                          ThemeModePref.light => 'themeLight',
+                          ThemeModePref.dark => 'themeDark',
+                          _ => 'themeSystem',
+                        }]!,
+                      ),
+                      selected: store.settings.theme == mode,
+                      onSelected: (_) => store.updateSettings(
+                        (settings) => settings..theme = mode,
+                      ),
                     ),
-                    selected: store.settings.theme == mode,
-                    onSelected: (_) => store.updateSettings(
-                      (settings) => settings..theme = mode,
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
-            // The dots now carry 48dp touch targets instead of a 34dp row, so
-            // the gaps around them give back the same 14dp: this section keeps
-            // the exact height it had before the targets grew.
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                for (final color in ThemeColor.values)
-                  _ColorDot(
-                    themeColor: color,
-                    color: themeSeedColors[color]!,
-                    selected: store.settings.themeColor == color,
-                    tooltip: _themeColorName(t, color),
-                    semanticsLabel: _themeColorLabel(t, color),
-                    onTap: () => store.updateSettings(
-                      (settings) => settings..themeColor = color,
+            _SettingsExpander(
+              id: 'settings-color-row',
+              title: t['themeColor']!,
+              value: _themeColorName(t, store.settings.themeColor),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (final color in ThemeColor.values)
+                    _ColorDot(
+                      themeColor: color,
+                      color: themeSeedColors[color]!,
+                      selected: store.settings.themeColor == color,
+                      tooltip: _themeColorName(t, color),
+                      semanticsLabel: _themeColorLabel(t, color),
+                      onTap: () => store.updateSettings(
+                        (settings) => settings..themeColor = color,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
+            _navRow(
+              key: const ValueKey('settings-font-row'),
+              title: t['fontAndDisplay']!,
+              value:
+                  '${_fontSizeLabel(t, store.settings.fontSize)} · ${_fontFamilyLabel(t, store.settings.fontFamily)}',
+              onTap: () => _openDetail(_SettingsPanel.font),
+            ),
+            _toggle(
+              context,
+              t['showCompletionRate'] ?? 'Show overall completion rate',
+              t['showCompletionRateDesc'] ??
+                  'Show the share of completed tasks across all boards at the bottom of the More panel.',
+              store.settings.showCompletionRate,
+              (v) => store.updateSettings((s) => s..showCompletionRate = v),
+              key: const ValueKey('show-completion-rate-toggle'),
+            ),
+            _toggle(
+              context,
+              t['reduceMotion'] ?? 'Reduce animation',
+              t['reduceMotionDesc'] ??
+                  'Jump straight to the final state instead of playing entrance, strikethrough and exit animations.',
+              store.settings.reduceMotion,
+              (v) => store.updateSettings((s) => s..reduceMotion = v),
+              key: const ValueKey('reduce-motion-toggle'),
+            ),
+            _toggle(
+              context,
+              t['comicOutline']!,
+              t['comicOutlineDesc'],
+              store.settings.comicOutline,
+              (v) => store.updateSettings((s) => s..comicOutline = v),
+              key: const ValueKey('comic-outline-switch'),
+            ),
+            const SizedBox(height: 12),
 
             _sectionTitle(
               theme,
@@ -323,394 +369,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 (settings) => settings..autoCompleteParent = v,
               ),
             ),
-            const SizedBox(height: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        t['urgencyThreshold']!,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                    Text(
-                      '${store.settings.urgencyThresholdDays}${t['daysLeft']}',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
+            _SettingsExpander(
+              id: 'settings-urgency-row',
+              title: t['urgencyThreshold']!,
+              subtitle:
                   (t['urgencyThresholdDesc'] ??
                           'Promote uncompleted main tasks with deadlines to urgent {n} days in advance (including today).')
                       .replaceAll(
                         '{n}',
                         '${store.settings.urgencyThresholdDays}',
                       ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+              value: '${store.settings.urgencyThresholdDays}${t['daysLeft']}',
+              child: Slider(
+                min: 1,
+                max: 14,
+                divisions: 13,
+                value: store.settings.urgencyThresholdDays.toDouble(),
+                onChanged: (v) => store.updateSettings(
+                  (settings) => settings..urgencyThresholdDays = v.round(),
                 ),
-              ],
-            ),
-            Slider(
-              min: 1,
-              max: 14,
-              divisions: 13,
-              value: store.settings.urgencyThresholdDays.toDouble(),
-              onChanged: (v) => store.updateSettings(
-                (settings) => settings..urgencyThresholdDays = v.round(),
               ),
             ),
             const SizedBox(height: 20),
 
             _sectionTitle(theme, t['provider']!, Icons.smart_toy_outlined),
-            DropdownButton<String>(
-              key: const ValueKey('provider-selector'),
-              isExpanded: true,
-              value: store.aiConfig.provider,
-              items: [
-                for (final p in aiProviderPresets)
-                  DropdownMenuItem(value: p.id, child: Text(p.name(t))),
-              ],
-              onChanged: (newProvider) {
-                if (newProvider != null &&
-                    newProvider != store.aiConfig.provider) {
-                  _onProviderChanged(newProvider, store);
-                }
-              },
+            _navRow(
+              key: const ValueKey('settings-assistant-row'),
+              title: preset.name(t),
+              subtitle: store.aiConfig.model.trim().isEmpty
+                  ? null
+                  : store.aiConfig.model,
+              onTap: () => _openDetail(_SettingsPanel.assistant),
             ),
             const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('api-key-input'),
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: InputDecoration(
-                labelText: t['customApiKey'],
-                hintText: preset.keyHint,
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                suffixIcon: _models.isFetching
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : IconButton(
-                        key: const ValueKey('refresh-models-btn'),
-                        icon: const Icon(Icons.refresh, size: 20),
-                        tooltip: t['refreshModels'],
-                        onPressed: _apiKeyController.text.trim().isEmpty
-                            ? null
-                            : () => _models.commit(store, forceRefresh: true),
-                      ),
-              ),
-              obscureText: true,
-              focusNode: _apiKeyFocusNode,
-              controller: _apiKeyController,
-              onSubmitted: (_) => _models.commit(store),
-              onChanged: (v) {
-                _editAIConfig(store, (config) => config.apiKey = v);
-                _models.credentialOrEndpointChanged(store);
-              },
-            ),
-            if (_models.isFetching) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    t['fetchingModels']!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ] else if (_models.error != null) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 14,
-                    color: theme.colorScheme.error,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _models.error!,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.error,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    key: const ValueKey('discovery-retry'),
-                    onPressed: () => _models.commit(store, forceRefresh: true),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(t['retry']!),
-                  ),
-                ],
-              ),
-            ] else if (_apiKeyController.text.trim().isEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                t['enterApiKeyFirst']!,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-            const SizedBox(height: 10),
-            if (_models.models.isNotEmpty && !_models.customModelMode) ...[
-              DropdownButtonFormField<String>(
-                key: const ValueKey('model-selector'),
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: t['customModel'],
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                ),
-                value: _models.models.contains(store.aiConfig.model)
-                    ? store.aiConfig.model
-                    : '__custom__',
-                items: [
-                  for (final m in _models.models)
-                    DropdownMenuItem(
-                      value: m,
-                      child: Text(m, overflow: TextOverflow.ellipsis),
-                    ),
-                  DropdownMenuItem(
-                    value: '__custom__',
-                    child: Text(
-                      t['customModelOption']!,
-                      style: TextStyle(color: theme.colorScheme.primary),
-                    ),
-                  ),
-                ],
-                onChanged: (val) {
-                  if (val == '__custom__') {
-                    setState(() {
-                      _models.customModelMode = true;
-                    });
-                  } else if (val != null) {
-                    _modelController.text = val;
-                    _editAIConfig(store, (config) => config.model = val);
-                  }
-                },
-              ),
-            ] else ...[
-              TextField(
-                key: const ValueKey('model-input'),
-                decoration: InputDecoration(
-                  labelText: t['customModel'],
-                  hintText: preset.defaultModel.isNotEmpty
-                      ? preset.defaultModel
-                      : t['enterModelHint'],
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  suffixIcon: _models.models.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.list, size: 20),
-                          tooltip: t['selectModel'],
-                          onPressed: () {
-                            setState(() {
-                              _models.customModelMode = false;
-                            });
-                          },
-                        )
-                      : null,
-                ),
-                controller: _modelController,
-                onChanged: (v) {
-                  _editAIConfig(store, (config) => config.model = v);
-                },
-              ),
-            ],
-            if (preset.supportsThinking ||
-                preset.isCustom ||
-                store.aiConfig.protocol == AIProtocol.anthropic ||
-                store.aiConfig.protocol == AIProtocol.openaiResponses) ...[
-              const SizedBox(height: 8),
-              SwitchListTile(
-                key: const ValueKey('thinking-switch'),
-                contentPadding: EdgeInsets.zero,
-                title: Text(t['enableThinking']!),
-                subtitle: Text(
-                  t[planThinking(store.aiConfig).hintCode ??
-                      'enableThinkingDesc']!,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                value: store.aiConfig.enableThinking,
-                onChanged: (v) =>
-                    _editAIConfig(store, (config) => config.enableThinking = v),
-              ),
-            ],
-            if (preset.isCustom) ...[
-              const SizedBox(height: 10),
-              DropdownButton<AIProtocol>(
-                key: const ValueKey('protocol-selector'),
-                isExpanded: true,
-                items: [
-                  DropdownMenuItem(
-                    value: AIProtocol.openai,
-                    child: Text(
-                      t['providerOpenAI']!,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: AIProtocol.openaiResponses,
-                    child: Text(
-                      t['providerOpenAIResponses']!,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: AIProtocol.anthropic,
-                    child: Text(
-                      t['providerAnthropic']!,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-                value: store.aiConfig.protocol,
-                onChanged: (value) {
-                  if (value != null && value != store.aiConfig.protocol) {
-                    _editAIConfig(store, (config) => config.protocol = value);
-                    _models.invalidate();
-                    setState(() {});
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('base-url-input'),
-                autocorrect: false,
-                keyboardType: TextInputType.url,
-                decoration: InputDecoration(
-                  labelText: t['customBaseUrl'],
-                  hintText: 'https://api.deepseek.com',
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                ),
-                focusNode: _baseUrlFocusNode,
-                controller: _baseUrlController,
-                onSubmitted: (_) => _models.commit(store),
-                onChanged: (v) {
-                  _editAIConfig(store, (config) => config.baseUrl = v);
-                  _models.credentialOrEndpointChanged(store);
-                },
-              ),
-              const SizedBox(height: 6),
-              Text(
-                t['customUrlHint']!,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                ),
-              ),
-            ] else ...[
-              const SizedBox(height: 6),
-              Theme(
-                data: theme.copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  key: const ValueKey('advanced-settings-tile'),
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: EdgeInsets.zero,
-                  title: Text(
-                    t['advancedSettings']!,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  children: [
-                    const SizedBox(height: 8),
-                    TextField(
-                      key: const ValueKey('base-url-input'),
-                      autocorrect: false,
-                      keyboardType: TextInputType.url,
-                      decoration: InputDecoration(
-                        labelText: t['customBaseUrl'],
-                        hintText: preset.defaultBaseUrl,
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                      ),
-                      focusNode: _baseUrlFocusNode,
-                      controller: _baseUrlController,
-                      onSubmitted: (_) => _models.commit(store),
-                      onChanged: (v) {
-                        _editAIConfig(store, (config) => config.baseUrl = v);
-                        _models.credentialOrEndpointChanged(store);
-                      },
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      t['customUrlHint']!,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.45,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ),
-              ),
-            ],
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              margin: const EdgeInsets.only(top: 4, bottom: 4),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer.withValues(
-                  alpha: 0.35,
-                ),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.tips_and_updates_outlined,
-                    size: 15,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      t['aiRecommendTip']!,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        height: 1.3,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            TestConnectionButton(t: t, store: store),
-            const SizedBox(height: 20),
 
             _sectionTitle(
               theme,
@@ -767,184 +458,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             Text(t['backupVersionInfo']!, style: theme.textTheme.bodySmall),
             const SizedBox(height: 24),
-
-            _sectionTitle(
-              theme,
-              t['fontAndDisplay'] ?? 'Font & Display',
-              Icons.format_size,
-            ),
-            Text(
-              t['fontSize'] ?? 'Font Size',
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final size in FontSizePref.values)
-                  ChoiceChip(
-                    key: ValueKey('font-size-${size.name}'),
-                    label: Text(
-                      t[switch (size) {
-                            FontSizePref.small => 'fontSizeSmall',
-                            FontSizePref.standard => 'fontSizeStandard',
-                            FontSizePref.large => 'fontSizeLarge',
-                          }] ??
-                          size.name,
-                    ),
-                    selected: store.settings.fontSize == size,
-                    onSelected: (_) => store.setFontSize(size),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            Text(
-              t['fontFamily'] ?? 'Font Family',
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final family in FontFamilyPref.values)
-                  ChoiceChip(
-                    key: ValueKey('font-family-${family.name}'),
-                    label: Text(
-                      t[switch (family) {
-                            FontFamilyPref.system => 'fontSystem',
-                            FontFamilyPref.sansSerif => 'fontSansSerif',
-                            FontFamilyPref.serif => 'fontSerif',
-                            FontFamilyPref.monospace => 'fontMonospace',
-                          }] ??
-                          family.name,
-                    ),
-                    selected: store.settings.fontFamily == family,
-                    onSelected: (_) => store.setFontFamily(family),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            Builder(
-              builder: (context) {
-                final fonts = AppFontPolicy.of(context);
-                final family = fonts.familyFor(store.settings.fontFamily);
-                final fallback = fonts.fallbackFor(store.settings.fontFamily);
-                // The app-wide CombinedTextScaler already applies the font size
-                // preference, so the base sizes here stay unscaled.
-                return Container(
-                  key: const ValueKey('font-preview-card'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.4,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.4,
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t['fontPreviewTitle'] ??
-                            'Urgent and Important · Compoise 123',
-                        key: const ValueKey('font-preview-title'),
-                        style: TextStyle(
-                          fontFamily: family,
-                          fontFamilyFallback: fallback,
-                          fontWeight: fonts.titleWeight,
-                          fontSize: 16,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        t['fontPreview'] ??
-                            'Preview: Urgent & Important Task 123',
-                        key: const ValueKey('font-preview-body'),
-                        style: TextStyle(
-                          fontFamily: family,
-                          fontFamilyFallback: fallback,
-                          fontWeight: fonts.bodyWeight,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        t['fontPreviewSample'] ?? '紧急且重要，购买牛奶；方寸 123；日本語テスト',
-                        key: const ValueKey('font-preview-sample'),
-                        style: TextStyle(
-                          fontFamily: family,
-                          fontFamilyFallback: fallback,
-                          fontWeight: fonts.bodyWeight,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                      if (store.settings.fontFamily ==
-                          FontFamilyPref.monospace) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          t['fontMonospaceHint'] ??
-                              'Monospace applies to Latin letters; CJK falls back to a proportional font.',
-                          key: const ValueKey('font-monospace-hint'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                key: const ValueKey('reset-display-btn'),
-                icon: const Icon(Icons.restore, size: 16),
-                label: Text(t['resetDisplay'] ?? 'Reset Display Defaults'),
-                onPressed: () => store.resetDisplayPreferences(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _toggle(
-              context,
-              t['showCompletionRate'] ?? 'Show overall completion rate',
-              t['showCompletionRateDesc'] ??
-                  'Show the share of completed tasks across all boards at the bottom of the More panel.',
-              store.settings.showCompletionRate,
-              (v) => store.updateSettings((s) => s..showCompletionRate = v),
-              key: const ValueKey('show-completion-rate-toggle'),
-            ),
-            const SizedBox(height: 8),
-            _toggle(
-              context,
-              t['reduceMotion'] ?? 'Reduce animation',
-              t['reduceMotionDesc'] ??
-                  'Jump straight to the final state instead of playing entrance, strikethrough and exit animations.',
-              store.settings.reduceMotion,
-              (v) => store.updateSettings((s) => s..reduceMotion = v),
-              key: const ValueKey('reduce-motion-toggle'),
-            ),
-            const SizedBox(height: 20),
 
             if (policy.showDesktopSettings) ...[
               _sectionTitle(
@@ -1163,41 +676,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ],
-            const SizedBox(height: 20),
-            _sectionTitle(
-              theme,
-              t['experimentalSection']!,
-              Icons.science_outlined,
-            ),
-            Text(
-              t['experimentalSectionDesc']!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            ListTile(
-              key: const ValueKey('neumorphic-compare-tile'),
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                Icons.layers_outlined,
-                color: theme.colorScheme.primary,
-              ),
-              title: Text(t['neumorphicCompare']!),
-              subtitle: Text(
-                t['neumorphicCompareDesc']!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const NeuGallery(showBackButton: true),
-                  ),
-                );
-              },
-            ),
             const SizedBox(height: 20),
             _sectionTitle(
               theme,
@@ -1566,6 +1044,627 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _syncDetailControllers(Store store) {
+    if (_lastSyncedBaseUrl != store.aiConfig.baseUrl) {
+      _lastSyncedBaseUrl = store.aiConfig.baseUrl;
+      _baseUrlController.text = store.aiConfig.baseUrl;
+    }
+    if (_lastSyncedModel != store.aiConfig.model) {
+      _lastSyncedModel = store.aiConfig.model;
+      _modelController.text = store.aiConfig.model;
+    }
+  }
+
+  void _openDetail(_SettingsPanel panel) {
+    final host = this;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsSubpage(panel: panel, host: host),
+      ),
+    );
+  }
+
+  Widget _navRow({
+    required Key key,
+    required String title,
+    String? subtitle,
+    String? value,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return ListTile(
+      key: key,
+      contentPadding: EdgeInsets.zero,
+      title: Text(title, style: theme.textTheme.bodyMedium),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (value != null && value.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 148),
+              child: Text(
+                value,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  List<Widget> _assistantFields(
+    Store store,
+    Map<String, String> t,
+    ThemeData theme,
+    AIProviderPreset preset,
+  ) {
+    return [
+      DropdownButton<String>(
+        key: const ValueKey('provider-selector'),
+        isExpanded: true,
+        value: store.aiConfig.provider,
+        items: [
+          for (final p in aiProviderPresets)
+            DropdownMenuItem(value: p.id, child: Text(p.name(t))),
+        ],
+        onChanged: (newProvider) {
+          if (newProvider != null && newProvider != store.aiConfig.provider) {
+            _onProviderChanged(newProvider, store);
+          }
+        },
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        key: const ValueKey('api-key-input'),
+        autocorrect: false,
+        enableSuggestions: false,
+        decoration: InputDecoration(
+          labelText: t['customApiKey'],
+          hintText: preset.keyHint,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          suffixIcon: _models.isFetching
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  key: const ValueKey('refresh-models-btn'),
+                  icon: const Icon(Icons.refresh, size: 20),
+                  tooltip: t['refreshModels'],
+                  onPressed: _apiKeyController.text.trim().isEmpty
+                      ? null
+                      : () => _models.commit(store, forceRefresh: true),
+                ),
+        ),
+        obscureText: true,
+        focusNode: _apiKeyFocusNode,
+        controller: _apiKeyController,
+        onSubmitted: (_) => _models.commit(store),
+        onChanged: (v) {
+          _editAIConfig(store, (config) => config.apiKey = v);
+          _models.credentialOrEndpointChanged(store);
+        },
+      ),
+      if (_models.isFetching) ...[
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              t['fetchingModels']!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ] else if (_models.error != null) ...[
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(Icons.error_outline, size: 14, color: theme.colorScheme.error),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _models.error!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+            TextButton(
+              key: const ValueKey('discovery-retry'),
+              onPressed: () => _models.commit(store, forceRefresh: true),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(t['retry']!),
+            ),
+          ],
+        ),
+      ] else if (_apiKeyController.text.trim().isEmpty) ...[
+        const SizedBox(height: 6),
+        Text(
+          t['enterApiKeyFirst']!,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+      ],
+      const SizedBox(height: 10),
+      if (_models.models.isNotEmpty && !_models.customModelMode) ...[
+        DropdownButtonFormField<String>(
+          key: const ValueKey('model-selector'),
+          isExpanded: true,
+          decoration: InputDecoration(
+            labelText: t['customModel'],
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+          ),
+          value: _models.models.contains(store.aiConfig.model)
+              ? store.aiConfig.model
+              : '__custom__',
+          items: [
+            for (final m in _models.models)
+              DropdownMenuItem(
+                value: m,
+                child: Text(m, overflow: TextOverflow.ellipsis),
+              ),
+            DropdownMenuItem(
+              value: '__custom__',
+              child: Text(
+                t['customModelOption']!,
+                style: TextStyle(color: theme.colorScheme.primary),
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            if (val == '__custom__') {
+              setState(() {
+                _models.customModelMode = true;
+              });
+            } else if (val != null) {
+              _modelController.text = val;
+              _editAIConfig(store, (config) => config.model = val);
+            }
+          },
+        ),
+      ] else ...[
+        TextField(
+          key: const ValueKey('model-input'),
+          decoration: InputDecoration(
+            labelText: t['customModel'],
+            hintText: preset.defaultModel.isNotEmpty
+                ? preset.defaultModel
+                : t['enterModelHint'],
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            suffixIcon: _models.models.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.list, size: 20),
+                    tooltip: t['selectModel'],
+                    onPressed: () {
+                      setState(() {
+                        _models.customModelMode = false;
+                      });
+                    },
+                  )
+                : null,
+          ),
+          controller: _modelController,
+          onChanged: (v) {
+            _editAIConfig(store, (config) => config.model = v);
+          },
+        ),
+      ],
+      if (preset.supportsThinking ||
+          preset.isCustom ||
+          store.aiConfig.protocol == AIProtocol.anthropic ||
+          store.aiConfig.protocol == AIProtocol.openaiResponses) ...[
+        const SizedBox(height: 8),
+        SwitchListTile(
+          key: const ValueKey('thinking-switch'),
+          contentPadding: EdgeInsets.zero,
+          title: Text(t['enableThinking']!),
+          subtitle: Text(
+            t[planThinking(store.aiConfig).hintCode ?? 'enableThinkingDesc']!,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          value: store.aiConfig.enableThinking,
+          onChanged: (v) =>
+              _editAIConfig(store, (config) => config.enableThinking = v),
+        ),
+      ],
+      if (preset.isCustom) ...[
+        const SizedBox(height: 10),
+        DropdownButton<AIProtocol>(
+          key: const ValueKey('protocol-selector'),
+          isExpanded: true,
+          items: [
+            DropdownMenuItem(
+              value: AIProtocol.openai,
+              child: Text(
+                t['providerOpenAI']!,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DropdownMenuItem(
+              value: AIProtocol.openaiResponses,
+              child: Text(
+                t['providerOpenAIResponses']!,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DropdownMenuItem(
+              value: AIProtocol.anthropic,
+              child: Text(
+                t['providerAnthropic']!,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+          value: store.aiConfig.protocol,
+          onChanged: (value) {
+            if (value != null && value != store.aiConfig.protocol) {
+              _editAIConfig(store, (config) => config.protocol = value);
+              _models.invalidate();
+              setState(() {});
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('base-url-input'),
+          autocorrect: false,
+          keyboardType: TextInputType.url,
+          decoration: InputDecoration(
+            labelText: t['customBaseUrl'],
+            hintText: 'https://api.deepseek.com',
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+          ),
+          focusNode: _baseUrlFocusNode,
+          controller: _baseUrlController,
+          onSubmitted: (_) => _models.commit(store),
+          onChanged: (v) {
+            _editAIConfig(store, (config) => config.baseUrl = v);
+            _models.credentialOrEndpointChanged(store);
+          },
+        ),
+        const SizedBox(height: 6),
+        Text(
+          t['customUrlHint']!,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+          ),
+        ),
+      ] else ...[
+        const SizedBox(height: 6),
+        Theme(
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            key: const ValueKey('advanced-settings-tile'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            title: Text(
+              t['advancedSettings']!,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            children: [
+              const SizedBox(height: 8),
+              TextField(
+                key: const ValueKey('base-url-input'),
+                autocorrect: false,
+                keyboardType: TextInputType.url,
+                decoration: InputDecoration(
+                  labelText: t['customBaseUrl'],
+                  hintText: preset.defaultBaseUrl,
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                ),
+                focusNode: _baseUrlFocusNode,
+                controller: _baseUrlController,
+                onSubmitted: (_) => _models.commit(store),
+                onChanged: (v) {
+                  _editAIConfig(store, (config) => config.baseUrl = v);
+                  _models.credentialOrEndpointChanged(store);
+                },
+              ),
+              const SizedBox(height: 6),
+              Text(
+                t['customUrlHint']!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ],
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        margin: const EdgeInsets.only(top: 4, bottom: 4),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.tips_and_updates_outlined,
+              size: 15,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                t['aiRecommendTip']!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      TestConnectionButton(t: t, store: store),
+    ];
+  }
+
+  List<Widget> _fontFields(
+    Store store,
+    Map<String, String> t,
+    ThemeData theme,
+  ) {
+    return [
+      Text(
+        t['fontSize'] ?? 'Font Size',
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final size in FontSizePref.values)
+            ChoiceChip(
+              key: ValueKey('font-size-${size.name}'),
+              label: Text(
+                t[switch (size) {
+                      FontSizePref.small => 'fontSizeSmall',
+                      FontSizePref.standard => 'fontSizeStandard',
+                      FontSizePref.large => 'fontSizeLarge',
+                    }] ??
+                    size.name,
+              ),
+              selected: store.settings.fontSize == size,
+              onSelected: (_) => store.setFontSize(size),
+            ),
+        ],
+      ),
+      const SizedBox(height: 14),
+
+      Text(
+        t['fontFamily'] ?? 'Font Family',
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final family in FontFamilyPref.values)
+            ChoiceChip(
+              key: ValueKey('font-family-${family.name}'),
+              label: Text(
+                t[switch (family) {
+                      FontFamilyPref.system => 'fontSystem',
+                      FontFamilyPref.sansSerif => 'fontSansSerif',
+                      FontFamilyPref.serif => 'fontSerif',
+                      FontFamilyPref.monospace => 'fontMonospace',
+                    }] ??
+                    family.name,
+              ),
+              selected: store.settings.fontFamily == family,
+              onSelected: (_) => unawaited(_chooseFamily(store, family)),
+            ),
+        ],
+      ),
+      const SizedBox(height: 14),
+
+      Builder(
+        builder: (context) {
+          final fonts = AppFontPolicy.of(context);
+          final family = fonts.familyFor(store.settings.fontFamily);
+          final fallback = fonts.fallbackFor(store.settings.fontFamily);
+          // The app-wide CombinedTextScaler already applies the font size
+          // preference, so the base sizes here stay unscaled.
+          return Container(
+            key: const ValueKey('font-preview-card'),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.4,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t['fontPreviewTitle'] ??
+                      'Urgent and Important · Compoise 123',
+                  key: const ValueKey('font-preview-title'),
+                  style: TextStyle(
+                    fontFamily: family,
+                    fontFamilyFallback: fallback,
+                    fontWeight: fonts.titleWeight,
+                    fontSize: 16,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  t['fontPreview'] ?? 'Preview: Urgent & Important Task 123',
+                  key: const ValueKey('font-preview-body'),
+                  style: TextStyle(
+                    fontFamily: family,
+                    fontFamilyFallback: fallback,
+                    fontWeight: fonts.bodyWeight,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  t['fontPreviewSample'] ?? '紧急且重要，购买牛奶；方寸 123；日本語テスト',
+                  key: const ValueKey('font-preview-sample'),
+                  style: TextStyle(
+                    fontFamily: family,
+                    fontFamilyFallback: fallback,
+                    fontWeight: fonts.bodyWeight,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                if (store.settings.fontFamily == FontFamilyPref.monospace) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    t['fontMonospaceHint'] ??
+                        'Monospace applies to Latin letters; CJK falls back to a proportional font.',
+                    key: const ValueKey('font-monospace-hint'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: const ValueKey('reset-display-btn'),
+          icon: const Icon(Icons.restore, size: 16),
+          label: Text(t['resetDisplay'] ?? 'Reset Display Defaults'),
+          onPressed: () => store.resetDisplayPreferences(),
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _chooseFamily(Store store, FontFamilyPref family) async {
+    if (family != FontFamilyPref.serif) {
+      store.setFontFamily(family);
+      return;
+    }
+    final installed = await SongtiFonts.isInstalled();
+    if (SongtiFonts.loaded || installed) {
+      await SongtiFonts.ensureLoaded();
+      if (!mounted) return;
+      store.setFontFamily(FontFamilyPref.serif);
+      return;
+    }
+    if (!mounted) return;
+    final agreed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('songti-download-dialog'),
+        title: Text(store.t['songtiDownloadTitle']!),
+        content: Text(
+          store.t['songtiDownloadBody']!.replaceAll(
+            '{n}',
+            '${SongtiFonts.approxMegabytes}',
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('songti-download-cancel'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(store.t['cancel']!),
+          ),
+          FilledButton(
+            key: const ValueKey('songti-download-confirm'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(store.t['songtiDownloadAction']!),
+          ),
+        ],
+      ),
+    );
+    if (agreed != true || !mounted) return;
+    BuildContext? dialogContext;
+    void Function(double? value)? report;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        dialogContext = ctx;
+        return _SongtiProgressDialog(
+          message: store.t['songtiDownloading']!,
+          onReady: (fn) => report = fn,
+        );
+      },
+    );
+    await WidgetsBinding.instance.endOfFrame;
+    try {
+      await SongtiFonts.download(onProgress: (value) => report?.call(value));
+      if (!mounted) return;
+      store.setFontFamily(FontFamilyPref.serif);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(store.t['songtiDownloadFailed']!)));
+    } finally {
+      final ctx = dialogContext;
+      if (ctx != null && ctx.mounted) Navigator.pop(ctx);
+    }
+  }
+
   Widget _sectionTitle(ThemeData theme, String text, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1639,6 +1738,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+String _languageLabel(Language language) => switch (language) {
+  Language.en => 'EN',
+  Language.zh => '中文',
+  Language.ja => '日本語',
+};
+
+String _fontSizeLabel(Map<String, String> t, FontSizePref size) =>
+    t[switch (size) {
+      FontSizePref.small => 'fontSizeSmall',
+      FontSizePref.standard => 'fontSizeStandard',
+      FontSizePref.large => 'fontSizeLarge',
+    }] ??
+    size.name;
+
+String _fontFamilyLabel(Map<String, String> t, FontFamilyPref family) =>
+    t[switch (family) {
+      FontFamilyPref.system => 'fontSystem',
+      FontFamilyPref.sansSerif => 'fontSansSerif',
+      FontFamilyPref.serif => 'fontSerif',
+      FontFamilyPref.monospace => 'fontMonospace',
+    }] ??
+    family.name;
+
 String _themeColorName(Map<String, String> t, ThemeColor color) =>
     t['color${color.name[0].toUpperCase()}${color.name.substring(1)}']!;
 
@@ -1649,6 +1771,271 @@ String _themeColorLabel(Map<String, String> t, ThemeColor color) =>
       '{color}',
       _themeColorName(t, color),
     );
+
+class _SettingsExpander extends StatefulWidget {
+  final String id;
+  final String title;
+  final String? subtitle;
+  final String? value;
+  final Widget child;
+
+  const _SettingsExpander({
+    required this.id,
+    required this.title,
+    this.subtitle,
+    this.value,
+    required this.child,
+  });
+
+  @override
+  State<_SettingsExpander> createState() => _SettingsExpanderState();
+}
+
+class _SettingsExpanderState extends State<_SettingsExpander>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final CurvedAnimation _curve;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+      reverseDuration: const Duration(milliseconds: 240),
+    );
+    // Emphasized decelerate on the way open, emphasized accelerate on the
+    // way shut. A linear tween reads as a mechanical slide.
+    _curve = CurvedAnimation(
+      parent: _controller,
+      curve: const Cubic(0.05, 0.7, 0.1, 1.0),
+      reverseCurve: const Cubic(0.3, 0.0, 0.8, 0.15),
+    );
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (MotionPolicy.reduceMotionNow(context)) {
+      _controller.value = _controller.value == 0 ? 1 : 0;
+      return;
+    }
+    if (_controller.value == 0) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          key: ValueKey(widget.id),
+          contentPadding: EdgeInsets.zero,
+          title: Text(widget.title, style: theme.textTheme.bodyMedium),
+          subtitle: widget.subtitle == null
+              ? null
+              : Text(
+                  widget.subtitle!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.value != null && widget.value!.isNotEmpty)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 148),
+                  child: Text(
+                    widget.value!,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              AnimatedBuilder(
+                animation: _curve,
+                builder: (context, child) {
+                  return AnimatedRotation(
+                    key: ValueKey('${widget.id}-chevron'),
+                    turns: _curve.value * 0.25,
+                    duration: Duration.zero,
+                    child: child,
+                  );
+                },
+                child: Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          onTap: _toggle,
+        ),
+        AnimatedBuilder(
+          animation: _curve,
+          builder: (context, child) {
+            final show =
+                _curve.value > 0 ||
+                _controller.status == AnimationStatus.forward;
+            if (!show) return const SizedBox(width: double.infinity);
+            return ClipRect(
+              child: Align(
+                alignment: Alignment.topCenter,
+                heightFactor: _curve.value,
+                child: child,
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 12),
+            child: widget.child,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsSubpage extends StatefulWidget {
+  final _SettingsPanel panel;
+  final _SettingsScreenState host;
+
+  const _SettingsSubpage({required this.panel, required this.host});
+
+  @override
+  State<_SettingsSubpage> createState() => _SettingsSubpageState();
+}
+
+class _SettingsSubpageState extends State<_SettingsSubpage> {
+  @override
+  void initState() {
+    super.initState();
+    widget.host._detailUpdates.addListener(_onHost);
+  }
+
+  @override
+  void dispose() {
+    widget.host._detailUpdates.removeListener(_onHost);
+    super.dispose();
+  }
+
+  void _onHost() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<Store>();
+    final t = store.t;
+    final theme = Theme.of(context);
+    final preset = getAIProviderPreset(store.aiConfig.provider);
+    // The text fields live on this route, so the controllers have to be
+    // aligned here. Doing it in the settings page underneath notifies a
+    // field that is not its descendant.
+    widget.host._models.syncWithLiveConfig(store);
+    widget.host._syncDetailControllers(store);
+    final title = switch (widget.panel) {
+      _SettingsPanel.assistant => t['provider']!,
+      _SettingsPanel.font => t['fontAndDisplay']!,
+    };
+    final children = switch (widget.panel) {
+      _SettingsPanel.assistant => widget.host._assistantFields(
+        store,
+        t,
+        theme,
+        preset,
+      ),
+      _SettingsPanel.font => widget.host._fontFields(store, t, theme),
+    };
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const padding = EdgeInsets.fromLTRB(16, 8, 16, 32);
+            final minHeight = constraints.maxHeight - padding.vertical;
+            return ListView(
+              key: const ValueKey('settings-detail-list'),
+              padding: padding,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: minHeight < 0 ? 0 : minHeight,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: children,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SongtiProgressDialog extends StatefulWidget {
+  final String message;
+  final void Function(void Function(double? value) report) onReady;
+
+  const _SongtiProgressDialog({required this.message, required this.onReady});
+
+  @override
+  State<_SongtiProgressDialog> createState() => _SongtiProgressDialogState();
+}
+
+class _SongtiProgressDialogState extends State<_SongtiProgressDialog> {
+  double? _value;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.onReady((value) {
+      if (mounted) setState(() => _value = value);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = _value == null ? null : (_value!.clamp(0, 1) * 100).round();
+    return AlertDialog(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(widget.message),
+          const SizedBox(height: 16),
+          LinearProgressIndicator(
+            key: const ValueKey('songti-download-progress'),
+            value: _value,
+          ),
+          if (percent != null) ...[
+            const SizedBox(height: 8),
+            Text('$percent%', textAlign: TextAlign.end),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _ColorDot extends StatelessWidget {
   final ThemeColor themeColor;

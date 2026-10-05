@@ -420,6 +420,18 @@ void main() {
       expect(invalid.fontFamily, FontFamilyPref.system);
     });
 
+    test('comicOutline defaults off and stays out of a v1 export', () {
+      final missing = AppSettings.fromJson({});
+      expect(missing.comicOutline, isFalse);
+      expect(missing.toJson().containsKey('comicOutline'), isFalse);
+      final enabled = AppSettings.fromJson({'comicOutline': true});
+      expect(enabled.comicOutline, isTrue);
+      expect(enabled.toJson()['comicOutline'], isTrue);
+      expect(enabled.toJson(targetVersion: 1).containsKey('comicOutline'), isFalse);
+      final cleared = AppSettings.fromJson(enabled.toJson()..['comicOutline'] = false);
+      expect(cleared.comicOutline, isFalse);
+    });
+
     test('showCompletionRate defaults false and round-trips on v2', () {
       final missing = AppSettings.fromJson({});
       expect(missing.showCompletionRate, isFalse);

@@ -12,6 +12,7 @@ import 'package:matrixflow_native/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import '../foundation_regression_test.dart' as fixture;
+import 'settings_panels.dart';
 
 class DelayedSchedulePlugin implements FlutterLocalNotificationsPlugin {
   final entered = Completer<void>();
@@ -163,6 +164,7 @@ void main() {
       );
       await tester.pumpWidget(fixture.app(store, const SettingsScreen()));
       await tester.pumpAndSettle();
+      await openSettingsPanel(tester, 'settings-assistant-row');
       await tester.tap(find.byKey(const ValueKey('refresh-models-btn')));
       await tester.pump();
       await tester.enterText(

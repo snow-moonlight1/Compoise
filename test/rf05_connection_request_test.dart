@@ -19,6 +19,8 @@ import 'package:matrixflow_native/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/settings_panels.dart';
+
 const _secret = 'synthetic-rf05-key';
 const _otherSecret = 'synthetic-rf05-other-key';
 
@@ -38,10 +40,8 @@ AIConfig _cfg({
 http.Response _models() =>
     http.Response('{"data":[{"id":"listed-model"}]}', 200);
 http.Response _unauthorized() => http.Response('{}', 401);
-http.Response _pong() => http.Response(
-  '{"choices":[{"message":{"content":"pong"}}]}',
-  200,
-);
+http.Response _pong() =>
+    http.Response('{"choices":[{"message":{"content":"pong"}}]}', 200);
 
 /// Records the cancellation handed to each call, so a test can say "the retired
 /// request was really cancelled" instead of inferring it from a missing reply.
@@ -91,7 +91,8 @@ class _Gated {
   /// Releases reply [i]; the caller pumps or awaits so the request can resume.
   void answer(int i, http.Response response) => gates[i].complete(response);
 
-  Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 1));
+  Future<void> settle() =>
+      Future<void>.delayed(const Duration(milliseconds: 1));
 }
 
 /// A service that fails the way only a bug can: the call itself throws, so the
@@ -136,24 +137,27 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('request lifecycle', () {
-    test('a first probe answers for its own identity and frees the panel', () async {
-      final gated = _Gated();
-      final store = await _openStore(gated.service);
-      final session = _session();
+    test(
+      'a first probe answers for its own identity and frees the panel',
+      () async {
+        final gated = _Gated();
+        final store = await _openStore(gated.service);
+        final session = _session();
 
-      final running = session.runProbe(store);
-      expect(session.isBusy, isTrue);
-      expect(session.request, ConnectionRequestKind.probe);
-      await gated.settle();
-      gated.answer(0, _models());
-      await running;
+        final running = session.runProbe(store);
+        expect(session.isBusy, isTrue);
+        expect(session.request, ConnectionRequestKind.probe);
+        await gated.settle();
+        gated.answer(0, _models());
+        await running;
 
-      expect(session.isBusy, isFalse);
-      expect(session.request, ConnectionRequestKind.none);
-      expect(session.probe?.endpointAuth.code, 'aiEndpointReachable');
-      expect(session.probe?.modelDiscovery.code, 'aiDiscoveryOk');
-      expect(gated.requests, ['GET /models']);
-    });
+        expect(session.isBusy, isFalse);
+        expect(session.request, ConnectionRequestKind.none);
+        expect(session.probe?.endpointAuth.code, 'aiEndpointReachable');
+        expect(session.probe?.modelDiscovery.code, 'aiDiscoveryOk');
+        expect(gated.requests, ['GET /models']);
+      },
+    );
 
     test('re-testing replaces the previous report', () async {
       final gated = _Gated();
@@ -208,7 +212,9 @@ void main() {
 
     test('a network failure is a report, not a stuck spinner', () async {
       final service = _SpyService(
-        client: MockClient((request) async => throw http.ClientException('down')),
+        client: MockClient(
+          (request) async => throw http.ClientException('down'),
+        ),
         timeout: aiRequestTimeout,
       );
       final store = await _openStore(service);
@@ -234,86 +240,93 @@ void main() {
       expect(session.request, ConnectionRequestKind.none);
     });
 
-    test('generation is a separate call that reports on its own line', () async {
-      final gated = _Gated();
-      final store = await _openStore(gated.service);
-      final session = _session();
+    test(
+      'generation is a separate call that reports on its own line',
+      () async {
+        final gated = _Gated();
+        final store = await _openStore(gated.service);
+        final session = _session();
 
-      final probe = session.runProbe(store);
-      await gated.settle();
-      gated.answer(0, _models());
-      await probe;
-      expect(session.generationResult, isNull);
-      expect(gated.requests, ['GET /models']);
+        final probe = session.runProbe(store);
+        await gated.settle();
+        gated.answer(0, _models());
+        await probe;
+        expect(session.generationResult, isNull);
+        expect(gated.requests, ['GET /models']);
 
-      final generation = session.runGeneration(store);
-      await gated.settle();
-      expect(session.request, ConnectionRequestKind.generation);
-      gated.answer(1, _pong());
-      await generation;
-      expect(session.generationResult?.code, 'aiGenerationOk');
-      expect(session.isBusy, isFalse);
-      expect(gated.requests, ['GET /models', 'POST /chat/completions']);
-    });
+        final generation = session.runGeneration(store);
+        await gated.settle();
+        expect(session.request, ConnectionRequestKind.generation);
+        gated.answer(1, _pong());
+        await generation;
+        expect(session.generationResult?.code, 'aiGenerationOk');
+        expect(session.isBusy, isFalse);
+        expect(gated.requests, ['GET /models', 'POST /chat/completions']);
+      },
+    );
   });
 
   group('retirement', () {
-    test('changing the identity cancels the pending probe and frees the panel',
-        () async {
-      final gated = _Gated();
-      final store = await _openStore(gated.service);
-      final session = _session();
+    test(
+      'changing the identity cancels the pending probe and frees the panel',
+      () async {
+        final gated = _Gated();
+        final store = await _openStore(gated.service);
+        final session = _session();
 
-      final first = session.runProbe(store);
-      await gated.settle();
-      gated.answer(0, _models());
-      await first;
-      expect(session.probe, isNotNull);
+        final first = session.runProbe(store);
+        await gated.settle();
+        gated.answer(0, _models());
+        await first;
+        expect(session.probe, isNotNull);
 
-      final pending = session.runProbe(store);
-      await gated.settle();
-      await store.updateAIConfig(_cfg(base: 'https://two.invalid'));
-      session.syncWithLiveConfig(store);
+        final pending = session.runProbe(store);
+        await gated.settle();
+        await store.updateAIConfig(_cfg(base: 'https://two.invalid'));
+        session.syncWithLiveConfig(store);
 
-      expect(session.isBusy, isFalse);
-      expect(session.probe, isNull);
-      expect(gated.cancellations.last.isCancelled, isTrue);
+        expect(session.isBusy, isFalse);
+        expect(session.probe, isNull);
+        expect(gated.cancellations.last.isCancelled, isTrue);
 
-      gated.answer(1, _unauthorized());
-      await pending;
-      expect(session.probe, isNull);
-      expect(session.isBusy, isFalse);
-    });
+        gated.answer(1, _unauthorized());
+        await pending;
+        expect(session.probe, isNull);
+        expect(session.isBusy, isFalse);
+      },
+    );
 
-    test('a late reply cannot overwrite a newer one or free its spinner',
-        () async {
-      final gated = _Gated();
-      final store = await _openStore(gated.service);
-      final session = _session();
+    test(
+      'a late reply cannot overwrite a newer one or free its spinner',
+      () async {
+        final gated = _Gated();
+        final store = await _openStore(gated.service);
+        final session = _session();
 
-      final retired = session.runProbe(store);
-      await gated.settle();
-      await store.updateAIConfig(_cfg(base: 'https://two.invalid'));
-      session.syncWithLiveConfig(store);
+        final retired = session.runProbe(store);
+        await gated.settle();
+        await store.updateAIConfig(_cfg(base: 'https://two.invalid'));
+        session.syncWithLiveConfig(store);
 
-      final current = session.runProbe(store);
-      await gated.settle();
-      expect(session.isBusy, isTrue);
+        final current = session.runProbe(store);
+        await gated.settle();
+        expect(session.isBusy, isTrue);
 
-      // The abandoned reply lands first: it must leave the running request's
-      // busy flag alone.
-      gated.answer(0, _unauthorized());
-      await retired;
-      expect(session.isBusy, isTrue);
-      expect(session.probe, isNull);
+        // The abandoned reply lands first: it must leave the running request's
+        // busy flag alone.
+        gated.answer(0, _unauthorized());
+        await retired;
+        expect(session.isBusy, isTrue);
+        expect(session.probe, isNull);
 
-      gated.answer(1, _models());
-      await current;
-      expect(session.isBusy, isFalse);
-      expect(session.probe?.endpointAuth.code, 'aiEndpointReachable');
-      expect(session.probe?.modelDiscovery.code, 'aiDiscoveryOk');
-      expect(gated.cancellations.first.isCancelled, isTrue);
-    });
+        gated.answer(1, _models());
+        await current;
+        expect(session.isBusy, isFalse);
+        expect(session.probe?.endpointAuth.code, 'aiEndpointReachable');
+        expect(session.probe?.modelDiscovery.code, 'aiDiscoveryOk');
+        expect(gated.cancellations.first.isCancelled, isTrue);
+      },
+    );
 
     test('a reply whose config moved on is dropped without a rebuild', () async {
       final gated = _Gated();
@@ -388,28 +401,30 @@ void main() {
       expect(session.isBusy, isFalse);
     });
 
-    test('a half-typed endpoint drops the report and the pending reply',
-        () async {
-      final gated = _Gated();
-      final store = await _openStore(gated.service);
-      final session = _session();
+    test(
+      'a half-typed endpoint drops the report and the pending reply',
+      () async {
+        final gated = _Gated();
+        final store = await _openStore(gated.service);
+        final session = _session();
 
-      final first = session.runProbe(store);
-      await gated.settle();
-      gated.answer(0, _models());
-      await first;
+        final first = session.runProbe(store);
+        await gated.settle();
+        gated.answer(0, _models());
+        await first;
 
-      final pending = session.runProbe(store);
-      await gated.settle();
-      await store.updateAIConfig(_cfg(base: 'not a url'));
-      session.syncWithLiveConfig(store);
-      expect(session.isBusy, isFalse);
-      expect(session.probe, isNull);
+        final pending = session.runProbe(store);
+        await gated.settle();
+        await store.updateAIConfig(_cfg(base: 'not a url'));
+        session.syncWithLiveConfig(store);
+        expect(session.isBusy, isFalse);
+        expect(session.probe, isNull);
 
-      gated.answer(1, _models());
-      await pending;
-      expect(session.probe, isNull);
-    });
+        gated.answer(1, _models());
+        await pending;
+        expect(session.probe, isNull);
+      },
+    );
 
     test('dispose cancels, and a closed panel starts nothing', () async {
       final gated = _Gated();
@@ -431,46 +446,50 @@ void main() {
       expect(gated.gates, hasLength(1));
     });
 
-    test('the host is told when busy starts and when the reply ends it',
-        () async {
-      final gated = _Gated();
-      final store = await _openStore(gated.service);
-      var notifications = 0;
-      final session = ConnectionRequestSession(
-        onChanged: () => notifications++,
-      );
-      addTearDown(session.dispose);
+    test(
+      'the host is told when busy starts and when the reply ends it',
+      () async {
+        final gated = _Gated();
+        final store = await _openStore(gated.service);
+        var notifications = 0;
+        final session = ConnectionRequestSession(
+          onChanged: () => notifications++,
+        );
+        addTearDown(session.dispose);
 
-      final running = session.runProbe(store);
-      await gated.settle();
-      expect(notifications, 1);
-      gated.answer(0, _models());
-      await running;
-      expect(notifications, 2);
-    });
+        final running = session.runProbe(store);
+        await gated.settle();
+        expect(notifications, 1);
+        gated.answer(0, _models());
+        await running;
+        expect(notifications, 2);
+      },
+    );
 
-    test('a retired reply notifies no further, so the panel cannot flicker',
-        () async {
-      final gated = _Gated();
-      final store = await _openStore(gated.service);
-      var notifications = 0;
-      final session = ConnectionRequestSession(
-        onChanged: () => notifications++,
-      );
-      addTearDown(session.dispose);
+    test(
+      'a retired reply notifies no further, so the panel cannot flicker',
+      () async {
+        final gated = _Gated();
+        final store = await _openStore(gated.service);
+        var notifications = 0;
+        final session = ConnectionRequestSession(
+          onChanged: () => notifications++,
+        );
+        addTearDown(session.dispose);
 
-      final running = session.runProbe(store);
-      await gated.settle();
-      expect(notifications, 1);
-      // Retirement hands the buttons back in the state; the host that calls it
-      // from its widget lifecycle renders that in the same build.
-      await store.updateAIConfig(_cfg(base: 'https://two.invalid'));
-      session.syncWithLiveConfig(store);
-      expect(session.isBusy, isFalse);
-      gated.answer(0, _models());
-      await running;
-      expect(notifications, 1);
-    });
+        final running = session.runProbe(store);
+        await gated.settle();
+        expect(notifications, 1);
+        // Retirement hands the buttons back in the state; the host that calls it
+        // from its widget lifecycle renders that in the same build.
+        await store.updateAIConfig(_cfg(base: 'https://two.invalid'));
+        session.syncWithLiveConfig(store);
+        expect(session.isBusy, isFalse);
+        gated.answer(0, _models());
+        await running;
+        expect(notifications, 1);
+      },
+    );
   });
 
   group('settings page', () {
@@ -508,11 +527,17 @@ void main() {
       expect(_onPressed(connection, tester), isNotNull);
       expect(_buttonLabel(connection, tester), t['testConnection']!);
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(_status(tester, 'connection-endpoint-status'), isNot(contains('200')));
+      expect(
+        _status(tester, 'connection-endpoint-status'),
+        isNot(contains('200')),
+      );
       await _reply(tester, gated, 1, _unauthorized());
       expect(_onPressed(connection, tester), isNotNull);
       // The abandoned answer is not shown as the current endpoint's result.
-      expect(_status(tester, 'connection-endpoint-status'), isNot(contains('401')));
+      expect(
+        _status(tester, 'connection-endpoint-status'),
+        isNot(contains('401')),
+      );
       await _close(tester);
     });
 
@@ -527,7 +552,9 @@ void main() {
 
       await tester.tap(generation);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('generation-billing-confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('generation-billing-confirm')),
+      );
       await tester.pump();
       expect(_onPressed(generation, tester), isNull);
 
@@ -537,7 +564,10 @@ void main() {
       );
       await tester.pump();
       expect(_onPressed(generation, tester), isNotNull);
-      expect(_onPressed(find.byKey(const ValueKey('test-connection-btn')), tester), isNotNull);
+      expect(
+        _onPressed(find.byKey(const ValueKey('test-connection-btn')), tester),
+        isNotNull,
+      );
       await _reply(tester, gated, 0, _pong());
       expect(
         _status(tester, 'connection-generation-status'),
@@ -564,7 +594,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('dismissing the billing dialog never generates', (tester) async {
+    testWidgets('dismissing the billing dialog never generates', (
+      tester,
+    ) async {
       final gated = _Gated();
       final store = await _openUiStore(tester, gated.service);
       await _pumpSettings(tester, store);
@@ -584,7 +616,9 @@ void main() {
 
       await tester.tap(generation);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('generation-billing-confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('generation-billing-confirm')),
+      );
       await _reply(tester, gated, 0, _pong());
       expect(
         _status(tester, 'connection-generation-status'),
@@ -606,14 +640,11 @@ Future<void> _pumpSettings(WidgetTester tester, Store store) async {
     ),
   );
   await tester.pumpAndSettle();
+  await openSettingsPanel(tester, 'settings-assistant-row');
 }
 
-Future<void> _reveal(WidgetTester tester, Finder target) =>
-    tester.scrollUntilVisible(
-      target,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+Future<void> _reveal(WidgetTester tester, Finder target) => tester
+    .scrollUntilVisible(target, 300, scrollable: find.byType(Scrollable).first);
 
 /// Runs the frames a just-resolved request needs to reach the panel. Never
 /// settles: a spinner that has to stay on must stay detectable.
@@ -641,11 +672,8 @@ Object? _onPressed(Finder button, WidgetTester tester) =>
     tester.widget<OutlinedButton>(button).onPressed;
 
 String _buttonLabel(Finder button, WidgetTester tester) => tester
-    .widget<Text>(
-      find.descendant(of: button, matching: find.byType(Text)),
-    )
+    .widget<Text>(find.descendant(of: button, matching: find.byType(Text)))
     .data!;
 
-String _status(WidgetTester tester, String key) => tester
-    .widget<Text>(find.byKey(ValueKey(key)))
-    .data!;
+String _status(WidgetTester tester, String key) =>
+    tester.widget<Text>(find.byKey(ValueKey(key))).data!;

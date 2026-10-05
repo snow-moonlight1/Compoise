@@ -736,7 +736,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     PlatformUiPolicy policy,
     double availableWidth,
   ) {
-    return Padding(
+    final header = Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 8, 4),
       child: Row(
         children: [
@@ -791,6 +791,7 @@ class _MatrixHomeState extends State<MatrixHome> {
         ],
       ),
     );
+    return header;
   }
 
   void _openSearch() {

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
+import '../theme.dart';
 import '../ui/motion_policy.dart';
 import 'quadrant_pane.dart';
 import 'task_card.dart';
@@ -424,10 +425,12 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
     final store = context.watch<Store>();
     final t = store.t;
     final theme = Theme.of(context);
-    final dividerColor =
-        theme.brightness == Brightness.light
-            ? const Color(0xFFD5DAE1)
-            : theme.colorScheme.outlineVariant;
+    final comic = theme.extension<ComicOutline>();
+    final hairline = theme.brightness == Brightness.light
+        ? const Color(0xFFD5DAE1)
+        : theme.colorScheme.outlineVariant;
+    final crossColor = comic?.edge ?? hairline;
+    final cross = comic == null ? 1.0 : 2.0;
 
     final reduceMotion = MotionPolicy.reduceMotionOf(context);
     if (reduceMotion) {
@@ -488,24 +491,24 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
           // divider above the collapsed cards, fading in.
           Positioned(
             key: const ValueKey('matrix-divider-v'),
-            left: size.width / 2 - 0.5,
+            left: size.width / 2 - cross / 2,
             top: 0,
-            width: 1,
+            width: cross,
             height: size.height,
             child: Opacity(
               opacity: 1 - focusBlend,
-              child: ColoredBox(color: dividerColor),
+              child: ColoredBox(color: crossColor),
             ),
           ),
           Positioned(
             key: const ValueKey('matrix-divider-h'),
-            top: size.height / 2 - 0.5,
+            top: size.height / 2 - cross / 2,
             left: 0,
-            height: 1,
+            height: cross,
             width: size.width,
             child: Opacity(
               opacity: 1 - focusBlend,
-              child: ColoredBox(color: dividerColor),
+              child: ColoredBox(color: crossColor),
             ),
           ),
           Positioned(
@@ -515,7 +518,7 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
             width: size.width,
             child: Opacity(
               opacity: focusBlend,
-              child: ColoredBox(color: dividerColor),
+              child: ColoredBox(color: hairline),
             ),
           ),
           if (_toState != null && !widget.fadeOutOnly)
@@ -717,16 +720,15 @@ class _CollapsedQuadrantCardState extends State<_CollapsedQuadrantCard> {
       },
       builder: (context, candidate, _) {
         final isHovered = _hovering || candidate.isNotEmpty;
-        final borderColor =
-            isHovered
-                ? widget.accent
-                : (theme.brightness == Brightness.light
-                    ? const Color(0xFFD5DAE1)
-                    : theme.colorScheme.outlineVariant);
-        final bgColor =
-            isHovered
-                ? widget.accent.withValues(alpha: 0.12)
-                : theme.colorScheme.surface;
+        final borderColor = isHovered
+            ? widget.accent
+            : (theme.brightness == Brightness.light
+                  ? const Color(0xFFD5DAE1)
+                  : theme.colorScheme.outlineVariant);
+        final corner = BorderRadius.circular(8);
+        final bgColor = isHovered
+            ? widget.accent.withValues(alpha: 0.12)
+            : theme.colorScheme.surface;
 
         // Loose height: while the rect collapses the content keeps its
         // natural size and is clipped by the region ClipRect instead of
@@ -737,14 +739,14 @@ class _CollapsedQuadrantCardState extends State<_CollapsedQuadrantCard> {
           alignment: Alignment.topLeft,
           child: Material(
           color: bgColor,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: corner,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: corner,
             onTap: widget.onTap,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: corner,
                 border: Border.all(
                   color: borderColor,
                   width: isHovered ? 1.5 : 1,

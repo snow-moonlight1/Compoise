@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers.dart';
+import 'support/settings_panels.dart';
 
 class RecordingPlugin implements FlutterLocalNotificationsPlugin {
   RecordingPlugin({this.android, this.failScheduling = false});
@@ -551,6 +552,7 @@ void main() {
       store.updateAIConfig(AIConfig(apiKey: 'synthetic-not-a-secret'));
       await tester.pumpWidget(app(store, const SettingsScreen()));
       await tester.pumpAndSettle();
+      await openSettingsPanel(tester, 'settings-assistant-row');
       await tester.ensureVisible(
         find.byKey(const ValueKey('refresh-models-btn')),
       );
@@ -581,6 +583,7 @@ void main() {
     );
     await tester.pumpWidget(app(store, const SettingsScreen()));
     await tester.pumpAndSettle();
+    await openSettingsPanel(tester, 'settings-assistant-row');
     expect(find.byKey(const ValueKey('thinking-switch')), findsOneWidget);
     await settle(tester, store);
   });

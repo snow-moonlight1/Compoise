@@ -18,6 +18,7 @@ import 'package:matrixflow_native/screens/settings_screen.dart';
 import 'package:matrixflow_native/services/desktop_shell_service.dart';
 import 'package:matrixflow_native/storage.dart';
 import 'package:matrixflow_native/theme.dart';
+import 'package:matrixflow_native/ui/songti_font.dart';
 import 'package:matrixflow_native/widgets/animated_task_title.dart';
 import 'package:matrixflow_native/widgets/input_sheet.dart';
 import 'package:matrixflow_native/widgets/quadrant_pane.dart';
@@ -27,6 +28,8 @@ import 'package:matrixflow_native/widgets/task_hierarchy_checkbox.dart';
 import 'package:matrixflow_native/widgets/task_list_view.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/settings_panels.dart';
 
 class ControlledAI extends AIService {
   Completer<List<AIAnalysisResult>> analysis = Completer();
@@ -436,11 +439,8 @@ void main() {
       });
       await tester.pumpAndSettle();
       expect(store.aiConfig.baseUrl, 'https://new.example.test');
-      await tester.scrollUntilVisible(
-        find.text('new-model'),
-        -250,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await openSettingsPanel(tester, 'settings-assistant-row');
+      expect(find.text('new-model'), findsWidgets);
       expect(find.text('https://new.example.test'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -608,6 +608,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.drag(find.byType(ListView), const Offset(0, -1300));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await openSettingsPanel(tester, 'settings-assistant-row');
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -2979,8 +2986,8 @@ void main() {
       final store = await setup(tester, ai: ai);
       await tester.pumpWidget(app(store, const SettingsScreen()));
       await tester.pumpAndSettle();
+      await openSettingsPanel(tester, 'settings-assistant-row');
 
-      // Scroll to AI section
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('thinking-switch')),
         50,
@@ -2999,12 +3006,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(store.aiConfig.apiKey, 'sk-secret-deepseek');
 
-      // Switch provider to Volcengine
-      await tester.scrollUntilVisible(
+      // Switch provider to Volcengine. The selector sits at the top of the
+      // assistant page, so a short upward scroll leaves it under the app bar.
+      await tester.ensureVisible(
         find.byKey(const ValueKey('provider-selector')),
-        -50,
-        scrollable: find.byType(Scrollable).first,
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('provider-selector')));
       await tester.pumpAndSettle();
       await tester.tap(find.text(store.t['providerVolcengine']!).last);
@@ -3055,8 +3062,8 @@ void main() {
       final store = await setup(tester, ai: ai);
       await tester.pumpWidget(app(store, const SettingsScreen()));
       await tester.pumpAndSettle();
+      await openSettingsPanel(tester, 'settings-assistant-row');
 
-      // Scroll to AI section
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('api-key-input')),
         400,
@@ -3359,33 +3366,51 @@ void main() {
 
       await tester.pumpWidget(app(store, const SettingsScreen()));
       await tester.pumpAndSettle();
+      await openSettingsPanel(tester, 'settings-font-row');
 
-      // Scroll to Font & Display section
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('font-preview-card')),
         400,
         scrollable: find.byType(Scrollable).first,
       );
 
-      // Verify preview card is visible
       expect(find.byKey(const ValueKey('font-preview-card')), findsOneWidget);
       expect(find.text(store.t['fontPreview']!), findsOneWidget);
 
-      // Select 'large' font size
       await tester.ensureVisible(find.byKey(const ValueKey('font-size-large')));
       await tester.tap(find.byKey(const ValueKey('font-size-large')));
       await tester.pumpAndSettle();
       expect(store.settings.fontSize, FontSizePref.large);
 
-      // Select 'serif' font family
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('font-family-sansSerif')),
+      );
+      await tester.tap(find.byKey(const ValueKey('font-family-sansSerif')));
+      await tester.pumpAndSettle();
+      expect(store.settings.fontFamily, FontFamilyPref.sansSerif);
+
+      // Serif needs a download. Cancelling leaves the face that was already on.
+      // The override avoids the real font folder, which does not answer on
+      // the widget-test clock.
+      SongtiFonts.installedOverride = false;
+      addTearDown(() {
+        SongtiFonts.installedOverride = null;
+        SongtiFonts.loaded = false;
+      });
       await tester.ensureVisible(
         find.byKey(const ValueKey('font-family-serif')),
       );
       await tester.tap(find.byKey(const ValueKey('font-family-serif')));
       await tester.pumpAndSettle();
-      expect(store.settings.fontFamily, FontFamilyPref.serif);
+      expect(
+        find.byKey(const ValueKey('songti-download-dialog')),
+        findsOneWidget,
+      );
+      expect(store.settings.fontFamily, FontFamilyPref.sansSerif);
+      await tester.tap(find.byKey(const ValueKey('songti-download-cancel')));
+      await tester.pumpAndSettle();
+      expect(store.settings.fontFamily, FontFamilyPref.sansSerif);
 
-      // Tap reset display button
       await tester.tap(find.byKey(const ValueKey('reset-display-btn')));
       await tester.pumpAndSettle();
       expect(store.settings.fontSize, FontSizePref.standard);

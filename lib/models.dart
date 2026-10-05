@@ -450,6 +450,7 @@ class AppSettings {
   bool hideCompleted;
   bool showCompletionRate;
   bool reduceMotion;
+  bool comicOutline;
   int urgencyThresholdDays;
   bool closeToTray;
   String globalShortcut;
@@ -469,6 +470,7 @@ class AppSettings {
     this.hideCompleted = false,
     this.showCompletionRate = false,
     this.reduceMotion = false,
+    this.comicOutline = false,
     this.urgencyThresholdDays = 3,
     this.closeToTray = false,
     this.globalShortcut = 'Ctrl+Alt+M',
@@ -514,6 +516,7 @@ class AppSettings {
     hideCompleted: (j['hideCompleted'] as bool?) ?? false,
     showCompletionRate: (j['showCompletionRate'] as bool?) ?? false,
     reduceMotion: (j['reduceMotion'] as bool?) ?? false,
+    comicOutline: (j['comicOutline'] as bool?) ?? false,
     urgencyThresholdDays: ((j['urgencyThresholdDays'] as num?)?.toInt() ?? 3)
         .clamp(1, 14),
     closeToTray: (j['closeToTray'] as bool?) ?? false,
@@ -538,6 +541,7 @@ class AppSettings {
       'hideCompleted': hideCompleted,
       if (!isV1) 'showCompletionRate': showCompletionRate,
       if (!isV1) 'reduceMotion': reduceMotion,
+      if (!isV1 && comicOutline) 'comicOutline': true,
       'urgencyThresholdDays': urgencyThresholdDays,
       if (!isV1) 'closeToTray': closeToTray,
       if (!isV1) 'globalShortcut': globalShortcut,
