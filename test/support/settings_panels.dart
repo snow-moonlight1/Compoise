@@ -30,7 +30,14 @@ Future<void> openSettingsPanel(WidgetTester tester, String rowKey) async {
       await tester.scrollUntilVisible(row, 300, scrollable: scrollable);
     }
   }
-  await tester.ensureVisible(row);
+  // Center the row: with the longer list a leading-edge reveal can leave the
+  // row's center off screen at small widths with large text.
+  Scrollable.ensureVisible(
+    tester.element(row),
+    alignment: 0.5,
+    duration: Duration.zero,
+  );
+  await tester.pumpAndSettle();
   final chevron = find.byKey(ValueKey('$rowKey-chevron'));
   if (chevron.evaluate().isNotEmpty) {
     final rotation = tester.widget<AnimatedRotation>(chevron);

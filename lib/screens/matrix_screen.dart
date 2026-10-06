@@ -8,6 +8,7 @@ import '../models.dart';
 import '../screenshot_import/screenshot_backend.dart';
 import '../screenshot_import/screenshot_import_page.dart';
 import '../storage.dart';
+import '../theme.dart';
 import '../shortcuts.dart';
 import '../services/desktop_exit_coordinator.dart';
 import '../services/desktop_shell_service.dart';
@@ -603,19 +604,24 @@ class _MatrixHomeState extends State<MatrixHome> {
         }
       }
 
+      final neu = theme.extension<NeumorphicSkin>();
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color:
-                  theme.brightness == Brightness.light
-                      ? const Color(0xFFD5DAE1)
-                      : theme.colorScheme.outlineVariant,
-            ),
-          ),
-        ),
+        decoration: neu == null
+            ? BoxDecoration(
+                color: theme.colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: theme.brightness == Brightness.light
+                        ? const Color(0xFFD5DAE1)
+                        : theme.colorScheme.outlineVariant,
+                  ),
+                ),
+              )
+            : BoxDecoration(
+                color: neu.canvas,
+                boxShadow: neu.raisedShadows,
+              ),
         child: Row(
           children: [
             Expanded(

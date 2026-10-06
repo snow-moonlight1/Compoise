@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../storage.dart';
+import '../theme.dart';
 import '../ui/motion_policy.dart';
 import 'batch_decompose_sheet.dart';
 import 'task_detail_panel.dart';
@@ -291,7 +292,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                           controller: _scrollController,
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: const EdgeInsets.fromLTRB(4, 2, 4, 16),
+                          padding: theme.extension<NeumorphicSkin>() == null
+                              ? const EdgeInsets.fromLTRB(4, 2, 4, 16)
+                              : const EdgeInsets.fromLTRB(4, 2, 4, 8),
                           itemCount: entries.length,
                           itemBuilder: (context, i) {
                             final entry = entries[i];

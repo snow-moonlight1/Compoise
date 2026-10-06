@@ -72,6 +72,7 @@ ThemeData buildTheme(
   FontFamilyPref fontFamilyPref = FontFamilyPref.system,
   TargetPlatform? platform,
   bool comicOutline = false,
+  bool neumorphic = false,
 }) {
   final resolvedPlatform = platform ?? defaultTargetPlatform;
   final fonts = AppFontPolicy(platform: resolvedPlatform);
@@ -151,8 +152,11 @@ ThemeData buildTheme(
       TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
     }),
   );
-  if (!comicOutline) return theme;
-  return applyComicOutline(theme);
+  // The two appearance skins are alternatives: the settings switches clear
+  // each other, and an import that enables both resolves to the comic look.
+  if (comicOutline) return applyComicOutline(theme);
+  if (neumorphic) return applyNeumorphic(theme);
+  return theme;
 }
 
 /// Flat thick-outline skin taken from the appearance sample the phone showed.
@@ -528,4 +532,572 @@ ThemeData applyComicOutline(ThemeData theme) {
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: comic.primary),
   );
+}
+
+/// Neumorphism: the control and the slab are the same color. A light from the
+/// top-left raises a control with a light shadow on the top-left and a dark
+/// shadow on the bottom-right. A pressed control sinks, and that pair moves
+/// inside. It is not a tinted background and not one Material drop shadow.
+class NeumorphicSkin extends ThemeExtension<NeumorphicSkin> {
+  const NeumorphicSkin({
+    required this.canvas,
+    required this.ink,
+    required this.field,
+    required this.danger,
+    required this.onDanger,
+    required this.lightShadow,
+    required this.darkShadow,
+  });
+
+  static const double radius = 12;
+
+  /// Clear space a raised control needs on every side. The pair fades out
+  /// inside this margin, so a parent clip does not slice it.
+  static const double shadowMargin = 16;
+
+  final Color canvas;
+  final Color ink;
+
+  /// Same slab as [canvas]. A second fill color would stop being neumorphic.
+  final Color field;
+  final Color danger;
+  final Color onDanger;
+
+  /// Top-left highlight of the raised pair. Inside a pressed control it sits
+  /// on the bottom-right lip.
+  final Color lightShadow;
+
+  /// Bottom-right shade of the raised pair. Inside a pressed control it sits
+  /// on the top-left lip.
+  final Color darkShadow;
+
+  static const light = NeumorphicSkin(
+    canvas: Color(0xFFE0DEDA),
+    ink: Color(0xFF2B2926),
+    field: Color(0xFFE0DEDA),
+    danger: Color(0xFF8C1D18),
+    onDanger: Color(0xFFFFFFFF),
+    lightShadow: Color(0xFFFFFFFF),
+    darkShadow: Color(0xFFA39B92),
+  );
+
+  static const dark = NeumorphicSkin(
+    canvas: Color(0xFF2C2B2A),
+    ink: Color(0xFFF2EFEA),
+    field: Color(0xFF2C2B2A),
+    danger: Color(0xFFFFB4A9),
+    onDanger: Color(0xFF3F0A07),
+    lightShadow: Color(0xFF4A4845),
+    darkShadow: Color(0xFF121110),
+  );
+
+  List<BoxShadow> get raisedShadows => <BoxShadow>[
+    BoxShadow(color: lightShadow, offset: const Offset(-4, -4), blurRadius: 6),
+    BoxShadow(color: darkShadow, offset: const Offset(4, 4), blurRadius: 6),
+  ];
+
+  /// Darker slab used where a real inset blur cannot be painted, such as a
+  /// chip. Still the same family as [canvas], not the accent.
+  Color get groove => Color.alphaBlend(darkShadow.withValues(alpha: 0.55), canvas);
+
+  static NeumorphicSkin? maybeOf(BuildContext context) =>
+      Theme.of(context).extension<NeumorphicSkin>();
+
+  @override
+  NeumorphicSkin copyWith({
+    Color? canvas,
+    Color? ink,
+    Color? field,
+    Color? danger,
+    Color? onDanger,
+    Color? lightShadow,
+    Color? darkShadow,
+  }) {
+    return NeumorphicSkin(
+      canvas: canvas ?? this.canvas,
+      ink: ink ?? this.ink,
+      field: field ?? this.field,
+      danger: danger ?? this.danger,
+      onDanger: onDanger ?? this.onDanger,
+      lightShadow: lightShadow ?? this.lightShadow,
+      darkShadow: darkShadow ?? this.darkShadow,
+    );
+  }
+
+  @override
+  NeumorphicSkin lerp(NeumorphicSkin? other, double t) {
+    if (other == null) return this;
+    Color mix(Color a, Color b) => Color.lerp(a, b, t)!;
+    return NeumorphicSkin(
+      canvas: mix(canvas, other.canvas),
+      ink: mix(ink, other.ink),
+      field: mix(field, other.field),
+      danger: mix(danger, other.danger),
+      onDanger: mix(onDanger, other.onDanger),
+      lightShadow: mix(lightShadow, other.lightShadow),
+      darkShadow: mix(darkShadow, other.darkShadow),
+    );
+  }
+}
+
+ThemeData applyNeumorphic(ThemeData theme) {
+  final accent = theme.colorScheme.primary;
+  final onAccent = theme.colorScheme.onPrimary;
+  final neu = theme.brightness == Brightness.dark
+      ? NeumorphicSkin.dark
+      : NeumorphicSkin.light;
+  final border = NeuInputBorder(skin: neu);
+  // Every surface is the slab. Accent stays on icons, cursors, and progress.
+  // Raised and pressed depth is painted by NeuRaised / NeuInset / NeuInputBorder,
+  // because Material elevation is only one shadow.
+  final scheme = theme.colorScheme.copyWith(
+    primary: accent,
+    onPrimary: onAccent,
+    error: neu.danger,
+    onError: neu.onDanger,
+    surface: neu.canvas,
+    onSurface: neu.ink,
+    onSurfaceVariant: neu.ink.withValues(alpha: 0.72),
+    outline: neu.darkShadow,
+    outlineVariant: neu.darkShadow.withValues(alpha: 0.45),
+    surfaceTint: const Color(0x00000000),
+    surfaceContainerHighest: neu.canvas,
+    surfaceContainerHigh: neu.canvas,
+    surfaceContainer: neu.canvas,
+    surfaceContainerLow: neu.canvas,
+    surfaceContainerLowest: neu.canvas,
+    primaryContainer: neu.canvas,
+    onPrimaryContainer: accent,
+    secondaryContainer: neu.canvas,
+    onSecondaryContainer: neu.ink,
+    errorContainer: neu.danger,
+    onErrorContainer: neu.onDanger,
+    inverseSurface: neu.ink,
+    onInverseSurface: neu.canvas,
+    shadow: neu.darkShadow,
+  );
+  const radius = BorderRadius.all(Radius.circular(NeumorphicSkin.radius));
+  return theme.copyWith(
+    colorScheme: scheme,
+    scaffoldBackgroundColor: neu.canvas,
+    dividerColor: scheme.outlineVariant,
+    extensions: <ThemeExtension<dynamic>>[neu],
+    appBarTheme: AppBarTheme(
+      backgroundColor: neu.canvas,
+      foregroundColor: neu.ink,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: const Color(0x00000000),
+    ),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      shadowColor: const Color(0x00000000),
+      surfaceTintColor: const Color(0x00000000),
+      color: neu.canvas,
+      margin: EdgeInsets.zero,
+      shape: const RoundedRectangleBorder(borderRadius: radius),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: neu.canvas,
+      elevation: 0,
+      shadowColor: const Color(0x00000000),
+      surfaceTintColor: const Color(0x00000000),
+      shape: const RoundedRectangleBorder(borderRadius: radius),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: neu.canvas,
+      elevation: 0,
+      shadowColor: const Color(0x00000000),
+      modalElevation: 0,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(NeumorphicSkin.radius),
+        ),
+      ),
+    ),
+    datePickerTheme: DatePickerThemeData(
+      backgroundColor: neu.canvas,
+      elevation: 0,
+      shadowColor: const Color(0x00000000),
+      shape: const RoundedRectangleBorder(borderRadius: radius),
+    ),
+    // A menu overlaps the page, so it cannot share the slab's extruded pair.
+    // Material only draws one shadow; this just keeps the menu visible.
+    popupMenuTheme: PopupMenuThemeData(
+      color: neu.canvas,
+      elevation: 8,
+      shadowColor: neu.darkShadow,
+      surfaceTintColor: const Color(0x00000000),
+      shape: const RoundedRectangleBorder(borderRadius: radius),
+    ),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(neu.canvas),
+        elevation: const WidgetStatePropertyAll(8),
+        shadowColor: WidgetStatePropertyAll(neu.darkShadow),
+        surfaceTintColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: radius),
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: neu.canvas,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      hintStyle: TextStyle(color: neu.ink.withValues(alpha: 0.5)),
+      labelStyle: TextStyle(color: neu.ink.withValues(alpha: 0.8)),
+      border: border,
+      enabledBorder: border,
+      focusedBorder: border,
+      errorBorder: border,
+      focusedErrorBorder: border,
+      disabledBorder: border,
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        surfaceTintColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        backgroundColor: WidgetStatePropertyAll(neu.canvas),
+        foregroundColor: WidgetStatePropertyAll(neu.ink),
+        iconColor: WidgetStatePropertyAll(accent),
+        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: radius),
+        ),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ButtonStyle(
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        surfaceTintColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        backgroundColor: WidgetStatePropertyAll(neu.canvas),
+        foregroundColor: WidgetStatePropertyAll(neu.ink),
+        iconColor: WidgetStatePropertyAll(accent),
+        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: radius),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        backgroundColor: WidgetStatePropertyAll(neu.canvas),
+        foregroundColor: WidgetStatePropertyAll(neu.ink),
+        side: const WidgetStatePropertyAll(BorderSide.none),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: radius),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: ButtonStyle(
+        foregroundColor: WidgetStatePropertyAll(neu.ink),
+        iconColor: WidgetStatePropertyAll(neu.ink),
+        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: ButtonStyle(
+        foregroundColor: WidgetStatePropertyAll(neu.ink),
+        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: neu.canvas,
+      foregroundColor: accent,
+      elevation: 0,
+      focusElevation: 0,
+      hoverElevation: 0,
+      highlightElevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: radius),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        side: const WidgetStatePropertyAll(BorderSide.none),
+        elevation: const WidgetStatePropertyAll(0),
+        backgroundColor: WidgetStatePropertyAll(neu.canvas),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return accent;
+          return neu.ink;
+        }),
+        backgroundBuilder: (context, states, child) {
+          if (!states.contains(WidgetState.selected)) return child!;
+          return CustomPaint(
+            painter: NeuInsetPainter(skin: neu, radius: NeumorphicSkin.radius),
+            child: child,
+          );
+        },
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: radius),
+        ),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: neu.canvas,
+      selectedColor: neu.groove,
+      disabledColor: neu.canvas,
+      labelStyle: TextStyle(color: neu.ink),
+      secondaryLabelStyle: TextStyle(
+        color: accent,
+        fontWeight: FontWeight.w700,
+      ),
+      side: BorderSide.none,
+      elevation: 0,
+      pressElevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: radius),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStatePropertyAll(neu.lightShadow),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return neu.groove;
+        return Color.alphaBlend(neu.darkShadow.withValues(alpha: 0.28), neu.canvas);
+      }),
+      trackOutlineColor: const WidgetStatePropertyAll(Color(0x00000000)),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return accent;
+        return neu.canvas;
+      }),
+      checkColor: WidgetStatePropertyAll(onAccent),
+      side: BorderSide(color: neu.darkShadow, width: 1.5),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: neu.ink,
+      contentTextStyle: TextStyle(color: neu.canvas),
+      elevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: radius),
+    ),
+    listTileTheme: ListTileThemeData(iconColor: neu.ink, textColor: neu.ink),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: neu.canvas,
+      elevation: 0,
+      indicatorColor: neu.groove,
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: accent),
+  );
+}
+
+/// Paints the concave pair: dark lip on the top-left, light lip on the
+/// bottom-right. The caller has already filled [rect] with the slab color.
+void paintNeuInset(Canvas canvas, Rect rect, NeumorphicSkin skin, double radius) {
+  final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+  canvas.save();
+  canvas.clipRRect(rrect);
+
+  void lobe(Color color, Offset shift) {
+    final paint = Paint()
+      ..color = color
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final hole = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(radius + 20))
+      ..addRRect(rrect.shift(shift));
+    canvas.drawPath(hole, paint);
+  }
+
+  lobe(skin.darkShadow, const Offset(4, 4));
+  lobe(skin.lightShadow, const Offset(-4, -4));
+  canvas.restore();
+}
+
+class NeuInsetPainter extends CustomPainter {
+  const NeuInsetPainter({required this.skin, required this.radius});
+
+  final NeumorphicSkin skin;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(radius)),
+      Paint()..color = skin.canvas,
+    );
+    paintNeuInset(canvas, rect, skin, radius);
+  }
+
+  @override
+  bool shouldRepaint(NeuInsetPainter oldDelegate) =>
+      oldDelegate.skin != skin || oldDelegate.radius != radius;
+}
+
+/// Rounded field whose border is the inset pair, painted over a same-color fill.
+class NeuInputBorder extends InputBorder {
+  const NeuInputBorder({required this.skin, this.radius = NeumorphicSkin.radius})
+    : super(borderSide: BorderSide.none);
+
+  final NeumorphicSkin skin;
+  final double radius;
+
+  @override
+  NeuInputBorder copyWith({BorderSide? borderSide, double? radius}) =>
+      NeuInputBorder(skin: skin, radius: radius ?? this.radius);
+
+  @override
+  bool get isOutline => true;
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
+
+  @override
+  NeuInputBorder scale(double t) =>
+      NeuInputBorder(skin: skin, radius: radius * t);
+
+  RRect _rrect(Rect rect) =>
+      RRect.fromRectAndRadius(rect, Radius.circular(radius));
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRRect(_rrect(rect));
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      getOuterPath(rect, textDirection: textDirection);
+
+  @override
+  void paint(
+    Canvas canvas,
+    Rect rect, {
+    double? gapStart,
+    double gapExtent = 0.0,
+    double gapPercentage = 0.0,
+    TextDirection? textDirection,
+  }) {
+    paintNeuInset(canvas, rect, skin, radius);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is NeuInputBorder && other.skin == skin && other.radius == radius;
+
+  @override
+  int get hashCode => Object.hash(skin, radius);
+}
+
+/// Convex control. Same color as the slab, light on the top-left, dark on
+/// the bottom-right. Give it a margin so the pair is not covered by the next
+/// sibling.
+class NeuRaised extends StatelessWidget {
+  const NeuRaised({
+    super.key,
+    required this.skin,
+    required this.child,
+    this.radius = NeumorphicSkin.radius,
+  });
+
+  final NeumorphicSkin skin;
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: skin.canvas,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: skin.raisedShadows,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Concave control. Same color as the slab, with the shadow pair inside.
+class NeuInset extends StatelessWidget {
+  const NeuInset({
+    super.key,
+    required this.skin,
+    required this.child,
+    this.radius = NeumorphicSkin.radius,
+  });
+
+  final NeumorphicSkin skin;
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: NeuInsetPainter(skin: skin, radius: radius),
+      child: child,
+    );
+  }
+}
+
+/// Raised at rest, inset while a finger is down.
+class NeuPressable extends StatefulWidget {
+  const NeuPressable({
+    super.key,
+    required this.skin,
+    required this.child,
+    this.radius = 16,
+  });
+
+  final NeumorphicSkin skin;
+  final Widget child;
+  final double radius;
+
+  @override
+  State<NeuPressable> createState() => _NeuPressableState();
+}
+
+class _NeuPressableState extends State<NeuPressable> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // One stable child. Swapping NeuRaised for NeuInset on pointer-down
+    // threw away the button and cancelled its tap.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => setState(() => _down = true),
+      onPointerUp: (_) => setState(() => _down = false),
+      onPointerCancel: (_) => setState(() => _down = false),
+      child: _NeuPressFace(
+        skin: widget.skin,
+        radius: widget.radius,
+        pressed: _down,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _NeuPressFace extends StatelessWidget {
+  const _NeuPressFace({
+    required this.skin,
+    required this.radius,
+    required this.pressed,
+    required this.child,
+  });
+
+  final NeumorphicSkin skin;
+  final double radius;
+  final bool pressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: pressed
+          ? NeuInsetPainter(skin: skin, radius: radius)
+          : null,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: pressed ? const Color(0x00000000) : skin.canvas,
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: pressed ? null : skin.raisedShadows,
+        ),
+        child: child,
+      ),
+    );
+  }
 }

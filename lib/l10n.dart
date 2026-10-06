@@ -261,6 +261,9 @@ const Map<Language, Map<String, String>> _dicts = {
     'comicOutline': 'Comic outline',
     'comicOutlineDesc':
         'Buttons, fields, and cards across the whole app use thick outlines. This is the comic look, so you can judge it before a softer style.',
+    'neumorphic': 'Neumorphic',
+    'neumorphicDesc':
+        'Controls are the same color as the background: raised out of it, and pressed back in. Turn it on to compare with the current look.',
     'colorBlue': 'Blue',
     'colorPurple': 'Purple',
     'colorGreen': 'Green',
@@ -1065,6 +1068,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'experimentalSectionDesc': '打开后只改样子。待办还是原来的待办，看完可以随时关掉。',
     'comicOutline': '漫画描边',
     'comicOutlineDesc': '打开后，按钮、输入框和卡片都换成粗描边。这还不是拟态，先看整份应用的效果。',
+    'neumorphic': '拟态',
+    'neumorphicDesc': '控件和背景是同一种颜色，从板子上凸出来，按下去会凹进去。打开后可以和现在的样子对比。',
     'colorBlue': '天空蓝',
     'colorPurple': '罗兰紫',
     'colorGreen': '薄荷绿',
@@ -1796,6 +1801,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'experimentalSectionDesc': '開くと見た目だけ変わります。タスクはそのままで、いつでも消せます。',
     'comicOutline': '漫画の太い枠線',
     'comicOutlineDesc': '開くと、アプリ全体のボタン、入力欄、カードが太い枠線になります。柔らかい立体にはまだしていません。',
+    'neumorphic': 'ニューモーフィズム',
+    'neumorphicDesc': 'コントロールは背景と同じ色で、板から浮き出ます。押すと凹みます。今の見た目と比べられます。',
     'colorBlue': 'ブルー',
     'colorPurple': 'パープル',
     'colorGreen': 'グリーン',

@@ -304,6 +304,7 @@ class ImportPreflight {
         'showCompletionRate',
         'reduceMotion',
         'comicOutline',
+        'neumorphic',
         'urgencyThresholdDays',
         'closeToTray',
         'globalShortcut',

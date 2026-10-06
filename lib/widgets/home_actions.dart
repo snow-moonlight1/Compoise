@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../task_stats.dart';
+import '../theme.dart';
 import '../ui/platform_ui_policy.dart';
 
 enum HomeMoreAction { switchBoard, today, completed, select, settings }
@@ -17,6 +18,10 @@ class HomeActionButton extends StatelessWidget {
   final bool compact;
   final bool expanded;
 
+  /// Accent-colored icon on the neumorphic slab. The slab itself stays the
+  /// background color.
+  final bool accentIcon;
+
   const HomeActionButton({
     super.key,
     this.buttonKey,
@@ -26,18 +31,24 @@ class HomeActionButton extends StatelessWidget {
     required this.onPressed,
     this.compact = false,
     this.expanded = false,
+    this.accentIcon = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final child =
+    final skin = NeumorphicSkin.maybeOf(context);
+    final accent = Theme.of(context).colorScheme.primary;
+    final iconColor = skin != null && accentIcon ? accent : null;
+    Widget child =
         compact
             ? IconButton(
               key: buttonKey,
               tooltip: tooltip ?? label,
               onPressed: onPressed,
-              icon: Icon(icon),
+              icon: Icon(icon, color: iconColor),
               style: IconButton.styleFrom(
+                foregroundColor: skin?.ink,
+                backgroundColor: skin == null ? null : const Color(0x00000000),
                 minimumSize: const Size(
                   PlatformUiPolicy.minActionSize,
                   PlatformUiPolicy.minActionSize,
@@ -48,16 +59,31 @@ class HomeActionButton extends StatelessWidget {
             : TextButton.icon(
               key: buttonKey,
               onPressed: onPressed,
-              icon: Icon(icon, size: 20),
-              label: Text(label),
+              icon: Icon(icon, size: 20, color: iconColor),
+              label: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               style: TextButton.styleFrom(
-                minimumSize: const Size(
-                  PlatformUiPolicy.minActionSize,
+                foregroundColor: skin?.ink,
+                backgroundColor: skin == null ? null : const Color(0x00000000),
+                minimumSize: Size(
+                  expanded ? double.infinity : PlatformUiPolicy.minActionSize,
                   PlatformUiPolicy.minActionSize,
                 ),
                 tapTargetSize: MaterialTapTargetSize.padded,
               ),
             );
+    if (skin != null) {
+      child = Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: expanded ? 8 : 4,
+          vertical: expanded ? 10 : 4,
+        ),
+        child: NeuPressable(skin: skin, radius: compact ? 14 : 16, child: child),
+      );
+    }
     if (!expanded) return child;
     return Expanded(child: child);
   }
@@ -79,10 +105,13 @@ class HomeBottomActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.watch<Store>().t;
     final theme = Theme.of(context);
+    final neu = theme.extension<NeumorphicSkin>();
     return Material(
       color: theme.colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+        padding: neu == null
+            ? const EdgeInsets.fromLTRB(8, 4, 8, 4)
+            : const EdgeInsets.fromLTRB(8, 6, 8, 8),
         child: Row(
           children: [
             HomeActionButton(
@@ -98,6 +127,7 @@ class HomeBottomActions extends StatelessWidget {
               label: t['addBtn'] ?? 'Add Task',
               onPressed: onAdd,
               expanded: true,
+              accentIcon: true,
             ),
             HomeActionButton(
               buttonKey: const ValueKey('more-btn'),
@@ -146,6 +176,7 @@ class HomeHeaderActions extends StatelessWidget {
           label: t['addBtn'] ?? 'Add Task',
           compact: compact,
           onPressed: onAdd,
+          accentIcon: true,
         ),
         HomeActionButton(
           buttonKey: const ValueKey('more-btn'),

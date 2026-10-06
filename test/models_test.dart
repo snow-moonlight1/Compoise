@@ -432,6 +432,18 @@ void main() {
       expect(cleared.comicOutline, isFalse);
     });
 
+    test('neumorphic defaults off and stays out of a v1 export', () {
+      final missing = AppSettings.fromJson({});
+      expect(missing.neumorphic, isFalse);
+      expect(missing.toJson().containsKey('neumorphic'), isFalse);
+      final enabled = AppSettings.fromJson({'neumorphic': true});
+      expect(enabled.neumorphic, isTrue);
+      expect(enabled.toJson()['neumorphic'], isTrue);
+      expect(enabled.toJson(targetVersion: 1).containsKey('neumorphic'), isFalse);
+      final cleared = AppSettings.fromJson(enabled.toJson()..['neumorphic'] = false);
+      expect(cleared.neumorphic, isFalse);
+    });
+
     test('showCompletionRate defaults false and round-trips on v2', () {
       final missing = AppSettings.fromJson({});
       expect(missing.showCompletionRate, isFalse);

@@ -220,19 +220,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               id: 'settings-language-row',
               title: t['language']!,
               value: _languageLabel(store.settings.language),
-              child: SegmentedButton<Language>(
-                segments: const [
-                  ButtonSegment(value: Language.en, label: Text('EN')),
-                  ButtonSegment(value: Language.zh, label: Text('中文')),
-                  ButtonSegment(value: Language.ja, label: Text('日本語')),
-                ],
-                selected: {store.settings.language},
-                onSelectionChanged: (selected) {
-                  store.updateSettings(
-                    (settings) => settings..language = selected.first,
-                  );
-                  unawaited(applyDesktopSettings(store));
-                },
+              child: _neuBar(
+                context,
+                SegmentedButton<Language>(
+                  segments: const [
+                    ButtonSegment(value: Language.en, label: Text('EN')),
+                    ButtonSegment(value: Language.zh, label: Text('中文')),
+                    ButtonSegment(value: Language.ja, label: Text('日本語')),
+                  ],
+                  selected: {store.settings.language},
+                  onSelectionChanged: (selected) {
+                    store.updateSettings(
+                      (settings) => settings..language = selected.first,
+                    );
+                    unawaited(applyDesktopSettings(store));
+                  },
+                ),
               ),
             ),
             _SettingsExpander(
@@ -294,15 +297,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             _toggle(
               context,
-              t['showCompletionRate'] ?? 'Show overall completion rate',
-              t['showCompletionRateDesc'] ??
-                  'Show the share of completed tasks across all boards at the bottom of the More panel.',
-              store.settings.showCompletionRate,
-              (v) => store.updateSettings((s) => s..showCompletionRate = v),
-              key: const ValueKey('show-completion-rate-toggle'),
-            ),
-            _toggle(
-              context,
               t['reduceMotion'] ?? 'Reduce animation',
               t['reduceMotionDesc'] ??
                   'Jump straight to the final state instead of playing entrance, strikethrough and exit animations.',
@@ -315,8 +309,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               t['comicOutline']!,
               t['comicOutlineDesc'],
               store.settings.comicOutline,
-              (v) => store.updateSettings((s) => s..comicOutline = v),
+              (v) => store.updateSettings(
+                (s) => s
+                  ..comicOutline = v
+                  // The two skins are alternatives; enabling one clears the
+                  // other so the comparison is always against the default.
+                  ..neumorphic = s.neumorphic && !v,
+              ),
               key: const ValueKey('comic-outline-switch'),
+            ),
+            _toggle(
+              context,
+              t['neumorphic']!,
+              t['neumorphicDesc'],
+              store.settings.neumorphic,
+              (v) => store.updateSettings(
+                (s) => s
+                  ..neumorphic = v
+                  ..comicOutline = s.comicOutline && !v,
+              ),
+              key: const ValueKey('neumorphic-switch'),
             ),
             const SizedBox(height: 12),
 
@@ -324,6 +336,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               theme,
               t['settingsTaskBehavior'] ?? t['automation']!,
               Icons.auto_mode_outlined,
+            ),
+            _toggle(
+              context,
+              t['showCompletionRate'] ?? 'Show overall completion rate',
+              t['showCompletionRateDesc'] ??
+                  'Show the share of completed tasks across all boards at the bottom of the More panel.',
+              store.settings.showCompletionRate,
+              (v) => store.updateSettings((s) => s..showCompletionRate = v),
+              key: const ValueKey('show-completion-rate-toggle'),
             ),
             _toggle(
               context,
@@ -1663,6 +1684,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final ctx = dialogContext;
       if (ctx != null && ctx.mounted) Navigator.pop(ctx);
     }
+  }
+
+  Widget _neuBar(BuildContext context, Widget child) {
+    final neu = NeumorphicSkin.maybeOf(context);
+    if (neu == null) return child;
+    return NeuRaised(skin: neu, child: child);
   }
 
   Widget _sectionTitle(ThemeData theme, String text, IconData icon) {

@@ -146,12 +146,14 @@ class MatrixFlowApp extends StatelessWidget {
                 store.settings.themeColor,
                 fontFamilyPref: store.settings.fontFamily,
                 comicOutline: store.settings.comicOutline,
+                neumorphic: store.settings.neumorphic,
               ),
               darkTheme: buildTheme(
                 Brightness.dark,
                 store.settings.themeColor,
                 fontFamilyPref: store.settings.fontFamily,
                 comicOutline: store.settings.comicOutline,
+                neumorphic: store.settings.neumorphic,
               ),
               themeMode: switch (store.settings.theme) {
                 ThemeModePref.light => ThemeMode.light,

@@ -21,6 +21,16 @@ Widget _taskSurface({
 }) {
   final comic = theme.extension<ComicOutline>();
   if (comic == null) {
+    final neu = theme.extension<NeumorphicSkin>();
+    if (neu != null) {
+      final face = selected
+          ? NeuInset(skin: neu, child: child)
+          : NeuRaised(skin: neu, child: child);
+      return Padding(
+        padding: const EdgeInsets.all(NeumorphicSkin.shadowMargin),
+        child: face,
+      );
+    }
     return Material(
       color: selected
           ? (theme.brightness == Brightness.light

@@ -1130,6 +1130,7 @@ AppSettings _withFontSize(AppSettings s, FontSizePref size) => AppSettings(
   showCompletionRate: s.showCompletionRate,
   reduceMotion: s.reduceMotion,
   comicOutline: s.comicOutline,
+  neumorphic: s.neumorphic,
   urgencyThresholdDays: s.urgencyThresholdDays,
   closeToTray: s.closeToTray,
   globalShortcut: s.globalShortcut,
