@@ -184,10 +184,6 @@ ThemeData buildTheme(
     splashColor: const Color(0x00000000),
     highlightColor: const Color(0x00000000),
     hoverColor: const Color(0x00000000),
-    pageTransitionsTheme: const PageTransitionsTheme(builders: {
-      TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-      TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-    }),
   );
   // The two appearance skins are alternatives: the settings switches clear
   // each other, and an import that enables both resolves to the comic look.

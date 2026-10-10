@@ -175,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.setState(fn);
     // The font and provider pages are their own routes. Rebuilding this
     // screen does not rebuild them, so tell the open page to build again.
-    if (_detailUpdates.hasListeners) _detailUpdates.value++;
+    _detailUpdates.value++;
   }
 
   @override
