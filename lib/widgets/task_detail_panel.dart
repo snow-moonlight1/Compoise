@@ -78,8 +78,15 @@ Future<void> showTaskDetailSheet(
 );
 
 /// Opens the editor for an existing task from a list row without a host panel.
-Future<void> showTaskEditSheet(BuildContext context, Task task) =>
-    showTaskDetailSheet(context, task);
+Future<void> showTaskEditSheet(
+  BuildContext context,
+  Task task, {
+  Future<void> Function(String taskId)? onScheduleTime,
+}) => showTaskDetailSheet(
+  context,
+  task,
+  onScheduleTime: onScheduleTime,
+);
 
 /// Which task a page shows in its detail editor, whether that editor holds an
 /// unsaved draft, and what it takes to switch away or leave. Pages keep their

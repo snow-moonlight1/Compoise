@@ -21,6 +21,7 @@ class PlannerWeekView extends StatefulWidget {
     required this.onWeek,
     required this.dropKey,
     this.onScheduleDrop,
+    this.bottomInset = 0,
   });
 
   final List<ScheduleDayLayout> days;
@@ -35,6 +36,9 @@ class PlannerWeekView extends StatefulWidget {
   final GlobalKey Function(String dateLabel) dropKey;
   final void Function(ScheduleDragPayload payload, ScheduleCivilDate date)?
   onScheduleDrop;
+
+  /// Pixels covered by the collapsed task pool, so Sunday stays above it.
+  final double bottomInset;
 
   @override
   State<PlannerWeekView> createState() => _PlannerWeekViewState();
@@ -55,41 +59,78 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
         if (_drag <= -48) widget.onWeek(1);
         if (_drag >= 48) widget.onWeek(-1);
       },
-      child: SingleChildScrollView(
-        key: const ValueKey('schedule-scroll'),
-        controller: widget.vertical,
-        child: Column(
-          children: [
-            _header(theme),
-            Stack(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = widget.scale;
+          final count = math.max(1, widget.days.length);
+          final headerH = 56 * scale;
+          final hintH = 48 * scale;
+          final inset = math.max(0.0, widget.bottomInset);
+          final bounded = constraints.maxHeight.isFinite;
+          final available = bounded
+              ? math.max(
+                  0.0,
+                  constraints.maxHeight - headerH - hintH - inset,
+                )
+              : 0.0;
+          final rowHeight = math.max(
+            80 * scale,
+            bounded ? available / count : 80 * scale,
+          );
+          return SingleChildScrollView(
+            key: const ValueKey('schedule-scroll'),
+            controller: widget.vertical,
+            child: Column(
               children: [
-                Positioned(
-                  left: 75,
-                  top: 8,
-                  bottom: 8,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 2,
-                      color: theme.colorScheme.outlineVariant,
+                SizedBox(
+                  height: headerH,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _header(theme),
+                  ),
+                ),
+                Stack(
+                  children: [
+                    Positioned(
+                      left: 75,
+                      top: 8,
+                      bottom: 8,
+                      child: IgnorePointer(
+                        child: Container(
+                          width: 2,
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        for (final day in widget.days)
+                          ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: rowHeight),
+                            child: _row(day, theme, today),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: hintH,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        widget.t['scheduleWeekHint']!,
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ),
                   ),
                 ),
-                Column(
-                  children: [
-                    for (final day in widget.days) _row(day, theme, today),
-                  ],
-                ),
+                SizedBox(height: inset),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text(
-                widget.t['scheduleWeekHint']!,
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -193,6 +234,7 @@ class _DayRow extends StatelessWidget {
       key: ValueKey('schedule-day-$label'),
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(

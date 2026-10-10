@@ -7,6 +7,17 @@ import '../widgets/schedule_layout.dart';
 import 'planner_labels.dart';
 import 'schedule_drag.dart';
 
+/// Pointer Y on the day grid, clamped onto the axis. The grid is taller than
+/// the axis so the last items stay reachable; a drop in that padding still
+/// belongs to the last slot instead of being swallowed.
+double _dropY(RenderBox box, Offset global, double axisHeight) {
+  final y = box.globalToLocal(global).dy;
+  final limit = math.max(0.0, axisHeight - 1);
+  if (y < 0) return 0;
+  if (y > limit) return limit;
+  return y;
+}
+
 /// A snapped pool-drag preview painted on the day grid.
 class PlannerHover {
   const PlannerHover({
@@ -36,6 +47,8 @@ class PlannerDayTimeline extends StatelessWidget {
     required this.hover,
     this.onGridTap,
     this.onScheduleDrop,
+    this.onPoolMove,
+    this.onPoolAccept,
     this.now,
   });
 
@@ -49,6 +62,8 @@ class PlannerDayTimeline extends StatelessWidget {
   final ValueListenable<PlannerHover?> hover;
   final ValueChanged<double>? onGridTap;
   final void Function(ScheduleDragPayload payload, double dy)? onScheduleDrop;
+  final void Function(double dy)? onPoolMove;
+  final void Function(String taskId, double dy)? onPoolAccept;
   final DateTime? now;
 
   @override
@@ -65,6 +80,8 @@ class PlannerDayTimeline extends StatelessWidget {
             ? (day.laneCount == 0 ? laneViewport : laneViewport / day.laneCount)
             : minLane * scale;
         final contentWidth = math.max(laneViewport, laneWidth * day.laneCount);
+        final onPoolMove = this.onPoolMove;
+        final onPoolAccept = this.onPoolAccept;
         final grid = _Grid(
           day: day,
           theme: theme,
@@ -88,15 +105,33 @@ class PlannerDayTimeline extends StatelessWidget {
             controller: vertical,
             child: Builder(
               builder: (dropContext) {
-                if (onScheduleDrop == null) return grid;
-                return DragTarget<ScheduleDragPayload>(
+                if (onScheduleDrop == null && onPoolAccept == null) {
+                  return grid;
+                }
+                return DragTarget<Object>(
                   key: ValueKey('schedule-drop-$dateLabel'),
-                  onWillAcceptWithDetails: (_) => true,
+                  onWillAcceptWithDetails: (details) =>
+                      details.data is ScheduleDragPayload ||
+                      details.data is String,
+                  onMove: (details) {
+                    final move = onPoolMove;
+                    if (move == null || details.data is! String) return;
+                    final box = dropContext.findRenderObject() as RenderBox?;
+                    if (box == null || !box.attached || !box.hasSize) return;
+                    move(_dropY(box, details.offset, day.axisHeight));
+                  },
+                  onLeave: (_) => onPoolMove?.call(-1),
                   onAcceptWithDetails: (details) {
-                    final box = dropContext.findRenderObject()! as RenderBox;
-                    final point = box.globalToLocal(details.offset);
-                    if (point.dy < 0 || point.dy >= day.axisHeight) return;
-                    onScheduleDrop!(details.data, point.dy);
+                    final box =
+                        dropContext.findRenderObject() as RenderBox?;
+                    if (box == null || !box.attached || !box.hasSize) return;
+                    final y = _dropY(box, details.offset, day.axisHeight);
+                    final data = details.data;
+                    if (data is ScheduleDragPayload) {
+                      onScheduleDrop?.call(data, y);
+                    } else if (data is String) {
+                      onPoolAccept?.call(data, y);
+                    }
                   },
                   builder: (context, candidates, rejected) => grid,
                 );

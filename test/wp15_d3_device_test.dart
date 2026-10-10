@@ -21,6 +21,7 @@ import 'package:matrixflow_native/widgets/task_detail_panel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'wp15_c2_test_support.dart' show c2Enter;
 
 // Disabled in the default unit/widget suite. A device run must use the runner:
 // it verifies the SDK, platform identity, isolation and actual process exit.
@@ -216,10 +217,7 @@ Future<void> _tap(
 }
 
 Future<void> _text(WidgetTester tester, String key, String text) async {
-  await tester.ensureVisible(_key(key));
-  await tester.pumpAndSettle();
-  await tester.enterText(_key(key), text);
-  // Dismiss the real IME so it cannot cover the following action.
+  await c2Enter(tester, _key(key), text);
   FocusManager.instance.primaryFocus?.unfocus();
   await tester.pumpAndSettle();
 }
@@ -552,10 +550,7 @@ void main() {
           foldBefore,
         );
         await _tap(tester, 'schedule-add');
-        await _tap(tester, 'schedule-create-event');
         await _text(tester, 'schedule-editor-title', 'D2 gap then fold');
-        await _tap(tester, 'schedule-editor-choose-association');
-        await _tap(tester, 'schedule-editor-association-d2-board');
         await _text(tester, 'schedule-editor-start-date', '2026-03-08');
         await _text(tester, 'schedule-editor-end-date', '2026-03-08');
         await _text(tester, 'schedule-editor-start-time', '02:30');

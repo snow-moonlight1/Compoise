@@ -16,11 +16,17 @@ class InputSheet extends StatefulWidget {
   final InputModePref initialMode;
   final bool embedded;
   final ValueChanged<bool>? onDirtyChanged;
+
+  /// Preset by the planner's quadrant add button. Home leaves both null.
+  final int? quadrant;
+  final String? boardId;
   const InputSheet({
     super.key,
     required this.initialMode,
     this.embedded = false,
     this.onDirtyChanged,
+    this.quadrant,
+    this.boardId,
   });
   @override
   State<InputSheet> createState() => _InputSheetState();
@@ -43,6 +49,14 @@ class _InputSheetState extends State<InputSheet> {
   DateTime? _selectedDeadline;
   DateTime? _selectedPlannedDate;
   int? _selectedReminderAt;
+
+  Task _place(Task task) {
+    final quadrant = widget.quadrant;
+    if (quadrant != null) task.quadrant = quadrant;
+    final board = widget.boardId;
+    if (board != null && board.isNotEmpty) task.boardId = board;
+    return task;
+  }
 
   bool get _isDirty =>
       (_mode == InputModePref.single && !_batch
@@ -377,7 +391,7 @@ class _InputSheetState extends State<InputSheet> {
         : _controller.text.trim();
     if (text.isEmpty || _busy || _closed) return;
     final store = context.read<Store>();
-    final boardId = store.activeBoardId;
+    final boardId = widget.boardId ?? store.activeBoardId;
     final config = AIConfig.fromJson(store.aiConfig.toJson());
     final settings = AppSettings.fromJson(store.settings.toJson());
     final inputs = (_mode == InputModePref.single && !_batch
@@ -399,19 +413,25 @@ class _InputSheetState extends State<InputSheet> {
       if (_batch) {
         store.addTasks([
           for (final line in inputs)
-            store.newTask(
-              line,
-              deadline: deadlineSnapshot,
-              plannedDate: plannedSnapshot,
-            )..reminderAt = _selectedReminderAt,
+            _place(
+              store.newTask(
+                line,
+                quadrant: widget.quadrant ?? qDo,
+                deadline: deadlineSnapshot,
+                plannedDate: plannedSnapshot,
+              )..reminderAt = _selectedReminderAt,
+            ),
         ]);
       } else if (inputs.length == 1 && !_parentTitleExplicit) {
         store.addTasks([
-          store.newTask(
-            inputs.single,
-            deadline: deadlineSnapshot,
-            plannedDate: plannedSnapshot,
-          )..reminderAt = _selectedReminderAt,
+          _place(
+            store.newTask(
+              inputs.single,
+              quadrant: widget.quadrant ?? qDo,
+              deadline: deadlineSnapshot,
+              plannedDate: plannedSnapshot,
+            )..reminderAt = _selectedReminderAt,
+          ),
         ]);
       } else {
         final title = _parentTitle.text.trim().isNotEmpty
@@ -420,15 +440,18 @@ class _InputSheetState extends State<InputSheet> {
                   ? '${inputs.first.substring(0, 24)}…'
                   : inputs.first);
         store.addTasks([
-          store.newTask(
-            title,
-            deadline: deadlineSnapshot,
-            plannedDate: plannedSnapshot,
-          )
-            ..reminderAt = _selectedReminderAt
-            ..subtasks = [
-              for (final line in inputs) SubTask(id: newId(), title: line),
-            ],
+          _place(
+            store.newTask(
+              title,
+              quadrant: widget.quadrant ?? qDo,
+              deadline: deadlineSnapshot,
+              plannedDate: plannedSnapshot,
+            )
+              ..reminderAt = _selectedReminderAt
+              ..subtasks = [
+                for (final line in inputs) SubTask(id: newId(), title: line),
+              ],
+          ),
         ]);
       }
       final result = await store.flush(waitForReminders: false);
@@ -486,13 +509,15 @@ class _InputSheetState extends State<InputSheet> {
       }
       final tasks = [
         for (final r in accepted)
-          r.toTask(
-            id: newId(),
-            boardId: boardId,
-            createdAt: DateTime.now().millisecondsSinceEpoch,
-            deadline: deadlineSnapshot,
-            plannedDate: plannedSnapshot,
-            reminderAt: _selectedReminderAt,
+          _place(
+            r.toTask(
+              id: newId(),
+              boardId: boardId,
+              createdAt: DateTime.now().millisecondsSinceEpoch,
+              deadline: deadlineSnapshot,
+              plannedDate: plannedSnapshot,
+              reminderAt: _selectedReminderAt,
+            ),
           ),
       ];
       store.addTasks(tasks);

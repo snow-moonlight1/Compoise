@@ -6,25 +6,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/l10n.dart';
 import 'package:matrixflow_native/models.dart';
+import 'package:matrixflow_native/planner/schedule_edit_session.dart';
 import 'package:matrixflow_native/schedule_item.dart';
+import 'package:matrixflow_native/schedule_time.dart';
 import 'package:matrixflow_native/screens/planner_screen.dart';
 import 'package:matrixflow_native/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'wp15_c2_test_support.dart';
 
-Future<void> _new(WidgetTester tester, {String kind = 'event'}) async {
+Future<void> _new(WidgetTester tester) async {
   await c2Tap(tester, c2Key('schedule-add'));
-  await c2Tap(tester, c2Key('schedule-create-$kind'));
-}
-
-Future<void> _association(WidgetTester tester, String id) async {
-  await c2Tap(tester, c2Key('schedule-editor-choose-association'));
-  await c2Tap(tester, c2Key('schedule-editor-association-$id'));
 }
 
 Future<void> _event(WidgetTester tester) async {
   await c2Text(tester, 'schedule-editor-title', 'Meeting');
-  await _association(tester, 'home');
   await c2Text(tester, 'schedule-editor-start-time', '10:00');
   await c2Text(tester, 'schedule-editor-end-time', '11:00');
 }
@@ -40,46 +35,58 @@ Future<void> _action(WidgetTester tester, String label) async {
 
 void main() {
   testWidgets(
-    'typing an unknown zone with task references renders validation without throwing',
+    'an unknown zone is still rejected, and the form no longer asks for one',
     (tester) async {
       final store = await c2Store();
       final before = c2Library(store);
+      final session = ScheduleEditSession.edit(
+        store,
+        store.scheduleItems.first,
+      );
+      session.timeZoneId = 'Bad/Zone';
+      expect(
+        () => session.review(),
+        throwsA(
+          isA<ScheduleTimeException>().having(
+            (error) => error.reason,
+            'reason',
+            ScheduleTimeError.unknownZone,
+          ),
+        ),
+      );
       await c2Pump(tester, store);
       await _detail(tester);
       await c2Tap(tester, c2Key('schedule-detail-edit'));
-      await c2Text(tester, 'schedule-editor-zone', 'Bad/Zone');
+      expect(c2Key('schedule-editor-zone'), findsNothing);
       expect(tester.takeException(), isNull);
-      await c2Tap(tester, c2Key('schedule-editor-review'));
-      expect(find.text(store.t['scheduleEditorZoneError']!), findsOneWidget);
-      expect(c2Library(store), before);
       await c2Tap(tester, c2Key('schedule-editor-cancel'));
+      expect(c2Library(store), before);
       await c2Finish(tester, store);
     },
   );
   testWidgets(
-    'live Planner create form has explicit association and blank times; cancel is zero write',
+    'live Planner create form has blank times and no zone or association picker; cancel is zero write',
     (tester) async {
       final store = await c2Store(items: []);
       final before = c2Library(store);
       await c2Pump(tester, store);
-      await _new(tester, kind: 'timeBlock');
+      await _new(tester);
       expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-start-time'))
-            .initialValue,
-        isEmpty,
-      );
-      expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-end-time'))
-            .initialValue,
-        isEmpty,
-      );
-      await _association(tester, 'outline');
-      expect(
-        find.textContaining('Task dates (reference only)'),
+        find.descendant(
+          of: c2Key('schedule-editor-start-time'),
+          matching: find.text('Choose time'),
+        ),
         findsOneWidget,
       );
+      expect(
+        find.descendant(
+          of: c2Key('schedule-editor-end-time'),
+          matching: find.text('Choose time'),
+        ),
+        findsOneWidget,
+      );
+      expect(c2Key('schedule-editor-zone'), findsNothing);
+      expect(c2Key('schedule-editor-choose-association'), findsNothing);
       await c2Tap(tester, c2Key('schedule-editor-cancel'));
       expect(c2Library(store), before);
       await c2Finish(tester, store);
@@ -87,27 +94,22 @@ void main() {
   );
 
   testWidgets(
-    'create time block and independent event from Planner review; task properties unchanged',
+    'create event from Planner review lands on the active board; task properties unchanged',
     (tester) async {
       final store = await c2Store(items: []);
       final tasks = jsonEncode(
         store.tasks.map((task) => task.toJson()).toList(),
       );
       await c2Pump(tester, store);
-      await _new(tester, kind: 'timeBlock');
-      await _association(tester, 'outline');
-      await c2Text(tester, 'schedule-editor-start-time', '09:00');
-      await c2Text(tester, 'schedule-editor-end-time', '10:00');
-      await c2Tap(tester, c2Key('schedule-editor-review'));
-      expect(store.scheduleItems, isEmpty);
-      await c2Tap(tester, c2Key('schedule-editor-save'));
-      expect(store.scheduleItems.single.kind, ScheduleItemKind.timeBlock);
       await _new(tester);
       await _event(tester);
       await c2Tap(tester, c2Key('schedule-editor-review'));
+      expect(store.scheduleItems, isEmpty);
       await c2Tap(tester, c2Key('schedule-editor-save'));
-      expect(store.scheduleItems, hasLength(2));
-      expect(store.scheduleItems.last.boardId, 'home');
+      expect(store.scheduleItems, hasLength(1));
+      expect(store.scheduleItems.single.kind, ScheduleItemKind.event);
+      expect(store.scheduleItems.single.boardId, 'work');
+      expect(store.scheduleItems.single.taskId, isNull);
       expect(
         jsonEncode(store.tasks.map((task) => task.toJson()).toList()),
         tasks,
@@ -123,8 +125,6 @@ void main() {
       await c2Pump(tester, store, view: PlannerView.week);
       await _new(tester);
       await c2Text(tester, 'schedule-editor-title', 'Linked');
-      await c2Tap(tester, c2Key('schedule-editor-associate-task'));
-      await _association(tester, 'outline');
       await c2Text(tester, 'schedule-editor-start-date', '2026-09-27');
       await c2Text(tester, 'schedule-editor-start-time', '23:00');
       await c2Text(tester, 'schedule-editor-end-date', '2026-10-05');
@@ -132,8 +132,8 @@ void main() {
       await c2Tap(tester, c2Key('schedule-editor-review'));
       expect(find.text('End: 2026-10-05 00:00 UTC+08:00'), findsOneWidget);
       await c2Tap(tester, c2Key('schedule-editor-save'));
-      expect(store.scheduleItems.single.taskId, 'outline');
-      expect(store.scheduleItems.single.boardId, isNull);
+      expect(store.scheduleItems.single.taskId, isNull);
+      expect(store.scheduleItems.single.boardId, 'work');
       expect(
         c2Key('schedule-item-2026-10-04-${store.scheduleItems.single.id}'),
         findsOneWidget,
@@ -187,13 +187,9 @@ void main() {
       await c2Pump(tester, store);
       await _detail(tester, id: 'precise');
       await c2Tap(tester, c2Key('schedule-detail-edit'));
-      expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-zone'))
-            .initialValue,
-        'UTC',
-      );
+      expect(c2Key('schedule-editor-zone'), findsNothing);
       await c2Tap(tester, c2Key('schedule-editor-review'));
+      expect(find.textContaining('IANA time zone: UTC'), findsOneWidget);
       await c2Tap(tester, c2Key('schedule-editor-save'));
       expect(c2Library(store), before);
       await c2Finish(tester, store);
@@ -204,10 +200,9 @@ void main() {
     'DST gap message rejects; each repeated endpoint needs explicit UTC offset',
     (tester) async {
       final store = await c2Store(items: []);
-      await c2Pump(tester, store);
+      await c2Pump(tester, store, zone: 'America/New_York');
       await _new(tester);
-      await _event(tester);
-      await c2Text(tester, 'schedule-editor-zone', 'America/New_York');
+      await c2Text(tester, 'schedule-editor-title', 'Meeting');
       await c2Text(tester, 'schedule-editor-start-date', '2026-03-08');
       await c2Text(tester, 'schedule-editor-start-time', '02:30');
       await c2Text(tester, 'schedule-editor-end-date', '2026-03-08');

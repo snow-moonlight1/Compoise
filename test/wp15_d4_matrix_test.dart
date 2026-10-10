@@ -100,13 +100,7 @@ void main() {
             );
             await tabTo(tester, 'schedule-add');
             await press(tester, LogicalKeyboardKey.enter);
-            await tabTo(tester, 'schedule-create-event');
-            await press(tester, LogicalKeyboardKey.enter);
             await c2Text(tester, 'schedule-editor-title', 'Accessible event');
-            await tabTo(tester, 'schedule-editor-choose-association');
-            await press(tester, LogicalKeyboardKey.enter);
-            await tabTo(tester, 'schedule-editor-association-home');
-            await press(tester, LogicalKeyboardKey.enter);
             await c2Text(tester, 'schedule-editor-start-time', '01:00');
             await c2Text(tester, 'schedule-editor-end-time', '02:00');
             await tabTo(tester, 'schedule-editor-review');

@@ -7,6 +7,7 @@ import 'package:matrixflow_native/schedule_item.dart';
 import 'package:matrixflow_native/schedule_time.dart';
 import 'package:matrixflow_native/screens/planner_screen.dart';
 import 'package:matrixflow_native/storage.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'support/wp15_c1_fixtures.dart';
 export 'support/wp15_c1_fixtures.dart';
@@ -39,27 +40,34 @@ Future<void> c2Pump(
   double scale = 1,
   Size size = const Size(1200, 900),
   PlannerView view = PlannerView.day,
+  String? zone,
+  String? initialTaskId,
+  bool startTimeBlock = false,
+  bool provide = false,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(useMaterial3: true, platform: TargetPlatform.windows),
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(scale)),
-        child: child!,
-      ),
-      home: PlannerScreen(
-        store: store,
-        displayTimeZoneId: c1Zone,
-        initialDate: ScheduleCivilDate(2026, 9, 30),
-        initialView: view,
-      ),
+  final app = MaterialApp(
+    theme: ThemeData(useMaterial3: true, platform: TargetPlatform.windows),
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(scale)),
+      child: child!,
     ),
+    home: PlannerScreen(
+      store: store,
+      displayTimeZoneId: zone ?? c1Zone,
+      initialDate: ScheduleCivilDate(2026, 9, 30),
+      initialView: view,
+      initialTaskId: initialTaskId,
+      startTimeBlock: startTimeBlock,
+    ),
+  );
+  await tester.pumpWidget(
+    provide ? ChangeNotifierProvider<Store>.value(value: store, child: app) : app,
   );
   await tester.pumpAndSettle();
 }
@@ -75,12 +83,70 @@ Future<void> c2Tap(WidgetTester tester, Finder target) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> c2Text(WidgetTester tester, String key, String value) async {
-  final target = c2Key(key);
+Future<void> c2Enter(WidgetTester tester, Finder target, String value) async {
   await tester.ensureVisible(target);
   await tester.pumpAndSettle();
+  final widget = tester.widget(target);
+  if (widget is TextFormField || widget is TextField) {
+    await tester.enterText(target, value);
+    await tester.pumpAndSettle();
+    return;
+  }
+  await tester.tap(target);
+  await tester.pumpAndSettle();
+  final dateDialog = find.byType(DatePickerDialog);
+  if (dateDialog.evaluate().isNotEmpty) {
+    final edit = find.descendant(
+      of: dateDialog,
+      matching: find.byIcon(Icons.edit_outlined),
+    );
+    if (edit.evaluate().isNotEmpty) {
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+    }
+    final parts = value.split('-');
+    final typed = parts.length == 3
+        ? '${parts[1]}/${parts[2]}/${parts[0]}'
+        : value;
+    await tester.enterText(
+      find.descendant(of: dateDialog, matching: find.byType(TextField)).last,
+      typed,
+    );
+    await tester.tap(
+      find.descendant(of: dateDialog, matching: find.text('OK')),
+    );
+    await tester.pumpAndSettle();
+    return;
+  }
+  final timeDialog = find.byType(TimePickerDialog);
+  if (timeDialog.evaluate().isNotEmpty) {
+    final keyboard = find.descendant(
+      of: timeDialog,
+      matching: find.byIcon(Icons.keyboard_outlined),
+    );
+    if (keyboard.evaluate().isNotEmpty) {
+      await tester.tap(keyboard);
+      await tester.pumpAndSettle();
+    }
+    final fields = find.descendant(
+      of: timeDialog,
+      matching: find.byType(TextField),
+    );
+    final parts = value.split(':');
+    await tester.enterText(fields.at(0), parts[0]);
+    await tester.enterText(fields.at(1), parts[1]);
+    await tester.tap(
+      find.descendant(of: timeDialog, matching: find.text('OK')),
+    );
+    await tester.pumpAndSettle();
+    return;
+  }
   await tester.enterText(target, value);
   await tester.pumpAndSettle();
+}
+
+Future<void> c2Text(WidgetTester tester, String key, String value) async {
+  await c2Enter(tester, c2Key(key), value);
 }
 
 Future<void> c2Finish(WidgetTester tester, Store store) async {

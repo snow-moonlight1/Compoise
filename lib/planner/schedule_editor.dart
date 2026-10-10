@@ -30,7 +30,6 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
   ScheduleReview? _review;
   bool _allowOverlap = false;
   bool _busy = false;
-  bool _taskAssociation = false;
   String? _error;
   late final String _initialDraft;
   bool _initialProposal = false;
@@ -60,7 +59,6 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
   @override
   void initState() {
     super.initState();
-    _taskAssociation = s.kind == ScheduleItemKind.timeBlock || s.taskId != null;
     _initialDraft = _draft;
     if (s.original != null && s.mode != ScheduleEditMode.edit) {
       try {
@@ -204,53 +202,6 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
     );
   }
 
-  Future<void> _chooseAssociation() async {
-    final values = _taskAssociation
-        ? [
-            for (final task in s.store.tasks)
-              (
-                task.id,
-                '${task.title} · ${s.store.boards.where((b) => b.id == task.boardId).firstOrNull?.name ?? t['unknownBoard']} · Q${task.quadrant}',
-              ),
-          ]
-        : [for (final board in s.store.boards) (board.id, board.name)];
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          t[_taskAssociation ? 'scheduleEditorParent' : 'scheduleBoardFilter']!,
-        ),
-        scrollable: true,
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (values.isEmpty) Text(t['scheduleEditorNoAssociation']!),
-              for (final value in values)
-                ListTile(
-                  key: ValueKey('schedule-editor-association-${value.$1}'),
-                  title: Text(value.$2),
-                  onTap: () => Navigator.pop(context, value.$1),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t['close']!),
-          ),
-        ],
-      ),
-    );
-    if (selected == null || !mounted) return;
-    _changed(() {
-      s.taskId = _taskAssociation ? selected : null;
-      s.boardId = _taskAssociation ? null : selected;
-    });
-  }
-
   String _associationLabel(ScheduleItem item) {
     final task = s.store.tasks
         .where((task) => task.id == item.taskId)
@@ -265,6 +216,83 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
     ].join(' · ');
   }
 
+  DateTime? _parsedDate(String value) {
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
+    if (match == null) return null;
+    final year = int.parse(match[1]!);
+    final month = int.parse(match[2]!);
+    final day = int.parse(match[3]!);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      return null;
+    }
+    return date;
+  }
+
+  TimeOfDay _parsedTime(String value) {
+    final match = RegExp(r'^(\d{2}):(\d{2})').firstMatch(value);
+    if (match == null) return const TimeOfDay(hour: 9, minute: 0);
+    final hour = int.parse(match[1]!);
+    final minute = int.parse(match[2]!);
+    if (hour > 23 || minute > 59) return const TimeOfDay(hour: 9, minute: 0);
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  String _two(int value) => value.toString().padLeft(2, '0');
+
+  Widget _pickerFrame(BuildContext context, Widget? child) {
+    // The Material picker sizes itself for a 1.1 text scale and then overflows
+    // when the page scale is larger. Keep the page scale everywhere else.
+    final scaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: 1.1);
+    return Localizations.override(
+      context: context,
+      locale: Locale(s.store.settings.language.name),
+      child: MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(alwaysUse24HourFormat: true, textScaler: scaler),
+        child: child ?? const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Future<void> _pickDate(ScheduleEndpointInput input) async {
+    final first = DateTime(1, 1, 1);
+    final last = DateTime(9999, 12, 31);
+    var initial = _parsedDate(input.date) ?? DateTime(2026, 1, 1);
+    if (initial.isBefore(first)) initial = first;
+    if (initial.isAfter(last)) initial = last;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
+      builder: _pickerFrame,
+    );
+    if (picked == null) return;
+    _changed(() {
+      input.date =
+          '${picked.year.toString().padLeft(4, '0')}-${_two(picked.month)}-${_two(picked.day)}';
+      input.offset = null;
+    });
+  }
+
+  Future<void> _pickTime(ScheduleEndpointInput input) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parsedTime(input.time),
+      builder: _pickerFrame,
+    );
+    if (picked == null) return;
+    _changed(() {
+      input.time = '${_two(picked.hour)}:${_two(picked.minute)}';
+      input.offset = null;
+    });
+  }
+
   Widget _endpoint(String name, ScheduleEndpointInput input, bool editable) {
     final label = t[name == 'start' ? 'scheduleStart' : 'scheduleEnd']!;
     List<ScheduleWallCandidate> candidates = [];
@@ -275,42 +303,41 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
     } on ScheduleTimeException {
       // Incomplete input is explained when the user asks to review.
     }
+    final dateText = input.date.isEmpty ? t['schedulePickDate']! : input.date;
+    final timeText = input.time.isEmpty ? t['schedulePickTime']! : input.time;
+    final enabled = editable && !_busy && !s.accepted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Semantics(header: true, child: Text(label)),
-        TextFormField(
-          key: ValueKey(
-            'schedule-editor-$name-date${editable ? '' : '-fixed-${input.date}'}',
+        const SizedBox(height: 12),
+        Text(t['scheduleEditorDate']!),
+        const SizedBox(height: 4),
+        if (editable)
+          OutlinedButton(
+            key: ValueKey('schedule-editor-$name-date'),
+            onPressed: enabled ? () => _pickDate(input) : null,
+            child: Text(dateText),
+          )
+        else
+          Text(
+            key: ValueKey('schedule-editor-$name-date-fixed-${input.date}'),
+            dateText,
           ),
-          initialValue: input.date,
-          readOnly: !editable,
-          enabled: !_busy && !s.accepted,
-          decoration: InputDecoration(
-            labelText: '$label · ${t['scheduleEditorDate']}',
-            hintText: 'YYYY-MM-DD',
+        const SizedBox(height: 12),
+        Text(t['scheduleEditorTime']!),
+        const SizedBox(height: 4),
+        if (editable)
+          OutlinedButton(
+            key: ValueKey('schedule-editor-$name-time'),
+            onPressed: enabled ? () => _pickTime(input) : null,
+            child: Text(timeText),
+          )
+        else
+          Text(
+            key: ValueKey('schedule-editor-$name-time-fixed-${input.time}'),
+            timeText,
           ),
-          onChanged: (value) => _changed(() {
-            input.date = value;
-            input.offset = null;
-          }),
-        ),
-        TextFormField(
-          key: ValueKey(
-            'schedule-editor-$name-time${editable ? '' : '-fixed-${input.time}'}',
-          ),
-          initialValue: input.time,
-          readOnly: !editable,
-          enabled: !_busy && !s.accepted,
-          decoration: InputDecoration(
-            labelText: '$label · ${t['scheduleEditorTime']}',
-            hintText: 'HH:mm[:ss.SSS]',
-          ),
-          onChanged: (value) => _changed(() {
-            input.time = value;
-            input.offset = null;
-          }),
-        ),
         if (error != null) Text(error),
         if (candidates.length > 1 && editable) ...[
           Text(t['scheduleEditorFold']!),
@@ -367,75 +394,50 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
         end = ScheduleEndpointInput(date: '', time: '');
       }
     }
-    final association = _taskAssociation
-        ? s.store.tasks.where((task) => task.id == s.taskId).firstOrNull?.title
-        : s.store.boards
-              .where((board) => board.id == s.boardId)
-              .firstOrNull
-              ?.name;
+    final link = _linkLine();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          t[s.kind == ScheduleItemKind.timeBlock
-              ? 'scheduleTimeBlock'
-              : 'scheduleEvent']!,
-        ),
         if (s.kind == ScheduleItemKind.event && s.mode == ScheduleEditMode.edit)
-          TextFormField(
-            key: const ValueKey('schedule-editor-title'),
-            initialValue: s.title,
-            decoration: InputDecoration(labelText: t['scheduleEditorTitle']),
-            onChanged: (value) => _changed(() => s.title = value),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: TextFormField(
+              key: const ValueKey('schedule-editor-title'),
+              initialValue: s.title,
+              decoration: InputDecoration(labelText: t['scheduleEditorTitle']),
+              onChanged: (value) => _changed(() => s.title = value),
+            ),
           ),
-        if (s.kind == ScheduleItemKind.event && s.mode == ScheduleEditMode.edit)
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final task in [true, false])
-                ChoiceChip(
-                  key: ValueKey(
-                    'schedule-editor-associate-${task ? 'task' : 'board'}',
-                  ),
-                  label: Text(
-                    t[task ? 'scheduleEditorParent' : 'scheduleEditorBoard']!,
-                  ),
-                  selected: _taskAssociation == task,
-                  onSelected: (_) => _changed(() {
-                    _taskAssociation = task;
-                    s.taskId = null;
-                    s.boardId = null;
-                  }),
-                ),
-            ],
+        if (link != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(link, style: Theme.of(context).textTheme.bodyMedium),
           ),
-        TextButton(
-          key: const ValueKey('schedule-editor-choose-association'),
-          onPressed: s.mode == ScheduleEditMode.edit
-              ? _chooseAssociation
-              : null,
-          child: Text(
-            '${t['scheduleEditorAssociation']}: ${association ?? t['scheduleEditorChoose']}',
-          ),
-        ),
-        _references(s.taskId),
-        TextFormField(
-          key: const ValueKey('schedule-editor-zone'),
-          initialValue: s.timeZoneId,
-          readOnly: s.mode != ScheduleEditMode.edit,
-          decoration: InputDecoration(labelText: t['scheduleEditorZone']),
-          onChanged: (value) => _changed(() {
-            s.timeZoneId = value;
-            s.start.offset = null;
-            s.end.offset = null;
-          }),
-        ),
+        if (s.taskId != null) _references(s.taskId),
         _endpoint('start', s.start, s.startEditable),
         _endpoint('end', end, s.endEditable),
         if (s.mode == ScheduleEditMode.move)
           Text(t['scheduleEditorKeepDuration']!),
       ],
     );
+  }
+
+  /// Existing records and a drop that already names a task show that link as
+  /// text. A new event keeps its board on the session and does not ask again.
+  String? _linkLine() {
+    final taskId = s.taskId;
+    if (taskId != null) {
+      final task = s.store.tasks
+          .where((task) => task.id == taskId)
+          .firstOrNull;
+      if (task == null) return null;
+      return '${t['scheduleTask']}: ${task.title}';
+    }
+    if (s.original == null || s.boardId == null) return null;
+    final board = s.store.boards
+        .where((board) => board.id == s.boardId)
+        .firstOrNull;
+    return '${t['scheduleBoardShort']}: ${board?.name ?? t['unknownBoard']}';
   }
 
   Widget _summary() {

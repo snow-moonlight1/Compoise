@@ -100,16 +100,18 @@ void main() {
       await _dropOnDay(tester, gesture, '2026-10-01');
       expect(c2Key('schedule-editor'), findsOneWidget);
       expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-start-date'))
-            .initialValue,
-        '2026-10-01',
+        find.descendant(
+          of: c2Key('schedule-editor-start-date'),
+          matching: find.text('2026-10-01'),
+        ),
+        findsOneWidget,
       );
       expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-start-time'))
-            .initialValue,
-        '00:30',
+        find.descendant(
+          of: c2Key('schedule-editor-start-time'),
+          matching: find.text('00:30'),
+        ),
+        findsOneWidget,
       );
       expect(c2Library(store), before);
       await c2Tap(tester, c2Key('schedule-editor-cancel'));
@@ -195,18 +197,19 @@ void main() {
       expect(c2Key('schedule-create-event'), findsNothing);
       expect(store.scheduleItems, isEmpty);
       await c2Tap(tester, c2Key('schedule-add'));
-      await c2Tap(tester, c2Key('schedule-create-event'));
       expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-start-time'))
-            .initialValue,
-        isEmpty,
+        find.descendant(
+          of: c2Key('schedule-editor-start-time'),
+          matching: find.text('Choose time'),
+        ),
+        findsOneWidget,
       );
       expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-end-time'))
-            .initialValue,
-        isEmpty,
+        find.descendant(
+          of: c2Key('schedule-editor-end-time'),
+          matching: find.text('Choose time'),
+        ),
+        findsOneWidget,
       );
       expect(store.scheduleItems, isEmpty);
       await c2Tap(tester, c2Key('schedule-editor-cancel'));
@@ -230,6 +233,151 @@ void main() {
       expect(find.text('End: 2026-10-06 01:00 UTC+08:00'), findsOneWidget);
       await c2Tap(tester, c2Key('schedule-editor-save'));
       expect(store.tasks.first.toJson(), before);
+      await c2Finish(tester, store);
+    },
+  );
+
+  testWidgets(
+    'week rows share the height above the pool, and changing week or view slides',
+    (tester) async {
+      final store = await c2Store();
+      await c2Pump(tester, store, view: PlannerView.week);
+      final monday = tester.getTopLeft(c2Key('schedule-day-2026-09-28'));
+      final tuesday = tester.getTopLeft(c2Key('schedule-day-2026-09-29'));
+      final saturday = tester.getTopLeft(c2Key('schedule-day-2026-10-03'));
+      final sunday = tester.getTopLeft(c2Key('schedule-day-2026-10-04'));
+      final step = tuesday.dy - monday.dy;
+      expect(step, greaterThan(88));
+      expect(sunday.dy - saturday.dy, closeTo(step, 1));
+      expect((sunday.dy - monday.dy) / 6, closeTo(step, 1));
+
+      final hint = find.text(
+        'Tap a date to open that day. Pinch out to return.',
+      );
+      final gesture = await tester.startGesture(tester.getCenter(hint));
+      await gesture.moveBy(const Offset(-80, 0));
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(
+        tester
+            .widget<FractionalTranslation>(c2Key('schedule-motion'))
+            .translation
+            .dx,
+        greaterThan(0),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FractionalTranslation>(c2Key('schedule-motion'))
+            .translation
+            .dx,
+        0,
+      );
+
+      await tester.tap(c2Key('schedule-mode-day'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(
+        tester
+            .widget<FractionalTranslation>(c2Key('schedule-motion'))
+            .translation
+            .dx,
+        greaterThan(0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(c2Key('schedule-mode-week'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(
+        tester
+            .widget<FractionalTranslation>(c2Key('schedule-motion'))
+            .translation
+            .dx,
+        lessThan(0),
+      );
+      await tester.pumpAndSettle();
+      await c2Finish(tester, store);
+    },
+  );
+
+  testWidgets(
+    'tapping the pool opens it with colored full names, and a drop lands on that hour',
+    (tester) async {
+      final store = await c2Store(items: []);
+      await c2Pump(tester, store, provide: true);
+      expect(find.text('Not Urgent but Important'), findsNothing);
+      expect(find.text('Important · Urgent'), findsNothing);
+      await tester.tap(find.text('Task pool · 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Urgent and Important'), findsOneWidget);
+      expect(find.text('Not Urgent but Important'), findsOneWidget);
+      expect(find.text('Urgent but Not Important'), findsOneWidget);
+      expect(find.text('Neither Urgent nor Important'), findsOneWidget);
+      await tester.tap(find.text('Not Urgent but Important'));
+      await tester.pumpAndSettle();
+      final card = c2Key('schedule-pool-outline');
+      expect(
+        find.descendant(of: card, matching: find.textContaining('1 h')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.textContaining('Draft outline'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: card, matching: find.textContaining('Deadline')),
+        findsOneWidget,
+      );
+
+      final gesture = await _start(tester, card);
+      await tester.pump(const Duration(milliseconds: 800));
+      final box = tester.getRect(c2Key('schedule-drop-2026-09-30'));
+      final point = box.topLeft + const Offset(220, 4 * 96 + 3);
+      await gesture.moveTo(point);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('4:00 – 5:00'), findsOneWidget);
+      expect(find.textContaining('Release to place at 4:00'), findsOneWidget);
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(c2Key('schedule-editor'), findsNothing);
+      expect(store.scheduleItems, hasLength(1));
+      final placed = store.scheduleItems.single;
+      expect(placed.kind, ScheduleItemKind.timeBlock);
+      expect(placed.taskId, 'outline');
+      expect(placed.title, isNull);
+      expect(placed.startAt, c1At(30, 4));
+      expect(placed.endAt, c1At(30, 5));
+      await c2Finish(tester, store);
+    },
+  );
+
+  testWidgets(
+    'schedule time from a pool task pulls that task up instead of opening the form',
+    (tester) async {
+      final store = await c2Store(items: []);
+      await c2Pump(
+        tester,
+        store,
+        provide: true,
+        initialTaskId: 'outline',
+        startTimeBlock: true,
+      );
+      expect(c2Key('schedule-editor'), findsNothing);
+      expect(find.byType(PlannerScreen), findsOneWidget);
+      expect(find.text('Not Urgent but Important'), findsOneWidget);
+      expect(c2Key('schedule-pool-outline'), findsOneWidget);
+
+      await c2Tap(tester, c2Key('schedule-pool-outline'));
+      await c2Tap(tester, c2Key('edit-schedule-entry'));
+      expect(c2Key('schedule-editor'), findsNothing);
+      expect(find.byType(PlannerScreen), findsOneWidget);
+      expect(find.text('Not Urgent but Important'), findsOneWidget);
+      expect(store.scheduleItems, isEmpty);
       await c2Finish(tester, store);
     },
   );

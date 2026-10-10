@@ -200,16 +200,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(PlannerScreen), findsOneWidget);
-    expect(find.byKey(const ValueKey('schedule-editor')), findsOneWidget);
+    expect(find.byKey(const ValueKey('schedule-editor')), findsNothing);
+    expect(find.byKey(const ValueKey('schedule-pool-Alpha')), findsOneWidget);
     expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('schedule-editor-choose-association')),
-        matching: find.textContaining('Alpha'),
-      ),
-      findsOneWidget,
+      tester.getSize(find.byKey(const ValueKey('schedule-pool-Alpha'))).height,
+      greaterThan(20),
     );
-    expect(find.textContaining('Task dates (reference only)'), findsOneWidget);
-    await c2Tap(tester, c2Key('schedule-editor-cancel'));
     await finish(tester, store);
   });
 
@@ -235,8 +231,7 @@ void main() {
 
     expect(store.tasks.single.title, 'Alpha renamed');
     expect(find.byType(PlannerScreen), findsOneWidget);
-    expect(find.byKey(const ValueKey('schedule-editor')), findsOneWidget);
-    await c2Tap(tester, c2Key('schedule-editor-cancel'));
+    expect(find.byKey(const ValueKey('schedule-editor')), findsNothing);
     await finish(tester, store);
   });
 
@@ -388,6 +383,7 @@ void main() {
     await c2Tap(tester, c2Key('edit-schedule-entry'));
     expect(find.byType(TaskDetailPanel), findsNothing);
     expect(find.byType(PlannerScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('schedule-editor')), findsNothing);
     await finish(tester, store);
   });
 }

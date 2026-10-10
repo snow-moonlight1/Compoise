@@ -28,6 +28,8 @@ class PlannerTaskPool extends StatefulWidget {
     this.onAddToQuadrant,
     this.onOpenTask,
     this.addEnabled = true,
+    this.highlightTaskId,
+    this.highlightToken = 0,
   });
 
   final DraggableScrollableController controller;
@@ -45,7 +47,11 @@ class PlannerTaskPool extends StatefulWidget {
   final VoidCallback onAdd;
   final ValueChanged<Task> onDragStarted;
   final void Function(Task task, Offset global) onDragUpdate;
-  final void Function(Task task, Offset global) onDragEnd;
+  final void Function(Task task, DraggableDetails details) onDragEnd;
+  final String? highlightTaskId;
+
+  /// Bumps when the same task should be revealed again.
+  final int highlightToken;
 
   @override
   State<PlannerTaskPool> createState() => _PlannerTaskPoolState();
@@ -53,39 +59,33 @@ class PlannerTaskPool extends StatefulWidget {
 
 class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   int _quadrant = qDo;
-  bool _expanded = false;
-  final _page = PageController();
-  final _lists = List<ScrollController>.generate(4, (_) => ScrollController());
+  List<double>? _snaps;
+  double? _snapMin;
+  final _highlightKey = GlobalKey();
+  bool _expandRetry = false;
 
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_onSheet);
+    final id = widget.highlightTaskId;
+    if (id != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reveal(id);
+      });
+    }
   }
 
   @override
   void didUpdateWidget(PlannerTaskPool oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller == widget.controller) return;
-    oldWidget.controller.removeListener(_onSheet);
-    widget.controller.addListener(_onSheet);
-  }
-
-  void _onSheet() {
-    if (!widget.controller.isAttached) return;
-    final expanded = widget.controller.size > widget.minSize + 0.04;
-    if (expanded == _expanded) return;
-    setState(() => _expanded = expanded);
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onSheet);
-    _page.dispose();
-    for (final list in _lists) {
-      list.dispose();
+    final id = widget.highlightTaskId;
+    if (id != null &&
+        (id != oldWidget.highlightTaskId ||
+            widget.highlightToken != oldWidget.highlightToken)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reveal(id);
+      });
     }
-    super.dispose();
   }
 
   List<Task> _of(int quadrant) => [
@@ -93,19 +93,43 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       if (task.quadrant == quadrant) task,
   ];
 
+  void _reveal(String taskId) {
+    Task? task;
+    for (final item in widget.tasks) {
+      if (item.id == taskId) {
+        task = item;
+        break;
+      }
+    }
+    if (task == null) return;
+    _select(task.quadrant);
+    _expandFull();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _highlightKey.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(target, alignment: 0.2);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final skin = NeumorphicSkin.maybeOf(context);
+    // A fresh list every build makes the sheet treat snaps as changed and
+    // spring shut, which cancels a tap or a highlight that was opening it.
+    if (_snaps == null || _snapMin != widget.minSize) {
+      _snapMin = widget.minSize;
+      _snaps = [widget.minSize, 0.5, 0.92];
+    }
     return DraggableScrollableSheet(
       controller: widget.controller,
       initialChildSize: widget.minSize,
       minChildSize: widget.minSize,
       maxChildSize: 0.92,
       snap: true,
-      snapSizes: [widget.minSize, 0.5, 0.92],
+      snapSizes: _snaps,
       builder: (context, scrollController) {
-        final surface = Material(
+        return Material(
           color: skin?.canvas ?? theme.colorScheme.surface,
           elevation: skin == null ? 3 : 0,
           shadowColor: skin?.darkShadow ?? theme.colorScheme.shadow,
@@ -113,96 +137,149 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           clipBehavior: Clip.antiAlias,
-          child: _expanded
-              ? _expandedBody(theme, scrollController)
-              : _collapsed(theme, scrollController),
-        );
-        return surface;
-      },
-    );
-  }
-
-  Widget _collapsed(ThemeData theme, ScrollController scrollController) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return ListView(
-          controller: scrollController,
-          padding: EdgeInsets.zero,
-          children: [
-            SizedBox(
-              height: 72,
-              width: constraints.maxWidth,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _expandHalf,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final height = constraints.maxHeight;
+              final scale = math.max(
+                1.0,
+                MediaQuery.textScalerOf(context).scale(14) / 14,
+              );
+              final compact = height < 140;
+              final headerH = math.min(
+                compact ? 72.0 : math.max(88.0, 40 * scale + 48),
+                height,
+              );
+              final chipH = compact
+                  ? 0.0
+                  : math.min(
+                      64 * scale,
+                      math.max(0.0, height - headerH - 96),
+                    );
+              return Column(
+                children: [
+                  SizedBox(
+                    height: headerH,
                     width: constraints.maxWidth,
-                    child: _bar(theme, expanded: false),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _expandFull,
+                      onVerticalDragUpdate: (details) =>
+                          _dragSheet(details.primaryDelta),
+                      child: compact
+                          ? FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: constraints.maxWidth,
+                                child: _bar(theme, expanded: false),
+                              ),
+                            )
+                          : _bar(theme, expanded: true),
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ],
+                  // This slot stays put. Inserting it only while open used to
+                  // dispose the page underneath and cancel the sheet animation.
+                  SizedBox(
+                    height: chipH,
+                    child: chipH == 0
+                        ? const SizedBox.shrink()
+                        : ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            children: [
+                              for (final quadrant in allQuadrants)
+                                _quadrantChip(theme, quadrant),
+                            ],
+                          ),
+                  ),
+                  Expanded(
+                    // One list keeps the sheet controller. Moving that
+                    // controller onto another page detaches it and cancels
+                    // the open animation.
+                    child: GestureDetector(
+                      onHorizontalDragEnd: (details) {
+                        final velocity = details.primaryVelocity ?? 0;
+                        if (velocity.abs() < 250) return;
+                        final index = allQuadrants.indexOf(_quadrant);
+                        final next = velocity < 0 ? index + 1 : index - 1;
+                        if (next < 0 || next >= allQuadrants.length) return;
+                        _select(allQuadrants[next]);
+                      },
+                      child: _taskList(
+                        theme,
+                        _quadrant,
+                        _of(_quadrant),
+                        scrollController,
+                      ),
+                    ),
+                  ),
+                  if (!compact) _dots(theme),
+                ],
+              );
+            },
+          ),
         );
       },
     );
   }
 
-  Widget _expandedBody(ThemeData theme, ScrollController scrollController) {
-    final scale = math.max(
-      1.0,
-      MediaQuery.textScalerOf(context).scale(14) / 14,
-    );
-    return Column(
-      children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onVerticalDragUpdate: (details) => _dragSheet(details.primaryDelta),
-          child: _bar(theme, expanded: true),
+  Widget _quadrantChip(ThemeData theme, int quadrant) {
+    final selected = quadrant == _quadrant;
+    final color = Color(quadrantColors[quadrant]!);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Material(
+        color: selected
+            ? color.withValues(alpha: 0.16)
+            : theme.colorScheme.surface,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: selected ? color : theme.colorScheme.outlineVariant,
+          ),
         ),
-        SizedBox(
-          height: 48 * scale,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            children: [
-              for (final quadrant in allQuadrants)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text(
-                      '${widget.t['scheduleQuadrant$quadrant']} ${_of(quadrant).length}',
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            _select(quadrant);
+            _expandFull();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Text(widget.t['q$quadrant']!, maxLines: 1, softWrap: false),
+                const SizedBox(width: 8),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
                     ),
-                    selected: _quadrant == quadrant,
-                    onSelected: (_) => _select(quadrant),
+                    child: Text(
+                      '${_of(quadrant).length}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
-        Expanded(
-          child: PageView(
-            controller: _page,
-            onPageChanged: (index) =>
-                setState(() => _quadrant = allQuadrants[index]),
-            children: [
-              for (final quadrant in allQuadrants)
-                _taskList(
-                  theme,
-                  quadrant,
-                  _of(quadrant),
-                  quadrant == _quadrant
-                      ? scrollController
-                      : _lists[allQuadrants.indexOf(quadrant)],
-                ),
-            ],
-          ),
-        ),
-        _dots(theme),
-      ],
+      ),
     );
   }
 
@@ -224,7 +301,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
                   height: 8,
                   decoration: BoxDecoration(
                     color: quadrant == _quadrant
-                        ? theme.colorScheme.primary
+                        ? Color(quadrantColors[quadrant]!)
                         : theme.colorScheme.outlineVariant,
                     shape: BoxShape.circle,
                   ),
@@ -236,25 +313,26 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     );
   }
 
-  void _expandHalf() {
-    if (!widget.controller.isAttached) return;
+  void _expandFull() {
+    if (!widget.controller.isAttached) {
+      if (_expandRetry) return;
+      _expandRetry = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _expandRetry = false;
+        if (mounted) _expandFull();
+      });
+      return;
+    }
     widget.controller.animateTo(
-      0.5,
-      duration: const Duration(milliseconds: 180),
+      0.92,
+      duration: const Duration(milliseconds: 240),
       curve: Curves.easeOut,
     );
   }
 
   void _select(int quadrant) {
+    if (_quadrant == quadrant) return;
     setState(() => _quadrant = quadrant);
-    final index = allQuadrants.indexOf(quadrant);
-    if (_page.hasClients) {
-      _page.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-      );
-    }
   }
 
   void _dragSheet(double? delta) {
@@ -266,7 +344,9 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   }
 
   Widget _bar(ThemeData theme, {required bool expanded}) {
-    final counts = {for (final quadrant in allQuadrants) quadrant: _of(quadrant).length};
+    final counts = {
+      for (final quadrant in allQuadrants) quadrant: _of(quadrant).length,
+    };
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       child: Row(
@@ -293,32 +373,32 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (final quadrant in allQuadrants)
-                          GestureDetector(
-                            onTap: () {
-                              _select(quadrant);
-                              _expandHalf();
-                            },
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: Color(quadrantColors[quadrant]!),
-                                    shape: BoxShape.circle,
-                                  ),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final quadrant in allQuadrants)
+                        GestureDetector(
+                          onTap: () {
+                            _select(quadrant);
+                            _expandFull();
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: Color(quadrantColors[quadrant]!),
+                                  shape: BoxShape.circle,
                                 ),
-                                const SizedBox(width: 4),
-                                Text('${counts[quadrant]}'),
-                                const SizedBox(width: 8),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text('${counts[quadrant]}'),
+                              const SizedBox(width: 8),
+                            ],
                           ),
-                      ],
+                        ),
+                    ],
                     ),
                   )
                 else if (widget.boardLabel != null)
@@ -392,7 +472,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
                 icon: const Icon(Icons.add),
                 label: Text(
                   plannerFilled(widget.t['schedulePoolAddQuadrant']!, {
-                    'quadrant': widget.t['scheduleQuadrant$quadrant']!,
+                    'quadrant': widget.t['q$quadrant']!,
                   }),
                 ),
               ),
@@ -408,40 +488,37 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   }
 
   Widget _card(ThemeData theme, Task task) {
-    final deadline = task.deadline == null
+    final local = task.deadline == null
+        ? null
+        : scheduleLocalTime(task.deadline!, widget.zone);
+    final deadline = local == null
         ? widget.t['scheduleNoDeadline']!
-        : '${widget.t['deadline']}: ${scheduleDateLabel(ScheduleCivilDate(
-            scheduleLocalTime(task.deadline!, widget.zone).year,
-            scheduleLocalTime(task.deadline!, widget.zone).month,
-            scheduleLocalTime(task.deadline!, widget.zone).day,
-          ))}';
-    final body = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        children: [
-          Icon(Icons.drag_handle, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${task.title}\n$deadline',
-              maxLines: 3,
-              overflow: TextOverflow.fade,
+        : '${widget.t['deadline']}: ${scheduleDateLabel(ScheduleCivilDate(local.year, local.month, local.day))}';
+    final highlighted = task.id == widget.highlightTaskId;
+    final body = DecoratedBox(
+      key: highlighted ? _highlightKey : null,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: highlighted ? theme.colorScheme.primary : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          children: [
+            Icon(Icons.drag_handle, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${task.title}\n$deadline',
+                maxLines: 3,
+                overflow: TextOverflow.fade,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(
-                quadrantColors[task.quadrant] ?? quadrantColors[qEliminate]!,
-              ).withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(widget.t['scheduleDefaultLength']!),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
     if (!widget.writable) return body;
@@ -453,12 +530,10 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
         elevation: 4,
         borderRadius: BorderRadius.circular(8),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 240),
+          constraints: const BoxConstraints(maxWidth: 280),
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(
-              '${task.title}\n${widget.t['scheduleDefaultLength']}',
-            ),
+            child: Text('${task.title}\n$deadline'),
           ),
         ),
       ),
@@ -466,7 +541,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       onDragStarted: () => widget.onDragStarted(task),
       onDragUpdate: (details) =>
           widget.onDragUpdate(task, details.globalPosition),
-      onDragEnd: (details) => widget.onDragEnd(task, details.offset),
+      onDragEnd: (details) => widget.onDragEnd(task, details),
       child: widget.onOpenTask == null
           ? body
           : GestureDetector(

@@ -232,29 +232,26 @@ void main() {
       await pumpPlanner(tester, store, controller);
 
       await c2Tap(tester, c2Key('schedule-add'));
-      await c2Tap(tester, c2Key('schedule-create-timeBlock'));
       await c2Text(tester, 'schedule-editor-start-time', '10:00');
+      expect(c2Key('schedule-editor-zone'), findsNothing);
       expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-zone'))
-            .initialValue,
-        'Asia/Shanghai',
+        find.descendant(
+          of: c2Key('schedule-editor-start-time'),
+          matching: find.text('10:00'),
+        ),
+        findsOneWidget,
       );
 
       source.reading = _tokyo;
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
+      expect(c2Key('schedule-editor-zone'), findsNothing);
       expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-zone'))
-            .initialValue,
-        'Asia/Shanghai',
-      );
-      expect(
-        tester
-            .widget<TextFormField>(c2Key('schedule-editor-start-time'))
-            .initialValue,
-        '10:00',
+        find.descendant(
+          of: c2Key('schedule-editor-start-time'),
+          matching: find.text('10:00'),
+        ),
+        findsOneWidget,
       );
       await c2Tap(tester, c2Key('schedule-editor-cancel'));
       expect(c2Library(store), before);
