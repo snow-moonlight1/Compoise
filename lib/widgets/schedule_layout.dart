@@ -38,6 +38,14 @@ String scheduleClockLabel(int instant, String zone) {
       '${scheduleOffsetLabel(local.timeZoneOffset)}';
 }
 
+/// Short clock painted on the planner axis and blocks. The offset stays in
+/// [scheduleClockLabel] and in semantics; a 23- or 25-hour day still uses the
+/// real instants, this only changes the painted digits.
+String scheduleAxisLabel(int instant, String zone) {
+  final local = scheduleLocalTime(instant, zone);
+  return '${local.hour}:${local.minute.toString().padLeft(2, '0')}';
+}
+
 String scheduleInstantLabel(int instant, String zone) {
   final local = scheduleLocalTime(instant, zone);
   return '${scheduleDateLabel(ScheduleCivilDate(local.year, local.month, local.day))} '

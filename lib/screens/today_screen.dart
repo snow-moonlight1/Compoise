@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
+import '../ui/orphan_squeeze.dart';
 import '../planned_policy.dart';
 import '../storage.dart';
 import '../task_query.dart';
@@ -499,13 +500,15 @@ class _TodayScreenState extends State<TodayScreen> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    task.title,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontSize: TaskHierarchyStyle.parentTitleSize,
-                      height: 1.35,
+                  OrphanSqueeze(
+                    child: Text(
+                      task.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: TaskHierarchyStyle.parentTitleSize,
+                        height: 1.35,
+                      ),
                     ),
                   ),
                   if (task.plannedDate != null || task.deadline != null)

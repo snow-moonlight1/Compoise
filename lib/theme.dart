@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'models.dart';
 import 'ui/font_policy.dart';
+import 'ui/orphan_squeeze.dart';
 
 const themeSeedColors = <ThemeColor, Color>{
   ThemeColor.blue: Color(0xFF3B82F6),
@@ -64,6 +65,27 @@ class CombinedTextScaler extends TextScaler {
 
   @override
   int get hashCode => Object.hash(systemScaler, appScale);
+}
+
+/// Rounded control with the comic outline's horizontal padding, and no ink.
+ButtonStyle _quietButtonStyle() {
+  return TextButton.styleFrom(
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    minimumSize: const Size(48, 40),
+  ).copyWith(
+    overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+    splashFactory: NoSplash.splashFactory,
+    foregroundBuilder: _squeezeButtonLabel,
+  );
+}
+
+Widget _squeezeButtonLabel(
+  BuildContext context,
+  Set<WidgetState> states,
+  Widget? child,
+) {
+  return OrphanSqueeze(child: child ?? const SizedBox.shrink());
 }
 
 ThemeData buildTheme(
@@ -137,16 +159,31 @@ ThemeData buildTheme(
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+    // Comic outline already uses this padding. Matching it keeps a label that
+    // fits on one line from dropping its last character. The pressed overlay
+    // is off: Material's splash follows a pill, which misses these corners.
+    filledButtonTheme: FilledButtonThemeData(style: _quietButtonStyle()),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: _quietButtonStyle()),
+    textButtonTheme: TextButtonThemeData(style: _quietButtonStyle()),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ).copyWith(
+        overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        splashFactory: NoSplash.splashFactory,
+      ),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
     ),
+    sliderTheme: const SliderThemeData(
+      overlayColor: Color(0x00000000),
+    ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    splashFactory: NoSplash.splashFactory,
+    splashColor: const Color(0x00000000),
+    highlightColor: const Color(0x00000000),
+    hoverColor: const Color(0x00000000),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
       TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
@@ -366,6 +403,8 @@ ThemeData applyComicOutline(ThemeData theme) {
       shape: const WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: radius),
       ),
+      splashFactory: NoSplash.splashFactory,
+      foregroundBuilder: _squeezeButtonLabel,
     );
   }
 
@@ -469,6 +508,8 @@ ThemeData applyComicOutline(ThemeData theme) {
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
         side: WidgetStatePropertyAll(BorderSide(color: comic.edge, width: 2)),
+        overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        splashFactory: NoSplash.splashFactory,
         shape: const WidgetStatePropertyAll(
           RoundedRectangleBorder(borderRadius: radius),
         ),
@@ -640,6 +681,54 @@ class NeumorphicSkin extends ThemeExtension<NeumorphicSkin> {
   }
 }
 
+const double _neuGutter = 8;
+
+/// Raised slab at rest, inset while pressed. The gutter stays inside the
+/// button so the shadow is not clipped by the button's own shape.
+ButtonStyle _neuActionStyle({
+  required NeumorphicSkin neu,
+  required Color foreground,
+  required Color icon,
+  double radius = NeumorphicSkin.radius,
+  EdgeInsetsGeometry contentPadding = const EdgeInsets.symmetric(
+    horizontal: 14,
+    vertical: 10,
+  ),
+  double gutter = _neuGutter,
+  Size minimumSize = const Size(48, 40),
+}) {
+  return ButtonStyle(
+    elevation: const WidgetStatePropertyAll(0),
+    shadowColor: const WidgetStatePropertyAll(Color(0x00000000)),
+    surfaceTintColor: const WidgetStatePropertyAll(Color(0x00000000)),
+    backgroundColor: const WidgetStatePropertyAll(Color(0x00000000)),
+    foregroundColor: WidgetStatePropertyAll(foreground),
+    iconColor: WidgetStatePropertyAll(icon),
+    overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+    splashFactory: NoSplash.splashFactory,
+    padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+    minimumSize: WidgetStatePropertyAll(minimumSize),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    side: const WidgetStatePropertyAll(BorderSide.none),
+    shape: WidgetStatePropertyAll(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+    ),
+    foregroundBuilder: _squeezeButtonLabel,
+    backgroundBuilder: (context, states, child) {
+      final pressed = states.contains(WidgetState.pressed);
+      return Padding(
+        padding: EdgeInsets.all(gutter),
+        child: _NeuPressFace(
+          skin: neu,
+          radius: radius,
+          pressed: pressed,
+          child: Padding(padding: contentPadding, child: child),
+        ),
+      );
+    },
+  );
+}
+
 ThemeData applyNeumorphic(ThemeData theme) {
   final accent = theme.colorScheme.primary;
   final onAccent = theme.colorScheme.onPrimary;
@@ -697,18 +786,21 @@ ThemeData applyNeumorphic(ThemeData theme) {
       margin: EdgeInsets.zero,
       shape: const RoundedRectangleBorder(borderRadius: radius),
     ),
+    // A dialog or sheet sits on top of the page, so it cannot share the slab's
+    // extruded pair. One shadow keeps it visible. Controls on the page use
+    // the pair instead.
     dialogTheme: DialogThemeData(
       backgroundColor: neu.canvas,
-      elevation: 0,
-      shadowColor: const Color(0x00000000),
+      elevation: 8,
+      shadowColor: neu.darkShadow,
       surfaceTintColor: const Color(0x00000000),
       shape: const RoundedRectangleBorder(borderRadius: radius),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: neu.canvas,
       elevation: 0,
-      shadowColor: const Color(0x00000000),
-      modalElevation: 0,
+      shadowColor: neu.darkShadow,
+      modalElevation: 8,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(NeumorphicSkin.radius),
@@ -717,8 +809,8 @@ ThemeData applyNeumorphic(ThemeData theme) {
     ),
     datePickerTheme: DatePickerThemeData(
       backgroundColor: neu.canvas,
-      elevation: 0,
-      shadowColor: const Color(0x00000000),
+      elevation: 8,
+      shadowColor: neu.darkShadow,
       shape: const RoundedRectangleBorder(borderRadius: radius),
     ),
     // A menu overlaps the page, so it cannot share the slab's extruded pair.
@@ -744,8 +836,11 @@ ThemeData applyNeumorphic(ThemeData theme) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: neu.canvas,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      isDense: false,
+      // Top padding clears the floating label and the 16px flat band in
+      // NeuInputBorder, so the value starts inside the well. Text fields
+      // use TextAlignVertical.top, which places the glyphs at this inset.
+      contentPadding: const EdgeInsets.fromLTRB(16, 26, 16, 14),
       hintStyle: TextStyle(color: neu.ink.withValues(alpha: 0.5)),
       labelStyle: TextStyle(color: neu.ink.withValues(alpha: 0.8)),
       border: border,
@@ -756,56 +851,25 @@ ThemeData applyNeumorphic(ThemeData theme) {
       disabledBorder: border,
     ),
     filledButtonTheme: FilledButtonThemeData(
-      style: ButtonStyle(
-        elevation: const WidgetStatePropertyAll(0),
-        shadowColor: const WidgetStatePropertyAll(Color(0x00000000)),
-        surfaceTintColor: const WidgetStatePropertyAll(Color(0x00000000)),
-        backgroundColor: WidgetStatePropertyAll(neu.canvas),
-        foregroundColor: WidgetStatePropertyAll(neu.ink),
-        iconColor: WidgetStatePropertyAll(accent),
-        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: radius),
-        ),
-      ),
+      style: _neuActionStyle(neu: neu, foreground: neu.ink, icon: accent),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ButtonStyle(
-        elevation: const WidgetStatePropertyAll(0),
-        shadowColor: const WidgetStatePropertyAll(Color(0x00000000)),
-        surfaceTintColor: const WidgetStatePropertyAll(Color(0x00000000)),
-        backgroundColor: WidgetStatePropertyAll(neu.canvas),
-        foregroundColor: WidgetStatePropertyAll(neu.ink),
-        iconColor: WidgetStatePropertyAll(accent),
-        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: radius),
-        ),
-      ),
+      style: _neuActionStyle(neu: neu, foreground: neu.ink, icon: accent),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
-      style: ButtonStyle(
-        elevation: const WidgetStatePropertyAll(0),
-        shadowColor: const WidgetStatePropertyAll(Color(0x00000000)),
-        backgroundColor: WidgetStatePropertyAll(neu.canvas),
-        foregroundColor: WidgetStatePropertyAll(neu.ink),
-        side: const WidgetStatePropertyAll(BorderSide.none),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: radius),
-        ),
-      ),
+      style: _neuActionStyle(neu: neu, foreground: neu.ink, icon: neu.ink),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: ButtonStyle(
-        foregroundColor: WidgetStatePropertyAll(neu.ink),
-        iconColor: WidgetStatePropertyAll(neu.ink),
-        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
-      ),
+      style: _neuActionStyle(neu: neu, foreground: neu.ink, icon: neu.ink),
     ),
     iconButtonTheme: IconButtonThemeData(
-      style: ButtonStyle(
-        foregroundColor: WidgetStatePropertyAll(neu.ink),
-        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.08)),
+      style: _neuActionStyle(
+        neu: neu,
+        foreground: neu.ink,
+        icon: neu.ink,
+        contentPadding: const EdgeInsets.all(4),
+        gutter: 6,
+        minimumSize: const Size(48, 48),
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -821,6 +885,8 @@ ThemeData applyNeumorphic(ThemeData theme) {
       style: ButtonStyle(
         side: const WidgetStatePropertyAll(BorderSide.none),
         elevation: const WidgetStatePropertyAll(0),
+        overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+        splashFactory: NoSplash.splashFactory,
         backgroundColor: WidgetStatePropertyAll(neu.canvas),
         foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return accent;
@@ -971,7 +1037,21 @@ class NeuInputBorder extends InputBorder {
     double gapPercentage = 0.0,
     TextDirection? textDirection,
   }) {
-    paintNeuInset(canvas, rect, skin, radius);
+    // A floating label is centered on the top edge (about 9px of a 16sp
+    // label hangs into the field). Leave a flat band so those glyphs sit
+    // above the inset lip, matching the 26px top content padding.
+    final band = gapExtent > 0 ? 16.0 : 0.0;
+    final height = rect.height - band;
+    if (height < 8 || rect.width < 8) {
+      paintNeuInset(canvas, rect, skin, radius);
+      return;
+    }
+    paintNeuInset(
+      canvas,
+      Rect.fromLTWH(rect.left, rect.top + band, rect.width, height),
+      skin,
+      radius,
+    );
   }
 
   @override
@@ -1100,4 +1180,26 @@ class _NeuPressFace extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Raised, or inset when [inset], when the neumorphic skin is on.
+/// Other skins get [child] unchanged, so call sites can wrap unconditionally.
+Widget neuSlab(
+  BuildContext context, {
+  required Widget child,
+  bool inset = false,
+  double radius = NeumorphicSkin.radius,
+  double gutter = _neuGutter,
+}) {
+  final skin = NeumorphicSkin.maybeOf(context);
+  if (skin == null) return child;
+  return Padding(
+    padding: EdgeInsets.all(gutter),
+    child: _NeuPressFace(
+      skin: skin,
+      radius: radius,
+      pressed: inset,
+      child: child,
+    ),
+  );
 }

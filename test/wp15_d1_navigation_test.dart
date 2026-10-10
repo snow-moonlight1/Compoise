@@ -151,6 +151,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('schedule-scroll')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('schedule-menu')));
+      await tester.pumpAndSettle();
       expect(find.textContaining('Asia/Shanghai'), findsWidgets);
       await finish(tester, store);
     },
@@ -170,6 +172,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('schedule-scroll')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('schedule-menu')));
+    await tester.pumpAndSettle();
     expect(
       find.text('${store.t['scheduleZoneDevice']}: Asia/Shanghai'),
       findsOneWidget,

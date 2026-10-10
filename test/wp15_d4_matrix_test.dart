@@ -205,10 +205,12 @@ void main() {
           zone: zone,
           brightness: Brightness.dark,
         );
-        expect(
-          find.textContaining('${month == 3 ? 23 : 25}.0 hours'),
-          findsOneWidget,
-        );
+        if (month == 3) {
+          expect(find.text('2:00'), findsNothing);
+          expect(find.text('3:00'), findsOneWidget);
+        } else {
+          expect(find.text('1:00'), findsNWidgets(2));
+        }
         final day = month == 3 ? '2026-03-08' : '2026-11-01';
         final tomorrow = month == 3 ? '2026-03-09' : '2026-11-02';
         expect(c2Key('schedule-item-$day-ends'), findsNothing);

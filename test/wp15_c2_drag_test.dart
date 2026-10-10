@@ -25,6 +25,19 @@ Future<TestGesture> _start(WidgetTester tester, Finder source) async {
   return gesture;
 }
 
+Future<void> _dropOnDay(
+  WidgetTester tester,
+  TestGesture gesture,
+  String date,
+) async {
+  final point = tester.getCenter(c2Key('schedule-drop-$date'));
+  expect(tester.getRect(find.byType(Scaffold).first).contains(point), isTrue);
+  await gesture.moveTo(point);
+  await tester.pump(const Duration(milliseconds: 50));
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
 Future<void> _drop(
   WidgetTester tester,
   TestGesture gesture,
@@ -84,7 +97,7 @@ void main() {
         tester,
         c2Key('schedule-drag-2026-09-30-block'),
       );
-      await _drop(tester, gesture, '2026-10-01', 1);
+      await _dropOnDay(tester, gesture, '2026-10-01');
       expect(c2Key('schedule-editor'), findsOneWidget);
       expect(
         tester
@@ -96,18 +109,18 @@ void main() {
         tester
             .widget<TextFormField>(c2Key('schedule-editor-start-time'))
             .initialValue,
-        '01:00',
+        '00:30',
       );
       expect(c2Library(store), before);
       await c2Tap(tester, c2Key('schedule-editor-cancel'));
       expect(c2Library(store), before);
       gesture = await _start(tester, c2Key('schedule-drag-2026-09-30-block'));
-      await _drop(tester, gesture, '2026-10-01', 1);
+      await _dropOnDay(tester, gesture, '2026-10-01');
       await c2Tap(tester, c2Key('schedule-editor-review'));
       expect(find.text('Elapsed duration: 1:30:00.000000'), findsOneWidget);
       await c2Tap(tester, c2Key('schedule-editor-save'));
       final moved = store.scheduleItems.single;
-      expect(moved.startAt, item.startAt + 24 * 3600000 + 30 * 60000);
+      expect(moved.startAt, item.startAt + 24 * 3600000);
       expect(moved.endAt - moved.startAt, item.endAt - item.startAt);
       expect(moved.timeZoneId, c1Zone);
       await c2Finish(tester, store);
@@ -172,19 +185,22 @@ void main() {
   );
 
   testWidgets(
-    'blank grid opens explicit creation with start suggestion and no assumed end',
+    'blank grid does not create; add opens an editor with no assumed times',
     (tester) async {
       final store = await c2Store(items: []);
       await c2Pump(tester, store);
       final box = tester.getRect(c2Key('schedule-drop-2026-09-30'));
       await tester.tapAt(box.topLeft + const Offset(250, 100));
       await tester.pumpAndSettle();
+      expect(c2Key('schedule-create-event'), findsNothing);
+      expect(store.scheduleItems, isEmpty);
+      await c2Tap(tester, c2Key('schedule-add'));
       await c2Tap(tester, c2Key('schedule-create-event'));
       expect(
         tester
             .widget<TextFormField>(c2Key('schedule-editor-start-time'))
             .initialValue,
-        '01:00',
+        isEmpty,
       );
       expect(
         tester

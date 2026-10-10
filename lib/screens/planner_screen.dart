@@ -4,6 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
+import '../models.dart';
+import '../planner/planner_block.dart';
+import '../planner/planner_date_strip.dart';
+import '../planner/planner_day_timeline.dart';
+import '../planner/planner_labels.dart';
+import '../planner/planner_pinch.dart';
+import '../planner/planner_task_pool.dart';
+import '../planner/planner_toolbar.dart';
+import '../planner/planner_view.dart';
+import '../planner/planner_week_view.dart';
 import '../planner/schedule_drag.dart';
 import '../planner/schedule_edit_session.dart';
 import '../planner/schedule_editor.dart';
@@ -13,8 +23,9 @@ import '../schedule_item.dart';
 import '../schedule_time.dart';
 import '../storage.dart';
 import '../widgets/schedule_layout.dart';
+import '../widgets/task_detail_panel.dart';
 
-enum PlannerView { day, week }
+export '../planner/planner_view.dart';
 
 /// Independently mountable Planner/Schedule surface. Live Store data supports
 /// C2 editing; detached snapshots keep C1's read-only behavior.
@@ -69,10 +80,21 @@ class _PlannerScreenState extends State<PlannerScreen> {
   late PlannerView _view;
   String? _boardId;
   final _horizontal = ScrollController();
+  final _vertical = ScrollController();
+  final _pool = DraggableScrollableController();
+  final _hover = ValueNotifier<PlannerHover?>(null);
   final _addFocus = FocusNode();
+  final _stackKey = GlobalKey();
+  final _viewportKey = GlobalKey();
+  final _dropKeys = <String, GlobalKey>{};
   bool _editorOpen = false;
   bool _retryingStore = false;
   String? _adjustingId;
+  String _dropHint = 'Release to place at {time}.';
+  double _poolMin = 0.12;
+  Offset? _poolPointer;
+  ScheduleDayLayout? _paintedDay;
+  List<ScheduleDayLayout> _weekLayouts = const [];
 
   /// Created only when the caller injects no controller, and disposed here.
   DeviceTimeZoneController? _ownedZone;
@@ -84,6 +106,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   DeviceTimeZoneController? get _zoneController =>
       widget.timeZoneController ?? _ownedZone;
+
+  bool get _canPrevious =>
+      !(_date.year <= 1 && _date.month == 1 && _date.day <= 7);
+
+  bool get _canNext =>
+      !(_date.year >= 9999 && _date.month == 12 && _date.day >= 24);
 
   void _readZone() {
     _zone = _zoneController?.displayIanaId ?? widget.displayTimeZoneId;
@@ -161,6 +189,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _ownedZone?.dispose();
     _ownedZone = null;
     _horizontal.dispose();
+    _vertical.dispose();
+    _pool.dispose();
+    _hover.dispose();
     _addFocus.dispose();
     super.dispose();
   }
@@ -189,9 +220,47 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  void _navigate(int direction) => setState(() {
-    _date = _date.addDays(direction * (_view == PlannerView.day ? 1 : 7));
-  });
+  void _shift(int days) {
+    if (days < 0 && !_canPrevious) return;
+    if (days > 0 && !_canNext) return;
+    setState(() => _date = _date.addDays(days));
+    _resetScroll();
+  }
+
+  void _navigate(int direction) =>
+      _shift(direction * (_view == PlannerView.day ? 1 : 7));
+
+  void _setView(PlannerView view) {
+    if (_view == view) return;
+    setState(() => _view = view);
+    _resetScroll();
+  }
+
+  void _resetScroll() {
+    if (_vertical.positions.length == 1) _vertical.jumpTo(0);
+    if (_horizontal.positions.length == 1) _horizontal.jumpTo(0);
+  }
+
+  Future<void> _addPoolTask(
+    Store store,
+    int quadrant,
+    Map<String, String> t,
+  ) async {
+    if (_editorOpen || store.hasStartupRecovery || !store.ready) return;
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) => _PoolTaskDialog(t: t),
+    );
+    if (title == null || !mounted) return;
+    final cleaned = title.trim();
+    if (cleaned.isEmpty) return;
+    final task = store.newTask(cleaned, quadrant: quadrant);
+    final boardId = _boardId;
+    if (boardId != null && store.boards.any((board) => board.id == boardId)) {
+      task.boardId = boardId;
+    }
+    store.addTasks([task]);
+  }
 
   Future<void> _create(
     Store store,
@@ -254,9 +323,17 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
   }
 
-  void _savedMessage(Store store) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(store.t['scheduleEditorSaved']!)));
+  void _savedMessage(Store store) {
+    final height = MediaQuery.sizeOf(context).height;
+    final sheet = _pool.isAttached ? _pool.pixels : _poolMin * height;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.fromLTRB(16, 0, 16, sheet + 16),
+        content: Text(store.t['scheduleEditorSaved']!),
+      ),
+    );
+  }
 
   Future<void> _edit(
     Store store,
@@ -288,11 +365,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   ScheduleWallTime _wallAt(ScheduleDayLayout day, double y) {
-    final elapsed = (y / day.pixelsPerHour * Duration.millisecondsPerHour)
-        .floor();
-    final quarter = Duration.millisecondsPerMinute * 15;
-    final instant = day.window.startAt + (elapsed ~/ quarter) * quarter;
-    final local = scheduleLocalTime(instant, _zone!);
+    final local = scheduleLocalTime(_snappedInstant(day, y), _zone!);
     return ScheduleWallTime(
       ScheduleCivilDate(local.year, local.month, local.day),
       hour: local.hour,
@@ -300,48 +373,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  Widget _interactiveGrid(
-    ScheduleDayLayout day,
-    Store? store,
-    double axisWidth,
-    Widget child,
-  ) {
-    if (store == null) return child;
-    return Builder(
-      builder: (context) => DragTarget<ScheduleDragPayload>(
-        key: ValueKey('schedule-drop-${scheduleDateLabel(day.date)}'),
-        onWillAcceptWithDetails: (_) =>
-            !_editorOpen && !store.hasStartupRecovery,
-        onAcceptWithDetails: (details) {
-          final box = context.findRenderObject()! as RenderBox;
-          final point = box.globalToLocal(details.offset);
-          if (point.dy < 0 || point.dy >= day.axisHeight) return;
-          final payload = details.data;
-          _edit(
-            store,
-            payload.item,
-            payload.mode,
-            revision: payload.revision,
-            target: _wallAt(day, point.dy),
-          );
-        },
-        builder: (context, candidates, rejected) => GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapUp: (details) {
-            if (details.localPosition.dx < axisWidth ||
-                details.localPosition.dy >= day.axisHeight) {
-              return;
-            }
-            _create(
-              store,
-              day.date,
-              suggestedStart: _wallAt(day, details.localPosition.dy),
-            );
-          },
-          child: child,
-        ),
-      ),
-    );
+  int _snappedInstant(ScheduleDayLayout day, double y) {
+    final elapsed = (y / day.pixelsPerHour * Duration.millisecondsPerHour)
+        .floor();
+    final quarter = Duration.millisecondsPerMinute * 15;
+    return day.window.startAt + (elapsed ~/ quarter) * quarter;
   }
 
   Widget _drag(
@@ -445,11 +481,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   Widget _buildData(StoreSnapshot data, {Store? liveStore}) {
     final t = dictOf(data.settings.language);
+    _dropHint = t['scheduleDropHint']!;
     final zone = _zone;
     // Without a usable device zone and without a user choice, the page states
     // the problem instead of drawing a grid in an assumed zone.
     if (zone == null) return _zoneRequiredScaffold(t);
-    final theme = Theme.of(context);
     final scale = math.max(
       1.0,
       MediaQuery.textScalerOf(context).scale(14) / 14,
@@ -458,8 +494,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         ? _boardId
         : null;
     final boardName = boardId == null
-        ? t['allBoards']!
+        ? null
         : data.boards.firstWhere((board) => board.id == boardId).name;
+    final filterName = boardName ?? t['allBoards']!;
     final entries = scheduleEntries(
       items: data.scheduleItems,
       tasks: data.tasks,
@@ -469,221 +506,558 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final monday = _date.addDays(
       1 - DateTime.utc(_date.year, _date.month, _date.day).weekday,
     );
-    final dates = _view == PlannerView.day
-        ? [_date]
-        : [for (var day = 0; day < 7; day++) monday.addDays(day)];
-    final days = [
-      for (final date in dates)
+    final week = [for (var day = 0; day < 7; day++) monday.addDays(day)];
+    final selected = scheduleDateLabel(_date);
+    final layouts = [
+      for (final date in week)
         ScheduleDayLayout(
           date: date,
           timeZoneId: zone,
           entries: entries,
           pixelsPerHour: 96 * scale,
-          minimumItemHeight: (_adjustingId == null ? 60 : 150) * scale,
+          minimumItemHeight:
+              (_adjustingId != null && scheduleDateLabel(date) == selected
+                  ? 150
+                  : 60) *
+              scale,
         ),
     ];
-    final range = _view == PlannerView.day
-        ? scheduleDateLabel(_date)
-        : '${scheduleDateLabel(dates.first)} – ${scheduleDateLabel(dates.last)}';
+    _weekLayouts = layouts;
+    _paintedDay = layouts.firstWhere(
+      (day) => scheduleDateLabel(day.date) == selected,
+    );
+    final zoneLabel =
+        '${_zoneController?.followsDeviceZone ?? false ? t['scheduleZoneDevice'] : t['scheduleDisplayZone']}: $zone';
+    final linked = {
+      for (final item in data.scheduleItems)
+        if (item.taskId != null) item.taskId!,
+    };
+    final tasks = [
+      for (final task in data.tasks)
+        if (!task.completed &&
+            !linked.contains(task.id) &&
+            (boardId == null || task.boardId == boardId))
+          task,
+    ]..sort((a, b) => a.title.compareTo(b.title));
+
+    Widget blockFor(ScheduleDayLayout day, SchedulePlacement placement) {
+      return PlannerBlock(
+        placement: placement,
+        dateLabel: scheduleDateLabel(day.date),
+        zone: zone,
+        t: t,
+        liveStore: liveStore,
+        compact: _view == PlannerView.week,
+        adjusting: _adjustingId == placement.entry.item.id,
+        onOpen: () => _openDetail(placement.entry.item.id, data, t, liveStore),
+        onHandle: (mode) {
+          final store = liveStore;
+          if (store == null) return;
+          _edit(store, placement.entry.item, mode);
+        },
+        drag: (mode, child, {key}) {
+          final store = liveStore;
+          if (store == null) return child;
+          return _drag(store, placement.entry.item, mode, child, key: key);
+        },
+      );
+    }
 
     return Scaffold(
       body: SafeArea(
         child: FocusTraversalGroup(
           policy: ReadingOrderTraversalPolicy(),
-          child: SingleChildScrollView(
-            key: const ValueKey('schedule-scroll'),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    t['scheduleTitle']!,
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                ),
-                if (liveStore == null)
-                  Text(t['scheduleReadOnly']!)
-                else ...[
-                  TextButton.icon(
-                    key: const ValueKey('schedule-add'),
-                    focusNode: _addFocus,
-                    onPressed: _editorOpen
-                        ? null
-                        : () => _create(liveStore, _date),
-                    icon: const Icon(Icons.add),
-                    label: Text(t['scheduleEditorAdd']!),
-                  ),
-                  if (_adjustingId != null)
-                    TextButton(
-                      key: const ValueKey('schedule-hide-handles'),
-                      onPressed: () => setState(() => _adjustingId = null),
-                      child: Text(t['scheduleEditorHideHandles']!),
-                    ),
-                ],
-                if (liveStore?.persistenceError != null)
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(t['scheduleUnsaved']!),
-                  ),
-                if (liveStore?.persistenceError != null)
-                  TextButton(
-                    key: const ValueKey('schedule-persistence-retry'),
-                    onPressed: _retryingStore
-                        ? null
-                        : () async {
-                            setState(() => _retryingStore = true);
-                            try {
-                              await liveStore!.retrySave(
-                                waitForReminders: false,
-                              );
-                            } finally {
-                              if (mounted) {
-                                setState(() => _retryingStore = false);
-                              }
-                            }
-                          },
-                    child: Text(t['scheduleEditorRetry']!),
-                  ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    IconButton(
-                      key: const ValueKey('schedule-previous'),
-                      tooltip:
-                          t[_view == PlannerView.day
-                              ? 'schedulePreviousDay'
-                              : 'schedulePreviousWeek'],
-                      onPressed:
-                          _date.year <= 1 && _date.month == 1 && _date.day <= 7
-                          ? null
-                          : () => _navigate(-1),
-                      icon: const Icon(Icons.chevron_left),
-                    ),
-                    TextButton(
-                      key: const ValueKey('schedule-date'),
-                      onPressed: () => _pickDate(t),
-                      child: Text(range),
-                    ),
-                    IconButton(
-                      key: const ValueKey('schedule-next'),
-                      tooltip:
-                          t[_view == PlannerView.day
-                              ? 'scheduleNextDay'
-                              : 'scheduleNextWeek'],
-                      onPressed:
-                          _date.year >= 9999 &&
-                              _date.month == 12 &&
-                              _date.day >= 24
-                          ? null
-                          : () => _navigate(1),
-                      icon: const Icon(Icons.chevron_right),
-                    ),
-                    TextButton(
-                      key: const ValueKey('schedule-today'),
-                      onPressed: () => setState(() => _date = _today()),
-                      child: Text(t['today']!),
-                    ),
-                  ],
-                ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final mode in PlannerView.values)
-                      ChoiceChip(
-                        key: ValueKey('schedule-mode-${mode.name}'),
-                        label: Text(
-                          t[mode == PlannerView.day
-                              ? 'scheduleDay'
-                              : 'scheduleWeek']!,
-                        ),
-                        selected: _view == mode,
-                        onSelected: (_) => setState(() => _view = mode),
-                      ),
-                    TextButton.icon(
-                      key: const ValueKey('schedule-filter'),
-                      onPressed: () => _pickBoard(data, t),
-                      icon: const Icon(Icons.filter_list),
-                      label: Text('${t['scheduleBoardFilter']}: $boardName'),
-                    ),
-                  ],
-                ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      '${_zoneController?.followsDeviceZone ?? false ? t['scheduleZoneDevice'] : t['scheduleDisplayZone']}: $zone',
-                    ),
-                    if (_zoneController != null)
-                      TextButton.icon(
-                        key: const ValueKey('schedule-zone-switch'),
-                        onPressed: () => _chooseZone(_zoneController!, t),
-                        icon: const Icon(Icons.public),
-                        label: Text(t['scheduleZoneSwitch']!),
-                      ),
-                  ],
-                ),
-                if (days.every((day) => day.placements.isEmpty))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(t['scheduleEmpty']!),
-                  ),
-                Text(
-                  t['scheduleScrollHint']!,
-                  style: theme.textTheme.bodySmall,
-                ),
-                if (liveStore != null) Text(t['scheduleEditorDragHint']!),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final laneWidth = 180.0 * scale;
-                    final axisWidth = 150.0 * scale;
-                    final dayHeight = days
-                        .map((day) => day.height)
-                        .reduce(math.max);
-                    return Scrollbar(
-                      controller: _horizontal,
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        key: const ValueKey('schedule-horizontal'),
-                        controller: _horizontal,
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (final day in days)
-                              _dayColumn(
-                                day,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final poolMin = (72 / math.max(constraints.maxHeight, 1))
+                  .clamp(0.08, 0.2)
+                  .toDouble();
+              _poolMin = poolMin;
+              return Stack(
+                key: _stackKey,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      PlannerToolbar(
+                        t: t,
+                        dateLabel: _view == PlannerView.day
+                            ? plannerDayTitle(
+                                _date,
+                                data.settings.language,
                                 t,
-                                width: math.max(
-                                  _view == PlannerView.day
-                                      ? constraints.maxWidth
-                                      : 0,
-                                  axisWidth + day.laneCount * laneWidth,
-                                ),
-                                axisWidth: axisWidth,
-                                gridHeight: dayHeight,
-                                headerHeight: 90 * scale,
-                                onOpen: (id) =>
-                                    _openDetail(id, data, t, liveStore),
-                                liveStore: liveStore,
+                              )
+                            : plannerWeekTitle(
+                                week.first,
+                                week.last,
+                                data.settings.language,
                               ),
-                          ],
+                        view: _view,
+                        canPrevious: _canPrevious,
+                        canNext: _canNext,
+                        zoneLabel: zoneLabel,
+                        filterLabel: '${t['scheduleBoardFilter']}: $filterName',
+                        onPrevious: () => _navigate(-1),
+                        onNext: () => _navigate(1),
+                        onPickDate: () => _pickDate(t),
+                        onToday: () => setState(() => _date = _today()),
+                        onView: _setView,
+                        onFilter: () => _pickBoard(data, t),
+                        onZone: _zoneController == null
+                            ? null
+                            : () => _chooseZone(_zoneController!, t),
+                      ),
+                      if (liveStore == null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            t['scheduleReadOnly']!,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      if (liveStore?.persistenceError != null)
+                        Semantics(
+                          liveRegion: true,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(t['scheduleUnsaved']!),
+                          ),
+                        ),
+                      if (liveStore?.persistenceError != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            key: const ValueKey('schedule-persistence-retry'),
+                            onPressed: _retryingStore
+                                ? null
+                                : () async {
+                                    setState(() => _retryingStore = true);
+                                    try {
+                                      await liveStore!.retrySave(
+                                        waitForReminders: false,
+                                      );
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _retryingStore = false);
+                                      }
+                                    }
+                                  },
+                            child: Text(t['scheduleEditorRetry']!),
+                          ),
+                        ),
+                      if (_adjustingId != null && liveStore != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            key: const ValueKey('schedule-hide-handles'),
+                            onPressed: () =>
+                                setState(() => _adjustingId = null),
+                            child: Text(t['scheduleEditorHideHandles']!),
+                          ),
+                        ),
+                      if (_view == PlannerView.day)
+                        PlannerDateStrip(
+                          monday: monday,
+                          selected: _date,
+                          marked: {
+                            for (final day in layouts)
+                              if (day.placements.isNotEmpty)
+                                scheduleDateLabel(day.date),
+                          },
+                          t: t,
+                          language: data.settings.language,
+                          onSelect: (date) => setState(() => _date = date),
+                          onWeek: (direction) => _shift(direction * 7),
+                        ),
+                      Expanded(
+                        child: KeyedSubtree(
+                          key: _viewportKey,
+                          child: PlannerPinch(
+                            onPinchIn: _view == PlannerView.day
+                                ? () => _setView(PlannerView.week)
+                                : null,
+                            onPinchOut: _view == PlannerView.week
+                                ? () => _setView(PlannerView.day)
+                                : null,
+                            child: _view == PlannerView.day
+                                ? PlannerDayTimeline(
+                                    day: _paintedDay!,
+                                    scale: scale,
+                                    vertical: _vertical,
+                                    horizontal: _horizontal,
+                                    moreTemplate: t['scheduleMoreCount']!,
+                                    nowLabel: t['scheduleNow']!,
+                                    hover: _hover,
+                                    now: widget.now?.call() ?? DateTime.now(),
+                                    onScheduleDrop: liveStore == null
+                                        ? null
+                                        : (payload, dy) => _edit(
+                                            liveStore,
+                                            payload.item,
+                                            payload.mode,
+                                            revision: payload.revision,
+                                            target: _wallAt(_paintedDay!, dy),
+                                          ),
+                                    block: (placement) =>
+                                        blockFor(_paintedDay!, placement),
+                                  )
+                                : PlannerWeekView(
+                                    days: layouts,
+                                    today: _today(),
+                                    scale: scale,
+                                    vertical: _vertical,
+                                    t: t,
+                                    onOpenDay: (date) => setState(() {
+                                      _date = date;
+                                      _view = PlannerView.day;
+                                    }),
+                                    onWeek: (direction) =>
+                                        _shift(direction * 7),
+                                    dropKey: _dropKey,
+                                    onScheduleDrop: liveStore == null
+                                        ? null
+                                        : (payload, date) => _dropOnWeekDay(
+                                            liveStore,
+                                            payload,
+                                            date,
+                                          ),
+                                    block: blockFor,
+                                  ),
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                    ],
+                  ),
+                  PlannerTaskPool(
+                    controller: _pool,
+                    minSize: poolMin,
+                    tasks: tasks,
+                    t: t,
+                    zone: zone,
+                    writable: liveStore != null,
+                    addFocus: _addFocus,
+                    addEnabled: !_editorOpen,
+                    boardLabel:
+                        '${t['scheduleBoardShort']}: $filterName',
+                    onBoard: () => _pickBoard(data, t),
+                    onAddToQuadrant: liveStore == null
+                        ? null
+                        : (quadrant) => _addPoolTask(liveStore, quadrant, t),
+                    onOpenTask: liveStore == null
+                        ? null
+                        : (task) => showTaskEditSheet(context, task),
+                    onAdd: liveStore == null
+                        ? () {}
+                        : () => _create(liveStore, _date),
+                    onDragStarted: (_) {
+                      if (_pool.isAttached) {
+                        _pool.animateTo(
+                          _poolMin,
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    },
+                    onDragUpdate: (_, global) {
+                      _poolPointer = global;
+                      _updateHover(global);
+                    },
+                    onDragEnd: (task, global) {
+                      final store = liveStore;
+                      final point = _poolPointer ?? global;
+                      final hover = _hover.value;
+                      _poolPointer = null;
+                      _hover.value = null;
+                      if (store == null) return;
+                      _finishPoolDrop(store, task, point, hover);
+                    },
+                  ),
+                ],
+              );
+            },
           ),
         ),
+      ),
+    );
+  }
+
+  GlobalKey _dropKey(String label) =>
+      _dropKeys.putIfAbsent(label, GlobalKey.new);
+
+  bool _overSheet(Offset global) {
+    final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return false;
+    final local = box.globalToLocal(global);
+    final sheet = _pool.isAttached ? _pool.pixels : _poolMin * box.size.height;
+    return local.dy >= box.size.height - sheet &&
+        local.dy <= box.size.height &&
+        local.dx >= 0 &&
+        local.dx <= box.size.width;
+  }
+
+  void _updateHover(Offset global) {
+    final day = _paintedDay;
+    if (_view != PlannerView.day || day == null || _overSheet(global)) {
+      _hover.value = null;
+      return;
+    }
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return;
+    final local = box.globalToLocal(global);
+    final inside =
+        local.dx >= 0 &&
+        local.dy >= 0 &&
+        local.dx <= box.size.width &&
+        local.dy <= box.size.height;
+    if (!inside) {
+      _hover.value = null;
+      return;
+    }
+    _autoScroll(local.dy, box.size.height);
+    final y = (_vertical.hasClients ? _vertical.offset : 0) + local.dy;
+    if (y < 0 || y >= day.axisHeight) {
+      _hover.value = null;
+      return;
+    }
+    final snapped = _snappedInstant(day, y);
+    if (snapped < day.window.startAt || snapped >= day.window.endAt) {
+      _hover.value = null;
+      return;
+    }
+    final end = snapped + const Duration(hours: 1).inMilliseconds;
+    final startLabel = scheduleAxisLabel(snapped, _zone!);
+    _hover.value = PlannerHover(
+      top:
+          (snapped - day.window.startAt) /
+          Duration.millisecondsPerHour *
+          day.pixelsPerHour,
+      height: day.pixelsPerHour,
+      label: '$startLabel – ${scheduleAxisLabel(end, _zone!)}',
+      hint: plannerFilled(_dropHint, {'time': startLabel}),
+    );
+  }
+
+  void _autoScroll(double localY, double height) {
+    if (!_vertical.hasClients) return;
+    final sheet = _pool.isAttached ? _pool.pixels : 0.0;
+    final bottom = height - math.min(sheet, height * 0.45);
+    final delta = localY < 36
+        ? -24.0
+        : localY > bottom - 36
+        ? 24.0
+        : 0.0;
+    if (delta == 0) return;
+    final next = (_vertical.offset + delta).clamp(
+      0.0,
+      _vertical.position.maxScrollExtent,
+    );
+    if (next != _vertical.offset) _vertical.jumpTo(next);
+  }
+
+  Future<void> _finishPoolDrop(
+    Store store,
+    Task task,
+    Offset global,
+    PlannerHover? hover,
+  ) async {
+    if (_overSheet(global)) return;
+    if (_view == PlannerView.week) {
+      final date = _dateUnder(global);
+      if (date == null) return;
+      ScheduleDayLayout? layout;
+      for (final day in _weekLayouts) {
+        if (scheduleDateLabel(day.date) == scheduleDateLabel(date)) {
+          layout = day;
+        }
+      }
+      if (layout == null || _editorOpen) return;
+      final suggested = _freeStart(layout);
+      setState(() => _editorOpen = true);
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(
+          hour: suggested.hour,
+          minute: suggested.minute,
+        ),
+      );
+      if (mounted) setState(() => _editorOpen = false);
+      if (picked == null || !mounted) return;
+      var minute = ((picked.minute + 7) ~/ 15) * 15;
+      var hour = picked.hour;
+      if (minute >= 60) {
+        minute = 0;
+        hour = (hour + 1) % 24;
+      }
+      await _placeTask(
+        store,
+        task.id,
+        ScheduleWallTime(date, hour: hour, minute: minute),
+      );
+      return;
+    }
+    final day = _paintedDay;
+    if (day == null) return;
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return;
+    final local = box.globalToLocal(global);
+    final y = (_vertical.hasClients ? _vertical.offset : 0) + local.dy;
+    if (y < 0 || y >= day.axisHeight) return;
+    // Prefer the snapped preview when the last move produced one.
+    final slot = hover == null ? y : hover.top + 1;
+    _placeTask(store, task.id, _wallAt(day, slot));
+  }
+
+  ScheduleCivilDate? _dateUnder(Offset global) {
+    for (final entry in _dropKeys.entries) {
+      final box =
+          entry.value.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached || !box.hasSize) continue;
+      final local = box.globalToLocal(global);
+      if (local.dx < 0 ||
+          local.dy < 0 ||
+          local.dx > box.size.width ||
+          local.dy > box.size.height) {
+        continue;
+      }
+      final parts = entry.key.split('-');
+      if (parts.length != 3) continue;
+      return ScheduleCivilDate(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
+    }
+    return null;
+  }
+
+  ScheduleWallTime _freeStart(ScheduleDayLayout day) {
+    const length = Duration(hours: 1);
+    final lengthMs = length.inMilliseconds;
+    final quarter = const Duration(minutes: 15).inMilliseconds;
+    bool free(int start) {
+      final end = start + lengthMs;
+      if (end > day.window.endAt) return false;
+      for (final placement in day.placements) {
+        if (start < placement.slice.endAt && end > placement.slice.startAt) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    var cursor = day.window.startAt;
+    final nine = wallTimeCandidates(
+      ScheduleWallTime(day.date, hour: 9, minute: 0),
+      _zone!,
+    );
+    if (nine.isNotEmpty &&
+        nine.first.instantMs >= day.window.startAt &&
+        nine.first.instantMs + lengthMs <= day.window.endAt) {
+      cursor = nine.first.instantMs;
+    }
+    for (
+      var instant = cursor;
+      instant + lengthMs <= day.window.endAt;
+      instant += quarter
+    ) {
+      if (free(instant)) return _wallFromInstant(instant);
+    }
+    for (var instant = day.window.startAt; instant < cursor; instant += quarter) {
+      if (free(instant)) return _wallFromInstant(instant);
+    }
+    return _wallFromInstant(cursor);
+  }
+
+  ScheduleWallTime _wallFromInstant(int instant) {
+    final local = scheduleLocalTime(instant, _zone!);
+    return ScheduleWallTime(
+      ScheduleCivilDate(local.year, local.month, local.day),
+      hour: local.hour,
+      minute: local.minute,
+    );
+  }
+
+  /// A pool drop keeps the existing review path. An empty overlap list is saved
+  /// immediately; anything ambiguous opens the editor instead of writing blind.
+  Future<void> _placeTask(
+    Store store,
+    String taskId,
+    ScheduleWallTime start,
+  ) async {
+    if (_editorOpen || store.hasStartupRecovery || !store.ready || !mounted) {
+      return;
+    }
+    if (!store.tasks.any((task) => task.id == taskId)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(store.t['scheduleTaskMissing']!)));
+      return;
+    }
+    setState(() => _editorOpen = true);
+    try {
+      final session = ScheduleEditSession.create(
+        store,
+        ScheduleItemKind.timeBlock,
+        _zone!,
+        start.date,
+        suggestedStart: start,
+      );
+      session.taskId = taskId;
+      var openEditor = false;
+      try {
+        final endMs =
+            resolveWallTime(start, _zone!) +
+            const Duration(hours: 1).inMilliseconds;
+        final end = _wallFromInstant(endMs);
+        session.end.date = scheduleDateLabel(end.date);
+        session.end.time =
+            '${end.hour.toString().padLeft(2, '0')}:'
+            '${end.minute.toString().padLeft(2, '0')}';
+        session.end.offset = null;
+        final review = session.review();
+        if (review.overlaps.isEmpty) {
+          final result = await session.submit(review);
+          if (!mounted) return;
+          if (result == ScheduleSubmitResult.saved) {
+            _savedMessage(store);
+            return;
+          }
+          if (result == ScheduleSubmitResult.unsaved) return;
+        }
+        openEditor = true;
+      } on ScheduleTimeException {
+        openEditor = true;
+      } on FormatException {
+        return;
+      }
+      if (!openEditor || !mounted) return;
+      final saved = await showScheduleEditor(context, session);
+      if (saved == true && mounted) _savedMessage(store);
+    } finally {
+      if (mounted) setState(() => _editorOpen = false);
+    }
+  }
+
+  void _dropOnWeekDay(
+    Store store,
+    ScheduleDragPayload payload,
+    ScheduleCivilDate date,
+  ) {
+    final instant = payload.mode == ScheduleEditMode.resizeEnd
+        ? payload.item.endAt
+        : payload.item.startAt;
+    final local = scheduleLocalTime(instant, _zone!);
+    _edit(
+      store,
+      payload.item,
+      payload.mode,
+      revision: payload.revision,
+      target: ScheduleWallTime(
+        date,
+        hour: local.hour,
+        minute: local.minute,
+        second: local.second,
+        millisecond: local.millisecond,
       ),
     );
   }
@@ -762,233 +1136,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _armPreselectedBlock();
   }
 
-  String _entryLabel(ScheduleEntry entry, Map<String, String> t) => [
-    t[entry.item.kind.name == 'timeBlock'
-        ? 'scheduleTimeBlock'
-        : 'scheduleEvent']!,
-    entry.title,
-    entry.boardName ?? t['unknownBoard']!,
-    if (entry.taskTitle != null) '${t['scheduleTask']}: ${entry.taskTitle}',
-    if (entry.quadrant != null)
-      'Q${entry.quadrant} · ${t['q${entry.quadrant}Short']}',
-    if (entry.taskTitle != null)
-      '${t['scheduleTask']}: ${t[entry.completed ? 'completed' : 'incomplete']}',
-  ].join(' · ');
-
-  Widget _dayColumn(
-    ScheduleDayLayout day,
-    Map<String, String> t, {
-    required double width,
-    required double axisWidth,
-    required double gridHeight,
-    required double headerHeight,
-    required ValueChanged<String> onOpen,
-    Store? liveStore,
-  }) {
-    final theme = Theme.of(context);
-    final dateLabel = scheduleDateLabel(day.date);
-    final laneWidth = (width - axisWidth) / day.laneCount;
-    return SizedBox(
-      key: ValueKey('schedule-day-$dateLabel'),
-      width: width,
-      child: Column(
-        children: [
-          SizedBox(
-            height: headerHeight,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Semantics(
-                header: true,
-                child: Text(
-                  '$dateLabel · ${t['scheduleWeekday${DateTime.utc(day.date.year, day.date.month, day.date.day).weekday}']}\n'
-                  '${(day.window.endAt - day.window.startAt) / Duration.millisecondsPerHour} ${t['scheduleHours']}',
-                ),
-              ),
-            ),
-          ),
-          SizedBox(
-            height: gridHeight,
-            child: _interactiveGrid(
-              day,
-              liveStore,
-              axisWidth,
-              Stack(
-                children: [
-                  for (final tick in day.ticks)
-                    Positioned(
-                      top: tick.top,
-                      left: 0,
-                      right: 0,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: axisWidth,
-                            child: Text(
-                              tick.label,
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ),
-                          const Expanded(child: Divider(height: 1)),
-                        ],
-                      ),
-                    ),
-                  for (final placement in day.placements)
-                    Positioned(
-                      top: placement.top,
-                      left: axisWidth + placement.lane * laneWidth + 2,
-                      width: laneWidth - 4,
-                      height: placement.height - 2,
-                      child: _scheduleCard(
-                        placement,
-                        dateLabel,
-                        t,
-                        onOpen,
-                        liveStore,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _scheduleCard(
-    SchedulePlacement placement,
-    String dateLabel,
-    Map<String, String> t,
-    ValueChanged<String> onOpen,
-    Store? liveStore,
-  ) {
-    final entry = placement.entry;
-    final slice = placement.slice;
-    final theme = Theme.of(context);
-    final isBlock = entry.item.kind.name == 'timeBlock';
-    final continuation = [
-      if (slice.continuesBefore) t['scheduleContinuesBefore']!,
-      if (slice.continuesAfter) t['scheduleContinuesAfter']!,
-    ].join(' · ');
-    final time =
-        '${scheduleClockLabel(slice.startAt, _zone!)} – '
-        '${scheduleClockLabel(slice.endAt, _zone!)}';
-    final label =
-        '${_entryLabel(entry, t)} · '
-        '${t['scheduleStart']}: ${scheduleInstantLabel(slice.startAt, _zone!)} · '
-        '${t['scheduleEnd']}: ${scheduleInstantLabel(slice.endAt, _zone!)}'
-        '${continuation.isEmpty ? '' : ' · $continuation'}';
-    final card = MergeSemantics(
-      key: ValueKey('schedule-semantics-$dateLabel-${entry.item.id}'),
-      child: Semantics(
-        label: label,
-        // Preserve the native button's tap action and keyboard focus semantics.
-        // Only its painted text is excluded, since the label above is complete.
-        child: Builder(
-          builder: (context) => OutlinedButton(
-            key: ValueKey('schedule-item-$dateLabel-${entry.item.id}'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.all(8),
-              alignment: Alignment.topLeft,
-              foregroundColor: entry.completed
-                  ? theme.colorScheme.onSurfaceVariant
-                  : theme.colorScheme.onSurface,
-              backgroundColor: entry.completed
-                  ? theme.colorScheme.surfaceContainerLow
-                  : isBlock
-                  ? theme.colorScheme.primaryContainer
-                  : theme.colorScheme.secondaryContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () => onOpen(entry.item.id),
-            onFocusChange: (focused) {
-              if (!focused) return;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted) {
-                  Scrollable.ensureVisible(
-                    context,
-                    alignment: 0.15,
-                    duration: const Duration(milliseconds: 150),
-                  );
-                }
-              });
-            },
-            // A short interval has a compact visible label; its full description
-            // remains in semantics and the read-only detail. No fixed text scale.
-            child: ExcludeSemantics(
-              child: ClipRect(
-                child: Text(
-                  '${isBlock ? t['scheduleTimeBlock'] : t['scheduleEvent']} · ${entry.title}\n'
-                  '${entry.boardName ?? t['unknownBoard']}'
-                  '${entry.quadrant == null ? '' : ' · Q${entry.quadrant}'}'
-                  '${entry.completed ? ' · ${t['completed']}' : ''}\n'
-                  '${entry.taskTitle == null || isBlock ? '' : '${t['scheduleTask']}: ${entry.taskTitle}\n'}'
-                  '$time${continuation.isEmpty ? '' : '\n$continuation'}',
-                  overflow: TextOverflow.fade,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    if (liveStore == null) return card;
-    final moving = _drag(
-      liveStore,
-      entry.item,
-      ScheduleEditMode.move,
-      card,
-      key: ValueKey('schedule-drag-$dateLabel-${entry.item.id}'),
-    );
-    if (_adjustingId != entry.item.id) return moving;
-    final handleHeight =
-        48.0 * math.max(1.0, MediaQuery.textScalerOf(context).scale(14) / 14);
-    return Stack(
-      children: [
-        Positioned(
-          top: handleHeight,
-          bottom: handleHeight,
-          left: 0,
-          right: 0,
-          child: moving,
-        ),
-        for (final mode in [
-          ScheduleEditMode.resizeStart,
-          ScheduleEditMode.resizeEnd,
-        ])
-          Positioned(
-            top: mode == ScheduleEditMode.resizeStart ? 0 : null,
-            bottom: mode == ScheduleEditMode.resizeEnd ? 0 : null,
-            left: 0,
-            right: 0,
-            height: handleHeight,
-            child: _drag(
-              liveStore,
-              entry.item,
-              mode,
-              OutlinedButton(
-                key: ValueKey(
-                  'schedule-handle-$dateLabel-${entry.item.id}-${mode.name}',
-                ),
-                onPressed: () => _edit(liveStore, entry.item, mode),
-                child: Text(
-                  t[mode == ScheduleEditMode.resizeStart
-                      ? 'scheduleEditorResizeStart'
-                      : 'scheduleEditorResizeEnd']!,
-                ),
-              ),
-              key: ValueKey(
-                'schedule-handle-drag-$dateLabel-${entry.item.id}-${mode.name}',
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   Future<void> _openDetail(
     String id,
     StoreSnapshot snapshot,
@@ -1000,8 +1147,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final origin = FocusManager.instance.primaryFocus;
     ScheduleItem? chosenItem;
     int? chosenRevision;
-    final action = await showDialog<String>(
+    final action = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
       builder: (context) {
         Widget detail() {
           final current = liveStore?.captureSnapshot() ?? snapshot;
@@ -1010,86 +1159,117 @@ class _PlannerScreenState extends State<PlannerScreen> {
             tasks: current.tasks,
             boards: current.boards,
           ).where((entry) => entry.item.id == id).firstOrNull;
-          return AlertDialog(
-            key: const ValueKey('schedule-detail'),
-            title: Text(entry?.title ?? t['scheduleUnavailable']!),
-            scrollable: true,
-            content: SizedBox(
-              width: 440,
-              child: entry == null
-                  ? Text(t['scheduleUnavailable']!)
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_entryLabel(entry, t)),
-                        Text('${t['scheduleDisplayZone']}: ${_zone!}'),
-                        Text(
-                          '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, _zone!)}',
-                        ),
-                        Text(
-                          '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, _zone!)}',
-                        ),
-                        Text(
-                          '${t['scheduleRecordedZone']}: ${entry.item.timeZoneId}',
-                        ),
-                        Text(
-                          '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, entry.item.timeZoneId)}',
-                        ),
-                        Text(
-                          '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, entry.item.timeZoneId)}',
-                        ),
-                        Text(
-                          '${t['scheduleElapsed']}: '
-                          '${Duration(milliseconds: entry.item.endAt - entry.item.startAt)}',
-                        ),
-                        if (liveStore == null) Text(t['scheduleReadOnly']!),
-                      ],
-                    ),
+          final theme = Theme.of(context);
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
             ),
-            actions: [
-              if (liveStore != null &&
-                  entry != null &&
-                  !liveStore.hasStartupRecovery) ...[
-                TextButton(
-                  key: const ValueKey('schedule-detail-edit'),
-                  onPressed: () {
-                    chosenItem = entry.item;
-                    chosenRevision = current.scheduleRevisionFor(id);
-                    Navigator.pop(context, 'edit');
-                  },
-                  child: Text(t['scheduleEditorEdit']!),
-                ),
-                PopupMenuButton<String>(
-                  key: const ValueKey('schedule-detail-actions'),
-                  tooltip: t['scheduleEditorMore'],
-                  itemBuilder: (_) => [
-                    for (final choice in [
-                      ('move', 'scheduleEditorMove'),
-                      ('resizeStart', 'scheduleEditorResizeStart'),
-                      ('resizeEnd', 'scheduleEditorResizeEnd'),
-                      ('handles', 'scheduleEditorHandles'),
-                      ('delete', 'scheduleEditorDelete'),
-                    ])
-                      PopupMenuItem(
-                        value: choice.$1,
-                        child: Text(t[choice.$2]!),
-                      ),
-                  ],
-                  onSelected: (action) {
-                    chosenItem = entry.item;
-                    chosenRevision = current.scheduleRevisionFor(id);
-                    Navigator.pop(context, action);
-                  },
-                  icon: const Icon(Icons.more_horiz),
-                ),
-              ],
-              TextButton(
-                key: const ValueKey('schedule-detail-close'),
-                onPressed: () => Navigator.pop(context),
-                child: Text(t['close']!),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.85,
               ),
-            ],
+              child: SingleChildScrollView(
+                key: const ValueKey('schedule-detail'),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: entry == null
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t['scheduleUnavailable']!),
+                          Text(t['scheduleUnavailable']!),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            key: const ValueKey('schedule-detail-close'),
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(t['close']!),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.title,
+                            style: theme.textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(plannerEntryLabel(entry, t)),
+                          Text('${t['scheduleDisplayZone']}: ${_zone!}'),
+                          Text(
+                            '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, _zone!)}',
+                          ),
+                          Text(
+                            '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, _zone!)}',
+                          ),
+                          Text(
+                            '${t['scheduleRecordedZone']}: ${entry.item.timeZoneId}',
+                          ),
+                          Text(
+                            '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, entry.item.timeZoneId)}',
+                          ),
+                          Text(
+                            '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, entry.item.timeZoneId)}',
+                          ),
+                          Text(
+                            '${t['scheduleElapsed']}: '
+                            '${Duration(milliseconds: entry.item.endAt - entry.item.startAt)}',
+                          ),
+                          if (liveStore == null) Text(t['scheduleReadOnly']!),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              if (liveStore != null &&
+                                  !liveStore.hasStartupRecovery) ...[
+                                TextButton(
+                                  key: const ValueKey('schedule-detail-edit'),
+                                  onPressed: () {
+                                    chosenItem = entry.item;
+                                    chosenRevision = current
+                                        .scheduleRevisionFor(id);
+                                    Navigator.pop(context, 'edit');
+                                  },
+                                  child: Text(t['scheduleEditorEdit']!),
+                                ),
+                                PopupMenuButton<String>(
+                                  key: const ValueKey('schedule-detail-actions'),
+                                  tooltip: t['scheduleEditorMore'],
+                                  itemBuilder: (_) => [
+                                    for (final choice in [
+                                      ('move', 'scheduleEditorMove'),
+                                      (
+                                        'resizeStart',
+                                        'scheduleEditorResizeStart',
+                                      ),
+                                      ('resizeEnd', 'scheduleEditorResizeEnd'),
+                                      ('handles', 'scheduleEditorHandles'),
+                                      ('delete', 'scheduleEditorDelete'),
+                                    ])
+                                      PopupMenuItem(
+                                        value: choice.$1,
+                                        child: Text(t[choice.$2]!),
+                                      ),
+                                  ],
+                                  onSelected: (action) {
+                                    chosenItem = entry.item;
+                                    chosenRevision = current
+                                        .scheduleRevisionFor(id);
+                                    Navigator.pop(context, action);
+                                  },
+                                  icon: const Icon(Icons.more_horiz),
+                                ),
+                              ],
+                              TextButton(
+                                key: const ValueKey('schedule-detail-close'),
+                                onPressed: () => Navigator.pop(context),
+                                child: Text(t['close']!),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+              ),
+            ),
           );
         }
 
@@ -1139,6 +1319,47 @@ class _PlannerScreenState extends State<PlannerScreen> {
     });
     // A read-only dialog may close without another frame being scheduled.
     WidgetsBinding.instance.scheduleFrame();
+  }
+}
+
+class _PoolTaskDialog extends StatefulWidget {
+  const _PoolTaskDialog({required this.t});
+
+  final Map<String, String> t;
+
+  @override
+  State<_PoolTaskDialog> createState() => _PoolTaskDialogState();
+}
+
+class _PoolTaskDialogState extends State<_PoolTaskDialog> {
+  final _title = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.pop(context, _title.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.t['schedulePoolAdd']!),
+      content: TextField(
+        controller: _title,
+        autofocus: true,
+        decoration: InputDecoration(labelText: widget.t['scheduleTaskTitle']),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(widget.t['cancel']!),
+        ),
+        TextButton(onPressed: _submit, child: Text(widget.t['schedulePoolAdd']!)),
+      ],
+    );
   }
 }
 

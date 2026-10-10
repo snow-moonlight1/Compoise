@@ -37,8 +37,23 @@ class HomeActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final skin = NeumorphicSkin.maybeOf(context);
+    final comic = ComicOutline.maybeOf(context);
     final accent = Theme.of(context).colorScheme.primary;
     final iconColor = skin != null && accentIcon ? accent : null;
+    // Comic's three bar buttons follow the neumorphic ones: taller face,
+    // inset from the row so they are narrower.
+    final barHeight = comic != null && expanded
+        ? 56.0
+        : PlatformUiPolicy.minActionSize;
+    final quiet = ButtonStyle(
+      overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+      splashFactory: NoSplash.splashFactory,
+      // The neumorphic theme already paints a face. A second one here would
+      // stack on NeuPressable and eat the label width.
+      backgroundBuilder: skin == null
+          ? null
+          : (context, states, child) => child ?? const SizedBox.shrink(),
+    );
     Widget child =
         compact
             ? IconButton(
@@ -46,14 +61,25 @@ class HomeActionButton extends StatelessWidget {
               tooltip: tooltip ?? label,
               onPressed: onPressed,
               icon: Icon(icon, color: iconColor),
-              style: IconButton.styleFrom(
-                foregroundColor: skin?.ink,
-                backgroundColor: skin == null ? null : const Color(0x00000000),
-                minimumSize: const Size(
-                  PlatformUiPolicy.minActionSize,
-                  PlatformUiPolicy.minActionSize,
+              // quiet.merge wins on overlay. styleFrom would otherwise
+              // derive a gray pressed mask from foregroundColor.
+              style: quiet.merge(
+                IconButton.styleFrom(
+                  foregroundColor: skin?.ink,
+                  backgroundColor: skin == null
+                      ? null
+                      : const Color(0x00000000),
+                  minimumSize: const Size(
+                    PlatformUiPolicy.minActionSize,
+                    PlatformUiPolicy.minActionSize,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      skin == null ? 12 : 14,
+                    ),
+                  ),
                 ),
-                tapTargetSize: MaterialTapTargetSize.padded,
               ),
             )
             : TextButton.icon(
@@ -65,23 +91,45 @@ class HomeActionButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              style: TextButton.styleFrom(
-                foregroundColor: skin?.ink,
-                backgroundColor: skin == null ? null : const Color(0x00000000),
-                minimumSize: Size(
-                  expanded ? double.infinity : PlatformUiPolicy.minActionSize,
-                  PlatformUiPolicy.minActionSize,
+              style: quiet.merge(
+                TextButton.styleFrom(
+                  foregroundColor: skin?.ink,
+                  backgroundColor: skin == null
+                      ? null
+                      : const Color(0x00000000),
+                  padding: skin == null
+                      ? null
+                      : const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                  minimumSize: Size(
+                    expanded ? double.infinity : PlatformUiPolicy.minActionSize,
+                    barHeight,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                tapTargetSize: MaterialTapTargetSize.padded,
               ),
             );
     if (skin != null) {
+      child = NeuPressable(
+        skin: skin,
+        radius: compact ? 14 : 16,
+        child: child,
+      );
+    }
+    if (expanded && (skin != null || comic != null)) {
       child = Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: expanded ? 8 : 4,
-          vertical: expanded ? 10 : 4,
-        ),
-        child: NeuPressable(skin: skin, radius: compact ? 14 : 16, child: child),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: child,
+      );
+    } else if (skin != null) {
+      child = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: child,
       );
     }
     if (!expanded) return child;
@@ -106,10 +154,11 @@ class HomeBottomActions extends StatelessWidget {
     final t = context.watch<Store>().t;
     final theme = Theme.of(context);
     final neu = theme.extension<NeumorphicSkin>();
+    final comic = theme.extension<ComicOutline>();
     return Material(
       color: theme.colorScheme.surface,
       child: Padding(
-        padding: neu == null
+        padding: neu == null && comic == null
             ? const EdgeInsets.fromLTRB(8, 4, 8, 4)
             : const EdgeInsets.fromLTRB(8, 6, 8, 8),
         child: Row(

@@ -154,6 +154,15 @@ void main() {
     );
     await tester.pump();
 
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const ValueKey('search-btn')))
+          .style
+          ?.overlayColor
+          ?.resolve({WidgetState.pressed}),
+      const Color(0x00000000),
+    );
+
     await tester.tap(find.byKey(const ValueKey('search-btn')));
     await tester.tap(find.byKey(const ValueKey('add-task-btn')));
     await tester.tap(find.byKey(const ValueKey('more-btn')));

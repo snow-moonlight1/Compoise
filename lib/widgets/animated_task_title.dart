@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../ui/motion_policy.dart';
+import '../ui/orphan_squeeze.dart';
 
 /// Paints one growing (or retracting) strikethrough segment per visible text
 /// line fragment.
@@ -226,7 +227,8 @@ class _AnimatedStrikeThroughTextState
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MotionPolicy.reduceMotionOf(context);
-    return AnimatedBuilder(
+    return OrphanSqueeze(
+      child: AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
         final raw = reduceMotion
@@ -234,6 +236,7 @@ class _AnimatedStrikeThroughTextState
             : _controller.value;
         return _buildText(context, Curves.easeOut.transform(raw));
       },
+    ),
     );
   }
 

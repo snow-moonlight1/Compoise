@@ -31,11 +31,13 @@ Widget _app(Store store, Widget child, {double textScale = 1}) {
 
 double _paintedCheckboxEdge(WidgetTester tester, Key visualKey) {
   final transform = tester.widget<Transform>(find.byKey(visualKey));
-  return Checkbox.width * transform.transform.getMaxScaleOnAxis();
+  // Z stays 1, so getMaxScaleOnAxis() reports 1 whenever the box is
+  // smaller than Checkbox.width. The painted edge is the X scale.
+  return Checkbox.width * transform.transform.entry(0, 0);
 }
 
 void main() {
-  testWidgets('OS02: checkbox paint edges are 22/18 with 48dp hit targets', (
+  testWidgets('OS02: checkbox paint tracks the title and the hit target stays 48dp', (
     tester,
   ) async {
     var parentToggles = 0;

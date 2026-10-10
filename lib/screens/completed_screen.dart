@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
+import '../ui/orphan_squeeze.dart';
 import '../storage.dart';
 import '../task_query.dart';
 import '../task_stats.dart';
@@ -424,17 +425,19 @@ class _CompletedScreenState extends State<CompletedScreen> {
                       const SizedBox(height: 4),
 
                       // Title with strike-through
-                      StrikeThrough(
-                        crossed: true,
-                        child: Text(
-                          task.title,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize: TaskHierarchyStyle.parentTitleSize,
-                            height: 1.35,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
+                      OrphanSqueeze(
+                        child: StrikeThrough(
+                          crossed: true,
+                          child: Text(
+                            task.title,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: TaskHierarchyStyle.parentTitleSize,
+                              height: 1.35,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                           ),
                         ),

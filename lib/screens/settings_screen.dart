@@ -220,22 +220,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
               id: 'settings-language-row',
               title: t['language']!,
               value: _languageLabel(store.settings.language),
-              child: _neuBar(
-                context,
-                SegmentedButton<Language>(
-                  segments: const [
-                    ButtonSegment(value: Language.en, label: Text('EN')),
-                    ButtonSegment(value: Language.zh, label: Text('中文')),
-                    ButtonSegment(value: Language.ja, label: Text('日本語')),
-                  ],
-                  selected: {store.settings.language},
-                  onSelectionChanged: (selected) {
-                    store.updateSettings(
-                      (settings) => settings..language = selected.first,
-                    );
-                    unawaited(applyDesktopSettings(store));
-                  },
-                ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final language in Language.values)
+                    _appearanceChip(
+                      key: ValueKey('settings-language-${language.name}'),
+                      selected: store.settings.language == language,
+                      onSelected: (_) {
+                        store.updateSettings(
+                          (settings) => settings..language = language,
+                        );
+                        unawaited(applyDesktopSettings(store));
+                      },
+                      label: Text(switch (language) {
+                        Language.en => 'EN',
+                        Language.zh => '中文',
+                        Language.ja => '日本語',
+                      }),
+                    ),
+                ],
               ),
             ),
             _SettingsExpander(
@@ -249,19 +254,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }]!,
               child: Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
                   for (final mode in ThemeModePref.values)
-                    ChoiceChip(
+                    _appearanceChip(
+                      selected: store.settings.theme == mode,
+                      onSelected: (_) => store.updateSettings(
+                        (settings) => settings..theme = mode,
+                      ),
                       label: Text(
                         t[switch (mode) {
                           ThemeModePref.light => 'themeLight',
                           ThemeModePref.dark => 'themeDark',
                           _ => 'themeSystem',
                         }]!,
-                      ),
-                      selected: store.settings.theme == mode,
-                      onSelected: (_) => store.updateSettings(
-                        (settings) => settings..theme = mode,
                       ),
                     ),
                 ],
@@ -1135,29 +1141,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     AIProviderPreset preset,
   ) {
     return [
-      DropdownButton<String>(
-        key: const ValueKey('provider-selector'),
-        isExpanded: true,
-        value: store.aiConfig.provider,
-        items: [
-          for (final p in aiProviderPresets)
-            DropdownMenuItem(value: p.id, child: Text(p.name(t))),
-        ],
-        onChanged: (newProvider) {
-          if (newProvider != null && newProvider != store.aiConfig.provider) {
-            _onProviderChanged(newProvider, store);
-          }
-        },
+      _raisedMenu(
+        DropdownButton<String>(
+          key: const ValueKey('provider-selector'),
+          isExpanded: true,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          underline: NeumorphicSkin.maybeOf(context) == null
+              ? null
+              : const SizedBox.shrink(),
+          value: store.aiConfig.provider,
+          items: [
+            for (final p in aiProviderPresets)
+              DropdownMenuItem(value: p.id, child: Text(p.name(t))),
+          ],
+          onChanged: (newProvider) {
+            if (newProvider != null && newProvider != store.aiConfig.provider) {
+              _onProviderChanged(newProvider, store);
+            }
+          },
+        ),
       ),
       const SizedBox(height: 12),
       TextField(
         key: const ValueKey('api-key-input'),
+        textAlignVertical: _fieldAlign,
         autocorrect: false,
         enableSuggestions: false,
-        decoration: InputDecoration(
+        decoration: _inputDecoration(
           labelText: t['customApiKey'],
           hintText: preset.keyHint,
-          floatingLabelBehavior: FloatingLabelBehavior.always,
           suffixIcon: _models.isFetching
               ? const SizedBox(
                   width: 20,
@@ -1169,6 +1181,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 )
               : IconButton(
                   key: const ValueKey('refresh-models-btn'),
+                  style: _inFieldIconStyle,
                   icon: const Icon(Icons.refresh, size: 20),
                   tooltip: t['refreshModels'],
                   onPressed: _apiKeyController.text.trim().isEmpty
@@ -1240,12 +1253,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
       const SizedBox(height: 10),
       if (_models.models.isNotEmpty && !_models.customModelMode) ...[
+        _raisedMenu(
         DropdownButtonFormField<String>(
           key: const ValueKey('model-selector'),
           isExpanded: true,
-          decoration: InputDecoration(
+          decoration: _inputDecoration(
             labelText: t['customModel'],
-            floatingLabelBehavior: FloatingLabelBehavior.always,
+            menu: true,
           ),
           value: _models.models.contains(store.aiConfig.model)
               ? store.aiConfig.model
@@ -1275,17 +1289,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             }
           },
         ),
+        ),
       ] else ...[
         TextField(
           key: const ValueKey('model-input'),
-          decoration: InputDecoration(
+          textAlignVertical: _fieldAlign,
+          decoration: _inputDecoration(
             labelText: t['customModel'],
             hintText: preset.defaultModel.isNotEmpty
                 ? preset.defaultModel
                 : t['enterModelHint'],
-            floatingLabelBehavior: FloatingLabelBehavior.always,
             suffixIcon: _models.models.isNotEmpty
                 ? IconButton(
+                    style: _inFieldIconStyle,
                     icon: const Icon(Icons.list, size: 20),
                     tooltip: t['selectModel'],
                     onPressed: () {
@@ -1324,9 +1340,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
       if (preset.isCustom) ...[
         const SizedBox(height: 10),
-        DropdownButton<AIProtocol>(
+        _raisedMenu(
+          DropdownButton<AIProtocol>(
           key: const ValueKey('protocol-selector'),
           isExpanded: true,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          underline: NeumorphicSkin.maybeOf(context) == null
+              ? null
+              : const SizedBox.shrink(),
           items: [
             DropdownMenuItem(
               value: AIProtocol.openai,
@@ -1358,16 +1379,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() {});
             }
           },
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
           key: const ValueKey('base-url-input'),
+          textAlignVertical: _fieldAlign,
           autocorrect: false,
           keyboardType: TextInputType.url,
-          decoration: InputDecoration(
+          decoration: _inputDecoration(
             labelText: t['customBaseUrl'],
             hintText: 'https://api.deepseek.com',
-            floatingLabelBehavior: FloatingLabelBehavior.always,
           ),
           focusNode: _baseUrlFocusNode,
           controller: _baseUrlController,
@@ -1402,12 +1424,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
               TextField(
                 key: const ValueKey('base-url-input'),
+                textAlignVertical: _fieldAlign,
                 autocorrect: false,
                 keyboardType: TextInputType.url,
-                decoration: InputDecoration(
+                decoration: _inputDecoration(
                   labelText: t['customBaseUrl'],
                   hintText: preset.defaultBaseUrl,
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
                 ),
                 focusNode: _baseUrlFocusNode,
                 controller: _baseUrlController,
@@ -1429,36 +1451,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        margin: const EdgeInsets.only(top: 4, bottom: 4),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.25),
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.tips_and_updates_outlined,
-              size: 15,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                t['aiRecommendTip']!,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.3,
+      Builder(
+        builder: (context) {
+          final tip = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.tips_and_updates_outlined,
+                size: 15,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  t['aiRecommendTip']!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.3,
+                  ),
                 ),
               ),
+            ],
+          );
+          if (NeumorphicSkin.maybeOf(context) != null) {
+            return neuSlab(
+              context,
+              inset: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: tip,
+              ),
+            );
+          }
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            margin: const EdgeInsets.only(top: 4, bottom: 4),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.25),
+              ),
             ),
-          ],
-        ),
+            child: tip,
+          );
+        },
       ),
       const SizedBox(height: 10),
       TestConnectionButton(t: t, store: store),
@@ -1481,9 +1518,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       const SizedBox(height: 6),
       Wrap(
         spacing: 8,
+        runSpacing: 8,
         children: [
           for (final size in FontSizePref.values)
-            ChoiceChip(
+            _appearanceChip(
               key: ValueKey('font-size-${size.name}'),
               label: Text(
                 t[switch (size) {
@@ -1510,9 +1548,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       const SizedBox(height: 6),
       Wrap(
         spacing: 8,
+        runSpacing: 8,
         children: [
           for (final family in FontFamilyPref.values)
-            ChoiceChip(
+            _appearanceChip(
               key: ValueKey('font-family-${family.name}'),
               label: Text(
                 t[switch (family) {
@@ -1537,10 +1576,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final fallback = fonts.fallbackFor(store.settings.fontFamily);
           // The app-wide CombinedTextScaler already applies the font size
           // preference, so the base sizes here stay unscaled.
-          return Container(
+          final neuPreview = NeumorphicSkin.maybeOf(context) != null;
+          final card = Container(
             key: const ValueKey('font-preview-card'),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
+            decoration: neuPreview
+                ? null
+                : BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.4,
               ),
@@ -1602,6 +1644,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           );
+          return neuPreview
+              ? neuSlab(context, inset: true, child: card)
+              : card;
         },
       ),
       const SizedBox(height: 8),
@@ -1686,10 +1731,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Widget _neuBar(BuildContext context, Widget child) {
+  /// A chooser is a raised control. A text field stays an inset well.
+  /// Horizontal gutter stays zero so both faces are the same width.
+  /// Vertical padding holds the raised pair, which reaches about 10px
+  /// past the face, so it does not land on the next label.
+  Widget _raisedMenu(Widget child) {
+    if (NeumorphicSkin.maybeOf(context) == null) return child;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: neuSlab(context, gutter: 0, child: child),
+    );
+  }
+
+  TextAlignVertical? get _fieldAlign => NeumorphicSkin.maybeOf(context) == null
+      ? null
+      : TextAlignVertical.top;
+
+  InputDecoration _inputDecoration({
+    String? labelText,
+    String? hintText,
+    Widget? suffixIcon,
+    bool menu = false,
+  }) {
+    final neu = NeumorphicSkin.maybeOf(context) != null;
+    const none = InputBorder.none;
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      // The icon is centered on the whole field, including the label band.
+      // Nudge it down so it sits on the same line as the value.
+      suffixIcon: suffixIcon == null || !neu || menu
+          ? suffixIcon
+          : Padding(padding: const EdgeInsets.only(top: 12), child: suffixIcon),
+      filled: menu && neu ? false : null,
+      border: menu && neu ? none : null,
+      enabledBorder: menu && neu ? none : null,
+      focusedBorder: menu && neu ? none : null,
+      errorBorder: menu && neu ? none : null,
+      focusedErrorBorder: menu && neu ? none : null,
+      disabledBorder: menu && neu ? none : null,
+      contentPadding: menu && neu
+          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 16)
+          : null,
+    );
+  }
+
+  /// Stays inside the field. The themed icon button would grow its own face
+  /// and make this well shorter than the others.
+  ButtonStyle get _inFieldIconStyle {
+    return IconButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.all(8),
+      minimumSize: const Size(48, 48),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ).copyWith(
+      overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+      splashFactory: NoSplash.splashFactory,
+      backgroundBuilder: (context, states, child) =>
+          child ?? const SizedBox.shrink(),
+    );
+  }
+
+  Widget _appearanceChip({
+    Key? key,
+    required bool selected,
+    required Widget label,
+    required ValueChanged<bool> onSelected,
+  }) {
     final neu = NeumorphicSkin.maybeOf(context);
-    if (neu == null) return child;
-    return NeuRaised(skin: neu, child: child);
+    if (neu == null) {
+      return ChoiceChip(
+        key: key,
+        label: label,
+        selected: selected,
+        onSelected: onSelected,
+      );
+    }
+    // Same face either way. Selected sinks in; a check would turn it back
+    // into a flat Material pill and make it look smaller than its neighbors.
+    final accent = Theme.of(context).colorScheme.primary;
+    return neuSlab(
+      context,
+      inset: selected,
+      gutter: 6,
+      child: TextButton(
+        key: key,
+        onPressed: () => onSelected(true),
+        style: TextButton.styleFrom(
+          foregroundColor: selected ? accent : neu.ink,
+          backgroundColor: const Color(0x00000000),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          minimumSize: const Size(48, 40),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(NeumorphicSkin.radius),
+          ),
+        ).copyWith(
+          overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+          splashFactory: NoSplash.splashFactory,
+          backgroundBuilder: (context, states, child) =>
+              child ?? const SizedBox.shrink(),
+        ),
+        child: label,
+      ),
+    );
   }
 
   Widget _sectionTitle(ThemeData theme, String text, IconData icon) {

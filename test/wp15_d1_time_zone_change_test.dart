@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/planner/schedule_edit_session.dart';
@@ -74,6 +75,15 @@ Future<void> pumpPlanner(
       ),
     ),
   );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openZoneMenu(WidgetTester tester) async {
+  if (find.byType(PopupMenuItem<String>).evaluate().isNotEmpty) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byKey(const ValueKey('schedule-menu')));
   await tester.pumpAndSettle();
 }
 
@@ -183,14 +193,16 @@ void main() {
     addTearDown(controller.dispose);
     await controller.refresh();
     await pumpPlanner(tester, store, controller);
+    expect(find.textContaining('0:30'), findsOneWidget);
+    await _openZoneMenu(tester);
     expect(find.textContaining('Asia/Shanghai'), findsWidgets);
-    expect(find.textContaining('00:30'), findsOneWidget);
 
     source.reading = _tokyo;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
+    expect(find.textContaining('1:30'), findsOneWidget);
+    await _openZoneMenu(tester);
     expect(find.textContaining('Asia/Tokyo'), findsWidgets);
-    expect(find.textContaining('01:30'), findsOneWidget);
     expect(c2Library(store), before);
 
     // A zone whose day window excludes the record shows the day as empty
@@ -198,7 +210,12 @@ void main() {
     source.reading = _newYork;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.text(store.t['scheduleEmpty']!), findsOneWidget);
+    expect(find.text(store.t['scheduleEmpty']!), findsNothing);
+    expect(find.byKey(const ValueKey('schedule-scroll')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('schedule-item-2026-09-30-block')),
+      findsNothing,
+    );
     expect(c2Library(store), before);
     await c2Finish(tester, store);
   });

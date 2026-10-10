@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../theme.dart';
+import '../ui/orphan_squeeze.dart';
 import '../ui/motion_policy.dart';
 import 'batch_decompose_sheet.dart';
 import 'task_detail_panel.dart';
@@ -238,13 +239,15 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                       ),
                       const SizedBox(width: 6),
                       Expanded(
-                        child: Text(
-                          t[titleKey]!,
-                          maxLines: 2,
-                          overflow: TextOverflow.visible,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
+                        child: OrphanSqueeze(
+                          child: Text(
+                            t[titleKey]!,
+                            maxLines: 2,
+                            overflow: TextOverflow.visible,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
                           ),
                         ),
                       ),

@@ -191,6 +191,14 @@ Widget _app(Store store, Widget home, {bool narrow = false}) =>
       ),
     );
 
+Future<void> _readMenu(WidgetTester tester) async {
+  if (find.byType(PopupMenuItem<String>).evaluate().isNotEmpty) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+  }
+  await _tap(tester, 'schedule-menu');
+}
+
 Future<void> _tap(
   WidgetTester tester,
   String key, {
@@ -245,6 +253,7 @@ Future<void> _planner(
   );
   await tester.pumpAndSettle();
   expect(_key('schedule-zone-required'), findsNothing);
+  await _readMenu(tester);
   await _tap(tester, 'schedule-zone-switch');
   await _text(tester, 'schedule-zone-search', _zone);
   await _tap(tester, 'schedule-zone-option-$_zone');
@@ -361,6 +370,7 @@ void main() {
       await _tap(tester, 'more-btn');
       await _tap(tester, 'more-schedule');
       expect(find.byType(PlannerScreen), findsOneWidget);
+      await _readMenu(tester);
       expect(
         find.text('${store.t['scheduleZoneDevice']}: $_expectedZone'),
         findsOneWidget,
@@ -436,7 +446,8 @@ void main() {
         final label = '${store.t['scheduleZoneDevice']}: $_changedZone';
         while (find.text(label).evaluate().isEmpty &&
             DateTime.now().isBefore(deadline)) {
-          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump(const Duration(milliseconds: 400));
+          await _readMenu(tester);
         }
         expect(
           find.text(label),
@@ -448,9 +459,11 @@ void main() {
         expect((await d3Native())['settingsEvents'] as int, greaterThan(0));
         debugPrint('WP15_D3_PASS real_window_setting_message injected_query');
       }
+      await _readMenu(tester);
       await _tap(tester, 'schedule-zone-switch');
       await _text(tester, 'schedule-zone-search', _zone);
       await _tap(tester, 'schedule-zone-option-$_zone');
+      await _readMenu(tester);
       expect(
         find.text('${store.t['scheduleDisplayZone']}: $_zone'),
         findsOneWidget,
@@ -462,6 +475,7 @@ void main() {
       await _waitReads(tester, reads);
       expect((await d3Native())['timeEvents'] as int, greaterThan(0));
       expect((await d3Native())['reads'] as int, greaterThan(reads));
+      await _readMenu(tester);
       expect(
         find.text('${store.t['scheduleDisplayZone']}: $_zone'),
         findsOneWidget,
@@ -490,11 +504,8 @@ void main() {
             .map((task) => task.toJson())
             .toList();
         await _planner(tester, store, 3, 8);
-        expect(
-          find.textContaining('23.0 ${store.t['scheduleHours']}'),
-          findsOneWidget,
-        );
-        expect(find.text('02:00 UTC-05:00'), findsNothing);
+        expect(find.text('2:00'), findsNothing);
+        expect(find.text('3:00'), findsOneWidget);
         expect(_key('schedule-item-2026-03-08-midnight'), findsNothing);
         expect(_key('schedule-item-2026-03-08-cross'), findsOneWidget);
         for (final id in ['overlap-event', 'overlap-block']) {
@@ -514,12 +525,7 @@ void main() {
         await _edit(tester, '2026-03-09', 'cross');
         await _tap(tester, 'schedule-editor-cancel');
         await _planner(tester, store, 11, 1);
-        expect(
-          find.textContaining('25.0 ${store.t['scheduleHours']}'),
-          findsOneWidget,
-        );
-        expect(find.text('01:00 UTC-04:00'), findsOneWidget);
-        expect(find.text('01:00 UTC-05:00'), findsOneWidget);
+        expect(find.text('1:00'), findsNWidgets(2));
         await _edit(tester, '2026-11-01', 'fold');
         expect(
           tester

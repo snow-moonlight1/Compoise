@@ -70,7 +70,9 @@ Offset _tl(WidgetTester tester, Key key) => tester.getTopLeft(find.byKey(key));
 
 double _paintedEdge(WidgetTester tester, Key visualKey) {
   final transform = tester.widget<Transform>(find.byKey(visualKey));
-  return Checkbox.width * transform.transform.getMaxScaleOnAxis();
+  // Z stays 1, so getMaxScaleOnAxis() reports 1 whenever the box is
+  // smaller than Checkbox.width. The painted edge is the X scale.
+  return Checkbox.width * transform.transform.entry(0, 0);
 }
 
 Task _seedParent(Store store, {String title = 'Ship release notes'}) {
@@ -125,7 +127,7 @@ void main() {
 
     expect(_size(tester, parentHit), const Size.square(48));
     expect(_size(tester, childHit), const Size.square(48));
-    // Only the touch box is 48dp: the painted checkbox stays 22/18dp.
+    // Only the touch box is 48dp. The painted box tracks the title size.
     expect(
       _paintedEdge(tester, ValueKey('complete-${parent.id}-visual')),
       closeTo(TaskHierarchyStyle.parentCheckboxVisualSize, 0.01),

@@ -6,8 +6,12 @@ enum TaskHierarchyLevel { parent, child }
 
 abstract final class TaskHierarchyStyle {
   static const double hitTargetSize = AccessibleTapTarget.minTouchTarget;
-  static const double parentCheckboxVisualSize = 22;
-  static const double childCheckboxVisualSize = 18;
+
+  /// Painted box, not the hit target. Tasks.org puts an 18dp glyph
+  /// (the 24dp outline icon, inset to 18) beside a 16sp title. Parent
+  /// titles here are 16 and children are 14, so the boxes are 18 and 16.
+  static const double parentCheckboxVisualSize = 18;
+  static const double childCheckboxVisualSize = 16;
   static const double parentTitleSize = 16;
   static const double childTitleSize = 14;
 

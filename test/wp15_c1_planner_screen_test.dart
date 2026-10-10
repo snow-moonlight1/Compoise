@@ -64,6 +64,9 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
+Future<void> _menu(WidgetTester tester) =>
+    _tap(tester, _key('schedule-menu'));
+
 Future<void> _tap(WidgetTester tester, Finder target) async {
   await tester.ensureVisible(target);
   await tester.pumpAndSettle();
@@ -127,7 +130,7 @@ void main() {
       expect(
         find.descendant(
           of: _item('block'),
-          matching: find.textContaining('Time block · Draft outline'),
+          matching: find.textContaining('Draft outline'),
         ),
         findsOneWidget,
       );
@@ -163,16 +166,19 @@ void main() {
       final snapshot = c1Snapshot();
       final before = _snapshotBytes(snapshot);
       await _pump(tester, snapshot: snapshot);
+      await _menu(tester);
       await _tap(tester, _key('schedule-filter'));
       await _tap(tester, _key('schedule-board-work'));
       expect(_item('block'), findsOneWidget);
       expect(_item('linked'), findsOneWidget);
       expect(_item('independent'), findsNothing);
       expect(_item('done'), findsNothing);
+      await _menu(tester);
       await _tap(tester, _key('schedule-filter'));
       await _tap(tester, _key('schedule-board-home'));
       expect(_item('block'), findsNothing);
       expect(_item('independent'), findsOneWidget);
+      await _menu(tester);
       await _tap(tester, _key('schedule-filter'));
       await _tap(tester, _key('schedule-board-'));
       expect(_item('block'), findsOneWidget);
@@ -187,7 +193,7 @@ void main() {
       await _tap(tester, _key('schedule-next'));
       expect(_key('schedule-day-2026-10-01'), findsOneWidget);
       await _tap(tester, _key('schedule-mode-week'));
-      expect(find.text('2026-09-28 – 2026-10-04'), findsOneWidget);
+      expect(find.text('Sep 28–Oct 4'), findsOneWidget);
       for (final date in [
         '2026-09-28',
         '2026-09-29',
@@ -200,7 +206,7 @@ void main() {
         expect(_key('schedule-day-$date'), findsOneWidget);
       }
       await _tap(tester, _key('schedule-next'));
-      expect(find.text('2026-10-05 – 2026-10-11'), findsOneWidget);
+      expect(find.text('Oct 5–11'), findsOneWidget);
       await _tap(tester, _key('schedule-previous'));
       await _tap(tester, _key('schedule-mode-day'));
       expect(_key('schedule-day-2026-10-01'), findsOneWidget);
@@ -311,13 +317,11 @@ void main() {
           items: [c1Event('dst', window.startAt, window.endAt, zone: zone)],
         ),
       );
-      expect(find.textContaining('$hours.0 hours'), findsOneWidget);
       if (hours == 23) {
-        expect(find.text('02:00 UTC-05:00'), findsNothing);
-        expect(find.text('03:00 UTC-04:00'), findsOneWidget);
+        expect(find.text('2:00'), findsNothing);
+        expect(find.text('3:00'), findsOneWidget);
       } else {
-        expect(find.text('01:00 UTC-04:00'), findsOneWidget);
-        expect(find.text('01:00 UTC-05:00'), findsOneWidget);
+        expect(find.text('1:00'), findsNWidgets(2));
       }
       await _tap(tester, _item('dst', date: scheduleDateLabel(date)));
       expect(
@@ -377,6 +381,7 @@ void main() {
           scale: 3,
         );
         expect(tester.takeException(), isNull);
+        await _menu(tester);
         await _tap(tester, _key('schedule-filter'));
         await _tap(tester, _key('schedule-board-work'));
         expect(tester.takeException(), isNull);
@@ -444,10 +449,11 @@ void main() {
     'empty schedule retains navigation, board scope and real day grid',
     (tester) async {
       await _pump(tester, snapshot: c1Snapshot(items: []));
-      expect(find.text('No schedule items in this range'), findsOneWidget);
-      expect(find.text('00:00 UTC+08:00'), findsOneWidget);
+      expect(find.text('No schedule items in this range'), findsNothing);
+      expect(find.text('0:00'), findsOneWidget);
       await _tap(tester, _key('schedule-next'));
       expect(_key('schedule-day-2026-10-01'), findsOneWidget);
+      await _menu(tester);
       await _tap(tester, _key('schedule-filter'));
       expect(_key('schedule-board-work'), findsOneWidget);
     },
@@ -529,6 +535,7 @@ void main() {
       );
       await _tap(tester, _key('schedule-detail-close'));
       expect(_item('block'), findsNothing);
+      await _menu(tester);
       await _tap(tester, _key('schedule-filter'));
       await _tap(tester, _key('schedule-board-home'));
       expect(_item('linked'), findsOneWidget);
