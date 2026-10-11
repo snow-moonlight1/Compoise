@@ -39,6 +39,8 @@ class PlannerBlock extends StatefulWidget {
     required this.onDragGlobal,
     required this.drag,
     this.compact = false,
+    this.dayStart,
+    this.dayEnd,
   });
 
   final SchedulePlacement placement;
@@ -60,6 +62,10 @@ class PlannerBlock extends StatefulWidget {
   final PlannerDragBuilder drag;
   final bool compact;
 
+  /// The day's window; a drag never carries the block outside it.
+  final int? dayStart;
+  final int? dayEnd;
+
   @override
   State<PlannerBlock> createState() => _PlannerBlockState();
 }
@@ -73,7 +79,22 @@ class _PlannerBlockState extends State<PlannerBlock> {
 
   int get _minutes {
     final raw = _dy / widget.pixelsPerHour * 60;
-    return (raw / 15).round() * 15;
+    var minutes = (raw / 15).round() * 15;
+    final ws = widget.dayStart;
+    final we = widget.dayEnd;
+    if (ws == null || we == null || _mode == null) return minutes;
+    const ms = Duration.millisecondsPerMinute;
+    const min = 15;
+    final s = _startAt ~/ ms;
+    final e = _endAt ~/ ms;
+    final (lo, hi) = switch (_mode!) {
+      ScheduleEditMode.move => (ws ~/ ms - s, we ~/ ms - e),
+      ScheduleEditMode.resizeStart => (ws ~/ ms - s, e - min - s),
+      ScheduleEditMode.resizeEnd => (s + min - e, we ~/ ms - e),
+      _ => (minutes, minutes),
+    };
+    if (lo <= hi) minutes = minutes.clamp(lo, hi);
+    return minutes;
   }
 
   int get _startAt => widget.placement.slice.startAt;
@@ -215,7 +236,14 @@ class _PlannerBlockState extends State<PlannerBlock> {
             builder: (context, box) {
               // A very short block shows one line, "title time"; otherwise the
               // text sits left-aligned and centred vertically.
-              if (box.maxHeight < 40) {
+              final k = MediaQuery.textScalerOf(context).scale(14) / 14;
+              // Drop the extras that do not fit instead of overflowing.
+              var titleLines = tall ? 2 : 1;
+              var badge = widget.concurrent > 0 && tall;
+              double need() => (20.0 * titleLines + 16 + (badge ? 16 : 0)) * k;
+              if (need() > box.maxHeight) badge = false;
+              if (need() > box.maxHeight) titleLines = 1;
+              if (box.maxHeight < 40 || need() > box.maxHeight) {
                 return Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -237,7 +265,7 @@ class _PlannerBlockState extends State<PlannerBlock> {
                   children: [
                     Text(
                       entry.title,
-                      maxLines: tall ? 2 : 1,
+                      maxLines: titleLines,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: textColor,
@@ -254,7 +282,7 @@ class _PlannerBlockState extends State<PlannerBlock> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    if (widget.concurrent > 0 && tall)
+                    if (badge)
                       Row(
                         children: [
                           Icon(

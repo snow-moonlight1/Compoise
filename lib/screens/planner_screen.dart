@@ -8,6 +8,7 @@ import '../models.dart';
 import '../planner/planner_block.dart';
 import '../planner/planner_date_strip.dart';
 import '../planner/planner_detail_card.dart';
+import '../planner/planner_drag_feedback.dart';
 import '../planner/planner_guide.dart';
 import '../planner/planner_guide_flag.dart';
 import '../planner/planner_day_swipe.dart';
@@ -56,6 +57,8 @@ class PlannerScreen extends StatefulWidget {
     this.startTimeBlock = false,
     this.autoGuide = false,
     this.embedded = false,
+    this.active = true,
+    this.onLeave,
     this.now,
   }) : assert(store == null || snapshot == null);
 
@@ -84,6 +87,13 @@ class PlannerScreen extends StatefulWidget {
 
   /// A main tab of the home page: a peer of the task board, so no back arrow.
   final bool embedded;
+
+  /// False while the page is mounted but hidden (another home tab is shown);
+  /// the back key then belongs to that tab.
+  final bool active;
+
+  /// Embedded page: back with nothing left to close asks the host to leave.
+  final VoidCallback? onLeave;
   final DateTime Function()? now;
 
   @override
@@ -98,6 +108,7 @@ class _PlannerScreenState extends State<PlannerScreen>
   final _vertical = ScrollController();
   final _pool = DraggableScrollableController();
   final _hover = ValueNotifier<PlannerHover?>(null);
+  final _itemPointer = PlannerDragPointer();
   final _addFocus = FocusNode();
   final _stackKey = GlobalKey();
   final _viewportKey = GlobalKey();
@@ -223,6 +234,7 @@ class _PlannerScreenState extends State<PlannerScreen>
     _pool.removeListener(_poolMoved);
     _pool.dispose();
     _hover.dispose();
+    _itemPointer.dispose();
     _addFocus.dispose();
     super.dispose();
   }
@@ -370,6 +382,7 @@ class _PlannerScreenState extends State<PlannerScreen>
   }
 
   bool _foldingPool = false;
+  bool _poolOpen = false;
 
   /// Folds the pool to its bar: eased, quick, and instant under "reduce motion".
   Future<void> _foldPool() {
@@ -386,6 +399,10 @@ class _PlannerScreenState extends State<PlannerScreen>
 
   /// Expanding the pool drops the selection, so only one of them is ever up.
   void _poolMoved() {
+    final open = _pool.isAttached && _pool.size > _poolMin + 0.02;
+    if (open != _poolOpen && mounted && !_foldingPool) {
+      setState(() => _poolOpen = open);
+    }
     if (_foldingPool || _selectedId == null || !_pool.isAttached) return;
     if (_pool.size > _poolMin + 0.02) setState(() => _selectedId = null);
   }
@@ -690,12 +707,14 @@ class _PlannerScreenState extends State<PlannerScreen>
     key: key,
     data: ScheduleDragPayload(item, store.scheduleRevision(item.id), mode),
     maxSimultaneousDrags: _editorOpen ? 0 : 1,
-    dragAnchorStrategy: pointerDragAnchorStrategy,
-    feedback: Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(8),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 220),
+    dragAnchorStrategy: _itemPointer.anchor,
+    onDragUpdate: (details) => _itemPointer.update(details.globalPosition),
+    feedback: PlannerDragFeedback(
+      pointer: _itemPointer,
+      size: const Size(200, 40),
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -769,6 +788,28 @@ class _PlannerScreenState extends State<PlannerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final inner = _buildBody(context);
+    // Back closes the top-most thing first: selection, then the open pool,
+    // then (embedded) returns to the task board, then leaves.
+    return PopScope(
+      canPop:
+          !widget.active ||
+          (!widget.embedded && _selectedId == null && !_poolOpen),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_selectedId != null) {
+          setState(() => _selectedId = null);
+        } else if (_poolOpen && _pool.isAttached) {
+          _foldPool();
+        } else {
+          widget.onLeave?.call();
+        }
+      },
+      child: inner,
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     if (widget.snapshot != null) return _buildData(widget.snapshot!);
     final store = widget.store ?? context.watch<Store>();
     return ListenableBuilder(
@@ -870,6 +911,8 @@ class _PlannerScreenState extends State<PlannerScreen>
         pixelsPerHour: day.pixelsPerHour,
         concurrent: concurrent,
         compact: _view == PlannerView.week,
+        dayStart: day.window.startAt,
+        dayEnd: day.window.endAt,
         onTap: () {
           final store = liveStore;
           if (_selectedId == item.id && store != null) {
@@ -993,7 +1036,10 @@ class _PlannerScreenState extends State<PlannerScreen>
                             child: Text(t['scheduleEditorRetry']!),
                           ),
                         ),
-                      if (_view == PlannerView.day)
+                      // A short window (landscape phone) keeps the room for the
+                      // grid; the date picker and swipes still move between days.
+                      if (_view == PlannerView.day &&
+                          MediaQuery.sizeOf(context).height >= 480)
                         PlannerDateStrip(
                           monday: monday,
                           selected: _date,

@@ -17,6 +17,7 @@ import '../ui/platform_ui_policy.dart';
 import '../widgets/batch_decompose_sheet.dart';
 import '../widgets/board_picker.dart';
 import '../widgets/home_actions.dart';
+import '../widgets/tab_slider.dart';
 import '../widgets/input_sheet.dart';
 import '../widgets/quadrant_transition_layout.dart';
 import '../widgets/task_detail_panel.dart';
@@ -273,9 +274,15 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
 
     return PopScope(
-      canPop: !_selecting && _focusedQuadrant == null && !_listExitFading,
+      canPop:
+          _tab == 0 &&
+          !_selecting &&
+          _focusedQuadrant == null &&
+          !_listExitFading,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        // The schedule page handles its own back (and returns to tasks).
+        if (_tab == 1) return;
         if (_selecting) {
           setState(() {
             _selecting = false;
@@ -581,7 +588,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                       children: [
                         _modeSwitch(t, theme),
                         Expanded(
-                          child: IndexedStack(
+                          child: TabSlider(
                             index: _tab,
                             children: [
                               tasksPage,
@@ -591,6 +598,8 @@ class _MatrixHomeState extends State<MatrixHome> {
                                   initialBoardId: store.activeBoardId,
                                   autoGuide: true,
                                   embedded: true,
+                                  active: _tab == 1,
+                                  onLeave: () => _selectTab(0),
                                 )
                               else
                                 const SizedBox.shrink(),

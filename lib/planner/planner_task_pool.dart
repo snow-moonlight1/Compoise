@@ -6,6 +6,7 @@ import '../models.dart';
 import '../schedule_time.dart';
 import '../theme.dart';
 import '../widgets/schedule_layout.dart';
+import 'planner_drag_feedback.dart';
 import 'planner_guide_flag.dart';
 import 'planner_labels.dart';
 
@@ -111,6 +112,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   @override
   void dispose() {
     _pages.dispose();
+    _pointer.dispose();
     for (final c in _scrolls.values) {
       c.dispose();
     }
@@ -121,6 +123,8 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     for (final task in widget.tasks)
       if (task.quadrant == quadrant) task,
   ];
+
+  final _pointer = PlannerDragPointer();
 
   bool get _reduceMotion => MediaQuery.disableAnimationsOf(context);
 
@@ -871,22 +875,29 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     return LongPressDraggable<String>(
       key: ValueKey('schedule-pool-${task.id}'),
       data: task.id,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(8),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 280),
+      dragAnchorStrategy: _pointer.anchor,
+      feedback: PlannerDragFeedback(
+        pointer: _pointer,
+        size: const Size(220, 56),
+        child: Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(8),
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(task.title, maxLines: 2),
+            child: Text(
+              task.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ),
       childWhenDragging: Opacity(opacity: 0.35, child: body),
       onDragStarted: () => widget.onDragStarted(task),
-      onDragUpdate: (details) =>
-          widget.onDragUpdate(task, details.globalPosition),
+      onDragUpdate: (details) {
+        _pointer.update(details.globalPosition);
+        widget.onDragUpdate(task, details.globalPosition);
+      },
       onDragEnd: (details) => widget.onDragEnd(task, details),
       child: widget.onOpenTask == null
           ? body

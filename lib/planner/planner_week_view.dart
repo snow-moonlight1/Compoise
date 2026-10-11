@@ -67,9 +67,8 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
           final headerH = 56 * scale;
           final inset = math.max(0.0, widget.bottomInset) + 8;
           final lineColor = theme.colorScheme.outlineVariant;
-          // Seven circles split the axis into eight equal parts: circle i sits
-          // at i/8 of the visible height. A day with many labels grows its
-          // own row and the page scrolls instead.
+          // Circles are one slot apart, the first half a slot under the top
+          // gap. A day with many labels grows its own row and the page scrolls.
           final slot = plannerWeekSlot(constraints.maxHeight, headerH, inset);
           return CustomScrollView(
             key: const ValueKey('schedule-scroll'),
@@ -85,29 +84,27 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
                 ),
               ),
               SliverToBoxAdapter(
-                child: Stack(
+                child: Column(
+                  key: const ValueKey('schedule-week-rows'),
                   children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          key: const ValueKey('schedule-week-axis'),
-                          painter: PlannerWeekAxisPainter(
-                            x: plannerWeekAxisX(),
-                            from: 0,
-                            to: null,
-                            color: lineColor,
-                          ),
-                        ),
+                    // The line starts at the first circle's centre: nothing
+                    // runs above it. It continues below the last circle to
+                    // the bottom of the page.
+                    const SizedBox(height: plannerWeekTopGap),
+                    for (var i = 0; i < widget.days.length; i++)
+                      _row(widget.days[i], theme, today, slot, first: i == 0),
+                    CustomPaint(
+                      key: const ValueKey('schedule-week-axis-end'),
+                      painter: PlannerWeekAxisPainter(
+                        x: plannerWeekAxisX(),
+                        from: 0,
+                        to: null,
+                        color: lineColor,
                       ),
-                    ),
-                    Column(
-                      key: const ValueKey('schedule-week-rows'),
-                      children: [
-                        SizedBox(height: slot / 2),
-                        for (var i = 0; i < widget.days.length; i++)
-                          _row(widget.days[i], theme, today, slot),
-                        SizedBox(height: slot / 2 + inset),
-                      ],
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: slot / 2 + inset,
+                      ),
                     ),
                   ],
                 ),
@@ -136,8 +133,9 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
     ScheduleDayLayout day,
     ThemeData theme,
     String today,
-    double minHeight,
-  ) {
+    double minHeight, {
+    required bool first,
+  }) {
     return _DayRow(
       day: day,
       theme: theme,
@@ -145,6 +143,7 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
       t: widget.t,
       today: scheduleDateLabel(day.date) == today,
       minHeight: minHeight,
+      first: first,
       block: widget.block,
       onOpenDay: () => widget.onOpenDay(day.date),
       dropKey: widget.dropKey(scheduleDateLabel(day.date)),
@@ -161,6 +160,7 @@ class _DayRow extends StatelessWidget {
     required this.t,
     required this.today,
     required this.minHeight,
+    required this.first,
     required this.block,
     required this.onOpenDay,
     required this.dropKey,
@@ -173,6 +173,7 @@ class _DayRow extends StatelessWidget {
   final Map<String, String> t;
   final bool today;
   final double minHeight;
+  final bool first;
   final Widget Function(ScheduleDayLayout day, SchedulePlacement placement)
   block;
   final VoidCallback onOpenDay;
@@ -252,7 +253,26 @@ class _DayRow extends StatelessWidget {
     // row, so with little content the circles fall on the eighths.
     final row = ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
-      child: Center(heightFactor: 1, child: content),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                key: ValueKey('schedule-week-axis-$label'),
+                painter: PlannerWeekAxisPainter(
+                  x: plannerWeekAxisX(),
+                  from: 0,
+                  fromCentre: first,
+                  to: null,
+                  color: theme.colorScheme.outlineVariant,
+                ),
+              ),
+            ),
+          ),
+          content,
+        ],
+      ),
     );
     if (onScheduleDrop == null) return row;
     return KeyedSubtree(
@@ -262,7 +282,16 @@ class _DayRow extends StatelessWidget {
         onWillAcceptWithDetails: (_) => true,
         onAcceptWithDetails: (details) =>
             onScheduleDrop!(details.data, day.date),
-        builder: (context, candidates, rejected) => row,
+        // The day under the finger is tinted: the row is the drop target, and
+        // the tint reads even with the preview up-left of the finger.
+        builder: (context, candidates, rejected) => candidates.isEmpty
+            ? row
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                ),
+                child: row,
+              ),
       ),
     );
   }
@@ -355,27 +384,37 @@ double plannerWeekAxisX() =>
 
 /// Height of one eighth of the axis: the visible week area under the header,
 /// above the pool bar.
+///
+/// The first circle sits half a slot under [plannerWeekTopGap]; seven circles
+/// are one slot apart; half a slot of line is left under the last one.
 double plannerWeekSlot(double viewport, double header, double inset) =>
-    math.max(0.0, viewport - header - inset) / 8;
+    math.max(0.0, viewport - header - inset - plannerWeekTopGap) / 7.5;
+
+/// Space between the header and the first row.
+const plannerWeekTopGap = 8.0;
 
 /// Vertical hairline at [x] from [from] down to [to] (the bottom when null).
 class PlannerWeekAxisPainter extends CustomPainter {
   const PlannerWeekAxisPainter({
     required this.x,
     required this.from,
+    this.fromCentre = false,
     required this.to,
     required this.color,
   });
 
   final double x;
   final double from;
+
+  /// Start at the vertical middle of the painted box (the first circle).
+  final bool fromCentre;
   final double? to;
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawLine(
-      Offset(x, from),
+      Offset(x, fromCentre ? size.height / 2 : from),
       Offset(x, to ?? size.height),
       Paint()
         ..color = color
@@ -385,5 +424,9 @@ class PlannerWeekAxisPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PlannerWeekAxisPainter old) =>
-      old.x != x || old.from != from || old.to != to || old.color != color;
+      old.x != x ||
+      old.from != from ||
+      old.fromCentre != fromCentre ||
+      old.to != to ||
+      old.color != color;
 }

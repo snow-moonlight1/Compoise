@@ -108,3 +108,18 @@
 - **Motion**: pool open/close uses easeOutCubic (280ms; 220ms when folded by selecting a block). Dragging follows the finger without a curve. The ☰ menu uses easeOutCubic 180ms / 120ms out. "Reduce motion" makes all of these instant.
 - **Add-mode buttons**: three equal slots in one row, selection is colour only (no check mark), so size/position/dialog height never change. Other ChoiceChips (deadline presets, quadrant picker, settings) also no longer show a check mark.
 - **Pool bar → opened**: the dots and counts are one shared layer driven by the sheet height; they glide from the folded bar to their quadrant tab while the two headers cross-fade.
+
+## Round 7
+
+Changes: week axis starts at the first circle (nothing above it), circles one slot apart, line continues under the last circle to the pool bar; Tasks↔Schedule switch slides + fades (easeOutCubic 250ms, state kept, instant with reduce motion); dragged previews (pool task, week block) sit up-left of the finger and stay on screen (`planner_drag_feedback.dart`); the hovered week day is tinted.
+
+Self-check sweep (problem → fix):
+- Back key on the Schedule tab left the app with a selection / open pool → back now closes dialog, then selection, then folds the pool, then returns to Tasks, then leaves.
+- A drag could carry a block past 0:00/24:00 → move/resize are clamped to the day window (still 15-min snapped, ≥15 min long).
+- 320dp wide with "Back to today" shown: date row overflowed → toolbar scales down instead; toolbar height capped at 72dp for huge fonts.
+- Mid-height blocks overflowed at 2× font → extras (overlap badge, 2nd title line) drop first, then one-line "title time".
+- Landscape phone: date strip + toolbar left almost no grid → strip hidden when the window is shorter than 480dp (picker/swipe still change day).
+- Test harness never changed the media query size (only the layout), hiding width-based branches → `c2Pump` now sets the real window; a sweep test covers 5 sizes × 1/1.3/2× text × light/dark through day, pool, week, selection and editor with no overflow.
+- Covered by tests, no change needed: day/week stepping across month/year/leap day/DST day, tab state kept, reduce motion, drag preview on screen near edges.
+
+Not verified / not fixed: real-device feel of drag previews and tab slide; screen-reader pass (semantics labels unchanged since Round 4); dark-theme colour contrast was only checked for overflow, not measured; the time bubble while resizing still sits above the block edge, not above-left of the finger.

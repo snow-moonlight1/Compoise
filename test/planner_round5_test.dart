@@ -99,9 +99,11 @@ void main() {
     final store = await c2Store(items: []);
     await c2Pump(tester, store, size: size, view: PlannerView.week);
     expect(plannerWeekAxisX(), 12 + 48 + 20);
-    final axis = tester.getTopLeft(c2Key('schedule-week-axis')).dx;
+    final axis = tester.getTopLeft(c2Key('schedule-week-axis-2026-09-28')).dx;
     final painter =
-        tester.widget<CustomPaint>(c2Key('schedule-week-axis')).painter!
+        tester
+                .widget<CustomPaint>(c2Key('schedule-week-axis-2026-09-28'))
+                .painter!
             as PlannerWeekAxisPainter;
     for (final d in ['2026-09-28', '2026-09-30', '2026-10-04']) {
       final node = tester.getCenter(c2Key('schedule-week-node-$d'));
@@ -115,7 +117,7 @@ void main() {
   ) async {
     final store = await c2Store(items: [c1Items().first]);
     await c2Pump(tester, store, size: size, view: PlannerView.week);
-    final fill = tester.getRect(c2Key('schedule-week-axis'));
+    final fill = tester.getRect(c2Key('schedule-week-axis-end'));
     expect(fill.bottom, closeTo(size.height, 0.5));
     await c2Tap(tester, c2Key('schedule-mode-day'));
     await tester.pumpAndSettle();
@@ -124,12 +126,11 @@ void main() {
     await c2Finish(tester, store);
   });
 
-  testWidgets('with little content the seven circles sit on the eighths', (
+  testWidgets('the line starts at the first circle and runs on past the last', (
     tester,
   ) async {
     final store = await c2Store(items: []);
     await c2Pump(tester, store, size: size, view: PlannerView.week);
-    final axis = tester.getRect(c2Key('schedule-week-axis'));
     final days = [
       '2026-09-28',
       '2026-09-29',
@@ -140,17 +141,31 @@ void main() {
       '2026-10-04',
     ];
     final ys = [
-      for (final d in days)
-        tester.getCenter(c2Key('schedule-week-node-$d')).dy - axis.top,
+      for (final d in days) tester.getCenter(c2Key('schedule-week-node-$d')).dy,
     ];
-    final slot = ys.first;
-    expect(slot, greaterThan(40));
-    for (var i = 0; i < 7; i++) {
-      expect(ys[i], closeTo((i + 1) * slot, 1), reason: 'circle ${i + 1}');
+    final d = ys[1] - ys[0];
+    expect(d, greaterThan(40));
+    for (var i = 1; i < 7; i++) {
+      expect(ys[i] - ys[i - 1], closeTo(d, 0.5), reason: 'gap $i');
     }
-    // Eight parts fill the axis apart from the strip behind the pool bar.
-    expect(8 * slot, lessThanOrEqualTo(axis.height));
-    expect(8 * slot, greaterThan(axis.height - 120));
+    // The first row draws its line from the circle's centre: nothing above.
+    final first = c2Key('schedule-week-axis-${days.first}');
+    final painter =
+        tester.widget<CustomPaint>(first).painter! as PlannerWeekAxisPainter;
+    expect(painter.fromCentre, isTrue);
+    expect(tester.getRect(first).center.dy, closeTo(ys.first, 0.5));
+    // Later rows are drawn whole; the last circle is followed by line down to
+    // the pool bar.
+    final second =
+        tester
+                .widget<CustomPaint>(c2Key('schedule-week-axis-${days[1]}'))
+                .painter!
+            as PlannerWeekAxisPainter;
+    expect(second.fromCentre, isFalse);
+    final end = tester.getRect(c2Key('schedule-week-axis-end'));
+    expect(end.top, greaterThan(ys.last));
+    expect(end.top - ys.last, closeTo(d / 2, 1));
+    expect(end.bottom, closeTo(size.height, 0.5));
     await c2Finish(tester, store);
   });
 

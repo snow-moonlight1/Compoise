@@ -69,14 +69,15 @@ class PlannerToolbar extends StatelessWidget {
     return Material(
       color: theme.scaffoldBackgroundColor,
       child: SizedBox(
-        height: 56 * scale,
+        height: math.min(56 * scale, 72),
         width: double.infinity,
         child: LayoutBuilder(
           builder: (context, constraints) {
             // Arrows only where there is room; on a phone a sideways swipe on
             // the day, the date strip and the date picker move around.
             final arrows = constraints.maxWidth >= 480;
-            final shrink = scale > 1.3;
+            final shrink =
+                scale > 1.3 || (showToday && constraints.maxWidth < 400);
             final row = Row(
               mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
               children: [

@@ -44,11 +44,21 @@ Future<void> c2Pump(
   String? initialTaskId,
   bool startTimeBlock = false,
   bool provide = false,
+  bool dark = false,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
+  // Media queries must see the same window the layout does.
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   final app = MaterialApp(
-    theme: ThemeData(useMaterial3: true, platform: TargetPlatform.windows),
+    theme: ThemeData(
+      useMaterial3: true,
+      platform: TargetPlatform.windows,
+      brightness: dark ? Brightness.dark : Brightness.light,
+    ),
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
     builder: (context, child) => MediaQuery(
@@ -67,7 +77,9 @@ Future<void> c2Pump(
     ),
   );
   await tester.pumpWidget(
-    provide ? ChangeNotifierProvider<Store>.value(value: store, child: app) : app,
+    provide
+        ? ChangeNotifierProvider<Store>.value(value: store, child: app)
+        : app,
   );
   await tester.pumpAndSettle();
 }

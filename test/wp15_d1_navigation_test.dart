@@ -255,6 +255,33 @@ void main() {
     await finish(tester, store);
   });
 
+  testWidgets('back from the schedule returns to tasks, then leaves', (
+    tester,
+  ) async {
+    mockDeviceTimeZone(identity: 'Asia/Shanghai');
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = await seeded([alpha()]);
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('schedule-btn')));
+    await tester.pumpAndSettle();
+    await skipGuide(tester);
+    // Open the pool: the first back folds it.
+    await tester.tap(find.textContaining('Task pool'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Task pool'), findsNothing);
+    expect(find.textContaining('Task pool · '), findsOneWidget);
+    // Next back leaves the schedule for the task board.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-tab-tasks')), findsOneWidget);
+    expect(find.byKey(const ValueKey('schedule-scroll')), findsNothing);
+    await finish(tester, store);
+  });
+
   testWidgets('tasks and schedule are equal tabs that keep their own state', (
     tester,
   ) async {
@@ -282,7 +309,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('schedule-mode-week')));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('schedule-week-axis')),
+      find.byKey(const ValueKey('schedule-week-axis-end')),
       findsOneWidget,
     );
 
@@ -293,7 +320,7 @@ void main() {
     await tester.pumpAndSettle();
     // Still on the week view the user left.
     expect(
-      find.byKey(const ValueKey('schedule-week-axis')),
+      find.byKey(const ValueKey('schedule-week-axis-end')),
       findsOneWidget,
     );
     await finish(tester, store);
