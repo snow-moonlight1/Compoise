@@ -137,3 +137,10 @@ Not verified / not fixed: real-device feel of drag previews and tab slide; scree
 - Week view: the "Week N" row is gone (l10n key `scheduleWeekNumber` removed); the axis now starts at the top and its length is the whole area, circles still evenly spaced, line to the pool bar.
 - Pool opens to 33% of the page. A tap on empty content folds an open pool (a plain `Listener`: it never joins the gesture arena, so blocks, handles, swipes and drags are unchanged; taps that move >12dp or last >300ms do not count). Tapping a block still selects it (which also folds the pool).
 - Not verified on a device: feel of the button position on gesture-nav phones; the "tap block folds + selects" path is covered only for a block that is visible with the pool open.
+
+## Round 10
+
+- Today button: 56dp, 22dp from the right edge and 22dp above the pool bar (still clear of its "+").
+- "Schedule time" in a task's detail no longer pushes the old full-screen planner page from the home page (phone sheet or side panel): the detail closes and the home page switches to the Schedule tab (same slide, state kept, back key as before) with that task as the focus task (`TaskDetailSession.onScheduleTime` → `_scheduleFromDetail`, `PlannerScreen.focusToken`). The old route stays for the other pages that still use it (Today, Search, Completed).
+- Pool focus: the pool no longer grows to the half height for the highlight; it opens to the usual third at most, switches to the task's quadrant tab, lists the task first (display only, stored order unchanged) and outlines it. Touching the lists/pages, a tab, a drag, or tapping empty space ends the outline.
+- Not verified on a device; focus from Today/Search/Completed still opens the separate page (not asked).

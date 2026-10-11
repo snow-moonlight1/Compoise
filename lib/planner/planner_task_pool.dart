@@ -100,6 +100,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   void didUpdateWidget(PlannerTaskPool oldWidget) {
     super.didUpdateWidget(oldWidget);
     final id = widget.highlightTaskId;
+    if (id == null) _focusId = null;
     if (id != null &&
         (id != oldWidget.highlightTaskId ||
             widget.highlightToken != oldWidget.highlightToken)) {
@@ -119,10 +120,24 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     super.dispose();
   }
 
-  List<Task> _of(int quadrant) => [
-    for (final task in widget.tasks)
-      if (task.quadrant == quadrant) task,
-  ];
+  /// The task being pointed out on entry. It is listed first in its quadrant
+  /// for as long as it is pointed out; stored order is untouched.
+  String? _focusId;
+
+  void _clearFocus() {
+    if (_focusId != null) setState(() => _focusId = null);
+  }
+
+  List<Task> _of(int quadrant) {
+    final list = [
+      for (final task in widget.tasks)
+        if (task.quadrant == quadrant) task,
+    ];
+    final id = _focusId;
+    final at = id == null ? -1 : list.indexWhere((t) => t.id == id);
+    if (at > 0) list.insert(0, list.removeAt(at));
+    return list;
+  }
 
   final _pointer = PlannerDragPointer();
 
@@ -137,12 +152,13 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       }
     }
     if (task == null) return;
+    setState(() => _focusId = taskId);
     _select(task.quadrant);
-    _expand(plannerPoolHalfSize);
+    // Never taller than the usual opened height.
+    if (_isCollapsed) _expand(plannerPoolOpenSize);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final target = _highlightKey.currentContext;
-      if (target == null) return;
-      Scrollable.ensureVisible(target, alignment: 0.2);
+      final list = _scrolls[task!.quadrant];
+      if (list != null && list.hasClients) list.jumpTo(0);
     });
   }
 
@@ -449,6 +465,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
+                  _clearFocus();
                   _select(spot.quadrant, animate: false);
                   _expand(plannerPoolOpenSize);
                 },
@@ -525,17 +542,24 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
             ),
           ),
         Expanded(
-          child: PageView(
-            key: const ValueKey('schedule-pool-pages'),
-            controller: _pages,
-            onPageChanged: (index) {
-              _dismissTabHint();
-              setState(() => _quadrant = allQuadrants[index]);
+          child: NotificationListener<ScrollStartNotification>(
+            // A finger on the lists or pages ends the entry highlight.
+            onNotification: (n) {
+              if (n.dragDetails != null) _clearFocus();
+              return false;
             },
-            children: [
-              for (final q in allQuadrants)
-                _taskList(theme, q, _of(q), _scrolls[q]!),
-            ],
+            child: PageView(
+              key: const ValueKey('schedule-pool-pages'),
+              controller: _pages,
+              onPageChanged: (index) {
+                _dismissTabHint();
+                setState(() => _quadrant = allQuadrants[index]);
+              },
+              children: [
+                for (final q in allQuadrants)
+                  _taskList(theme, q, _of(q), _scrolls[q]!),
+              ],
+            ),
           ),
         ),
       ],
@@ -599,6 +623,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       key: ValueKey('schedule-pool-tab-$quadrant'),
       onTap: () {
         _dismissTabHint();
+        _clearFocus();
         _select(quadrant);
         if (_isCollapsed) _expand(plannerPoolOpenSize);
       },
@@ -801,7 +826,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     final deadline = local == null
         ? widget.t['scheduleNoDeadline']!
         : '${widget.t['deadline']}: ${scheduleDateLabel(ScheduleCivilDate(local.year, local.month, local.day))}';
-    final highlighted = task.id == widget.highlightTaskId;
+    final highlighted = task.id == _focusId;
     final scheduled = widget.scheduledIds.contains(task.id);
     final color = Color(
       quadrantColors[task.quadrant] ?? quadrantColors[qEliminate]!,
@@ -893,7 +918,10 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
         ),
       ),
       childWhenDragging: Opacity(opacity: 0.35, child: body),
-      onDragStarted: () => widget.onDragStarted(task),
+      onDragStarted: () {
+        _clearFocus();
+        widget.onDragStarted(task);
+      },
       onDragUpdate: (details) {
         _pointer.update(details.globalPosition);
         widget.onDragUpdate(task, details.globalPosition);

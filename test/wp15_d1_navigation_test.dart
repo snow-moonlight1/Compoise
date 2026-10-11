@@ -345,12 +345,60 @@ void main() {
     await skipGuide(tester);
 
     expect(find.byType(PlannerScreen), findsOneWidget);
+    // It is the Schedule tab of the home page, not a separate full-screen page.
+    expect(find.byKey(const ValueKey('home-tab-tasks')), findsOneWidget);
+    expect(find.byKey(const ValueKey('schedule-back')), findsNothing);
+    expect(find.byType(TaskDetailPanel), findsNothing);
     expect(find.byKey(const ValueKey('schedule-editor')), findsNothing);
     expect(find.byKey(const ValueKey('schedule-pool-Alpha')), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const ValueKey('schedule-pool-Alpha'))).height,
       greaterThan(20),
     );
+    await finish(tester, store);
+  });
+
+  testWidgets('scheduling the fourth task lists it first without a tall pool', (
+    tester,
+  ) async {
+    mockDeviceTimeZone(identity: 'Asia/Shanghai');
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    Task make(int i) => Task(
+      id: 'T$i',
+      boardId: 'b',
+      title: 'Task $i',
+      quadrant: 1,
+      createdAt: i,
+      urgencyMode: UrgencyMode.manual,
+    );
+    final store = await seeded([for (var i = 1; i <= 5; i++) make(i)]);
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
+    final task = store.tasks.firstWhere((t) => t.id == 'T4');
+    // What the detail's "schedule time" button does on a phone.
+    final home = tester.state(find.byType(MatrixHome));
+    await (home as dynamic).debugScheduleTask(task.id);
+    await tester.pumpAndSettle();
+    await skipGuide(tester);
+    expect(find.byKey(const ValueKey('schedule-scroll')), findsOneWidget);
+    final card = find.byKey(const ValueKey('schedule-pool-T4'));
+    expect(card, findsOneWidget);
+    // Listed first in its quadrant, and pointed out.
+    final first = tester.getTopLeft(card).dy;
+    for (final other in ['T1', 'T2', 'T3', 'T5']) {
+      final f = find.byKey(ValueKey('schedule-pool-$other'));
+      if (f.evaluate().isNotEmpty) {
+        expect(tester.getTopLeft(f).dy, greaterThan(first));
+      }
+    }
+    // The pool is no taller than the usual third.
+    final tabTop = tester
+        .getTopLeft(find.byKey(const ValueKey('schedule-pool-tab-1')))
+        .dy;
+    expect(1 - tabTop / 800, lessThan(0.40));
+    // Stored order is untouched.
+    expect(store.tasks.map((t) => t.id).toList().indexOf('T4'), 3);
     await finish(tester, store);
   });
 

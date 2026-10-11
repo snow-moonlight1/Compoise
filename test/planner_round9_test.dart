@@ -15,6 +15,9 @@ void main() {
     final fab = tester.getRect(c2Key('schedule-today'));
     final add = tester.getRect(c2Key('schedule-add'));
     expect(fab.width, fab.height);
+    expect(fab.width, closeTo(56, 0.5));
+    expect(size.width - fab.right, inInclusiveRange(20, 24));
+    expect(add.top - fab.bottom, greaterThanOrEqualTo(10));
     expect(fab.right, greaterThan(size.width - 32));
     expect(fab.overlaps(add), isFalse);
     expect(fab.bottom, lessThanOrEqualTo(add.top));

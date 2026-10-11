@@ -96,9 +96,12 @@ class TaskDetailSession {
   /// [onChanged] fires when the opened task changes; the host rebuilds on it.
   /// A draft coming and going deliberately does not rebuild: it is read when
   /// the page needs to decide something.
-  TaskDetailSession({required this.onChanged});
+  TaskDetailSession({required this.onChanged, this.onScheduleTime});
 
   final VoidCallback onChanged;
+
+  /// Replaces the default schedule entry for editors this session opens.
+  final Future<void> Function(String taskId)? onScheduleTime;
 
   String? _taskId;
   String? _highlightSubtaskId;
@@ -147,6 +150,7 @@ class TaskDetailSession {
         task,
         highlightSubtaskId: subtaskId,
         onDirtyChanged: (dirty) => _dirty = dirty,
+        onScheduleTime: onScheduleTime,
       );
     } finally {
       _modalOpen = false;

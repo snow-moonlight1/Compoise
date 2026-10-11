@@ -93,7 +93,27 @@ class _MatrixHomeState extends State<MatrixHome> {
     onChanged: () {
       if (mounted) setState(() {});
     },
+    onScheduleTime: _scheduleFromDetail,
   );
+
+  String? _focusTaskId;
+  int _focusToken = 0;
+
+  /// "Schedule time" in a task's detail: close the detail and show the
+  /// Schedule tab with that task in focus (no separate full-screen page).
+  @visibleForTesting
+  Future<void> debugScheduleTask(String taskId) => _scheduleFromDetail(taskId);
+
+  Future<void> _scheduleFromDetail(String taskId) async {
+    if (!mounted) return;
+    setState(() {
+      _focusTaskId = taskId;
+      _focusToken += 1;
+      _plannerBuilt = true;
+    });
+    if (_detail.taskId != null) _detail.handleClose();
+    if (_tab != 1) await _selectTab(1);
+  }
 
   Future<bool> _protectDetailDraft() => _detail.confirmLeave(context);
 
@@ -501,6 +521,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                               task: detailTask,
                               highlightSubtaskId: _detail.highlightSubtaskId,
                               isSidebar: true,
+                              onScheduleTime: _scheduleFromDetail,
                               onDirtyChanged: _detail.reportDraft,
                               onClose: _detail.handleClose,
                             );
@@ -599,6 +620,9 @@ class _MatrixHomeState extends State<MatrixHome> {
                                   autoGuide: true,
                                   embedded: true,
                                   active: _tab == 1,
+                                  initialTaskId: _focusTaskId,
+                                  startTimeBlock: _focusTaskId != null,
+                                  focusToken: _focusToken,
                                   onLeave: () => _selectTab(0),
                                 )
                               else

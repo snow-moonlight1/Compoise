@@ -58,6 +58,7 @@ class PlannerScreen extends StatefulWidget {
     this.autoGuide = false,
     this.embedded = false,
     this.active = true,
+    this.focusToken = 0,
     this.onLeave,
     this.now,
   }) : assert(store == null || snapshot == null);
@@ -91,6 +92,9 @@ class PlannerScreen extends StatefulWidget {
   /// False while the page is mounted but hidden (another home tab is shown);
   /// the back key then belongs to that tab.
   final bool active;
+
+  /// Bumped by the host to focus [initialTaskId] again on a mounted page.
+  final int focusToken;
 
   /// Embedded page: back with nothing left to close asks the host to leave.
   final VoidCallback? onLeave;
@@ -223,6 +227,10 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (oldWidget.timeZoneController != widget.timeZoneController ||
         oldWidget.displayTimeZoneId != widget.displayTimeZoneId) {
       _readZone();
+    }
+    if (oldWidget.focusToken != widget.focusToken) {
+      _startedPreselectedBlock = false;
+      _armPreselectedBlock();
     }
   }
 
@@ -990,6 +998,9 @@ class _PlannerScreenState extends State<PlannerScreen>
                           const Duration(milliseconds: 300)) {
                         return;
                       }
+                      if (_highlightTaskId != null) {
+                        setState(() => _highlightTaskId = null);
+                      }
                       _foldPool();
                     },
                     child: Column(
@@ -1290,8 +1301,8 @@ class _PlannerScreenState extends State<PlannerScreen>
                     ),
                   if (todayFab && selectedEntry == null && !_poolOpen)
                     Positioned(
-                      right: 16,
-                      bottom: poolMin * constraints.maxHeight + 12,
+                      right: 22,
+                      bottom: poolMin * constraints.maxHeight + 22,
                       child: _TodayButton(
                         key: const ValueKey('schedule-today'),
                         label: t['scheduleTodayShort']!,
@@ -1753,12 +1764,12 @@ class _TodayButtonState extends State<_TodayButton>
                 customBorder: const CircleBorder(),
                 onTap: widget.onPressed,
                 child: SizedBox(
-                  width: 48,
-                  height: 48,
+                  width: 56,
+                  height: 56,
                   child: Center(
                     child: Text(
                       widget.label,
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.titleLarge?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.w700,
                       ),
