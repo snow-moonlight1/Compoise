@@ -11,26 +11,21 @@ void main() {
   const screen = Size(400, 800);
   const box = Size(200, 56);
 
-  test('the drag preview sits up and left of the finger', () {
+  test('the drag preview is only a small step up-left of the finger', () {
     final o = plannerDragOrigin(const Offset(300, 500), box, screen);
-    expect(o.dx + box.width, lessThan(300));
-    expect(o.dy + box.height, lessThan(500));
+    expect(o.dx + box.width - 300, inInclusiveRange(0, 12));
+    expect(o.dy + box.height - 500, inInclusiveRange(0, 12));
   });
 
-  test(
-    'near the left or top edge the preview stays on screen, above the finger',
-    () {
-      final left = plannerDragOrigin(const Offset(20, 500), box, screen);
-      expect(left.dx, greaterThanOrEqualTo(8));
-      expect(left.dy + box.height, lessThan(500));
-      expect(left.dx + box.width, lessThanOrEqualTo(screen.width - 8));
-      final top = plannerDragOrigin(const Offset(300, 10), box, screen);
-      expect(top.dy, greaterThanOrEqualTo(8));
-      final corner = plannerDragOrigin(const Offset(399, 799), box, screen);
-      expect(corner.dx + box.width, lessThanOrEqualTo(screen.width));
-      expect(corner.dy + box.height, lessThanOrEqualTo(screen.height));
-    },
-  );
+  test('near the edges the preview is clamped onto the screen', () {
+    final left = plannerDragOrigin(const Offset(20, 500), box, screen);
+    expect(left.dx, greaterThanOrEqualTo(0));
+    final top = plannerDragOrigin(const Offset(300, 10), box, screen);
+    expect(top.dy, greaterThanOrEqualTo(0));
+    final corner = plannerDragOrigin(const Offset(399, 799), box, screen);
+    expect(corner.dx + box.width, lessThanOrEqualTo(screen.width));
+    expect(corner.dy + box.height, lessThanOrEqualTo(screen.height));
+  });
 
   testWidgets(
     'a task dragged from the pool is previewed up-left of the finger',
@@ -54,7 +49,7 @@ void main() {
         find.descendant(of: feedback, matching: find.byType(Material)).first,
       );
       final p = start + const Offset(0, -150);
-      expect(inner.bottom, lessThan(p.dy));
+      expect(inner.bottom - p.dy, inInclusiveRange(0, 12));
       expect(inner.left, greaterThanOrEqualTo(0));
       expect(inner.top, greaterThanOrEqualTo(0));
       expect(finger, isNotNull);

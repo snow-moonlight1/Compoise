@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Keeps a dragged preview up and to the left of the finger so the thumb never
-/// covers it, and inside the screen near the edges. With no room on the left it
-/// is pushed in from the edge but stays above the finger.
+/// Keeps a dragged preview just up-left of the finger (its lower right corner a few dp past it)
+/// and inside the screen near the edges.
 ///
 /// Use [anchor] as the `dragAnchorStrategy` (it records the pointer) and feed
 /// [PlannerDragFeedback] with the same [PlannerDragPointer]; call [update] from
@@ -18,26 +17,24 @@ class PlannerDragPointer extends ValueNotifier<Offset> {
   void update(Offset global) => value = global;
 }
 
-/// Gap between the finger and the preview's lower right corner.
-const double plannerDragGap = 12;
+/// How far the preview's lower right corner reaches past the finger, so the
+/// finger rests on that corner and most of the preview stays visible.
+const double plannerDragReach = 10;
 
-/// Top-left of a [size] preview for a finger at [pointer]: up-left of the
-/// finger; below it only when there is no room above, then clamped into [screen] with [margin].
+/// Top-left of a [size] preview for a finger at [pointer]: just up-left of the
+/// finger, clamped into [screen] with [margin].
 Offset plannerDragOrigin(
   Offset pointer,
   Size size,
   Size screen, {
-  double margin = 8,
+  double margin = 4,
 }) {
-  var x = pointer.dx - size.width - plannerDragGap;
-  var y = pointer.dy - size.height - plannerDragGap;
-  if (y < margin) y = pointer.dy + plannerDragGap * 3;
-  x = x.clamp(margin, (screen.width - size.width - margin).clamp(margin, 1e9));
-  y = y.clamp(
-    margin,
-    (screen.height - size.height - margin).clamp(margin, 1e9),
+  final x = pointer.dx - size.width + plannerDragReach;
+  final y = pointer.dy - size.height + plannerDragReach;
+  return Offset(
+    x.clamp(margin, (screen.width - size.width - margin).clamp(margin, 1e9)),
+    y.clamp(margin, (screen.height - size.height - margin).clamp(margin, 1e9)),
   );
-  return Offset(x, y);
 }
 
 class PlannerDragFeedback extends StatelessWidget {

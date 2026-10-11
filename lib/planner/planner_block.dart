@@ -10,7 +10,7 @@ import 'planner_format.dart';
 import 'schedule_edit_session.dart';
 
 typedef PlannerDragBuilder =
-    Widget Function(ScheduleEditMode mode, Widget child, {Key? key});
+    Widget Function(ScheduleEditMode mode, Widget child, {Key? key, Size? size});
 
 /// Extra room above and below a selected block for the round edge handles.
 /// It keeps each handle's 48 dp touch target inside the block's own bounds.
@@ -175,10 +175,14 @@ class _PlannerBlockState extends State<PlannerBlock> {
     final card = _card(theme, accent, range, semantics);
     if (!widget.writable) return card;
     if (widget.compact) {
-      return widget.drag(
-        ScheduleEditMode.move,
-        card,
-        key: ValueKey('schedule-drag-${widget.dateLabel}-${entry.item.id}'),
+      // The drag preview is this very label at the same size.
+      return LayoutBuilder(
+        builder: (context, box) => widget.drag(
+          ScheduleEditMode.move,
+          card,
+          key: ValueKey('schedule-drag-${widget.dateLabel}-${entry.item.id}'),
+          size: Size(box.maxWidth, box.maxHeight),
+        ),
       );
     }
     final desktop = PlatformUiPolicy.of(context).isDesktop;

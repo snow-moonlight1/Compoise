@@ -123,3 +123,10 @@ Self-check sweep (problem → fix):
 - Covered by tests, no change needed: day/week stepping across month/year/leap day/DST day, tab state kept, reduce motion, drag preview on screen near edges.
 
 Not verified / not fixed: real-device feel of drag previews and tab slide; screen-reader pass (semantics labels unchanged since Round 4); dark-theme colour contrast was only checked for overflow, not measured; the time bubble while resizing still sits above the block edge, not above-left of the finger.
+
+## Round 8
+
+- "Back to today" shows only in the day view away from today; the week view never shows it, so the range title is not squeezed (rows under 360dp wide scale down instead of ellipsizing the title).
+- Week label drag: the original stays in place at ~0.38 opacity; the preview is the label itself (same colour, bar, text, **same size**), its lower-right corner ~10dp past the finger (clamped on screen). The pool-task preview uses the same small offset (`plannerDragOrigin`); everything else unchanged.
+- Fixed while testing: the hovered-day tint swapped the row's widget tree, which could drop the drag mid-air; the tint box is now always present.
+- Not verified on a device: preview feel under a thumb; the real date-range title width at 320dp (tests use a wide font).

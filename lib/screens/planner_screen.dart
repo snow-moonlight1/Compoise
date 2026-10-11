@@ -703,24 +703,27 @@ class _PlannerScreenState extends State<PlannerScreen>
     ScheduleEditMode mode,
     Widget child, {
     Key? key,
+    Size? size,
   }) => LongPressDraggable<ScheduleDragPayload>(
     key: key,
     data: ScheduleDragPayload(item, store.scheduleRevision(item.id), mode),
     maxSimultaneousDrags: _editorOpen ? 0 : 1,
     dragAnchorStrategy: _itemPointer.anchor,
     onDragUpdate: (details) => _itemPointer.update(details.globalPosition),
+    // Same look and size as the label; the original stays behind, faded.
     feedback: PlannerDragFeedback(
       pointer: _itemPointer,
-      size: const Size(200, 40),
+      size: size ?? const Size(160, 40),
       child: Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        type: MaterialType.transparency,
+        child: SizedBox(
+          width: size?.width ?? 160,
+          height: size?.height ?? 40,
+          child: child,
         ),
       ),
     ),
+    childWhenDragging: Opacity(opacity: 0.38, child: child),
     child: child,
   );
 
@@ -928,7 +931,7 @@ class _PlannerScreenState extends State<PlannerScreen>
         },
         scrollOffset: () => _vertical.hasClients ? _vertical.offset : 0.0,
         onDragGlobal: _autoScrollFromGlobal,
-        drag: (mode, child, {key}) {
+        drag: (mode, child, {key, size}) {
           final store = liveStore;
           if (store == null) return child;
           return _drag(
@@ -938,6 +941,7 @@ class _PlannerScreenState extends State<PlannerScreen>
             mode,
             child,
             key: key,
+            size: size,
           );
         },
       );
@@ -976,9 +980,7 @@ class _PlannerScreenState extends State<PlannerScreen>
                         onPrevious: () => _navigate(-1),
                         onNext: () => _navigate(1),
                         onPickDate: () => _pickDate(t),
-                        showToday: _view == PlannerView.day
-                            ? !_sameDate(_today(), _date)
-                            : !week.any((d) => _sameDate(d, _today())),
+                        showToday: _view == PlannerView.day && !_sameDate(_today(), _date),
                         onToday: () {
                           final today = _today();
                           if (_sameDate(today, _date)) return;

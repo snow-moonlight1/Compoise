@@ -284,14 +284,16 @@ class _DayRow extends StatelessWidget {
             onScheduleDrop!(details.data, day.date),
         // The day under the finger is tinted: the row is the drop target, and
         // the tint reads even with the preview up-left of the finger.
-        builder: (context, candidates, rejected) => candidates.isEmpty
-            ? row
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                ),
-                child: row,
-              ),
+        builder: (context, candidates, rejected) => DecoratedBox(
+          // Always present, so the row (and a label being dragged inside it)
+          // keeps its place in the tree when the tint switches on.
+          decoration: BoxDecoration(
+            color: candidates.isEmpty
+                ? null
+                : theme.colorScheme.primary.withValues(alpha: 0.12),
+          ),
+          child: row,
+        ),
       ),
     );
   }

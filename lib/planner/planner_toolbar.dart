@@ -77,7 +77,9 @@ class PlannerToolbar extends StatelessWidget {
             // the day, the date strip and the date picker move around.
             final arrows = constraints.maxWidth >= 480;
             final shrink =
-                scale > 1.3 || (showToday && constraints.maxWidth < 400);
+                scale > 1.3 ||
+                constraints.maxWidth < 360 ||
+                (showToday && constraints.maxWidth < 400);
             final row = Row(
               mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
               children: [
