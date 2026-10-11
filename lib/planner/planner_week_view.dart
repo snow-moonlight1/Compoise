@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../schedule_time.dart';
 import '../widgets/schedule_layout.dart';
+import 'planner_day_timeline.dart' show plannerPageMargin;
+import 'planner_format.dart' show plannerDuration;
 import 'planner_labels.dart';
 import 'schedule_drag.dart';
 
-/// Vertical week. A horizontal drag changes week. A node opens that day.
+/// Vertical week; it scrolls up and down only. A horizontal drag changes week. A node opens that day.
 class PlannerWeekView extends StatefulWidget {
   const PlannerWeekView({
     super.key,
@@ -62,18 +64,9 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final scale = widget.scale;
-          final count = math.max(1, widget.days.length);
           final headerH = 56 * scale;
-          final hintH = 48 * scale;
-          final inset = math.max(0.0, widget.bottomInset);
-          final bounded = constraints.maxHeight.isFinite;
-          final available = bounded
-              ? math.max(0.0, constraints.maxHeight - headerH - hintH - inset)
-              : 0.0;
-          final rowHeight = math.max(
-            80 * scale,
-            bounded ? available / count : 80 * scale,
-          );
+          final inset = math.max(0.0, widget.bottomInset) + 8;
+          final rowHeight = 72 * scale;
           return SingleChildScrollView(
             key: const ValueKey('schedule-scroll'),
             controller: widget.vertical,
@@ -89,7 +82,7 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
                 Stack(
                   children: [
                     Positioned(
-                      left: 75,
+                      left: plannerPageMargin + 8 + 48 + 19,
                       top: 8,
                       bottom: 8,
                       child: IgnorePointer(
@@ -110,19 +103,6 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
                     ),
                   ],
                 ),
-                SizedBox(
-                  height: hintH,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: Text(
-                        widget.t['scheduleWeekHint']!,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                  ),
-                ),
                 SizedBox(height: inset),
               ],
             ),
@@ -133,38 +113,14 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
   }
 
   Widget _header(ThemeData theme) {
-    final ids = <String>{};
-    final done = <String>{};
-    for (final day in widget.days) {
-      for (final placement in day.placements) {
-        ids.add(placement.entry.item.id);
-        if (placement.entry.completed) done.add(placement.entry.item.id);
-      }
-    }
     final number = widget.days.isEmpty
         ? 1
         : plannerIsoWeek(widget.days.first.date);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Row(
-          children: [
-            Text(
-              plannerFilled(widget.t['scheduleWeekNumber']!, {'n': '$number'}),
-              style: theme.textTheme.titleSmall,
-            ),
-            const SizedBox(width: 16),
-            Text(
-              plannerFilled(widget.t['scheduleWeekTotal']!, {
-                'n': '${ids.length}',
-                'done': '${done.length}',
-              }),
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.fromLTRB(plannerPageMargin, 4, 16, 8),
+      child: Text(
+        plannerFilled(widget.t['scheduleWeekNumber']!, {'n': '$number'}),
+        style: theme.textTheme.titleSmall,
       ),
     );
   }
@@ -214,22 +170,19 @@ class _DayRow extends StatelessWidget {
     final label = scheduleDateLabel(day.date);
     final weekday =
         t['scheduleWeekday${DateTime.utc(day.date.year, day.date.month, day.date.day).weekday}']!;
-    final hours =
-        day.placements.fold<int>(
-          0,
-          (sum, placement) =>
-              sum + placement.slice.endAt - placement.slice.startAt,
-        ) /
-        Duration.millisecondsPerHour;
-    final summary = plannerWeekSummary(
-      t['scheduleWeekItems']!,
-      day.placements.length,
-      hours,
-      t,
+    final total = day.placements.fold<int>(
+      0,
+      (sum, placement) =>
+          sum + placement.slice.endAt - placement.slice.startAt,
     );
+    final summary = day.placements.isEmpty
+        ? t['scheduleWeekEmpty']!
+        : plannerFilled(t['scheduleWeekTimeTotal']!, {
+            'duration': plannerDuration(0, total, t),
+          });
     final row = Padding(
       key: ValueKey('schedule-day-$label'),
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      padding: const EdgeInsets.fromLTRB(plannerPageMargin, 6, plannerPageMargin, 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,11 +213,16 @@ class _DayRow extends StatelessWidget {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 92, top: 2),
+            padding: const EdgeInsets.only(left: 48 + 40 + 8, top: 2),
             child: InkWell(
               onTap: onOpenDay,
               canRequestFocus: false,
-              child: Text(summary, style: theme.textTheme.bodySmall),
+              child: Text(
+                summary,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ),
         ],
@@ -310,44 +268,32 @@ class _DayRow extends StatelessWidget {
     );
   }
 
+  /// Labels wrap onto as many lines as the day needs; nothing scrolls sideways
+  /// and nothing is folded into "+N".
   Widget _chips(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final fit = math.max(1, (width / (140 * scale)).floor());
-    final hidden = math.max(0, day.placements.length - fit);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: math.max(40, 28 * scale + 12),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final placement in day.placements)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: SizedBox(
-                      width: math.max(108, 120 * math.min(scale, 2)),
-                      height: math.max(36, 24 * scale + 8),
-                      child: block(day, placement),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        if (hidden > 0)
-          InkWell(
-            onTap: onOpenDay,
-            canRequestFocus: false,
-            child: Text(
-              plannerCounted(t['scheduleMoreCount']!, hidden),
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.primary,
+    if (day.placements.isEmpty) return const SizedBox(height: 40);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 6.0;
+        final full = constraints.maxWidth;
+        final perRow = math.max(
+          1,
+          ((full + gap) / (150 * math.min(scale, 1.5) + gap)).floor(),
+        );
+        final width = (full - (perRow - 1) * gap) / perRow;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final placement in day.placements)
+              SizedBox(
+                width: width,
+                height: math.max(40, 24 * scale + 12),
+                child: block(day, placement),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

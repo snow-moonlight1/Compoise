@@ -120,12 +120,17 @@ class SchedulePlacement {
     required this.entry,
     required this.slice,
     required this.lane,
+    this.lanes = 1,
     required this.top,
     required this.height,
   });
   final ScheduleEntry entry;
   final ScheduleSlice slice;
   final int lane;
+
+  /// Columns of the overlap cluster this block belongs to. A block that
+  /// overlaps nothing has 1 and fills the full width.
+  final int lanes;
   final double top;
   final double height;
 }
@@ -195,11 +200,41 @@ class ScheduleDayLayout {
       return end != 0 ? end : a.$1.item.id.compareTo(b.$1.item.id);
     });
 
-    final laneEnds = <double>[];
+    // Overlap clusters: connected groups of overlapping blocks. Each cluster
+    // gets its own column count, so a lone block keeps the full width.
+    var laneEnds = <double>[];
+    var clusterEnd = double.negativeInfinity;
+    var clusterStart = 0;
+    var widest = 1;
+    final lanesOf = <int>[];
     final result = <SchedulePlacement>[];
+    void closeCluster() {
+      final n = math.max(1, laneEnds.length);
+      widest = math.max(widest, n);
+      for (var i = clusterStart; i < result.length; i++) {
+        final p = result[i];
+        result[i] = SchedulePlacement(
+          entry: p.entry,
+          slice: p.slice,
+          lane: p.lane,
+          lanes: n,
+          top: p.top,
+          height: p.height,
+        );
+      }
+      lanesOf.add(n);
+    }
+
+    var maxBottom = 0.0;
     for (final (entry, slice) in clipped) {
       final top = position(slice.startAt);
       final height = math.max(minimumItemHeight, position(slice.endAt) - top);
+      if (result.isNotEmpty && top >= clusterEnd) {
+        closeCluster();
+        clusterStart = result.length;
+        laneEnds = <double>[];
+        clusterEnd = double.negativeInfinity;
+      }
       var lane = laneEnds.indexWhere((end) => end <= top);
       if (lane == -1) {
         lane = laneEnds.length;
@@ -207,6 +242,8 @@ class ScheduleDayLayout {
       } else {
         laneEnds[lane] = top + height;
       }
+      clusterEnd = math.max(clusterEnd, top + height);
+      maxBottom = math.max(maxBottom, top + height);
       result.add(
         SchedulePlacement(
           entry: entry,
@@ -217,13 +254,11 @@ class ScheduleDayLayout {
         ),
       );
     }
+    if (result.isNotEmpty) closeCluster();
     placements = List.unmodifiable(result);
-    laneCount = math.max(1, laneEnds.length);
+    laneCount = widest;
     // Short records at the final millisecond remain entirely reachable.
-    height = math.max(
-      axisHeight + minimumItemHeight,
-      laneEnds.fold<double>(0, math.max),
-    );
+    height = math.max(axisHeight + minimumItemHeight, maxBottom);
   }
 
   final ScheduleCivilDate date;

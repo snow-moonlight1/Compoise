@@ -50,11 +50,14 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
       child: SizedBox(
         height:
             82 * math.max(1.0, MediaQuery.textScalerOf(context).scale(14) / 14),
-        child: Row(
-          children: [
-            for (var index = 0; index < 7; index++)
-              Expanded(child: _day(theme, index, selected)),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              for (var index = 0; index < 7; index++)
+                Expanded(child: _day(theme, index, selected)),
+            ],
+          ),
         ),
       ),
     );

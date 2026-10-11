@@ -74,11 +74,6 @@ void main() {
             scale: scale,
             view: PlannerView.week,
           );
-          await tabTo(tester, 'schedule-next');
-          await press(tester, LogicalKeyboardKey.enter);
-          expect(c2Key('schedule-day-2026-10-05'), findsOneWidget);
-          await tabTo(tester, 'schedule-previous', reverse: true);
-          await press(tester, LogicalKeyboardKey.enter);
           for (final id in ['block', 'linked', 'independent', 'done']) {
             await tabTo(tester, 'schedule-item-2026-09-30-$id');
             final card = c2Key('schedule-item-2026-09-30-$id');

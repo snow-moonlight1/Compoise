@@ -15,20 +15,12 @@ void main() {
   }
 
   testWidgets(
-    'tap selects: detail card has plain facts and no developer text',
+    'tap selects: a small bar shows time and length, no developer text',
     (tester) async {
       final store = await c2Store(items: [c1Items().first]);
       await c2Pump(tester, store);
       await select(tester);
-      final card = find.byKey(const ValueKey('schedule-detail'));
-      expect(
-        find.descendant(
-          of: card,
-          matching: find.textContaining('Draft outline'),
-        ),
-        findsWidgets,
-      );
-      expect(find.text('1 h 30 min'), findsOneWidget);
+      expect(find.textContaining('1 h 30 min'), findsOneWidget);
       expect(find.textContaining('UTC'), findsNothing);
       expect(find.textContaining('Asia/Shanghai'), findsNothing);
       expect(find.textContaining('000'), findsNothing);
@@ -52,6 +44,16 @@ void main() {
         ),
         findsOneWidget,
       );
+      // Both knobs sit on the horizontal middle of the block.
+      final box = tester.getRect(c2Key(block));
+      for (final mode in ['resizeStart', 'resizeEnd']) {
+        final h = tester.getRect(
+          c2Key('schedule-handle-2026-09-30-block-$mode'),
+        );
+        expect(h.center.dx, closeTo(box.center.dx, 1));
+        expect(h.height, greaterThanOrEqualTo(48));
+      }
+      expect(find.byType(SnackBar), findsNothing);
       // Tapping empty grid space clears the selection.
       await tester.tapAt(const Offset(900, 600));
       await tester.pumpAndSettle();
@@ -77,7 +79,7 @@ void main() {
   for (final start in [true, false]) {
     testWidgets(
       'dragging the ${start ? 'top' : 'bottom'} handle moves only that edge, '
-      'in 15 minute steps, with no form and an undo',
+      'in 15 minute steps, with no form and no toast',
       (tester) async {
         final store = await c2Store(items: [c1Items().first]);
         final item = store.scheduleItems.single;
@@ -116,9 +118,7 @@ void main() {
           expect(delta % 15, 0);
         }
         expect(changed.taskId, item.taskId);
-        await tester.tap(find.text('Undo'));
-        await tester.pumpAndSettle();
-        expect(store.scheduleItems.single.toJson(), item.toJson());
+        expect(find.byType(SnackBar), findsNothing);
         await c2Finish(tester, store);
       },
     );
@@ -163,7 +163,7 @@ void main() {
     await c2Finish(tester, store);
   });
 
-  testWidgets('delete is one tap with undo, and keeps the task', (
+  testWidgets('delete asks once in a centered dialog, keeps the task', (
     tester,
   ) async {
     final store = await c2Store(items: [c1Items().first]);
@@ -171,12 +171,16 @@ void main() {
     await c2Pump(tester, store);
     await select(tester);
     await c2Tap(tester, c2Key('schedule-detail-delete'));
+    expect(c2Key('schedule-delete-confirm'), findsOneWidget);
+    expect(store.scheduleItems, isNotEmpty);
+    // Cancel keeps it.
+    await c2Tap(tester, c2Key('schedule-delete-cancel'));
+    expect(store.scheduleItems, isNotEmpty);
+    await c2Tap(tester, c2Key('schedule-detail-delete'));
+    await c2Tap(tester, c2Key('schedule-delete-submit'));
     expect(store.scheduleItems, isEmpty);
     expect(store.tasks.any((task) => task.id == item.taskId), isTrue);
-    expect(find.text('Schedule deleted'), findsOneWidget);
-    await tester.tap(find.text('Undo'));
-    await tester.pumpAndSettle();
-    expect(store.scheduleItems.single.toJson(), item.toJson());
+    expect(find.byType(SnackBar), findsNothing);
     await c2Finish(tester, store);
   });
 
@@ -208,7 +212,7 @@ void main() {
       store.scheduleItems.any((i) => i.kind == ScheduleItemKind.event),
       isTrue,
     );
-    expect(find.textContaining('Overlaps'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
     await c2Finish(tester, store);
   });
 }

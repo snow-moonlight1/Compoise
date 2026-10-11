@@ -12,58 +12,46 @@ Future<bool?> showScheduleEditor(
   BuildContext context,
   ScheduleEditSession session,
 ) {
-  final body = ScheduleEditor(session: session);
-  if (PlatformUiPolicy.of(context).isTouchLayout) {
-    return showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => body,
-    );
-  }
+  // One centered dialog for new and edit, on phones and desktop alike.
+  final width = MediaQuery.sizeOf(context).width;
   return showDialog<bool>(
     context: context,
     builder: (_) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
-        child: body,
+        constraints: BoxConstraints(
+          maxWidth: (width - 48).clamp(0.0, 420.0).toDouble(),
+        ),
+        child: ScheduleEditor(session: session),
       ),
     ),
   );
 }
 
-/// Asks once, then deletes. Returns true when the item is gone.
-Future<bool?> showScheduleDelete(
+/// One centered confirmation (cancel / delete). Returns true to delete.
+Future<bool?> showScheduleDeleteConfirm(
   BuildContext context,
-  ScheduleEditSession session,
-) async {
-  final t = session.store.t;
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      key: const ValueKey('schedule-delete-confirm'),
-      content: Text(t['scheduleDeleteConfirm']!),
-      actions: [
-        TextButton(
-          key: const ValueKey('schedule-delete-cancel'),
-          autofocus: true,
-          onPressed: () => Navigator.pop(context, false),
-          child: Text(t['cancel']!),
-        ),
-        FilledButton(
-          key: const ValueKey('schedule-delete-submit'),
-          onPressed: () => Navigator.pop(context, true),
-          child: Text(t['delete']!),
-        ),
-      ],
-    ),
-  );
-  if (ok != true) return false;
-  final result = await session.delete();
-  return result == ScheduleSubmitResult.saved ||
-      result == ScheduleSubmitResult.unsaved;
-}
+  Map<String, String> t,
+) => showDialog<bool>(
+  context: context,
+  builder: (context) => AlertDialog(
+    key: const ValueKey('schedule-delete-confirm'),
+    content: Text(t['scheduleDeleteConfirm']!),
+    actions: [
+      TextButton(
+        key: const ValueKey('schedule-delete-cancel'),
+        autofocus: true,
+        onPressed: () => Navigator.pop(context, false),
+        child: Text(t['cancel']!),
+      ),
+      FilledButton(
+        key: const ValueKey('schedule-delete-submit'),
+        onPressed: () => Navigator.pop(context, true),
+        child: Text(t['delete']!),
+      ),
+    ],
+  ),
+);
 
 class ScheduleEditor extends StatefulWidget {
   const ScheduleEditor({super.key, required this.session});
@@ -243,12 +231,7 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
     return SafeArea(
       child: SingleChildScrollView(
         key: const ValueKey('schedule-editor'),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          8,
-          20,
-          16 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

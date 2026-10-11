@@ -8,7 +8,6 @@ import '../models.dart';
 import '../planner/planner_block.dart';
 import '../planner/planner_date_strip.dart';
 import '../planner/planner_detail_card.dart';
-import '../planner/planner_format.dart';
 import '../planner/planner_guide.dart';
 import '../planner/planner_guide_flag.dart';
 import '../planner/planner_day_timeline.dart';
@@ -91,7 +90,6 @@ class _PlannerScreenState extends State<PlannerScreen>
   late ScheduleCivilDate _date;
   late PlannerView _view;
   String? _boardId;
-  final _horizontal = ScrollController();
   final _vertical = ScrollController();
   final _pool = DraggableScrollableController();
   final _hover = ValueNotifier<PlannerHover?>(null);
@@ -167,6 +165,7 @@ class _PlannerScreenState extends State<PlannerScreen>
   @override
   void initState() {
     super.initState();
+    _pool.addListener(_poolMoved);
     _motion = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 240),
@@ -215,8 +214,8 @@ class _PlannerScreenState extends State<PlannerScreen>
     _ownedZone?.dispose();
     _ownedZone = null;
     _motion.dispose();
-    _horizontal.dispose();
     _vertical.dispose();
+    _pool.removeListener(_poolMoved);
     _pool.dispose();
     _hover.dispose();
     _addFocus.dispose();
@@ -234,9 +233,6 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (_zone == null) return;
     _startedPreselectedBlock = true;
     if (!store.tasks.any((task) => task.id == taskId)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(store.t['scheduleTaskMissing']!)));
       return;
     }
     await _revealTask(store, taskId);
@@ -308,7 +304,6 @@ class _PlannerScreenState extends State<PlannerScreen>
   }
 
   void _resetScroll() {
-    if (_horizontal.positions.length == 1) _horizontal.jumpTo(0);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scrollToDefault();
     });
@@ -346,6 +341,14 @@ class _PlannerScreenState extends State<PlannerScreen>
     );
   }
 
+  bool _foldingPool = false;
+
+  /// Expanding the pool drops the selection, so only one of them is ever up.
+  void _poolMoved() {
+    if (_foldingPool || _selectedId == null || !_pool.isAttached) return;
+    if (_pool.size > _poolMin + 0.02) setState(() => _selectedId = null);
+  }
+
   void _deselect() {
     if (_selectedId != null) setState(() => _selectedId = null);
   }
@@ -356,11 +359,14 @@ class _PlannerScreenState extends State<PlannerScreen>
   void _selectItem(String id) {
     setState(() => _selectedId = id);
     if (_pool.isAttached && _pool.size > _poolMin + 0.02) {
-      _pool.animateTo(
-        _poolMin,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-      );
+      _foldingPool = true;
+      _pool
+          .animateTo(
+            _poolMin,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+          )
+          .whenComplete(() => _foldingPool = false);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _revealSelected());
   }
@@ -380,7 +386,7 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (placement == null) return;
     final viewport = box.size.height;
     // Space the detail panel and the folded pool take at the bottom.
-    final covered = 72 + 190.0;
+    final covered = 72 + 64.0;
     final top = placement.top - plannerHandleReach - 8;
     final bottom = placement.top + placement.height + plannerHandleReach + 8;
     final offset = _vertical.offset;
@@ -460,54 +466,6 @@ class _PlannerScreenState extends State<PlannerScreen>
     await showBatchDecomposeSheet(context, longTerm);
   }
 
-  /// Floating message above the pool, with an optional undo.
-  void _snack(String message, {VoidCallback? undo}) {
-    final height = MediaQuery.sizeOf(context).height;
-    final sheet = _pool.isAttached ? _pool.pixels : _poolMin * height;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    final t = widget.store?.t ?? dictOf(Language.en);
-    messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.fromLTRB(16, 0, 16, sheet + 16),
-        duration: const Duration(seconds: 5),
-        content: Text(message),
-        action: undo == null
-            ? null
-            : SnackBarAction(label: t['undo']!, onPressed: undo),
-      ),
-    );
-  }
-
-  /// Message after a save. Overlap is reported softly, never asked about.
-  void _afterSave(
-    Store store,
-    ScheduleItem saved,
-    List<ScheduleItem> overlaps,
-    VoidCallback undo, {
-    String? message,
-  }) {
-    if (!mounted) return;
-    final t = store.t;
-    if (overlaps.isNotEmpty) {
-      final other = overlaps.first;
-      final title =
-          other.title ??
-          store.tasks
-              .where((task) => task.id == other.taskId)
-              .map((task) => task.title)
-              .firstOrNull ??
-          '';
-      _snack(
-        plannerFilled(t['scheduleOverlapSnack']!, {'title': title}),
-        undo: undo,
-      );
-    } else {
-      _snack(message ?? t['scheduleEditorSaved']!, undo: undo);
-    }
-  }
-
   ScheduleItem _withTimes(ScheduleItem item, int startAt, int endAt) =>
       item.kind == ScheduleItemKind.timeBlock
       ? ScheduleItem.timeBlock(
@@ -569,7 +527,6 @@ class _PlannerScreenState extends State<PlannerScreen>
     } on FormatException {
       return;
     }
-    final overlaps = overlappingScheduleItems(store.scheduleItems, updated);
     bool changed;
     try {
       changed = store.updateScheduleItem(updated, expectedRevision: revision);
@@ -579,32 +536,13 @@ class _PlannerScreenState extends State<PlannerScreen>
       return;
     }
     if (!changed) {
-      if (mounted) _snack(store.t['scheduleEditorStale']!);
       return;
     }
     final result = await store.flush(waitForReminders: false);
     if (!mounted) return;
     if (!result.success) {
-      _snack(store.t['scheduleEditorUnsaved']!);
       return;
     }
-    void undo() {
-      final current = store.scheduleRevision(item.id);
-      if (store.updateScheduleItem(item, expectedRevision: current)) {
-        store.flush(waitForReminders: false);
-      }
-    }
-
-    _afterSave(
-      store,
-      updated,
-      overlaps,
-      undo,
-      message: plannerFilled(store.t['scheduleMovedSnack']!, {
-        'time':
-            '${plannerClock(updated.startAt, _zone!)}–${plannerClock(updated.endAt, _zone!)}',
-      }),
-    );
   }
 
   /// Opens the plain edit form for [item].
@@ -612,51 +550,29 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (_editorOpen || store.hasStartupRecovery || !store.ready) return;
     setState(() => _editorOpen = true);
     try {
-      final before = item;
       final session = ScheduleEditSession.edit(
         store,
         item,
         displayZone: _zone!,
         revision: store.scheduleRevision(item.id),
       );
-      final saved = await showScheduleEditor(context, session);
-      if (saved == true && mounted) {
-        final after = store.scheduleItems
-            .where((candidate) => candidate.id == before.id)
-            .firstOrNull;
-        _afterSave(store, after ?? before, session.lastOverlaps, () {
-          final current = store.scheduleRevision(before.id);
-          if (store.updateScheduleItem(before, expectedRevision: current)) {
-            store.flush(waitForReminders: false);
-          }
-        });
-      }
+      await showScheduleEditor(context, session);
     } finally {
       if (mounted) setState(() => _editorOpen = false);
     }
   }
 
-  /// Deletes at once and offers undo; no confirmation step.
+  /// Deletes after one centered confirmation.
   Future<void> _deleteItem(Store store, ScheduleItem item) async {
     if (store.hasStartupRecovery || !store.ready) return;
     final revision = store.scheduleRevision(item.id);
+    final ok = await showScheduleDeleteConfirm(context, store.t);
+    if (ok != true || !mounted) return;
     if (!store.deleteScheduleItem(item.id, expectedRevision: revision)) {
       return;
     }
     setState(() => _selectedId = null);
-    final result = await store.flush(waitForReminders: false);
-    if (!mounted) return;
-    _snack(
-      result.success
-          ? store.t['scheduleDeleted']!
-          : store.t['scheduleEditorUnsaved']!,
-      undo: () {
-        if (!store.scheduleItems.any((i) => i.id == item.id)) {
-          store.addScheduleItem(item);
-          store.flush(waitForReminders: false);
-        }
-      },
-    );
+    await store.flush(waitForReminders: false);
   }
 
   /// New event from the pool's "+": opens the plain form with a free hour.
@@ -696,21 +612,7 @@ class _PlannerScreenState extends State<PlannerScreen>
           filter != null && store.boards.any((board) => board.id == filter)
           ? filter
           : store.activeBoardId;
-      final saved = await showScheduleEditor(context, session);
-      if (saved == true && mounted) {
-        final id = session.id;
-        _afterSave(
-          store,
-          session.original ?? store.scheduleItems.firstWhere((i) => i.id == id),
-          session.lastOverlaps,
-          () {
-            final current = store.scheduleRevision(id);
-            if (store.deleteScheduleItem(id, expectedRevision: current)) {
-              store.flush(waitForReminders: false);
-            }
-          },
-        );
-      }
+      await showScheduleEditor(context, session);
     } finally {
       if (mounted) setState(() => _editorOpen = false);
     }
@@ -1099,9 +1001,6 @@ class _PlannerScreenState extends State<PlannerScreen>
                                               day: _paintedDay!,
                                               scale: scale,
                                               vertical: _vertical,
-                                              horizontal: _horizontal,
-                                              moreTemplate:
-                                                  t['scheduleMoreCount']!,
                                               nowLabel: t['scheduleNow']!,
                                               hover: _hover,
                                               now:
@@ -1240,7 +1139,7 @@ class _PlannerScreenState extends State<PlannerScreen>
                       _finishPoolDrop(store, task, point, hover);
                     },
                   ),
-                  if (selectedEntry != null)
+                  if (selectedEntry != null && !_editorOpen)
                     Positioned(
                       left: 12,
                       right: 12,
@@ -1473,7 +1372,6 @@ class _PlannerScreenState extends State<PlannerScreen>
       return;
     }
     if (!store.tasks.any((task) => task.id == taskId)) {
-      _snack(store.t['scheduleTaskMissing']!);
       return;
     }
     final ScheduleItem item;
@@ -1487,14 +1385,11 @@ class _PlannerScreenState extends State<PlannerScreen>
         timeZoneId: _zone!,
       );
     } on ScheduleTimeException {
-      _snack(store.t['scheduleEditorGap']!);
       return;
     }
-    final overlaps = overlappingScheduleItems(store.scheduleItems, item);
     try {
       store.addScheduleItem(item);
     } on FormatException {
-      _snack(store.t['scheduleEditorInvalid']!);
       return;
     } on StateError {
       return;
@@ -1502,15 +1397,8 @@ class _PlannerScreenState extends State<PlannerScreen>
     final result = await store.flush(waitForReminders: false);
     if (!mounted) return;
     if (!result.success) {
-      _snack(store.t['scheduleEditorUnsaved']!);
       return;
     }
-    _afterSave(store, item, overlaps, () {
-      final revision = store.scheduleRevision(item.id);
-      if (store.deleteScheduleItem(item.id, expectedRevision: revision)) {
-        store.flush(waitForReminders: false);
-      }
-    });
   }
 
   /// Moves a week-list block to another day, keeping its clock time and length.
@@ -1534,7 +1422,7 @@ class _PlannerScreenState extends State<PlannerScreen>
       );
       _replaceTimes(store, item, start, start + item.endAt - item.startAt);
     } on ScheduleTimeException {
-      _snack(store.t['scheduleEditorGap']!);
+      return;
     }
   }
 

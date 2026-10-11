@@ -377,15 +377,19 @@ class _PlannerBlockState extends State<PlannerBlock> {
       onVerticalDragEnd: (_) => _end(),
       onVerticalDragCancel: _cancel,
       child: selected
-          ? Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Semantics(
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                // The whole edge drags, not just the knob: a thin line shows it.
+                Container(
+                  height: 2,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                Semantics(
                   label: edge,
                   child: _Handle(color: Theme.of(context).colorScheme.primary),
                 ),
-              ),
+              ],
             )
           : const SizedBox.expand(),
     );

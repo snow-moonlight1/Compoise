@@ -220,7 +220,7 @@ void main() {
       }
       await _tap(tester, _item('dst', date: scheduleDateLabel(date)));
       // The detail panel states the real elapsed time, never a raw duration.
-      expect(find.text('$hours h'), findsOneWidget);
+      expect(find.textContaining('$hours h'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -250,7 +250,6 @@ void main() {
         expect(_key('schedule-detail'), findsOneWidget);
         expect(find.textContaining(snapshot.tasks.first.title), findsWidgets);
         expect(tester.takeException(), isNull);
-        await _tap(tester, _key('schedule-next'));
         expect(tester.takeException(), isNull);
       },
     );
