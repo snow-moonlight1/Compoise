@@ -8,6 +8,7 @@ import 'helpers.dart';
 
 /// The task page and the planner pool read one library and one save path.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   Task task(String id, String title, {String board = 'b1', int q = qDo}) =>
       Task(id: id, boardId: board, title: title, quadrant: q, createdAt: 1);
 

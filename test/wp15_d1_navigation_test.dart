@@ -268,6 +268,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('edit-schedule-entry')));
     await tester.pumpAndSettle();
+    await skipGuide(tester);
 
     expect(find.byType(PlannerScreen), findsOneWidget);
     expect(find.byKey(const ValueKey('schedule-editor')), findsNothing);
@@ -298,6 +299,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('edit-schedule-entry')));
     await tester.pumpAndSettle();
+    await skipGuide(tester);
 
     expect(store.tasks.single.title, 'Alpha renamed');
     expect(find.byType(PlannerScreen), findsOneWidget);
@@ -332,6 +334,7 @@ void main() {
     failWrites = true;
     await tester.tap(find.byKey(const ValueKey('edit-schedule-entry')));
     await tester.pumpAndSettle();
+    await skipGuide(tester);
 
     expect(find.byType(PlannerScreen), findsNothing);
     expect(find.byType(TaskDetailPanel), findsOneWidget);

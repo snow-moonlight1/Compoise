@@ -74,7 +74,7 @@ void main() {
         of: find.byType(HomeBottomActions),
         matching: find.byType(NeuPressable),
       ),
-      findsNWidgets(3),
+      findsNWidgets(4),
     );
 
     await tester.pumpWidget(const SizedBox());

@@ -225,7 +225,10 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
         ),
         onPressed: _busy ? null : onTap,
         icon: Icon(icon ?? Icons.schedule, size: 18),
-        label: Text(text),
+        label: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: FittedBox(fit: BoxFit.scaleDown, child: Text(text)),
+        ),
       );
 
   @override
@@ -286,26 +289,23 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
               icon: Icons.event,
             ),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: _picker(
-                    const ValueKey('schedule-editor-start-time'),
-                    s.start.time.isEmpty
-                        ? t['schedulePickTime']!
-                        : '${t['scheduleStart']} ${s.start.time.substring(0, 5)}',
-                    () => _pickTime(s.start),
-                  ),
+                _picker(
+                  const ValueKey('schedule-editor-start-time'),
+                  s.start.time.isEmpty
+                      ? t['schedulePickTime']!
+                      : '${t['scheduleStart']} ${s.start.time.substring(0, 5)}',
+                  () => _pickTime(s.start),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _picker(
-                    const ValueKey('schedule-editor-end-time'),
-                    s.end.time.isEmpty
-                        ? t['schedulePickTime']!
-                        : '${t['scheduleEnd']} ${s.end.time.substring(0, 5)}',
-                    () => _pickTime(s.end),
-                  ),
+                _picker(
+                  const ValueKey('schedule-editor-end-time'),
+                  s.end.time.isEmpty
+                      ? t['schedulePickTime']!
+                      : '${t['scheduleEnd']} ${s.end.time.substring(0, 5)}',
+                  () => _pickTime(s.end),
                 ),
               ],
             ),
@@ -330,15 +330,16 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
                 ),
               ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 TextButton(
                   key: const ValueKey('schedule-editor-cancel'),
                   onPressed: _busy ? null : () => Navigator.pop(context, false),
                   child: Text(t['cancel']!),
                 ),
-                const SizedBox(width: 8),
                 FilledButton(
                   key: const ValueKey('schedule-editor-save'),
                   onPressed: _busy ? null : _save,
