@@ -45,7 +45,7 @@ void main() {
                   onDecomposeStart: () {},
                 ),
                 const TextField(decoration: InputDecoration(hintText: '下一步')),
-                HomeBottomActions(onSearch: () {}, onAdd: () {}, onSchedule: () {}, onMore: () {}),
+                HomeBottomActions(onSearch: () {}, onAdd: () {}, onMore: () {}),
               ],
             ),
           ),
@@ -74,7 +74,7 @@ void main() {
         of: find.byType(HomeBottomActions),
         matching: find.byType(NeuPressable),
       ),
-      findsNWidgets(4),
+      findsNWidgets(3),
     );
 
     await tester.pumpWidget(const SizedBox());
@@ -146,7 +146,6 @@ void main() {
             body: HomeBottomActions(
               onSearch: () => search += 1,
               onAdd: () => add += 1,
-              onSchedule: () {},
               onMore: () => more += 1,
             ),
           ),

@@ -380,11 +380,6 @@ class _PlannerBlockState extends State<PlannerBlock> {
           ? Stack(
               alignment: Alignment.center,
               children: [
-                // The whole edge drags, not just the knob: a thin line shows it.
-                Container(
-                  height: 2,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
                 Semantics(
                   label: edge,
                   child: _Handle(color: Theme.of(context).colorScheme.primary),

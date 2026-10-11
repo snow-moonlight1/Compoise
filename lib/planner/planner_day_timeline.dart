@@ -51,8 +51,11 @@ class PlannerDayTimeline extends StatelessWidget {
     this.onPoolMove,
     this.onPoolAccept,
     this.now,
+    this.bottomInset = 0,
   });
 
+  /// Space under the grid for the folded pool bar, so 23:00 stays reachable.
+  final double bottomInset;
   final String? emptyLabel;
   final ScheduleDayLayout day;
   final double scale;
@@ -102,6 +105,7 @@ class PlannerDayTimeline extends StatelessWidget {
           child: SingleChildScrollView(
             key: const ValueKey('schedule-scroll'),
             controller: vertical,
+            padding: EdgeInsets.only(bottom: bottomInset),
             child: Builder(
               builder: (dropContext) {
                 if (onPoolAccept == null) {

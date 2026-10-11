@@ -129,14 +129,12 @@ class HomeActionButton extends StatelessWidget {
 class HomeBottomActions extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onAdd;
-  final VoidCallback onSchedule;
   final VoidCallback onMore;
 
   const HomeBottomActions({
     super.key,
     required this.onSearch,
     required this.onAdd,
-    required this.onSchedule,
     required this.onMore,
   });
 
@@ -170,13 +168,6 @@ class HomeBottomActions extends StatelessWidget {
               accentIcon: true,
             ),
             HomeActionButton(
-              buttonKey: const ValueKey('schedule-btn'),
-              icon: Icons.calendar_month_outlined,
-              label: t['scheduleNavLabel'] ?? 'Schedule',
-              onPressed: onSchedule,
-              expanded: true,
-            ),
-            HomeActionButton(
               buttonKey: const ValueKey('more-btn'),
               icon: Icons.more_horiz,
               label: t['more'] ?? 'More',
@@ -194,7 +185,6 @@ class HomeHeaderActions extends StatelessWidget {
   final bool compact;
   final VoidCallback onSearch;
   final VoidCallback onAdd;
-  final VoidCallback onSchedule;
   final VoidCallback onMore;
 
   const HomeHeaderActions({
@@ -202,7 +192,6 @@ class HomeHeaderActions extends StatelessWidget {
     required this.compact,
     required this.onSearch,
     required this.onAdd,
-    required this.onSchedule,
     required this.onMore,
   });
 
@@ -226,13 +215,6 @@ class HomeHeaderActions extends StatelessWidget {
           compact: compact,
           onPressed: onAdd,
           accentIcon: true,
-        ),
-        HomeActionButton(
-          buttonKey: const ValueKey('schedule-btn'),
-          icon: Icons.calendar_month_outlined,
-          label: t['scheduleNavLabel'] ?? 'Schedule',
-          compact: compact,
-          onPressed: onSchedule,
         ),
         HomeActionButton(
           buttonKey: const ValueKey('more-btn'),

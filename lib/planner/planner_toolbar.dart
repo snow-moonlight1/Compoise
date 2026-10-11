@@ -23,6 +23,7 @@ class PlannerToolbar extends StatelessWidget {
     required this.onNext,
     required this.onPickDate,
     required this.onToday,
+    required this.showToday,
     required this.onView,
     required this.onFilter,
     this.onZone,
@@ -41,6 +42,9 @@ class PlannerToolbar extends StatelessWidget {
   final VoidCallback? onNext;
   final VoidCallback onPickDate;
   final VoidCallback onToday;
+
+  /// Only when the viewed day or week does not contain today.
+  final bool showToday;
   final ValueChanged<PlannerView> onView;
   final VoidCallback onFilter;
   final VoidCallback? onZone;
@@ -69,8 +73,8 @@ class PlannerToolbar extends StatelessWidget {
         width: double.infinity,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Arrows only where there is room; on a phone the date strip and a
-            // sideways swipe change the week instead.
+            // Arrows only where there is room; on a phone a sideways swipe on
+            // the day, the date strip and the date picker move around.
             final arrows = constraints.maxWidth >= 480;
             final shrink = scale > 1.3;
             final row = Row(
@@ -93,8 +97,6 @@ class PlannerToolbar extends StatelessWidget {
                     if (value == 'zone') onZone?.call();
                     if (value == 'filter') onFilter();
                     if (value == 'guide') onGuide?.call();
-                    if (value == 'previous') onPrevious?.call();
-                    if (value == 'next') onNext?.call();
                   },
                   itemBuilder: (context) => [
                     PopupMenuItem<String>(
@@ -112,18 +114,6 @@ class PlannerToolbar extends StatelessWidget {
                         key: const ValueKey('schedule-filter'),
                       ),
                     ),
-                    if (!arrows) ...[
-                      PopupMenuItem<String>(
-                        value: 'previous',
-                        enabled: canPrevious,
-                        child: Text(previousTip),
-                      ),
-                      PopupMenuItem<String>(
-                        value: 'next',
-                        enabled: canNext,
-                        child: Text(nextTip),
-                      ),
-                    ],
                     if (onGuide != null)
                       PopupMenuItem<String>(
                         value: 'guide',
@@ -134,41 +124,60 @@ class PlannerToolbar extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (arrows)
-                  _step(
-                    key: const ValueKey('schedule-previous'),
-                    tooltip: previousTip,
-                    onPressed: canPrevious ? onPrevious : null,
-                    icon: Icons.chevron_left,
-                  ),
-                _fit(
-                  shrink,
-                  TextButton(
-                    key: const ValueKey('schedule-date'),
-                    onPressed: onPickDate,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _fit(
-                          shrink,
-                          Text(
-                            dateLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                _group(shrink, [
+                  if (arrows)
+                    _step(
+                      key: const ValueKey('schedule-previous'),
+                      tooltip: previousTip,
+                      onPressed: canPrevious ? onPrevious : null,
+                      icon: Icons.chevron_left,
+                    ),
+                  _fit(
+                    shrink,
+                    TextButton(
+                      key: const ValueKey('schedule-date'),
+                      onPressed: onPickDate,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _fit(
+                            shrink,
+                            Text(
+                              dateLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.arrow_drop_down),
-                      ],
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                if (arrows)
-                  _step(
-                    key: const ValueKey('schedule-next'),
-                    tooltip: nextTip,
-                    onPressed: canNext ? onNext : null,
-                    icon: Icons.chevron_right,
-                  ),
+                  if (arrows)
+                    _step(
+                      key: const ValueKey('schedule-next'),
+                      tooltip: nextTip,
+                      onPressed: canNext ? onNext : null,
+                      icon: Icons.chevron_right,
+                    ),
+                  if (showToday)
+                    _fit(
+                      shrink,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2, right: 2),
+                        child: ActionChip(
+                          key: const ValueKey('schedule-today'),
+                          label: Text(t['scheduleBackToday']!),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          labelPadding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                          ),
+                          onPressed: onToday,
+                        ),
+                      ),
+                    ),
+                ]),
                 _chip(
                   const ValueKey('schedule-mode-day'),
                   t['scheduleDayShort']!,
@@ -180,15 +189,6 @@ class PlannerToolbar extends StatelessWidget {
                   t['scheduleWeekShort']!,
                   view == PlannerView.week,
                   () => onView(PlannerView.week),
-                ),
-                TextButton(
-                  key: const ValueKey('schedule-today'),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(40, 40),
-                  ),
-                  onPressed: onToday,
-                  child: Text(t['today']!),
                 ),
                 const SizedBox(width: plannerPageMargin - 8),
               ],
@@ -206,6 +206,10 @@ class PlannerToolbar extends StatelessWidget {
       ),
     );
   }
+
+  Widget _group(bool shrink, List<Widget> children) => shrink
+      ? Row(mainAxisSize: MainAxisSize.min, children: children)
+      : Expanded(child: Row(children: children));
 
   Widget _fit(bool shrink, Widget child) =>
       shrink ? child : Flexible(child: child);

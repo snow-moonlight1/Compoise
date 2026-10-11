@@ -6,6 +6,7 @@ import 'models.dart';
 const Map<Language, Map<String, String>> _dicts = {
   Language.en: {
     'scheduleNavLabel': 'Schedule',
+    'scheduleBackToday': 'Back to today',
     'scheduleNavTasks': 'Tasks',
     'scheduleOverlapSnack': 'Overlaps "{title}" - shown side by side',
     'scheduleOverlapBadge': 'Same time as {n} other',
@@ -915,6 +916,7 @@ const Map<Language, Map<String, String>> _dicts = {
   },
   Language.zh: {
     'scheduleNavLabel': '日程',
+    'scheduleBackToday': '回到今天',
     'scheduleNavTasks': '任务',
     'scheduleOverlapSnack': '与「{title}」时间重叠，已并排显示',
     'scheduleOverlapBadge': '与另 {n} 项同时',
@@ -1704,6 +1706,7 @@ const Map<Language, Map<String, String>> _dicts = {
   },
   Language.ja: {
     'scheduleNavLabel': '予定',
+    'scheduleBackToday': '今日に戻る',
     'scheduleNavTasks': 'タスク',
     'scheduleOverlapSnack': '「{title}」と時間が重なっています。並べて表示します',
     'scheduleOverlapBadge': 'ほか {n} 件と同時',

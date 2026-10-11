@@ -10,6 +10,7 @@ import '../planner/planner_date_strip.dart';
 import '../planner/planner_detail_card.dart';
 import '../planner/planner_guide.dart';
 import '../planner/planner_guide_flag.dart';
+import '../planner/planner_day_swipe.dart';
 import '../planner/planner_day_timeline.dart';
 import '../planner/planner_labels.dart';
 import '../planner/planner_pinch.dart';
@@ -54,6 +55,7 @@ class PlannerScreen extends StatefulWidget {
     this.initialTaskId,
     this.startTimeBlock = false,
     this.autoGuide = false,
+    this.embedded = false,
     this.now,
   }) : assert(store == null || snapshot == null);
 
@@ -79,6 +81,9 @@ class PlannerScreen extends StatefulWidget {
 
   /// Shows the first-visit guide once. Off for embedded and test mounts.
   final bool autoGuide;
+
+  /// A main tab of the home page: a peer of the task board, so no back arrow.
+  final bool embedded;
   final DateTime Function()? now;
 
   @override
@@ -921,6 +926,9 @@ class _PlannerScreenState extends State<PlannerScreen>
                         onPrevious: () => _navigate(-1),
                         onNext: () => _navigate(1),
                         onPickDate: () => _pickDate(t),
+                        showToday: _view == PlannerView.day
+                            ? !_sameDate(_today(), _date)
+                            : !week.any((d) => _sameDate(d, _today())),
                         onToday: () {
                           final today = _today();
                           if (_sameDate(today, _date)) return;
@@ -934,7 +942,7 @@ class _PlannerScreenState extends State<PlannerScreen>
                         onZone: _zoneController == null
                             ? null
                             : () => _chooseZone(_zoneController!, t),
-                        onBack: Navigator.canPop(context)
+                        onBack: !widget.embedded && Navigator.canPop(context)
                             ? () => Navigator.maybePop(context)
                             : null,
                         onGuide: () =>
@@ -978,6 +986,22 @@ class _PlannerScreenState extends State<PlannerScreen>
                             child: Text(t['scheduleEditorRetry']!),
                           ),
                         ),
+                      if (_view == PlannerView.day)
+                        PlannerDateStrip(
+                          monday: monday,
+                          selected: _date,
+                          marked: _markedDays(entries, zone),
+                          t: t,
+                          language: data.settings.language,
+                          onSelect: (date) {
+                            if (_sameDate(date, _date)) return;
+                            _present(
+                              date: date,
+                              x: _isAfter(date, _date) ? 0.22 : -0.22,
+                            );
+                          },
+                          onWeek: (direction) => _shift(direction * 7),
+                        ),
                       Expanded(
                         child: ClipRect(
                           child: AnimatedBuilder(
@@ -997,27 +1021,6 @@ class _PlannerScreenState extends State<PlannerScreen>
                             },
                             child: Column(
                               children: [
-                                if (_view == PlannerView.day)
-                                  PlannerDateStrip(
-                                    monday: monday,
-                                    selected: _date,
-                                    marked: {
-                                      for (final day in layouts)
-                                        if (day.placements.isNotEmpty)
-                                          scheduleDateLabel(day.date),
-                                    },
-                                    t: t,
-                                    language: data.settings.language,
-                                    onSelect: (date) {
-                                      if (_sameDate(date, _date)) return;
-                                      _present(
-                                        date: date,
-                                        x: _isAfter(date, _date) ? 0.22 : -0.22,
-                                      );
-                                    },
-                                    onWeek: (direction) =>
-                                        _shift(direction * 7),
-                                  ),
                                 Expanded(
                                   child: KeyedSubtree(
                                     key: _viewportKey,
@@ -1029,40 +1032,44 @@ class _PlannerScreenState extends State<PlannerScreen>
                                           ? () => _setView(PlannerView.day)
                                           : null,
                                       child: _view == PlannerView.day
-                                          ? PlannerDayTimeline(
-                                              day: _paintedDay!,
-                                              scale: scale,
-                                              vertical: _vertical,
-                                              nowLabel: t['scheduleNow']!,
-                                              hover: _hover,
-                                              now:
-                                                  widget.now?.call() ??
-                                                  DateTime.now(),
-                                              selectedId: _selectedId,
-                                              emptyLabel:
-                                                  entries.isEmpty ||
-                                                      _paintedDay!
-                                                          .placements
-                                                          .isEmpty
-                                                  ? t['scheduleEmptyHint']
-                                                  : null,
-                                              onGridTap: (_) => _deselect(),
-                                              onPoolMove: _setHoverFromContent,
-                                              onPoolAccept: liveStore == null
-                                                  ? null
-                                                  : (taskId, dy) {
-                                                      final day = _paintedDay;
-                                                      if (day == null) return;
-                                                      _hover.value = null;
-                                                      _placeTask(
-                                                        liveStore,
-                                                        taskId,
-                                                        _wallAt(day, dy),
-                                                      );
-                                                    },
-                                              block: (placement) => blockFor(
-                                                _paintedDay!,
-                                                placement,
+                                          ? PlannerDaySwipe(
+                                              onSwipe: _shift,
+                                              child: PlannerDayTimeline(
+                                                day: _paintedDay!,
+                                                scale: scale,
+                                                vertical: _vertical,
+                                                nowLabel: t['scheduleNow']!,
+                                                hover: _hover,
+                                                now:
+                                                    widget.now?.call() ??
+                                                    DateTime.now(),
+                                                selectedId: _selectedId,
+                                                emptyLabel:
+                                                    entries.isEmpty ||
+                                                        _paintedDay!
+                                                            .placements
+                                                            .isEmpty
+                                                    ? t['scheduleEmptyHint']
+                                                    : null,
+                                                onGridTap: (_) => _deselect(),
+                                                onPoolMove:
+                                                    _setHoverFromContent,
+                                                onPoolAccept: liveStore == null
+                                                    ? null
+                                                    : (taskId, dy) {
+                                                        final day = _paintedDay;
+                                                        if (day == null) return;
+                                                        _hover.value = null;
+                                                        _placeTask(
+                                                          liveStore,
+                                                          taskId,
+                                                          _wallAt(day, dy),
+                                                        );
+                                                      },
+                                                block: (placement) => blockFor(
+                                                  _paintedDay!,
+                                                  placement,
+                                                ),
                                               ),
                                             )
                                           : GestureDetector(
@@ -1200,6 +1207,25 @@ class _PlannerScreenState extends State<PlannerScreen>
         ),
       ),
     );
+  }
+
+  /// Every local day that has an item, for the dots under the date strip.
+  Set<String> _markedDays(List<ScheduleEntry> entries, String zone) {
+    final days = <String>{};
+    for (final entry in entries) {
+      final a = scheduleLocalTime(entry.item.startAt, zone);
+      // An item ending exactly at midnight does not touch the next day.
+      final b = scheduleLocalTime(entry.item.endAt - 1, zone);
+      var day = ScheduleCivilDate(a.year, a.month, a.day);
+      final last = scheduleDateLabel(ScheduleCivilDate(b.year, b.month, b.day));
+      for (var i = 0; i < 62; i++) {
+        final label = scheduleDateLabel(day);
+        days.add(label);
+        if (label == last) break;
+        day = day.addDays(1);
+      }
+    }
+    return days;
   }
 
   GlobalKey _dropKey(String label) =>

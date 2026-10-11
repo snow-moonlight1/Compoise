@@ -129,7 +129,7 @@ void main() {
             body: HomeBottomActions(
               onSearch: () {},
               onAdd: () {},
-              onSchedule: () {},
+             
               onMore: () {},
             ),
           ),
