@@ -233,6 +233,7 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (_zone == null) return;
     _startedPreselectedBlock = true;
     if (!store.tasks.any((task) => task.id == taskId)) {
+      _fail(store.t['scheduleTaskMissing']!);
       return;
     }
     await _revealTask(store, taskId);
@@ -338,6 +339,28 @@ class _PlannerScreenState extends State<PlannerScreen>
     }
     _vertical.jumpTo(
       target.clamp(0.0, _vertical.position.maxScrollExtent).toDouble(),
+    );
+  }
+
+  /// Failure message: one at a time, gone after ~4 s or on the close icon, no
+  /// undo, floating above the pool bar and the selection bar. While a dialog is
+  /// up its own inline text carries the error instead.
+  void _fail(String message) {
+    if (!mounted || _editorOpen) return;
+    final height = MediaQuery.sizeOf(context).height;
+    final sheet = _pool.isAttached ? _pool.pixels : _poolMin * height;
+    final bar = _selectedId == null ? 0.0 : 64.0;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        key: const ValueKey('schedule-error'),
+        behavior: SnackBarBehavior.floating,
+        showCloseIcon: true,
+        duration: const Duration(seconds: 4),
+        margin: EdgeInsets.fromLTRB(16, 0, 16, sheet + bar + 12),
+        content: Text(message),
+      ),
     );
   }
 
@@ -492,7 +515,10 @@ class _PlannerScreenState extends State<PlannerScreen>
     ScheduleEditMode mode,
     int minutes,
   ) async {
-    if (store.hasStartupRecovery || !store.ready) return;
+    if (store.hasStartupRecovery || !store.ready) {
+      _fail(store.t['scheduleRecovery']!);
+      return;
+    }
     final delta = minutes * Duration.millisecondsPerMinute;
     const min = 15 * Duration.millisecondsPerMinute;
     final start = switch (mode) {
@@ -525,23 +551,27 @@ class _PlannerScreenState extends State<PlannerScreen>
     try {
       updated = _withTimes(item, start, end);
     } on FormatException {
+      _fail(store.t['scheduleEditorInvalid']!);
       return;
     }
     bool changed;
     try {
       changed = store.updateScheduleItem(updated, expectedRevision: revision);
     } on StateError {
+      _fail(store.t['scheduleEditorStale']!);
       return;
     } on FormatException {
+      _fail(store.t['scheduleEditorInvalid']!);
       return;
     }
     if (!changed) {
+      _fail(store.t['scheduleEditorStale']!);
       return;
     }
     final result = await store.flush(waitForReminders: false);
     if (!mounted) return;
     if (!result.success) {
-      return;
+      _fail(store.t['scheduleEditorUnsaved']!);
     }
   }
 
@@ -569,10 +599,12 @@ class _PlannerScreenState extends State<PlannerScreen>
     final ok = await showScheduleDeleteConfirm(context, store.t);
     if (ok != true || !mounted) return;
     if (!store.deleteScheduleItem(item.id, expectedRevision: revision)) {
+      _fail(store.t['scheduleDeleteFailed']!);
       return;
     }
     setState(() => _selectedId = null);
-    await store.flush(waitForReminders: false);
+    final result = await store.flush(waitForReminders: false);
+    if (mounted && !result.success) _fail(store.t['scheduleDeleteFailed']!);
   }
 
   /// New event from the pool's "+": opens the plain form with a free hour.
@@ -1372,6 +1404,7 @@ class _PlannerScreenState extends State<PlannerScreen>
       return;
     }
     if (!store.tasks.any((task) => task.id == taskId)) {
+      _fail(store.t['scheduleTaskMissing']!);
       return;
     }
     final ScheduleItem item;
@@ -1385,19 +1418,22 @@ class _PlannerScreenState extends State<PlannerScreen>
         timeZoneId: _zone!,
       );
     } on ScheduleTimeException {
+      _fail(store.t['scheduleEditorGap']!);
       return;
     }
     try {
       store.addScheduleItem(item);
     } on FormatException {
+      _fail(store.t['scheduleDropFailed']!);
       return;
     } on StateError {
+      _fail(store.t['scheduleDropFailed']!);
       return;
     }
     final result = await store.flush(waitForReminders: false);
     if (!mounted) return;
     if (!result.success) {
-      return;
+      _fail(store.t['scheduleEditorUnsaved']!);
     }
   }
 
@@ -1422,7 +1458,7 @@ class _PlannerScreenState extends State<PlannerScreen>
       );
       _replaceTimes(store, item, start, start + item.endAt - item.startAt);
     } on ScheduleTimeException {
-      return;
+      _fail(store.t['scheduleEditorGap']!);
     }
   }
 

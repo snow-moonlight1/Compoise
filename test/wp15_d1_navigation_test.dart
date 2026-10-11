@@ -351,7 +351,7 @@ void main() {
     await finish(tester, store);
   });
 
-  testWidgets('a deleted parent task opens nothing and shows no toast', (
+  testWidgets('a deleted parent task reports the missing target', (
     tester,
   ) async {
     final store = await c2Store();
@@ -377,8 +377,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // No toast: the page just stays put and opens no editor.
-    expect(find.byType(SnackBar), findsNothing);
+    // A missing task is a failure: say so, and open no editor.
+    expect(find.text(store.t['scheduleTaskMissing']!), findsOneWidget);
     expect(find.byKey(const ValueKey('schedule-editor')), findsNothing);
     await finish(tester, store);
   });

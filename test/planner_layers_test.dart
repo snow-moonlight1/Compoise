@@ -5,6 +5,8 @@ import 'package:matrixflow_native/schedule_time.dart';
 import 'package:matrixflow_native/widgets/schedule_layout.dart';
 
 import 'package:matrixflow_native/screens/planner_screen.dart';
+import 'package:matrixflow_native/save_protocol.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'wp15_c2_test_support.dart';
 
 /// At most one floating layer is ever up: a dialog, the selection bar, or the
@@ -89,6 +91,100 @@ void main() {
       (w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal,
     );
     expect(horizontal, findsNothing);
+    await c2Finish(tester, store);
+  });
+
+  Future<void> resizeEnd(WidgetTester tester) async {
+    await c2Tap(tester, c2Key(block));
+    final handle = c2Key('schedule-handle-2026-09-30-block-resizeEnd');
+    final g = await tester.startGesture(tester.getCenter(handle));
+    await g.moveBy(const Offset(0, 24));
+    await tester.pump();
+    await g.moveBy(const Offset(0, 66));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+  }
+
+  testWidgets('a failed save says so once, then goes away by itself', (
+    tester,
+  ) async {
+    var fail = false;
+    final store = await c2Store(
+      items: [c1Items().first],
+      writer: (key, value) async {
+        if (fail && key == SaveProtocol.pointerKey) return false;
+        return (await SharedPreferences.getInstance()).setString(key, value);
+      },
+    );
+    await c2Pump(tester, store, size: size);
+    fail = true;
+    await resizeEnd(tester);
+    expect(find.text(store.t['scheduleEditorUnsaved']!), findsOneWidget);
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('Undo'), findsNothing);
+    // The message sits above the selection bar, not on top of it.
+    final bar = tester.getRect(c2Key('schedule-detail'));
+    final toast = tester.getRect(find.text(store.t['scheduleEditorUnsaved']!));
+    expect(toast.bottom, lessThanOrEqualTo(bar.top));
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+    await c2Finish(tester, store);
+  });
+
+  testWidgets('a failed delete says so; a successful one is silent', (
+    tester,
+  ) async {
+    var fail = false;
+    final store = await c2Store(
+      items: [c1Items().first],
+      writer: (key, value) async {
+        if (fail && key == SaveProtocol.pointerKey) return false;
+        return (await SharedPreferences.getInstance()).setString(key, value);
+      },
+    );
+    await c2Pump(tester, store, size: size);
+    await c2Tap(tester, c2Key(block));
+    fail = true;
+    await c2Tap(tester, c2Key('schedule-detail-delete'));
+    await c2Tap(tester, c2Key('schedule-delete-submit'));
+    expect(find.text(store.t['scheduleDeleteFailed']!), findsOneWidget);
+    expect(find.byType(SnackBar), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+    await c2Finish(tester, store);
+  });
+
+  testWidgets('a successful resize shows nothing', (tester) async {
+    final store = await c2Store(items: [c1Items().first]);
+    await c2Pump(tester, store, size: size);
+    await resizeEnd(tester);
+    expect(find.byType(SnackBar), findsNothing);
+    await c2Finish(tester, store);
+  });
+
+  testWidgets('a bad time stays inside the dialog as plain text', (
+    tester,
+  ) async {
+    final store = await c2Store(items: [c1Items().first]);
+    await c2Pump(tester, store, size: size);
+    await c2Tap(tester, c2Key(block));
+    await c2Tap(tester, c2Key('schedule-detail-edit'));
+    await c2Text(tester, 'schedule-editor-start-time', '10:00');
+    await c2Text(tester, 'schedule-editor-end-time', '09:00');
+    await c2Tap(tester, c2Key('schedule-editor-save'));
+    expect(c2Key('schedule-editor'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: c2Key('schedule-editor'),
+        matching: find.text(store.t['scheduleEditorEndBeforeStart']!),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(SnackBar), findsNothing);
+    await c2Tap(tester, c2Key('schedule-editor-cancel'));
     await c2Finish(tester, store);
   });
 
