@@ -1815,6 +1815,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (neu == null) {
       return ChoiceChip(
         key: key,
+        showCheckmark: false,
         label: label,
         selected: selected,
         onSelected: onSelected,

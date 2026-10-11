@@ -371,6 +371,19 @@ class _PlannerScreenState extends State<PlannerScreen>
 
   bool _foldingPool = false;
 
+  /// Folds the pool to its bar: eased, quick, and instant under "reduce motion".
+  Future<void> _foldPool() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pool.jumpTo(_poolMin);
+      return Future<void>.value();
+    }
+    return _pool.animateTo(
+      _poolMin,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   /// Expanding the pool drops the selection, so only one of them is ever up.
   void _poolMoved() {
     if (_foldingPool || _selectedId == null || !_pool.isAttached) return;
@@ -388,13 +401,7 @@ class _PlannerScreenState extends State<PlannerScreen>
     setState(() => _selectedId = id);
     if (_pool.isAttached && _pool.size > _poolMin + 0.02) {
       _foldingPool = true;
-      _pool
-          .animateTo(
-            _poolMin,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-          )
-          .whenComplete(() => _foldingPool = false);
+      _foldPool().whenComplete(() => _foldingPool = false);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _revealSelected());
   }
@@ -1149,13 +1156,7 @@ class _PlannerScreenState extends State<PlannerScreen>
                       if (_selectedId != null) {
                         setState(() => _selectedId = null);
                       }
-                      if (_pool.isAttached) {
-                        _pool.animateTo(
-                          _poolMin,
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                        );
-                      }
+                      if (_pool.isAttached) _foldPool();
                     },
                     onDragUpdate: (_, global) {
                       _poolPointer = global;

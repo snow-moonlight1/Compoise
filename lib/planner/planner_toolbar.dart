@@ -93,6 +93,14 @@ class PlannerToolbar extends StatelessWidget {
                   key: const ValueKey('schedule-menu'),
                   tooltip: t['scheduleMenu'],
                   icon: const Icon(Icons.menu),
+                  popUpAnimationStyle: MediaQuery.disableAnimationsOf(context)
+                      ? AnimationStyle.noAnimation
+                      : AnimationStyle(
+                          curve: Curves.easeOutCubic,
+                          reverseCurve: Curves.easeInCubic,
+                          duration: const Duration(milliseconds: 180),
+                          reverseDuration: const Duration(milliseconds: 120),
+                        ),
                   onSelected: (value) {
                     if (value == 'zone') onZone?.call();
                     if (value == 'filter') onFilter();

@@ -100,3 +100,11 @@
 - 周视图每天的标签行距随条数自适应，没有横向滚动，也没有折叠；今天高亮保留。
 - 桌面宽窗口下切换条限宽 560dp 居中，避免整屏拉伸。
 - 顶栏：日期标题可省略，「回到今天」胶囊只在需要时占位；大字体下整行等比缩小。
+
+## Round 6
+
+- **Week axis**: seven circles split the axis into eight equal parts (circle *i* at i/8 of the visible height, under the header and above the pool bar). Each row is at least one slot tall with the circle at the row's vertical centre; a day with many labels grows its own row and the page scrolls. Line runs the full height.
+- **Text centring**: week labels and day-block text are left-aligned and vertically centred; the drag preview shows the live title and times; a block under ~40dp shows one line "title time" (ellipsis, no overflow).
+- **Motion**: pool open/close uses easeOutCubic (280ms; 220ms when folded by selecting a block). Dragging follows the finger without a curve. The ☰ menu uses easeOutCubic 180ms / 120ms out. "Reduce motion" makes all of these instant.
+- **Add-mode buttons**: three equal slots in one row, selection is colour only (no check mark), so size/position/dialog height never change. Other ChoiceChips (deadline presets, quadrant picker, settings) also no longer show a check mark.
+- **Pool bar → opened**: the dots and counts are one shared layer driven by the sheet height; they glide from the folded bar to their quadrant tab while the two headers cross-fade.

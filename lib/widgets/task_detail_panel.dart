@@ -1037,6 +1037,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                               children: [
                                 for (final q in allQuadrants)
                                   ChoiceChip(
+          showCheckmark: false,
                                     label: Text(t['q$q']!),
                                     selected: _draft.quadrant == q,
                                     onSelected: (_) {

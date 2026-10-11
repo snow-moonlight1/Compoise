@@ -66,8 +66,11 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
           final scale = widget.scale;
           final headerH = 56 * scale;
           final inset = math.max(0.0, widget.bottomInset) + 8;
-          final rowHeight = 72 * scale;
           final lineColor = theme.colorScheme.outlineVariant;
+          // Seven circles split the axis into eight equal parts: circle i sits
+          // at i/8 of the visible height. A day with many labels grows its
+          // own row and the page scrolls instead.
+          final slot = plannerWeekSlot(constraints.maxHeight, headerH, inset);
           return CustomScrollView(
             key: const ValueKey('schedule-scroll'),
             controller: widget.vertical,
@@ -82,32 +85,31 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
                 ),
               ),
               SliverToBoxAdapter(
-                child: Column(
+                child: Stack(
                   children: [
-                    for (var i = 0; i < widget.days.length; i++)
-                      _row(
-                        widget.days[i],
-                        theme,
-                        today,
-                        rowHeight,
-                        first: i == 0,
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          key: const ValueKey('schedule-week-axis'),
+                          painter: PlannerWeekAxisPainter(
+                            x: plannerWeekAxisX(),
+                            from: 0,
+                            to: null,
+                            color: lineColor,
+                          ),
+                        ),
                       ),
+                    ),
+                    Column(
+                      key: const ValueKey('schedule-week-rows'),
+                      children: [
+                        SizedBox(height: slot / 2),
+                        for (var i = 0; i < widget.days.length; i++)
+                          _row(widget.days[i], theme, today, slot),
+                        SizedBox(height: slot / 2 + inset),
+                      ],
+                    ),
                   ],
-                ),
-              ),
-              // Fills whatever is left down to the pool bar, so the axis runs
-              // to the bottom instead of stopping above an empty band.
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: CustomPaint(
-                  key: const ValueKey('schedule-week-axis-fill'),
-                  painter: PlannerWeekAxisPainter(
-                    x: plannerWeekAxisX(),
-                    from: 0,
-                    to: null,
-                    color: lineColor,
-                  ),
-                  child: SizedBox(width: double.infinity, height: inset),
                 ),
               ),
             ],
@@ -134,9 +136,8 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
     ScheduleDayLayout day,
     ThemeData theme,
     String today,
-    double minHeight, {
-    required bool first,
-  }) {
+    double minHeight,
+  ) {
     return _DayRow(
       day: day,
       theme: theme,
@@ -144,7 +145,6 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
       t: widget.t,
       today: scheduleDateLabel(day.date) == today,
       minHeight: minHeight,
-      first: first,
       block: widget.block,
       onOpenDay: () => widget.onOpenDay(day.date),
       dropKey: widget.dropKey(scheduleDateLabel(day.date)),
@@ -161,7 +161,6 @@ class _DayRow extends StatelessWidget {
     required this.t,
     required this.today,
     required this.minHeight,
-    required this.first,
     required this.block,
     required this.onOpenDay,
     required this.dropKey,
@@ -174,7 +173,6 @@ class _DayRow extends StatelessWidget {
   final Map<String, String> t;
   final bool today;
   final double minHeight;
-  final bool first;
   final Widget Function(ScheduleDayLayout day, SchedulePlacement placement)
   block;
   final VoidCallback onOpenDay;
@@ -204,76 +202,57 @@ class _DayRow extends StatelessWidget {
         plannerPageMargin,
         plannerWeekRowPad,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: plannerWeekdayWidth,
-                child: InkWell(
-                  onTap: onOpenDay,
-                  canRequestFocus: false,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      weekday,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.fade,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                ),
-              ),
-              _node(theme),
-              const SizedBox(width: 8),
-              Expanded(child: _chips(context)),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(
-              left: plannerWeekdayWidth + plannerNodeSize + 8,
-              top: 2,
-            ),
+          SizedBox(
+            width: plannerWeekdayWidth,
             child: InkWell(
               onTap: onOpenDay,
               canRequestFocus: false,
               child: Text(
-                summary,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                weekday,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.fade,
+                style: theme.textTheme.bodySmall,
               ),
+            ),
+          ),
+          _node(theme),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _chips(context),
+                InkWell(
+                  onTap: onOpenDay,
+                  canRequestFocus: false,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: day.placements.isEmpty ? 0 : 4,
+                    ),
+                    child: Text(
+                      summary,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
-    // The axis segment of this row runs through the node's centre. Rows butt
-    // against each other, so the line is continuous.
+    // Rows are at least one slot tall and keep the circle in the middle of the
+    // row, so with little content the circles fall on the eighths.
     final row = ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                key: ValueKey('schedule-week-axis-$label'),
-                painter: PlannerWeekAxisPainter(
-                  x: plannerWeekAxisX(),
-                  from: first ? plannerWeekNodeCenterY : 0,
-                  to: null,
-                  color: theme.colorScheme.outlineVariant,
-                ),
-              ),
-            ),
-          ),
-          content,
-        ],
-      ),
+      child: Center(heightFactor: 1, child: content),
     );
     if (onScheduleDrop == null) return row;
     return KeyedSubtree(
@@ -319,7 +298,7 @@ class _DayRow extends StatelessWidget {
   /// Labels are as wide as their text (up to the row) and sit side by side;
   /// a label that does not fit the line wraps to the next one.
   Widget _chips(BuildContext context) {
-    if (day.placements.isEmpty) return const SizedBox(height: 40);
+    if (day.placements.isEmpty) return const SizedBox.shrink();
     final style = theme.textTheme.labelMedium;
     final scaler = MediaQuery.textScalerOf(context);
     return LayoutBuilder(
@@ -374,8 +353,10 @@ const plannerWeekRowPad = 6.0;
 double plannerWeekAxisX() =>
     plannerPageMargin + plannerWeekdayWidth + plannerNodeSize / 2;
 
-/// Vertical centre of a circle inside its row.
-const plannerWeekNodeCenterY = plannerWeekRowPad + plannerNodeSize / 2;
+/// Height of one eighth of the axis: the visible week area under the header,
+/// above the pool bar.
+double plannerWeekSlot(double viewport, double header, double inset) =>
+    math.max(0.0, viewport - header - inset) / 8;
 
 /// Vertical hairline at [x] from [from] down to [to] (the bottom when null).
 class PlannerWeekAxisPainter extends CustomPainter {

@@ -201,61 +201,87 @@ class _PlannerBlockState extends State<PlannerBlock> {
         ? theme.colorScheme.onSurfaceVariant
         : theme.colorScheme.onSurface;
     final body = compact
-        ? Text(
-            '${plannerClock(slice.startAt, widget.zone)} ${entry.title}',
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelMedium?.copyWith(color: textColor),
+        ? Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${plannerClock(slice.startAt, widget.zone)} ${entry.title}',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(color: textColor),
+            ),
           )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(
-                entry.title,
-                maxLines: tall ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: textColor,
-                  decoration: entry.completed
-                      ? TextDecoration.lineThrough
-                      : null,
-                ),
-              ),
-              Text(
-                range,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              if (widget.concurrent > 0 && tall)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.view_week_outlined,
-                      size: 12,
-                      color: theme.colorScheme.onSurfaceVariant,
+        : LayoutBuilder(
+            builder: (context, box) {
+              // A very short block shows one line, "title time"; otherwise the
+              // text sits left-aligned and centred vertically.
+              if (box.maxHeight < 40) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${entry.title}  $range',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: textColor,
                     ),
-                    const SizedBox(width: 2),
-                    Expanded(
-                      child: Text(
-                        plannerCountedBadge(
-                          t['scheduleOverlapBadge']!,
-                          widget.concurrent,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                  ),
+                );
+              }
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      entry.title,
+                      maxLines: tall ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: textColor,
+                        decoration: entry.completed
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
                     ),
+                    Text(
+                      range,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (widget.concurrent > 0 && tall)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.view_week_outlined,
+                            size: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(
+                              plannerCountedBadge(
+                                t['scheduleOverlapBadge']!,
+                                widget.concurrent,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
-            ],
+              );
+            },
           );
     final selected = widget.selected;
     final content = DecoratedBox(
@@ -328,6 +354,20 @@ class _PlannerBlockState extends State<PlannerBlock> {
             color: accent.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: accent, width: 2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${widget.placement.entry.title}  '
+                '${plannerClock(start, widget.zone)}–${plannerClock(end, widget.zone)}',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium,
+              ),
+            ),
           ),
         ),
       ),

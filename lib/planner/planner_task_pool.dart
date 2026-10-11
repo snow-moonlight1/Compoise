@@ -202,90 +202,74 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
                 1.0,
                 MediaQuery.textScalerOf(context).scale(14) / 14,
               );
-              final compact = height < 140;
-              final headerH = math.min(
-                compact ? 72.0 : math.max(56.0, 28 * scale + 28),
-                height,
-              );
-              final tabsH = compact
+              final width = constraints.maxWidth;
+              final attached = widget.controller.isAttached;
+              final parentH =
+                  height /
+                  math.max(
+                    attached ? widget.controller.size : widget.minSize,
+                    0.0001,
+                  );
+              final collapsedPx = widget.minSize * parentH;
+              final openPx = plannerPoolOpenSize * parentH;
+              final end = collapsedPx + (openPx - collapsedPx) * 0.7;
+              // 0 = folded bar, 1 = opened. One number drives the fade between
+              // the two headers and the glide of the dots and counts.
+              var p = end <= collapsedPx
                   ? 0.0
-                  : math.min(44 * scale, math.max(0.0, height - headerH - 56));
-              return Column(
+                  : ((height - collapsedPx) / (end - collapsedPx)).clamp(
+                      0.0,
+                      1.0,
+                    );
+              p = _reduceMotion
+                  ? (p >= 0.5 ? 1.0 : 0.0)
+                  : Curves.easeInOut.transform(p);
+              final headerH = math.max(56.0, 28 * scale + 28);
+              final tabsH = 44 * scale;
+              final spots = _spots(theme, width, headerH, tabsH, scale);
+              final bodyH = math.max(height, headerH + tabsH + 160);
+              return Stack(
                 children: [
-                  // The sheet reports its size only while its own scroll
-                  // controller is in use. The pages scroll with their own
-                  // controllers, so this zero-height anchor keeps the sheet
-                  // controller attached; it never scrolls.
-                  SizedBox(
-                    height: 0,
-                    child: SingleChildScrollView(
-                      controller: scrollController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: const SizedBox.shrink(),
-                    ),
-                  ),
-                  SizedBox(
-                    height: headerH,
-                    width: constraints.maxWidth,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _toggle,
-                      onVerticalDragUpdate: (details) =>
-                          _dragSheet(details.primaryDelta),
-                      onVerticalDragEnd: (details) =>
-                          _settle(details.primaryVelocity ?? 0),
-                      child: compact
-                          ? FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                width: constraints.maxWidth,
-                                child: _bar(theme, expanded: false),
-                              ),
-                            )
-                          : _bar(theme, expanded: true),
-                    ),
-                  ),
-                  SizedBox(
-                    height: tabsH,
-                    child: tabsH == 0
-                        ? const SizedBox.shrink()
-                        : _tabs(theme, constraints.maxWidth),
-                  ),
-                  if (!compact && _showTabHint)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.swipe,
-                            size: 16,
-                            color: theme.colorScheme.primary,
+                  // Opened layout: always laid out at full size and revealed
+                  // by the sheet, so nothing re-flows while it grows.
+                  Offstage(
+                    offstage: p == 0,
+                    child: IgnorePointer(
+                      ignoring: p < 0.5,
+                      child: Opacity(
+                        opacity: p,
+                        child: OverflowBox(
+                          alignment: Alignment.topCenter,
+                          minHeight: bodyH,
+                          maxHeight: bodyH,
+                          child: _opened(
+                            theme,
+                            scrollController,
+                            width,
+                            headerH,
+                            tabsH,
+                            spots,
+                            focusAdd: p >= 0.5,
                           ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              widget.t['scheduleTabHint']!,
-                              key: const ValueKey('schedule-tab-hint'),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  Expanded(
-                    child: PageView(
-                      key: const ValueKey('schedule-pool-pages'),
-                      controller: _pages,
-                      onPageChanged: (index) {
-                        _dismissTabHint();
-                        setState(() => _quadrant = allQuadrants[index]);
-                      },
+                  ),
+                  if (p < 1)
+                    IgnorePointer(
+                      ignoring: p >= 0.5,
+                      child: Opacity(
+                        opacity: 1 - p,
+                        child: _folded(theme, width, spots, focusAdd: p < 0.5),
+                      ),
+                    ),
+                  // Shared dots and counts: the same widgets slide from the
+                  // folded bar to their quadrant tab.
+                  IgnorePointer(
+                    child: Stack(
                       children: [
-                        for (final q in allQuadrants)
-                          _taskList(theme, q, _of(q), _scrolls[q]!),
+                        for (final spot in spots)
+                          ..._spotWidgets(theme, spot, p),
                       ],
                     ),
                   ),
@@ -298,13 +282,269 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     );
   }
 
-  Widget _tabs(ThemeData theme, double width) {
+  double _textWidth(String text, TextStyle? style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final w = painter.width.ceilToDouble();
+    painter.dispose();
+    return w;
+  }
+
+  TextStyle? _countStyle(ThemeData theme) => theme.textTheme.labelMedium;
+
+  TextStyle? _tabStyle(ThemeData theme) =>
+      theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600);
+
+  /// Where each quadrant's dot and count sit folded and opened. The tab and the
+  /// folded bar reserve exactly these slots, so the glide starts and ends on
+  /// the real layout.
+  List<_PoolSpot> _spots(
+    ThemeData theme,
+    double width,
+    double headerH,
+    double tabsH,
+    double scale,
+  ) {
+    final result = <_PoolSpot>[];
+    var x = 16.0;
+    final cell = width / allQuadrants.length;
+    for (var i = 0; i < allQuadrants.length; i++) {
+      final q = allQuadrants[i];
+      final count = '${_of(q).length}';
+      final countW = _textWidth(count, _countStyle(theme));
+      final labelW = _textWidth(
+        widget.t['scheduleQuadrant$q']!,
+        _tabStyle(theme),
+      );
+      final content = _dotSlot + labelW + 4 + countW;
+      final f = math.min(1.0, (cell - 8) / content);
+      final left = i * cell + (cell - content * f) / 2;
+      result.add(
+        _PoolSpot(
+          quadrant: q,
+          count: count,
+          countW: countW,
+          labelW: labelW,
+          foldDot: Offset(x, _foldDotsY),
+          foldCount: Offset(x + _dotSlot, _foldDotsY),
+          openDot: Offset(left, headerH + tabsH / 2),
+          openCount: Offset(
+            left + (_dotSlot + labelW + 4) * f,
+            headerH + tabsH / 2,
+          ),
+        ),
+      );
+      x += _dotSlot + countW + 10;
+    }
+    return result;
+  }
+
+  static const _dotSlot = 12.0;
+  static const _foldDotsY = 52.0;
+
+  List<Widget> _spotWidgets(ThemeData theme, _PoolSpot spot, double p) {
+    final color = Color(quadrantColors[spot.quadrant]!);
+    final dot = Offset.lerp(spot.foldDot, spot.openDot, p)!;
+    final count = Offset.lerp(spot.foldCount, spot.openCount, p)!;
+    return [
+      Positioned(
+        key: ValueKey('schedule-pool-dot-${spot.quadrant}'),
+        left: dot.dx,
+        top: dot.dy - 4,
+        child: Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+      ),
+      Positioned(
+        key: ValueKey('schedule-pool-count-${spot.quadrant}'),
+        left: count.dx,
+        top: count.dy - 10,
+        height: 20,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            spot.count,
+            maxLines: 1,
+            softWrap: false,
+            style: _countStyle(theme)?.copyWith(color: color),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  /// Folded bar: handle, "Task pool · N", and the round "+". The dots and
+  /// counts are drawn by the shared layer; only their tap areas live here.
+  Widget _folded(
+    ThemeData theme,
+    double width,
+    List<_PoolSpot> spots, {
+    required bool focusAdd,
+  }) {
+    return SizedBox(
+      height: 72,
+      width: width,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggle,
+              onVerticalDragUpdate: (d) => _dragSheet(d.primaryDelta),
+              onVerticalDragEnd: (d) => _settle(d.primaryVelocity ?? 0),
+            ),
+          ),
+          Positioned(
+            top: 6,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 14,
+            left: 16,
+            right: 64,
+            height: 28,
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  plannerCounted(
+                    widget.t['schedulePoolCount']!,
+                    widget.tasks.length,
+                  ),
+                  style: theme.textTheme.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                ),
+              ),
+            ),
+          ),
+          for (final spot in spots)
+            Positioned(
+              left: spot.foldDot.dx,
+              top: _foldDotsY - 12,
+              width: _dotSlot + spot.countW + 10,
+              height: 24,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  _select(spot.quadrant, animate: false);
+                  _expand(plannerPoolOpenSize);
+                },
+              ),
+            ),
+          if (widget.writable)
+            Positioned(
+              right: 8,
+              top: 12,
+              child: IconButton.filledTonal(
+                key: const ValueKey('schedule-add'),
+                focusNode: focusAdd ? widget.addFocus : null,
+                tooltip: widget.t['schedulePoolAdd'],
+                onPressed: widget.addEnabled ? widget.onAdd : null,
+                icon: const Icon(Icons.add),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _opened(
+    ThemeData theme,
+    ScrollController scrollController,
+    double width,
+    double headerH,
+    double tabsH,
+    List<_PoolSpot> spots, {
+    required bool focusAdd,
+  }) {
+    return Column(
+      children: [
+        // The sheet reports its size only while its own scroll controller is
+        // in use. The pages scroll with their own controllers, so this
+        // zero-height anchor keeps the sheet controller attached.
+        SizedBox(
+          height: 0,
+          child: SingleChildScrollView(
+            controller: scrollController,
+            physics: const NeverScrollableScrollPhysics(),
+            child: const SizedBox.shrink(),
+          ),
+        ),
+        SizedBox(
+          height: headerH,
+          width: width,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggle,
+            onVerticalDragUpdate: (d) => _dragSheet(d.primaryDelta),
+            onVerticalDragEnd: (d) => _settle(d.primaryVelocity ?? 0),
+            child: _bar(theme, focusAdd: focusAdd),
+          ),
+        ),
+        SizedBox(height: tabsH, child: _tabs(theme, width, spots)),
+        if (_showTabHint)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: Row(
+              children: [
+                Icon(Icons.swipe, size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.t['scheduleTabHint']!,
+                    key: const ValueKey('schedule-tab-hint'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: PageView(
+            key: const ValueKey('schedule-pool-pages'),
+            controller: _pages,
+            onPageChanged: (index) {
+              _dismissTabHint();
+              setState(() => _quadrant = allQuadrants[index]);
+            },
+            children: [
+              for (final q in allQuadrants)
+                _taskList(theme, q, _of(q), _scrolls[q]!),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tabs(ThemeData theme, double width, List<_PoolSpot> spots) {
     return Stack(
       children: [
         Row(
           children: [
             for (final quadrant in allQuadrants)
-              Expanded(child: _tab(theme, quadrant)),
+              Expanded(child: _tab(theme, quadrant, spots)),
           ],
         ),
         // The underline follows the page while it is being swiped.
@@ -347,7 +587,8 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     );
   }
 
-  Widget _tab(ThemeData theme, int quadrant) {
+  Widget _tab(ThemeData theme, int quadrant, List<_PoolSpot> spots) {
+    final spot = spots.firstWhere((e) => e.quadrant == quadrant);
     final selected = quadrant == _quadrant;
     final color = Color(quadrantColors[quadrant]!);
     return InkWell(
@@ -369,22 +610,19 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Room for the shared dot and count drawn above.
+                  const SizedBox(width: _dotSlot),
                   Text(
                     widget.t['scheduleQuadrant$quadrant']!,
                     maxLines: 1,
                     softWrap: false,
-                    style: theme.textTheme.labelLarge?.copyWith(
+                    style: _tabStyle(theme)?.copyWith(
                       color: selected
                           ? color
                           : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: selected ? FontWeight.w700 : null,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${_of(quadrant).length}',
-                    style: theme.textTheme.labelSmall?.copyWith(color: color),
-                  ),
+                  SizedBox(width: 4 + spot.countW),
                 ],
               ),
             ),
@@ -426,8 +664,8 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     }
     widget.controller.animateTo(
       size,
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOut,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -455,115 +693,42 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     _animate(best);
   }
 
-  Widget _bar(ThemeData theme, {required bool expanded}) {
-    final counts = {
-      for (final quadrant in allQuadrants) quadrant: _of(quadrant).length,
-    };
+  /// Opened title row: "Task pool", the board tag and "+ Add".
+  Widget _bar(ThemeData theme, {required bool focusAdd}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 8, 4),
-      child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 4),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Row(
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
               children: [
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              expanded
-                                  ? widget.t['schedulePool']!
-                                  : plannerCounted(
-                                      widget.t['schedulePoolCount']!,
-                                      widget.tasks.length,
-                                    ),
-                              style: theme.textTheme.titleMedium,
-                              maxLines: 1,
-                              overflow: TextOverflow.fade,
-                              softWrap: false,
-                            ),
-                          ),
-                          if (expanded && widget.boardLabel != null) ...[
-                            const SizedBox(width: 8),
-                            _boardTag(theme),
-                          ],
-                        ],
-                      ),
-                      if (!expanded)
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (final quadrant in allQuadrants)
-                                GestureDetector(
-                                  onTap: () {
-                                    _select(quadrant, animate: false);
-                                    _expand(plannerPoolOpenSize);
-                                  },
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          color: Color(
-                                            quadrantColors[quadrant]!,
-                                          ),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text('${counts[quadrant]}'),
-                                      const SizedBox(width: 10),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                    ],
+                Flexible(
+                  child: Text(
+                    widget.t['schedulePool']!,
+                    style: theme.textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
                   ),
                 ),
-                if (widget.writable)
-                  (expanded
-                      ? TextButton.icon(
-                          key: const ValueKey('schedule-add'),
-                          focusNode: widget.addFocus,
-                          onPressed: widget.addEnabled ? widget.onAdd : null,
-                          icon: const Icon(Icons.add),
-                          label: Text(widget.t['schedulePoolAdd']!),
-                        )
-                      : IconButton.filledTonal(
-                          key: const ValueKey('schedule-add'),
-                          focusNode: widget.addFocus,
-                          tooltip: widget.t['schedulePoolAdd'],
-                          onPressed: widget.addEnabled ? widget.onAdd : null,
-                          icon: const Icon(Icons.add),
-                        ))
-                else
-                  const SizedBox(width: 48),
+                if (widget.boardLabel != null) ...[
+                  const SizedBox(width: 8),
+                  _boardTag(theme),
+                ],
               ],
             ),
-          ],
-        ),
+          ),
+          if (widget.writable)
+            TextButton.icon(
+              key: const ValueKey('schedule-add'),
+              focusNode: focusAdd ? widget.addFocus : null,
+              onPressed: widget.addEnabled ? widget.onAdd : null,
+              icon: const Icon(Icons.add),
+              label: Text(widget.t['schedulePoolAdd']!),
+            )
+          else
+            const SizedBox(width: 48),
+        ],
       ),
     );
   }
@@ -732,4 +897,25 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
             ),
     );
   }
+}
+
+class _PoolSpot {
+  const _PoolSpot({
+    required this.quadrant,
+    required this.count,
+    required this.countW,
+    required this.labelW,
+    required this.foldDot,
+    required this.foldCount,
+    required this.openDot,
+    required this.openCount,
+  });
+  final int quadrant;
+  final String count;
+  final double countW;
+  final double labelW;
+  final Offset foldDot;
+  final Offset foldCount;
+  final Offset openDot;
+  final Offset openCount;
 }

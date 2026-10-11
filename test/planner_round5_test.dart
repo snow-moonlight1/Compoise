@@ -99,12 +99,13 @@ void main() {
     final store = await c2Store(items: []);
     await c2Pump(tester, store, size: size, view: PlannerView.week);
     expect(plannerWeekAxisX(), 12 + 48 + 20);
+    final axis = tester.getTopLeft(c2Key('schedule-week-axis')).dx;
+    final painter =
+        tester.widget<CustomPaint>(c2Key('schedule-week-axis')).painter!
+            as PlannerWeekAxisPainter;
     for (final d in ['2026-09-28', '2026-09-30', '2026-10-04']) {
       final node = tester.getCenter(c2Key('schedule-week-node-$d'));
-      final paint = tester.widget<CustomPaint>(c2Key('schedule-week-axis-$d'));
-      final painter = paint.painter! as PlannerWeekAxisPainter;
-      final left = tester.getTopLeft(c2Key('schedule-week-axis-$d')).dx;
-      expect(left + painter.x, closeTo(node.dx, 0.01));
+      expect(axis + painter.x, closeTo(node.dx, 0.01));
     }
     await c2Finish(tester, store);
   });
@@ -114,12 +115,63 @@ void main() {
   ) async {
     final store = await c2Store(items: [c1Items().first]);
     await c2Pump(tester, store, size: size, view: PlannerView.week);
-    final fill = tester.getRect(c2Key('schedule-week-axis-fill'));
+    final fill = tester.getRect(c2Key('schedule-week-axis'));
     expect(fill.bottom, closeTo(size.height, 0.5));
     await c2Tap(tester, c2Key('schedule-mode-day'));
     await tester.pumpAndSettle();
     final scroll = tester.getRect(c2Key('schedule-scroll'));
     expect(scroll.bottom, closeTo(size.height, 0.5));
+    await c2Finish(tester, store);
+  });
+
+  testWidgets('with little content the seven circles sit on the eighths', (
+    tester,
+  ) async {
+    final store = await c2Store(items: []);
+    await c2Pump(tester, store, size: size, view: PlannerView.week);
+    final axis = tester.getRect(c2Key('schedule-week-axis'));
+    final days = [
+      '2026-09-28',
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+      '2026-10-04',
+    ];
+    final ys = [
+      for (final d in days)
+        tester.getCenter(c2Key('schedule-week-node-$d')).dy - axis.top,
+    ];
+    final slot = ys.first;
+    expect(slot, greaterThan(40));
+    for (var i = 0; i < 7; i++) {
+      expect(ys[i], closeTo((i + 1) * slot, 1), reason: 'circle ${i + 1}');
+    }
+    // Eight parts fill the axis apart from the strip behind the pool bar.
+    expect(8 * slot, lessThanOrEqualTo(axis.height));
+    expect(8 * slot, greaterThan(axis.height - 120));
+    await c2Finish(tester, store);
+  });
+
+  testWidgets('a crowded day grows its row and the page scrolls', (
+    tester,
+  ) async {
+    final store = await c2Store(
+      items: [
+        for (var i = 0; i < 12; i++)
+          c1Event('e$i', c1At(30, i), c1At(30, i + 1)),
+      ],
+    );
+    await c2Pump(
+      tester,
+      store,
+      size: const Size(360, 640),
+      view: PlannerView.week,
+    );
+    final tall = tester.getSize(c2Key('schedule-day-2026-09-30')).height;
+    final empty = tester.getSize(c2Key('schedule-day-2026-09-28')).height;
+    expect(tall, greaterThan(empty));
     await c2Finish(tester, store);
   });
 }

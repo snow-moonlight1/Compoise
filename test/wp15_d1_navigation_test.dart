@@ -282,7 +282,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('schedule-mode-week')));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('schedule-week-axis-fill')),
+      find.byKey(const ValueKey('schedule-week-axis')),
       findsOneWidget,
     );
 
@@ -293,7 +293,7 @@ void main() {
     await tester.pumpAndSettle();
     // Still on the week view the user left.
     expect(
-      find.byKey(const ValueKey('schedule-week-axis-fill')),
+      find.byKey(const ValueKey('schedule-week-axis')),
       findsOneWidget,
     );
     await finish(tester, store);
