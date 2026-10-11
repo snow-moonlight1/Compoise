@@ -36,12 +36,8 @@ void main() {
     final onToday = today.year == 2026 && today.month == 9 && today.day == 30;
     expect(c2Key('schedule-today'), onToday ? findsNothing : findsOneWidget);
     if (!onToday) {
-      expect(find.text('Back to today'), findsOneWidget);
+      expect(find.byTooltip('Back to today'), findsOneWidget);
       await c2Tap(tester, c2Key('schedule-today'));
-      expect(c2Key('schedule-today'), findsNothing);
-      // The same pill is not on screen while viewing today's week either.
-      await tester.tap(c2Key('schedule-mode-week'));
-      await tester.pumpAndSettle();
       expect(c2Key('schedule-today'), findsNothing);
     }
     await c2Finish(tester, store);

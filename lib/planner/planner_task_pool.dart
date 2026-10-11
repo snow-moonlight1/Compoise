@@ -11,9 +11,9 @@ import 'planner_guide_flag.dart';
 import 'planner_labels.dart';
 
 /// Height of the pool when it is opened with a tap, as a share of the page.
-/// Between a quarter and three tenths of the screen: enough for two or three cards while most of
+/// A third of the screen: enough for two or three cards while most of
 /// the timeline stays visible.
-const double plannerPoolOpenSize = 0.3;
+const double plannerPoolOpenSize = 0.33;
 const double plannerPoolHalfSize = 0.55;
 const double plannerPoolMaxSize = 0.92;
 

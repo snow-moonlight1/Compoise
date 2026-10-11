@@ -119,6 +119,8 @@ class _PlannerScreenState extends State<PlannerScreen>
   String _dropHint = 'Release to place at {time}.';
   double _poolMin = 0.12;
   Offset? _poolPointer;
+  Offset? _tapDown;
+  Duration _tapAt = Duration.zero;
   ScheduleDayLayout? _paintedDay;
   List<ScheduleDayLayout> _weekLayouts = const [];
   late final AnimationController _motion;
@@ -880,6 +882,9 @@ class _PlannerScreenState extends State<PlannerScreen>
         if (item.taskId != null) item.taskId!,
     };
     final tasks = plannerPoolTasks(data.tasks, boardId: boardId);
+    final todayFab = _view == PlannerView.day
+        ? !_sameDate(_today(), _date)
+        : !week.any((d) => _sameDate(d, _today()));
     final selectedEntry = _selectedId == null
         ? null
         : entries.where((e) => e.item.id == _selectedId).firstOrNull;
@@ -960,215 +965,249 @@ class _PlannerScreenState extends State<PlannerScreen>
               return Stack(
                 key: _stackKey,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      PlannerToolbar(
-                        t: t,
-                        dateLabel: _view == PlannerView.day
-                            ? plannerDayTitle(_date, data.settings.language, t)
-                            : plannerWeekTitle(
-                                week.first,
-                                week.last,
-                                data.settings.language,
-                              ),
-                        view: _view,
-                        canPrevious: _canPrevious,
-                        canNext: _canNext,
-                        zoneLabel: zoneLabel,
-                        filterLabel: '${t['scheduleBoardFilter']}: $filterName',
-                        onPrevious: () => _navigate(-1),
-                        onNext: () => _navigate(1),
-                        onPickDate: () => _pickDate(t),
-                        showToday: _view == PlannerView.day && !_sameDate(_today(), _date),
-                        onToday: () {
-                          final today = _today();
-                          if (_sameDate(today, _date)) return;
-                          _present(
-                            date: today,
-                            x: _isAfter(today, _date) ? 0.22 : -0.22,
-                          );
-                        },
-                        onView: _setView,
-                        onFilter: () => _pickBoard(data, t),
-                        onZone: _zoneController == null
-                            ? null
-                            : () => _chooseZone(_zoneController!, t),
-                        onBack: !widget.embedded && Navigator.canPop(context)
-                            ? () => Navigator.maybePop(context)
-                            : null,
-                        onGuide: () =>
-                            showPlannerGuide(context, t, markSeen: false),
-                      ),
-                      if (liveStore == null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            t['scheduleReadOnly']!,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                      if (liveStore?.persistenceError != null)
-                        Semantics(
-                          liveRegion: true,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(t['scheduleUnsaved']!),
-                          ),
-                        ),
-                      if (liveStore?.persistenceError != null)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            key: const ValueKey('schedule-persistence-retry'),
-                            onPressed: _retryingStore
-                                ? null
-                                : () async {
-                                    setState(() => _retryingStore = true);
-                                    try {
-                                      await liveStore!.retrySave(
-                                        waitForReminders: false,
-                                      );
-                                    } finally {
-                                      if (mounted) {
-                                        setState(() => _retryingStore = false);
-                                      }
-                                    }
-                                  },
-                            child: Text(t['scheduleEditorRetry']!),
-                          ),
-                        ),
-                      // A short window (landscape phone) keeps the room for the
-                      // grid; the date picker and swipes still move between days.
-                      if (_view == PlannerView.day &&
-                          MediaQuery.sizeOf(context).height >= 480)
-                        PlannerDateStrip(
-                          monday: monday,
-                          selected: _date,
-                          marked: _markedDays(entries, zone),
+                  // Taps on empty content fold an opened pool. A plain
+                  // listener: it never joins the gesture arena, so blocks,
+                  // handles, swipes and drags behave exactly as before.
+                  Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (e) {
+                      _tapDown = _poolOpen ? e.position : null;
+                      _tapAt = e.timeStamp;
+                    },
+                    onPointerMove: (e) {
+                      if (_tapDown != null &&
+                          (e.position - _tapDown!).distance > 12) {
+                        _tapDown = null;
+                      }
+                    },
+                    onPointerUp: (e) {
+                      final down = _tapDown;
+                      _tapDown = null;
+                      if (down == null || !_poolOpen || !_pool.isAttached) {
+                        return;
+                      }
+                      if (e.timeStamp - _tapAt >
+                          const Duration(milliseconds: 300)) {
+                        return;
+                      }
+                      _foldPool();
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        PlannerToolbar(
                           t: t,
-                          language: data.settings.language,
-                          onSelect: (date) {
-                            if (_sameDate(date, _date)) return;
-                            _present(
-                              date: date,
-                              x: _isAfter(date, _date) ? 0.22 : -0.22,
-                            );
-                          },
-                          onWeek: (direction) => _shift(direction * 7),
-                        ),
-                      Expanded(
-                        child: ClipRect(
-                          child: AnimatedBuilder(
-                            animation: _motion,
-                            builder: (context, child) {
-                              final turned = Curves.easeOutCubic.transform(
-                                _motion.value,
-                              );
-                              return FractionalTranslation(
-                                key: const ValueKey('schedule-motion'),
-                                translation: Offset(_slideX * (1 - turned), 0),
-                                child: Opacity(
-                                  opacity: (0.45 + 0.55 * turned).clamp(0, 1),
-                                  child: child,
+                          dateLabel: _view == PlannerView.day
+                              ? plannerDayTitle(
+                                  _date,
+                                  data.settings.language,
+                                  t,
+                                )
+                              : plannerWeekTitle(
+                                  week.first,
+                                  week.last,
+                                  data.settings.language,
                                 ),
+                          view: _view,
+                          canPrevious: _canPrevious,
+                          canNext: _canNext,
+                          zoneLabel: zoneLabel,
+                          filterLabel:
+                              '${t['scheduleBoardFilter']}: $filterName',
+                          onPrevious: () => _navigate(-1),
+                          onNext: () => _navigate(1),
+                          onPickDate: () => _pickDate(t),
+                          onView: _setView,
+                          onFilter: () => _pickBoard(data, t),
+                          onZone: _zoneController == null
+                              ? null
+                              : () => _chooseZone(_zoneController!, t),
+                          onBack: !widget.embedded && Navigator.canPop(context)
+                              ? () => Navigator.maybePop(context)
+                              : null,
+                          onGuide: () =>
+                              showPlannerGuide(context, t, markSeen: false),
+                        ),
+                        if (liveStore == null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              t['scheduleReadOnly']!,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        if (liveStore?.persistenceError != null)
+                          Semantics(
+                            liveRegion: true,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Text(t['scheduleUnsaved']!),
+                            ),
+                          ),
+                        if (liveStore?.persistenceError != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              key: const ValueKey('schedule-persistence-retry'),
+                              onPressed: _retryingStore
+                                  ? null
+                                  : () async {
+                                      setState(() => _retryingStore = true);
+                                      try {
+                                        await liveStore!.retrySave(
+                                          waitForReminders: false,
+                                        );
+                                      } finally {
+                                        if (mounted) {
+                                          setState(
+                                            () => _retryingStore = false,
+                                          );
+                                        }
+                                      }
+                                    },
+                              child: Text(t['scheduleEditorRetry']!),
+                            ),
+                          ),
+                        // A short window (landscape phone) keeps the room for the
+                        // grid; the date picker and swipes still move between days.
+                        if (_view == PlannerView.day &&
+                            MediaQuery.sizeOf(context).height >= 480)
+                          PlannerDateStrip(
+                            monday: monday,
+                            selected: _date,
+                            marked: _markedDays(entries, zone),
+                            t: t,
+                            language: data.settings.language,
+                            onSelect: (date) {
+                              if (_sameDate(date, _date)) return;
+                              _present(
+                                date: date,
+                                x: _isAfter(date, _date) ? 0.22 : -0.22,
                               );
                             },
-                            child: Column(
-                              children: [
-                                Expanded(
-                                  child: KeyedSubtree(
-                                    key: _viewportKey,
-                                    child: PlannerPinch(
-                                      onPinchIn: _view == PlannerView.day
-                                          ? () => _setView(PlannerView.week)
-                                          : null,
-                                      onPinchOut: _view == PlannerView.week
-                                          ? () => _setView(PlannerView.day)
-                                          : null,
-                                      child: _view == PlannerView.day
-                                          ? PlannerDaySwipe(
-                                              onSwipe: _shift,
-                                              child: PlannerDayTimeline(
-                                                day: _paintedDay!,
-                                                scale: scale,
-                                                vertical: _vertical,
-                                                nowLabel: t['scheduleNow']!,
-                                                hover: _hover,
-                                                now:
-                                                    widget.now?.call() ??
-                                                    DateTime.now(),
-                                                selectedId: _selectedId,
-                                                emptyLabel:
-                                                    entries.isEmpty ||
-                                                        _paintedDay!
-                                                            .placements
-                                                            .isEmpty
-                                                    ? t['scheduleEmptyHint']
-                                                    : null,
-                                                onGridTap: (_) => _deselect(),
-                                                onPoolMove:
-                                                    _setHoverFromContent,
-                                                onPoolAccept: liveStore == null
-                                                    ? null
-                                                    : (taskId, dy) {
-                                                        final day = _paintedDay;
-                                                        if (day == null) return;
-                                                        _hover.value = null;
-                                                        _placeTask(
-                                                          liveStore,
-                                                          taskId,
-                                                          _wallAt(day, dy),
-                                                        );
-                                                      },
-                                                block: (placement) => blockFor(
-                                                  _paintedDay!,
-                                                  placement,
-                                                ),
-                                              ),
-                                            )
-                                          : GestureDetector(
-                                              behavior:
-                                                  HitTestBehavior.translucent,
-                                              onTap: _deselect,
-                                              child: PlannerWeekView(
-                                                days: layouts,
-                                                today: _today(),
-                                                scale: scale,
-                                                vertical: _vertical,
-                                                t: t,
-                                                onOpenDay: (date) => _present(
-                                                  view: PlannerView.day,
-                                                  date: date,
-                                                  x: 0.16,
-                                                ),
-                                                onWeek: (direction) =>
-                                                    _shift(direction * 7),
-                                                bottomInset:
-                                                    poolMin *
-                                                    constraints.maxHeight,
-                                                dropKey: _dropKey,
-                                                onScheduleDrop:
-                                                    liveStore == null
-                                                    ? null
-                                                    : (payload, date) =>
-                                                          _dropOnWeekDay(
+                            onWeek: (direction) => _shift(direction * 7),
+                          ),
+                        Expanded(
+                          child: ClipRect(
+                            child: AnimatedBuilder(
+                              animation: _motion,
+                              builder: (context, child) {
+                                final turned = Curves.easeOutCubic.transform(
+                                  _motion.value,
+                                );
+                                return FractionalTranslation(
+                                  key: const ValueKey('schedule-motion'),
+                                  translation: Offset(
+                                    _slideX * (1 - turned),
+                                    0,
+                                  ),
+                                  child: Opacity(
+                                    opacity: (0.45 + 0.55 * turned).clamp(0, 1),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: KeyedSubtree(
+                                      key: _viewportKey,
+                                      child: PlannerPinch(
+                                        onPinchIn: _view == PlannerView.day
+                                            ? () => _setView(PlannerView.week)
+                                            : null,
+                                        onPinchOut: _view == PlannerView.week
+                                            ? () => _setView(PlannerView.day)
+                                            : null,
+                                        child: _view == PlannerView.day
+                                            ? PlannerDaySwipe(
+                                                onSwipe: _shift,
+                                                child: PlannerDayTimeline(
+                                                  day: _paintedDay!,
+                                                  scale: scale,
+                                                  vertical: _vertical,
+                                                  nowLabel: t['scheduleNow']!,
+                                                  hover: _hover,
+                                                  now:
+                                                      widget.now?.call() ??
+                                                      DateTime.now(),
+                                                  selectedId: _selectedId,
+                                                  emptyLabel:
+                                                      entries.isEmpty ||
+                                                          _paintedDay!
+                                                              .placements
+                                                              .isEmpty
+                                                      ? t['scheduleEmptyHint']
+                                                      : null,
+                                                  onGridTap: (_) => _deselect(),
+                                                  onPoolMove:
+                                                      _setHoverFromContent,
+                                                  onPoolAccept:
+                                                      liveStore == null
+                                                      ? null
+                                                      : (taskId, dy) {
+                                                          final day =
+                                                              _paintedDay;
+                                                          if (day == null) return;
+                                                          _hover.value = null;
+                                                          _placeTask(
                                                             liveStore,
-                                                            payload,
-                                                            date,
-                                                          ),
-                                                block: blockFor,
+                                                            taskId,
+                                                            _wallAt(day, dy),
+                                                          );
+                                                        },
+                                                  block: (placement) =>
+                                                      blockFor(
+                                                        _paintedDay!,
+                                                        placement,
+                                                      ),
+                                                ),
+                                              )
+                                            : GestureDetector(
+                                                behavior:
+                                                    HitTestBehavior.translucent,
+                                                onTap: _deselect,
+                                                child: PlannerWeekView(
+                                                  days: layouts,
+                                                  today: _today(),
+                                                  scale: scale,
+                                                  vertical: _vertical,
+                                                  t: t,
+                                                  onOpenDay: (date) => _present(
+                                                    view: PlannerView.day,
+                                                    date: date,
+                                                    x: 0.16,
+                                                  ),
+                                                  onWeek: (direction) =>
+                                                      _shift(direction * 7),
+                                                  bottomInset:
+                                                      poolMin *
+                                                      constraints.maxHeight,
+                                                  dropKey: _dropKey,
+                                                  onScheduleDrop:
+                                                      liveStore == null
+                                                      ? null
+                                                      : (payload, date) =>
+                                                            _dropOnWeekDay(
+                                                              liveStore,
+                                                              payload,
+                                                              date,
+                                                            ),
+                                                  block: blockFor,
+                                                ),
                                               ),
-                                            ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   PlannerTaskPool(
                     controller: _pool,
@@ -1247,6 +1286,25 @@ class _PlannerScreenState extends State<PlannerScreen>
                                 _deleteItem(liveStore!, selectedEntry.item),
                           ),
                         ),
+                      ),
+                    ),
+                  if (todayFab && selectedEntry == null && !_poolOpen)
+                    Positioned(
+                      right: 16,
+                      bottom: poolMin * constraints.maxHeight + 12,
+                      child: _TodayButton(
+                        key: const ValueKey('schedule-today'),
+                        label: t['scheduleTodayShort']!,
+                        tooltip: t['scheduleBackToday']!,
+                        onPressed: () {
+                          final today = _today();
+                          // Day: jump to today; week: to this week. The view
+                          // mode stays.
+                          _present(
+                            date: today,
+                            x: _isAfter(today, _date) ? 0.22 : -0.22,
+                          );
+                        },
                       ),
                     ),
                 ],
@@ -1631,3 +1689,87 @@ Future<void> openPlannerScreen(
     ),
   ),
 );
+
+/// Round "today" button, bottom right; grows in unless motion is reduced.
+class _TodayButton extends StatefulWidget {
+  const _TodayButton({
+    super.key,
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  State<_TodayButton> createState() => _TodayButtonState();
+}
+
+class _TodayButtonState extends State<_TodayButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.value = 1;
+    } else if (!_c.isAnimating && _c.value == 0) {
+      _c.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+    return FadeTransition(
+      opacity: curve,
+      child: ScaleTransition(
+        scale: curve,
+        child: Tooltip(
+          message: widget.tooltip,
+          child: Semantics(
+            button: true,
+            label: widget.tooltip,
+            excludeSemantics: true,
+            onTap: widget.onPressed,
+            child: Material(
+              color: theme.colorScheme.primaryContainer,
+              elevation: 3,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: widget.onPressed,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: Text(
+                      widget.label,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

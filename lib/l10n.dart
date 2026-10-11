@@ -7,6 +7,7 @@ const Map<Language, Map<String, String>> _dicts = {
   Language.en: {
     'scheduleNavLabel': 'Schedule',
     'scheduleBackToday': 'Back to today',
+    'scheduleTodayShort': 'T',
     'scheduleNavTasks': 'Tasks',
     'scheduleOverlapSnack': 'Overlaps "{title}" - shown side by side',
     'scheduleOverlapBadge': 'Same time as {n} other',
@@ -187,7 +188,6 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleBoardShort': 'Board',
     'scheduleTaskTitle': 'Title',
     'schedulePoolAddQuadrant': 'Add to "{quadrant}"',
-    'scheduleWeekNumber': 'Week {n}',
     'scheduleWeekTotal': '{n} items · {done} done this week',
     'scheduleDropHint': 'Release to place at {time}. Drag an edge to adjust.',
     'scheduleWeekHint': 'Tap a date to open that day. Pinch out to return.',
@@ -917,6 +917,7 @@ const Map<Language, Map<String, String>> _dicts = {
   Language.zh: {
     'scheduleNavLabel': '日程',
     'scheduleBackToday': '回到今天',
+    'scheduleTodayShort': '今',
     'scheduleNavTasks': '任务',
     'scheduleOverlapSnack': '与「{title}」时间重叠，已并排显示',
     'scheduleOverlapBadge': '与另 {n} 项同时',
@@ -1082,7 +1083,6 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleBoardShort': '看板',
     'scheduleTaskTitle': '标题',
     'schedulePoolAddQuadrant': '添加到「{quadrant}」',
-    'scheduleWeekNumber': '第{n}周',
     'scheduleWeekTotal': '共 {n} 项 · 本周已完成 {done}',
     'scheduleDropHint': '松手放入 {time}，可再拖动边缘微调时长',
     'scheduleWeekHint': '点日期进入当天 · 双指放大回日视图',
@@ -1707,6 +1707,7 @@ const Map<Language, Map<String, String>> _dicts = {
   Language.ja: {
     'scheduleNavLabel': '予定',
     'scheduleBackToday': '今日に戻る',
+    'scheduleTodayShort': '今',
     'scheduleNavTasks': 'タスク',
     'scheduleOverlapSnack': '「{title}」と時間が重なっています。並べて表示します',
     'scheduleOverlapBadge': 'ほか {n} 件と同時',
@@ -1879,7 +1880,6 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleBoardShort': 'ボード',
     'scheduleTaskTitle': 'タイトル',
     'schedulePoolAddQuadrant': '「{quadrant}」に追加',
-    'scheduleWeekNumber': '第{n}週',
     'scheduleWeekTotal': '{n} 件 · 今週完了 {done}',
     'scheduleDropHint': '{time} で放して配置。端をドラッグして長さを調整',
     'scheduleWeekHint': '日付をタップしてその日へ · ピンチアウトで日表示に戻る',

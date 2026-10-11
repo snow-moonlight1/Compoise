@@ -63,26 +63,15 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final scale = widget.scale;
-          final headerH = 56 * scale;
           final inset = math.max(0.0, widget.bottomInset) + 8;
           final lineColor = theme.colorScheme.outlineVariant;
           // Circles are one slot apart, the first half a slot under the top
           // gap. A day with many labels grows its own row and the page scrolls.
-          final slot = plannerWeekSlot(constraints.maxHeight, headerH, inset);
+          final slot = plannerWeekSlot(constraints.maxHeight, 0, inset);
           return CustomScrollView(
             key: const ValueKey('schedule-scroll'),
             controller: widget.vertical,
             slivers: [
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: headerH,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: _header(theme),
-                  ),
-                ),
-              ),
               SliverToBoxAdapter(
                 child: Column(
                   key: const ValueKey('schedule-week-rows'),
@@ -112,19 +101,6 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _header(ThemeData theme) {
-    final number = widget.days.isEmpty
-        ? 1
-        : plannerIsoWeek(widget.days.first.date);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(plannerPageMargin, 4, 16, 8),
-      child: Text(
-        plannerFilled(widget.t['scheduleWeekNumber']!, {'n': '$number'}),
-        style: theme.textTheme.titleSmall,
       ),
     );
   }

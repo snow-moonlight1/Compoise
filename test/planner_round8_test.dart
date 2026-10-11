@@ -2,12 +2,15 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrixflow_native/planner/planner_drag_feedback.dart';
+import 'package:matrixflow_native/planner/planner_toolbar.dart';
 import 'package:matrixflow_native/screens/planner_screen.dart';
 
 import 'wp15_c2_test_support.dart';
 
 void main() {
-  testWidgets('the week view never shows "back to today"', (tester) async {
+  testWidgets('the toolbar has no "today" control; the title is whole', (
+    tester,
+  ) async {
     final store = await c2Store(items: []);
     await c2Pump(
       tester,
@@ -15,7 +18,13 @@ void main() {
       size: const Size(320, 640),
       view: PlannerView.week,
     );
-    expect(c2Key('schedule-today'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(PlannerToolbar),
+        matching: c2Key('schedule-today'),
+      ),
+      findsNothing,
+    );
     // The range title is whole, not cut with an ellipsis.
     final title = find.descendant(
       of: c2Key('schedule-date'),

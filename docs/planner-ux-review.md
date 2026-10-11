@@ -130,3 +130,10 @@ Not verified / not fixed: real-device feel of drag previews and tab slide; scree
 - Week label drag: the original stays in place at ~0.38 opacity; the preview is the label itself (same colour, bar, text, **same size**), its lower-right corner ~10dp past the finger (clamped on screen). The pool-task preview uses the same small offset (`plannerDragOrigin`); everything else unchanged.
 - Fixed while testing: the hovered-day tint swapped the row's widget tree, which could drop the drag mid-air; the tint box is now always present.
 - Not verified on a device: preview feel under a thumb; the real date-range title width at 320dp (tests use a wide font).
+
+## Round 9
+
+- "Back to today" left the toolbar entirely (the date title is never squeezed). It is now a 48dp round button, bottom right, just above the pool bar (clear of its "+"), showing 今 (zh/ja) or T (en) with the tooltip/label "Back to today". Shown only when the viewed day (day view) or week (week view) does not contain today; tap = jump to today, mode kept. Hidden while the pool is open or a block is selected (so it never meets the pool or the selection bar). Fades/scales in; instant with reduced motion.
+- Week view: the "Week N" row is gone (l10n key `scheduleWeekNumber` removed); the axis now starts at the top and its length is the whole area, circles still evenly spaced, line to the pool bar.
+- Pool opens to 33% of the page. A tap on empty content folds an open pool (a plain `Listener`: it never joins the gesture arena, so blocks, handles, swipes and drags are unchanged; taps that move >12dp or last >300ms do not count). Tapping a block still selects it (which also folds the pool).
+- Not verified on a device: feel of the button position on gesture-nav phones; the "tap block folds + selects" path is covered only for a block that is visible with the pool open.

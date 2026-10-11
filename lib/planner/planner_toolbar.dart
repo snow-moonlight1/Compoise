@@ -22,8 +22,6 @@ class PlannerToolbar extends StatelessWidget {
     required this.onPrevious,
     required this.onNext,
     required this.onPickDate,
-    required this.onToday,
-    required this.showToday,
     required this.onView,
     required this.onFilter,
     this.onZone,
@@ -41,10 +39,8 @@ class PlannerToolbar extends StatelessWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onPickDate;
-  final VoidCallback onToday;
 
   /// Only when the viewed day or week does not contain today.
-  final bool showToday;
   final ValueChanged<PlannerView> onView;
   final VoidCallback onFilter;
   final VoidCallback? onZone;
@@ -76,10 +72,7 @@ class PlannerToolbar extends StatelessWidget {
             // Arrows only where there is room; on a phone a sideways swipe on
             // the day, the date strip and the date picker move around.
             final arrows = constraints.maxWidth >= 480;
-            final shrink =
-                scale > 1.3 ||
-                constraints.maxWidth < 360 ||
-                (showToday && constraints.maxWidth < 400);
+            final shrink = scale > 1.3 || constraints.maxWidth < 360;
             final row = Row(
               mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
               children: [
@@ -170,23 +163,6 @@ class PlannerToolbar extends StatelessWidget {
                       tooltip: nextTip,
                       onPressed: canNext ? onNext : null,
                       icon: Icons.chevron_right,
-                    ),
-                  if (showToday)
-                    _fit(
-                      shrink,
-                      Padding(
-                        padding: const EdgeInsets.only(left: 2, right: 2),
-                        child: ActionChip(
-                          key: const ValueKey('schedule-today'),
-                          label: Text(t['scheduleBackToday']!),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          labelPadding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                          ),
-                          onPressed: onToday,
-                        ),
-                      ),
                     ),
                 ]),
                 _chip(
