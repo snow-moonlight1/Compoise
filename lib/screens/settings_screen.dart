@@ -15,6 +15,7 @@ import '../ui/songti_font.dart';
 import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/accessible_tap_target.dart';
+import '../planner/planner_guide.dart';
 import 'onboarding_screen.dart';
 import 'settings_backup_flow.dart';
 import 'settings_desktop.dart';
@@ -732,6 +733,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               },
+            ),
+            ListTile(
+              key: const ValueKey('reopen-planner-guide-btn'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.calendar_month_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(t['scheduleGuideReplay']!),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showPlannerGuide(context, t, markSeen: false),
             ),
             if (policy.showDesktopShortcuts)
               ListTile(

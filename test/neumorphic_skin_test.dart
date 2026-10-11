@@ -45,7 +45,7 @@ void main() {
                   onDecomposeStart: () {},
                 ),
                 const TextField(decoration: InputDecoration(hintText: '下一步')),
-                HomeBottomActions(onSearch: () {}, onAdd: () {}, onMore: () {}),
+                HomeBottomActions(onSearch: () {}, onAdd: () {}, onSchedule: () {}, onMore: () {}),
               ],
             ),
           ),
@@ -146,6 +146,7 @@ void main() {
             body: HomeBottomActions(
               onSearch: () => search += 1,
               onAdd: () => add += 1,
+              onSchedule: () {},
               onMore: () => more += 1,
             ),
           ),

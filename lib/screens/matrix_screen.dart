@@ -696,6 +696,7 @@ class _MatrixHomeState extends State<MatrixHome> {
       return HomeBottomActions(
         onSearch: _openSearch,
         onAdd: _openInput,
+        onSchedule: _openSchedule,
         onMore: _openMore,
       );
     }
@@ -792,6 +793,7 @@ class _MatrixHomeState extends State<MatrixHome> {
               compact: policy.compactHeaderActions(availableWidth),
               onSearch: _openSearch,
               onAdd: _openInput,
+              onSchedule: _openSchedule,
               onMore: _openMore,
             ),
         ],
@@ -861,67 +863,25 @@ class _MatrixHomeState extends State<MatrixHome> {
     );
   }
 
+  Future<void> _openSchedule() async {
+    // Leaving an unsaved detail draft for the schedule keeps the same guard
+    // as every other navigation away from the page.
+    if (!mounted || !await _protectDetailDraft() || !mounted) return;
+    await openPlannerScreen(context, store: context.read<Store>());
+  }
+
   Future<void> _openMore() async {
-    final policy = PlatformUiPolicy.of(context);
-    Widget panel(BuildContext ctx) => ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(ctx).height,
-        maxWidth: 400,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            key: const ValueKey('more-schedule'),
-            leading: const Icon(Icons.calendar_month_outlined),
-            title: Text(ctx.read<Store>().t['scheduleOpen']!),
-            onTap: () => Navigator.of(ctx).pop('schedule'),
-          ),
-          ListTile(
-            key: const ValueKey('more-screenshot-import'),
-            leading: const Icon(Icons.image_outlined),
-            title: Text(ctx.read<Store>().t['screenshotImportTitle']!),
-            onTap: () => Navigator.of(ctx).pop('screenshot-import'),
-          ),
-          const Flexible(child: HomeMorePanel()),
-        ],
-      ),
-    );
-    final Object? action;
-    if (policy.isTouchLayout) {
-      action = await showModalBottomSheet<Object>(
-        context: context, isScrollControlled: true, useSafeArea: true,
-        builder: panel,
-      );
-    } else {
-      action = await showDialog<Object>(
-        context: context,
-        builder: (ctx) => Dialog(
-          alignment: Alignment.topRight,
-          insetPadding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
-          child: panel(ctx),
-        ),
-      );
-    }
-    if (action == 'screenshot-import') {
-      if (!mounted || !await _protectDetailDraft() || !mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              ScreenshotImportPage(backend: widget.screenshotBackend),
-        ),
-      );
-      return;
-    }
-    if (action == 'schedule') {
-      // Leaving an unsaved detail draft for the schedule keeps the same guard
-      // as every other navigation away from the page.
-      if (!mounted || !await _protectDetailDraft() || !mounted) return;
-      await openPlannerScreen(context, store: context.read<Store>());
-      return;
-    }
+    final action = await showHomeMore(context);
     if (!mounted || action == null) return;
     switch (action) {
+      case HomeMoreAction.screenshotImport:
+        if (!await _protectDetailDraft() || !mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                ScreenshotImportPage(backend: widget.screenshotBackend),
+          ),
+        );
       case HomeMoreAction.switchBoard:
         await _openBoardPicker();
       case HomeMoreAction.today:
@@ -935,8 +895,6 @@ class _MatrixHomeState extends State<MatrixHome> {
         });
       case HomeMoreAction.settings:
         _openSettings();
-      default:
-        break;
     }
   }
 

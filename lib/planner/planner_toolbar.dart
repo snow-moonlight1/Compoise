@@ -25,6 +25,8 @@ class PlannerToolbar extends StatelessWidget {
     required this.onView,
     required this.onFilter,
     this.onZone,
+    this.onBack,
+    this.onGuide,
   });
 
   final Map<String, String> t;
@@ -42,15 +44,19 @@ class PlannerToolbar extends StatelessWidget {
   final VoidCallback onFilter;
   final VoidCallback? onZone;
 
+  /// Back to the task board; null when the page is not pushed over it.
+  final VoidCallback? onBack;
+  final VoidCallback? onGuide;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final previousTip = t[view == PlannerView.day
-        ? 'schedulePreviousDay'
-        : 'schedulePreviousWeek']!;
-    final nextTip = t[view == PlannerView.day
-        ? 'scheduleNextDay'
-        : 'scheduleNextWeek']!;
+    final previousTip =
+        t[view == PlannerView.day
+            ? 'schedulePreviousDay'
+            : 'schedulePreviousWeek']!;
+    final nextTip =
+        t[view == PlannerView.day ? 'scheduleNextDay' : 'scheduleNextWeek']!;
     final scale = math.max(
       1.0,
       MediaQuery.textScalerOf(context).scale(14) / 14,
@@ -66,6 +72,13 @@ class PlannerToolbar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (onBack != null)
+                IconButton(
+                  key: const ValueKey('schedule-back'),
+                  tooltip: t['scheduleNavTasks'],
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back),
+                ),
               PopupMenuButton<String>(
                 key: const ValueKey('schedule-menu'),
                 tooltip: t['scheduleMenu'],
@@ -73,6 +86,7 @@ class PlannerToolbar extends StatelessWidget {
                 onSelected: (value) {
                   if (value == 'zone') onZone?.call();
                   if (value == 'filter') onFilter();
+                  if (value == 'guide') onGuide?.call();
                 },
                 itemBuilder: (context) => [
                   PopupMenuItem<String>(
@@ -90,6 +104,14 @@ class PlannerToolbar extends StatelessWidget {
                       key: const ValueKey('schedule-filter'),
                     ),
                   ),
+                  if (onGuide != null)
+                    PopupMenuItem<String>(
+                      value: 'guide',
+                      child: Text(
+                        t['scheduleGuideReplay']!,
+                        key: const ValueKey('schedule-guide-replay'),
+                      ),
+                    ),
                 ],
               ),
               _step(
@@ -151,7 +173,7 @@ class PlannerToolbar extends StatelessWidget {
       iconSize: 22,
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+      constraints: const BoxConstraints.tightFor(width: 40, height: 40),
       icon: Icon(icon),
     );
   }

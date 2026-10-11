@@ -49,8 +49,7 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
       },
       child: SizedBox(
         height:
-            82 *
-            math.max(1.0, MediaQuery.textScalerOf(context).scale(14) / 14),
+            82 * math.max(1.0, MediaQuery.textScalerOf(context).scale(14) / 14),
         child: Row(
           children: [
             for (var index = 0; index < 7; index++)
@@ -112,7 +111,9 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
             width: 5,
             height: 5,
             decoration: BoxDecoration(
-              color: marked ? theme.colorScheme.primary : const Color(0x00000000),
+              color: marked
+                  ? theme.colorScheme.primary
+                  : const Color(0x00000000),
               shape: BoxShape.circle,
             ),
           ),

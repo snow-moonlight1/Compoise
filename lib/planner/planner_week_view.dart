@@ -68,10 +68,7 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
           final inset = math.max(0.0, widget.bottomInset);
           final bounded = constraints.maxHeight.isFinite;
           final available = bounded
-              ? math.max(
-                  0.0,
-                  constraints.maxHeight - headerH - hintH - inset,
-                )
+              ? math.max(0.0, constraints.maxHeight - headerH - hintH - inset)
               : 0.0;
           final rowHeight = math.max(
             80 * scale,
@@ -174,15 +171,15 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
 
   Widget _row(ScheduleDayLayout day, ThemeData theme, String today) {
     return _DayRow(
-              day: day,
-              theme: theme,
-              scale: widget.scale,
-              t: widget.t,
-              today: scheduleDateLabel(day.date) == today,
-              block: widget.block,
-              onOpenDay: () => widget.onOpenDay(day.date),
-              dropKey: widget.dropKey(scheduleDateLabel(day.date)),
-              onScheduleDrop: widget.onScheduleDrop,
+      day: day,
+      theme: theme,
+      scale: widget.scale,
+      t: widget.t,
+      today: scheduleDateLabel(day.date) == today,
+      block: widget.block,
+      onOpenDay: () => widget.onOpenDay(day.date),
+      dropKey: widget.dropKey(scheduleDateLabel(day.date)),
+      onScheduleDrop: widget.onScheduleDrop,
     );
   }
 }

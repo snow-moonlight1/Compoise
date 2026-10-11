@@ -169,18 +169,13 @@ void main() {
       s.end
         ..date = '2026-11-01'
         ..time = '01:45';
+      // A repeated hour no longer asks for a UTC offset: both endpoints take
+      // the earlier of the two instants.
       expect(
-        s.review,
-        throwsA(
-          isA<ScheduleTimeException>().having(
-            (e) => e.reason,
-            'reason',
-            ScheduleTimeError.fold,
-          ),
-        ),
+        s.review().item.endAt - s.review().item.startAt,
+        30 * Duration.millisecondsPerMinute,
       );
-      s.start.offset = const Duration(hours: -4);
-      expect(s.review, throwsA(isA<ScheduleTimeException>()));
+      // An explicit offset (from older data or code) is still honoured.
       s.end.offset = const Duration(hours: -5);
       expect(
         s.review().item.endAt - s.review().item.startAt,
@@ -212,7 +207,7 @@ void main() {
   );
 
   test(
-    'cross-day and cross-week intervals have no added span limit; overlap confirmation is required',
+    'cross-day and cross-week intervals have no added span limit; overlap saves side by side',
     () async {
       final store = await c2Store();
       final s = create(store)
@@ -222,13 +217,8 @@ void main() {
         ..end.time = '00:00';
       final review = s.review();
       expect(review.overlaps, hasLength(4));
-      final before = c2Library(store);
-      expect(await s.submit(review), ScheduleSubmitResult.reviewChanged);
-      expect(c2Library(store), before);
-      expect(
-        await s.submit(review, allowOverlap: true),
-        ScheduleSubmitResult.saved,
-      );
+      // Overlap never blocks a save any more: items coexist.
+      expect(await s.submit(review), ScheduleSubmitResult.saved);
       expect(store.scheduleItems, hasLength(5));
       await finish(store);
     },
@@ -324,7 +314,6 @@ void main() {
         ),
       );
       expect(move.start.offset, isNull);
-      expect(move.review, throwsA(isA<ScheduleTimeException>()));
       move.start.offset = const Duration(hours: -5);
       move.title = 'ignored';
       move.taskId = 'done';

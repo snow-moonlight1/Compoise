@@ -94,6 +94,14 @@ void mockDeviceTimeZone({String platform = 'android', String? identity}) {
   );
 }
 
+/// The first visit shows the planner guide; these tests are about the zone.
+Future<void> skipGuide(WidgetTester tester) async {
+  final skip = find.byKey(const ValueKey('schedule-guide-skip'));
+  if (skip.evaluate().isEmpty) return;
+  await tester.tap(skip);
+  await tester.pumpAndSettle();
+}
+
 Future<void> openHomeMore(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('more-btn')));
   await tester.pumpAndSettle();
@@ -104,7 +112,7 @@ void main() {
   setUp(() => ReminderService.resetForTest(InMemoryReminderService()));
   tearDown(() => ReminderService.resetForTest());
 
-  testWidgets('the home more menu offers the schedule beside screenshot import', (
+  testWidgets('the schedule is one tap away and no longer hides in the more menu', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 950));
@@ -113,9 +121,71 @@ void main() {
     await tester.pumpWidget(app(store, const MatrixHome()));
     await tester.pumpAndSettle();
     await openHomeMore(tester);
-    expect(find.byKey(const ValueKey('more-schedule')), findsOneWidget);
+    expect(find.byKey(const ValueKey('more-schedule')), findsNothing);
     expect(find.byKey(const ValueKey('more-screenshot-import')), findsOneWidget);
-    expect(find.text(store.t['scheduleOpen']!), findsOneWidget);
+    expect(find.byKey(const ValueKey('schedule-btn')), findsOneWidget);
+    await finish(tester, store);
+  });
+
+  testWidgets('more menu rows all sit on the same background', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = await seeded([alpha()]);
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
+    await openHomeMore(tester);
+    Color? backgroundOf(String key) {
+      final tile = find.byKey(ValueKey(key));
+      expect(tile, findsOneWidget);
+      expect(tester.widget<ListTile>(tile).tileColor, isNull);
+      return tester
+          .widget<Material>(
+            find
+                .ancestor(of: tile, matching: find.byType(Material))
+                .first,
+          )
+          .color;
+    }
+
+    final screenshot = backgroundOf('more-screenshot-import');
+    expect(backgroundOf('more-settings-btn'), screenshot);
+    expect(backgroundOf('more-switch-board'), screenshot);
+    await finish(tester, store);
+  });
+
+  testWidgets('the planner guide shows once, covers handles, and can be skipped', (
+    tester,
+  ) async {
+    mockDeviceTimeZone(identity: 'Asia/Shanghai');
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = await seeded([alpha()]);
+    await tester.pumpWidget(app(store, const MatrixHome()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('schedule-btn')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('schedule-guide')), findsOneWidget);
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byKey(const ValueKey('schedule-guide-next')));
+      await tester.pumpAndSettle();
+    }
+    // Step three is the phone interaction: select, round handles, deselect.
+    expect(find.text(store.t['scheduleGuide3Body']!), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('schedule-guide-skip')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('schedule-guide')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('schedule-back')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('schedule-btn')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('schedule-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('schedule-guide')), findsNothing);
+    // The menu can bring it back on purpose.
+    await tester.tap(find.byKey(const ValueKey('schedule-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('schedule-guide-replay')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('schedule-guide')), findsOneWidget);
     await finish(tester, store);
   });
 
@@ -127,9 +197,9 @@ void main() {
       final store = await seeded([alpha()]);
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
-      await openHomeMore(tester);
-      await tester.tap(find.byKey(const ValueKey('more-schedule')));
+      await tester.tap(find.byKey(const ValueKey('schedule-btn')));
       await tester.pumpAndSettle();
+      await skipGuide(tester);
 
       expect(find.byType(PlannerScreen), findsOneWidget);
       expect(
@@ -167,9 +237,9 @@ void main() {
     final store = await seeded([alpha()]);
     await tester.pumpWidget(app(store, const MatrixHome()));
     await tester.pumpAndSettle();
-    await openHomeMore(tester);
-    await tester.tap(find.byKey(const ValueKey('more-schedule')));
+    await tester.tap(find.byKey(const ValueKey('schedule-btn')));
     await tester.pumpAndSettle();
+    await skipGuide(tester);
 
     expect(find.byKey(const ValueKey('schedule-scroll')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('schedule-menu')));

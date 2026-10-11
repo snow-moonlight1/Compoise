@@ -58,7 +58,19 @@ class ScheduleEndpointInput {
 
   List<ScheduleWallCandidate> candidates(String zone) =>
       wallTimeCandidates(wall, zone);
-  int resolve(String zone) => resolveWallTime(wall, zone, offset: offset);
+
+  /// A repeated local hour (DST fold) quietly takes the earlier instant: the
+  /// form never asks an ordinary user to pick a UTC offset.
+  int resolve(String zone) {
+    try {
+      return resolveWallTime(wall, zone, offset: offset);
+    } on ScheduleTimeException catch (error) {
+      if (error.reason == ScheduleTimeError.fold && offset == null) {
+        return wallTimeCandidates(wall, zone).first.instantMs;
+      }
+      rethrow;
+    }
+  }
 }
 
 class ScheduleReview {
@@ -107,19 +119,17 @@ class ScheduleEditSession {
        expectedRevision = revision ?? store.scheduleRevision(item.id),
        id = item.id,
        kind = item.kind,
-       timeZoneId = mode == ScheduleEditMode.edit
-           ? item.timeZoneId
-           : displayZone!,
+       timeZoneId = displayZone ?? item.timeZoneId,
        title = item.title ?? '',
        taskId = item.taskId,
        boardId = item.boardId,
        start = ScheduleEndpointInput.fromInstant(
          item.startAt,
-         mode == ScheduleEditMode.edit ? item.timeZoneId : displayZone!,
+         displayZone ?? item.timeZoneId,
        ),
        end = ScheduleEndpointInput.fromInstant(
          item.endAt,
-         mode == ScheduleEditMode.edit ? item.timeZoneId : displayZone!,
+         displayZone ?? item.timeZoneId,
        ) {
     if (target != null) {
       final input = mode == ScheduleEditMode.resizeEnd ? end : start;
@@ -220,9 +230,26 @@ class ScheduleEditSession {
                       jsonEncode(_acceptedItem!.toJson()),
             ));
 
+  /// Items that overlap the last saved proposal. Overlap never blocks saving:
+  /// schedule items coexist and the page shows them side by side.
+  List<ScheduleItem> lastOverlaps = const [];
+
+  /// Builds the proposal and saves it in one step, with no review screen.
+  Future<ScheduleSubmitResult> commit() async {
+    try {
+      final review = this.review();
+      lastOverlaps = review.overlaps;
+      return submit(review, allowOverlap: true);
+    } on FormatException {
+      return ScheduleSubmitResult.invalid;
+    } on ScheduleTimeException {
+      return ScheduleSubmitResult.invalid;
+    }
+  }
+
   Future<ScheduleSubmitResult> submit(
     ScheduleReview review, {
-    bool allowOverlap = false,
+    bool allowOverlap = true,
   }) async {
     if (busy || accepted) return ScheduleSubmitResult.busy;
     if (!store.ready || store.hasStartupRecovery) {

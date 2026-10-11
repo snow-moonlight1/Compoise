@@ -94,5 +94,16 @@ String plannerWeekSummary(
   final duration = hours == hours.roundToDouble()
       ? '${hours.toStringAsFixed(0)} ${t['scheduleHours']}'
       : '${hours.toStringAsFixed(1)} ${t['scheduleHours']}';
-  return template.replaceAll('{n}', '$count').replaceAll('{duration}', duration);
+  return template
+      .replaceAll('{n}', '$count')
+      .replaceAll('{duration}', duration);
 }
+
+/// Tasks shown in the planner's task pool: every open task of the viewed board
+/// (or of all boards when [boardId] is null). A task that already has a
+/// schedule item stays in the pool, so the pool and the task page always count
+/// the same tasks; the card carries a "scheduled" mark instead.
+List<Task> plannerPoolTasks(Iterable<Task> tasks, {String? boardId}) => [
+  for (final task in tasks)
+    if (!task.completed && (boardId == null || task.boardId == boardId)) task,
+]..sort((a, b) => a.title.compareTo(b.title));
