@@ -461,104 +461,109 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     };
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 8, 4),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 4),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.outlineVariant,
-              borderRadius: BorderRadius.circular(2),
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            expanded
-                                ? widget.t['schedulePool']!
-                                : plannerCounted(
-                                    widget.t['schedulePoolCount']!,
-                                    widget.tasks.length,
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              expanded
+                                  ? widget.t['schedulePool']!
+                                  : plannerCounted(
+                                      widget.t['schedulePoolCount']!,
+                                      widget.tasks.length,
+                                    ),
+                              style: theme.textTheme.titleMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.fade,
+                              softWrap: false,
+                            ),
+                          ),
+                          if (expanded && widget.boardLabel != null) ...[
+                            const SizedBox(width: 8),
+                            _boardTag(theme),
+                          ],
+                        ],
+                      ),
+                      if (!expanded)
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final quadrant in allQuadrants)
+                                GestureDetector(
+                                  onTap: () {
+                                    _select(quadrant, animate: false);
+                                    _expand(plannerPoolOpenSize);
+                                  },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: Color(
+                                            quadrantColors[quadrant]!,
+                                          ),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text('${counts[quadrant]}'),
+                                      const SizedBox(width: 10),
+                                    ],
                                   ),
-                            style: theme.textTheme.titleMedium,
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
+                                ),
+                            ],
                           ),
                         ),
-                        if (expanded && widget.boardLabel != null) ...[
-                          const SizedBox(width: 8),
-                          _boardTag(theme),
-                        ],
-                      ],
-                    ),
-                    if (!expanded)
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final quadrant in allQuadrants)
-                              GestureDetector(
-                                onTap: () {
-                                  _select(quadrant, animate: false);
-                                  _expand(plannerPoolOpenSize);
-                                },
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: Color(quadrantColors[quadrant]!),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text('${counts[quadrant]}'),
-                                    const SizedBox(width: 10),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (widget.writable)
-                (expanded
-                    ? TextButton.icon(
-                        key: const ValueKey('schedule-add'),
-                        focusNode: widget.addFocus,
-                        onPressed: widget.addEnabled ? widget.onAdd : null,
-                        icon: const Icon(Icons.add),
-                        label: Text(widget.t['schedulePoolAdd']!),
-                      )
-                    : IconButton.filledTonal(
-                        key: const ValueKey('schedule-add'),
-                        focusNode: widget.addFocus,
-                        tooltip: widget.t['schedulePoolAdd'],
-                        onPressed: widget.addEnabled ? widget.onAdd : null,
-                        icon: const Icon(Icons.add),
-                      ))
-              else
-                const SizedBox(width: 48),
-            ],
-          ),
-        ],
+                if (widget.writable)
+                  (expanded
+                      ? TextButton.icon(
+                          key: const ValueKey('schedule-add'),
+                          focusNode: widget.addFocus,
+                          onPressed: widget.addEnabled ? widget.onAdd : null,
+                          icon: const Icon(Icons.add),
+                          label: Text(widget.t['schedulePoolAdd']!),
+                        )
+                      : IconButton.filledTonal(
+                          key: const ValueKey('schedule-add'),
+                          focusNode: widget.addFocus,
+                          tooltip: widget.t['schedulePoolAdd'],
+                          onPressed: widget.addEnabled ? widget.onAdd : null,
+                          icon: const Icon(Icons.add),
+                        ))
+                else
+                  const SizedBox(width: 48),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
