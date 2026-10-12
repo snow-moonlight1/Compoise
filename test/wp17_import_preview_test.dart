@@ -1005,7 +1005,7 @@ void main() {
       );
       expect(
         find.text(
-          '${dict['importNeedsReview']}: ${dict['importReasonDropped']}: header',
+          '${dict['importNeedsReview']}: ${dict['importReasonDropped']}',
         ),
         findsWidgets,
       );

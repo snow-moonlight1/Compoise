@@ -286,6 +286,7 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
 
 String _failureKey(String message) {
   if (message.startsWith('screenshotImport')) return message;
+  if (message.contains('file selection')) return 'screenshotImportPickerFailed';
   if (message.contains('model')) return 'screenshotImportModelsMissing';
   if (message.contains('runtime')) return 'screenshotImportNativeMissing';
   if (message.contains('16 MiB')) return 'screenshotImportSafFileLimit';

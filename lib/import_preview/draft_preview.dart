@@ -296,7 +296,8 @@ class _DraftPreviewState extends State<DraftPreview> {
               ),
               if (!image.skipped) ...[
                 for (final note in image.notes)
-                  Text(note, style: theme.textTheme.bodySmall),
+                  if (_noteText(note) case final text?)
+                    Text(text, style: theme.textTheme.bodySmall),
                 for (final task in image.tasks) _taskCard(image, task),
               ],
             ],
@@ -492,9 +493,22 @@ class _DraftPreviewState extends State<DraftPreview> {
     if (key != null) return t(key);
     const dropped = 'dropped ';
     if (reason.startsWith(dropped)) {
-      return '${t('importReasonDropped')}: ${reason.substring(dropped.length)}';
+      const kinds = <String, String>{
+        'chrome': 'importDroppedTop',
+        'meta': 'importDroppedMeta',
+        'section': 'importDroppedSection',
+      };
+      final kind = kinds[reason.substring(dropped.length)];
+      return kind == null ? t('importReasonDropped') : t(kind);
     }
     return reason;
+  }
+
+  /// Recognition notes are written for diagnostics. Only the one a user can
+  /// act on is shown, in their language; the rest stay out of the UI.
+  String? _noteText(String note) {
+    if (note.startsWith('No task rows detected')) return t('importNoteNoRows');
+    return null;
   }
 
   Widget _duplicateTile(DuplicateHint hint, int index) {

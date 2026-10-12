@@ -91,7 +91,7 @@ flutter run -d linux
 以 Debian / Ubuntu 为例，运行预览版需要：
 
 ```sh
-sudo apt install libgtk-3-0 libsecret-1-0 libayatana-appindicator3-1 fonts-noto-cjk
+sudo apt install libgtk-3-0 libsecret-1-0 libayatana-appindicator3-1 zenity fonts-noto-cjk
 ```
 
 从源码构建还需要 `clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libayatana-appindicator3-dev`。
@@ -99,6 +99,7 @@ sudo apt install libgtk-3-0 libsecret-1-0 libayatana-appindicator3-1 fonts-noto-
 - **GTK 3**：界面运行所需。
 - **libsecret**：通过 Secret Service（如 GNOME Keyring、KWallet）保存 API 密钥。
 - **AppIndicator**：托盘相关组件依赖。
+- **zenity**（或 KDE 的 kdialog）：选择文件的窗口，导入截图、导入/导出备份都要用到。DEB/RPM 会自动安装。
 - **中文字体**：系统缺少中文字体时界面会显示方块，请安装 `fonts-noto-cjk` 或其他 CJK 字体。
 - **密钥环（可选）**：没有可用的密钥环时，任务和设置照常保存，只是无法保存 API 密钥、AI 功能不可用，应用会给出一次简短提示。
 - **安装包**：DEB 和 RPM 已把中文字体（`fonts-noto-cjk` / `google-noto-sans-cjk-fonts`）设为推荐依赖，默认会一起安装。AppImage 不会自动安装依赖，请按上面的命令自行安装中文字体；运行 AppImage 还需要 `libfuse2`（Debian/Ubuntu 新版为 `libfuse2t64`）。

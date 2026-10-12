@@ -41,10 +41,10 @@ common=(-s dir -C "$root" -n compoise -v "$version" --license GPL-3.0-only
   --description "Compoise (方寸): local-first Eisenhower matrix task manager and day planner"
   -a amd64)
 fpm "${common[@]}" -t deb -p "$out/compoise-$version-linux-amd64.deb" \
-  -d 'libgtk-3-0t64 | libgtk-3-0' -d 'libsecret-1-0' -d 'libayatana-appindicator3-1' \
+  -d 'libgtk-3-0t64 | libgtk-3-0' -d 'libsecret-1-0' -d 'libayatana-appindicator3-1' -d 'zenity | kdialog' \
   --deb-recommends 'fonts-noto-cjk' --deb-recommends 'gnome-keyring' .
 fpm "${common[@]}" -a x86_64 -t rpm -p "$out/compoise-$version-linux-x86_64.rpm" \
-  --rpm-os linux -d 'gtk3' -d 'libsecret' -d 'libayatana-appindicator-gtk3' \
+  --rpm-os linux -d 'gtk3' -d 'libsecret' -d 'libayatana-appindicator-gtk3' -d '(zenity or kdialog)' \
   --rpm-tag 'Recommends: google-noto-sans-cjk-fonts' .
 
 # AppImage: bundles the app only; GTK, libsecret and appindicator come from the host.
