@@ -450,7 +450,7 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          if ls release | grep -q windows-arm64-setup.exe; then ARM64='`*-windows-arm64-portable.zip`, `*-windows-arm64-setup.exe`'; else ARM64='not built (ARM64 job failed; see the workflow log)'; fi
+          if ls release | grep -q windows-arm64-setup.exe; then ARM64='`*-windows-arm64-portable.zip`, `*-windows-arm64-setup.exe`'; else ARM64='not provided in this release (the pinned Flutter version cannot build Windows ARM64)'; fi
           cat > notes.md <<NOTES
           Draft created by the release workflow for ${TAG}. Review before publishing.
 
