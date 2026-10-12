@@ -141,4 +141,35 @@ void main() {
       await c2Finish(tester, store);
     });
   }
+
+  for (final skin in ['comic', 'neu']) {
+    testWidgets('Today and Day | Week match in $skin; labels level', (
+      tester,
+    ) async {
+      final store = await c2Store();
+      await c2Pump(
+        tester,
+        store,
+        size: _desk,
+        platform: TargetPlatform.windows,
+        skin: skin,
+      );
+      final today = tester.getRect(c2Key('schedule-today-button'));
+      final track = tester.getRect(c2Key('schedule-mode-segments'));
+      expect(today.height, closeTo(track.height, 0.5));
+      expect(today.center.dy, closeTo(track.center.dy, 0.5));
+      double textY(String key) => tester
+          .getRect(find.descendant(of: c2Key(key), matching: find.byType(Text)))
+          .center
+          .dy;
+      final day = textY('schedule-mode-day'); // selected
+      final week = textY('schedule-mode-week');
+      expect(day, closeTo(week, 0.01));
+      expect(textY('schedule-today-button'), closeTo(day, 0.01));
+      await tester.tap(c2Key('schedule-mode-week'));
+      await tester.pumpAndSettle();
+      expect(textY('schedule-mode-week'), closeTo(week, 0.01));
+      await c2Finish(tester, store);
+    });
+  }
 }

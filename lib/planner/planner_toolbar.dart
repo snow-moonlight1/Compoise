@@ -177,7 +177,7 @@ class PlannerToolbar extends StatelessWidget {
                 // Desktop: a plain child, not Flexible, so the date group's
                 // Expanded pushes Today and Day | Week to the right edge.
                 if (onToday != null) ...[
-                  _todayButton(),
+                  _todayButton(theme, skin),
                   const SizedBox(width: 6),
                 ],
                 if (skin.plain) ...[
@@ -212,15 +212,76 @@ class PlannerToolbar extends StatelessWidget {
     );
   }
 
-  Widget _todayButton() {
-    final button = TextButton(
-      key: const ValueKey('schedule-today-button'),
-      onPressed: todayInView ? null : onToday,
-      child: Text(t['today']!, maxLines: 1),
+  Widget _todayButton(ThemeData theme, PlannerSkin skin) {
+    if (skin.plain) {
+      return TextButton(
+        key: const ValueKey('schedule-today-button'),
+        onPressed: todayInView ? null : onToday,
+        child: Text(t['today']!, maxLines: 1),
+      );
+    }
+    // Comic / neumorphic: the same box as the Day | Week track (height,
+    // radius, label), raised like its selected half. No themed TextButton:
+    // its press offset and padding made the two controls differ.
+    final enabled = !todayInView;
+    final radius = BorderRadius.circular(_controlRadius);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: const ValueKey('schedule-today-button'),
+          borderRadius: radius,
+          onTap: enabled ? onToday : null,
+          child: Container(
+            height: _controlHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
+            decoration: skin.surface(
+              BoxDecoration(
+                color: skin.neu?.canvas ?? theme.colorScheme.surface,
+                borderRadius: radius,
+              ),
+            ),
+            child: _controlLabel(
+              theme,
+              t['today']!,
+              enabled
+                  ? theme.colorScheme.onSurface
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.38),
+            ),
+          ),
+        ),
+      ),
     );
-    // The skins' TextButton theme already raises it (neumorphic) or
-    // outlines it (comic); a second surface would double the shadow.
-    return button;
+  }
+
+  static const _controlHeight = 36.0;
+  static const _controlRadius = 11.0;
+
+  /// One label style for Today, Day and Week, selected or not: same size and
+  /// weight (state shows in colour only) and a forced strut, so the text sits
+  /// at exactly the same height in every box.
+  Widget _controlLabel(ThemeData theme, String text, Color color) {
+    final style = theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      color: color,
+    );
+    return Text(
+      text,
+      maxLines: 1,
+      style: style,
+      strutStyle: StrutStyle.fromTextStyle(
+        style ?? const TextStyle(fontSize: 14),
+        forceStrutHeight: true,
+      ),
+      textHeightBehavior: const TextHeightBehavior(
+        applyHeightToFirstAscent: false,
+        applyHeightToLastDescent: false,
+      ),
+    );
   }
 
   /// Day | Week as one segmented control in the comic and neumorphic skins,
@@ -241,7 +302,7 @@ class PlannerToolbar extends StatelessWidget {
           borderRadius: radius,
           onTap: () => onView(value),
           child: Container(
-            height: 30,
+            height: _controlHeight - 6,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             alignment: Alignment.center,
             decoration: !on
@@ -264,14 +325,7 @@ class PlannerToolbar extends StatelessWidget {
                       borderRadius: radius,
                     ),
                   ),
-            child: Text(
-              label,
-              maxLines: 1,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: on ? FontWeight.w700 : FontWeight.w500,
-                color: ink,
-              ),
-            ),
+            child: _controlLabel(theme, label, ink),
           ),
         ),
       );
@@ -279,11 +333,12 @@ class PlannerToolbar extends StatelessWidget {
 
     return Container(
       key: const ValueKey('schedule-mode-segments'),
+      height: _controlHeight,
       padding: const EdgeInsets.all(3),
       decoration: skin.surface(
         BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(_controlRadius),
         ),
         raised: false,
       ),

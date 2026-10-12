@@ -215,3 +215,4 @@ Not verified on a real Windows machine: feel of hover, drag, shortcuts and the t
 - 桌面顶栏「今天 / 日 / 周」被 Flexible 平分到中间 → 改为普通子项，靠时间线区右侧（侧栏左侧，留页边距）。
 - 桌面侧栏任务池左边缘可拖动调宽（悬停左右箭头光标），280 ~ min(560, 窗口一半)，宽度存 SharedPreferences。
 - 漫画/拟态下「日 / 周」改为分段控件（凹槽/描边轨道 + 选中项凸起/描边，做法同顶部任务|日程切换条）；默认主题仍为原来的 ChoiceChip。「今天」沿用主题 TextButton（拟态本身即凸起）。
+- Round 16：漫画/拟态下「今天」不再用主题 TextButton（其内边距/按压偏移与日|周不同），改为与日|周轨道同高 36、同圆角 11、同一套 skin 凸起/描边；三者共用一个标签样式（同字号同字重、选中仅换颜色、强制 strut），选中与未选中文字中心 y 完全一致。默认主题不变。
