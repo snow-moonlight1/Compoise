@@ -252,17 +252,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(AlertDialog), findsNothing);
 
-        // Check Permissions Button
-        final permBtn = find.byKey(const ValueKey('check-permissions-btn'));
-        expect(permBtn, findsOneWidget);
-        await tester.tap(permBtn);
-        await tester.pumpAndSettle();
-
-        expect(find.byType(AlertDialog), findsOneWidget);
-        expect(find.text(store.t['permissionUnknown']!), findsOneWidget);
-
-        await tester.tap(find.text(store.t['confirm']!));
-        await tester.pumpAndSettle();
+        // Windows cannot answer a permission query, so the check button is
+        // hidden (it used to open an "unknown" dialog).
+        expect(find.byKey(const ValueKey('check-permissions-btn')), findsNothing);
 
         // Verify Test Notification Button is present
         final testBtn = find.byKey(const ValueKey('test-windows-notif-btn'));

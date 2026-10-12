@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -633,17 +634,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => _showWindowsReminderGuideDialog(context, t),
               ),
               const SizedBox(height: 8),
+              // Windows cannot report a notification permission, so there is
+              // nothing to check: the test button takes the whole row.
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('check-permissions-btn'),
-                      icon: const Icon(Icons.security, size: 16),
-                      label: Text(t['checkPermissions'] ?? 'Check Permissions'),
-                      onPressed: () => _checkAndShowPermissions(context, t),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const ValueKey('test-windows-notif-btn'),
@@ -681,15 +675,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('check-permissions-btn'),
-                      icon: const Icon(Icons.security, size: 16),
-                      label: Text(t['checkPermissions'] ?? 'Check Permissions'),
-                      onPressed: () => _checkAndShowPermissions(context, t),
+                  // Only the phones can report a notification permission.
+                  if (_canQueryPermission) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('check-permissions-btn'),
+                        icon: const Icon(Icons.security, size: 16),
+                        label: Text(
+                          t['checkPermissions'] ?? 'Check Permissions',
+                        ),
+                        onPressed: () => _checkAndShowPermissions(context, t),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const ValueKey('test-android-notif-btn'),
@@ -974,6 +973,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Sends one notification now and reports what the platform actually did,
   /// including the permission state that decides whether the user can see it.
   Future<void> _sendTestReminder(
+    BuildContext context,
+    Map<String, String> t,
+    Store store,
+  ) async {
+    // A second click while the first send is in flight would show the
+    // notification twice.
+    if (_sendingTest) return;
+    _sendingTest = true;
+    try {
+      await _sendTestReminderOnce(context, t, store);
+    } finally {
+      _sendingTest = false;
+    }
+  }
+
+  bool _sendingTest = false;
+
+  bool get _canQueryPermission =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
+  Future<void> _sendTestReminderOnce(
     BuildContext context,
     Map<String, String> t,
     Store store,

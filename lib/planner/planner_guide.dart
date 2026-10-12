@@ -54,7 +54,7 @@ class _PlannerGuideState extends State<_PlannerGuide> {
       key: const ValueKey('schedule-guide'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 420),
+        constraints: const BoxConstraints(maxWidth: 440, maxHeight: 360),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: Column(
@@ -65,28 +65,33 @@ class _PlannerGuideState extends State<_PlannerGuide> {
                   controller: _pages,
                   onPageChanged: (i) => setState(() => _index = i),
                   children: [
+                    // Centred in the page, so short steps do not leave a
+                    // block of empty space under the text.
                     for (var i = 0; i < _icons.length; i++)
-                      SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            Icon(
-                              _icons[i],
-                              size: 56,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              t['scheduleGuide${i + 1}Title']!,
-                              style: theme.textTheme.titleLarge,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              t['scheduleGuide${i + 1}Body']!,
-                              style: theme.textTheme.bodyLarge,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                      Center(
+                        key: ValueKey('schedule-guide-page-$i'),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              Icon(
+                                _icons[i],
+                                size: 56,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                t['scheduleGuide${i + 1}Title']!,
+                                style: theme.textTheme.titleLarge,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                t['scheduleGuide${i + 1}Body']!,
+                                style: theme.textTheme.bodyLarge,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                   ],

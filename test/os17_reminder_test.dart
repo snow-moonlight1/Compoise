@@ -799,7 +799,9 @@ void main() {
     testWidgets('permission check shows unknown instead of a false grant', (
       tester,
     ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      // Windows no longer offers the check (it cannot answer); a phone that
+      // returns unknown must still say so rather than claim a grant.
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final service = InMemoryReminderService(
         permission: ReminderPermissionStatus.unknown,
       );
