@@ -1157,6 +1157,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _openDetail(_SettingsPanel panel) {
     final host = this;
+    if (panel == _SettingsPanel.assistant) {
+      final store = context.read<Store>();
+      if (!store.credentialLoaded) {
+        final before = _apiKeyController.text;
+        store.ensureCredentialLoaded().then((_) {
+          if (mounted && _apiKeyController.text == before) {
+            _apiKeyController.text = store.aiConfig.apiKey;
+          }
+        });
+      }
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => _SettingsSubpage(panel: panel, host: host),

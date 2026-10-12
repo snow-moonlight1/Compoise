@@ -8,6 +8,7 @@ import 'models.dart';
 import 'services/desktop_shell_service.dart';
 import 'services/desktop_shell_windows.dart';
 import 'services/single_instance.dart';
+import 'services/window_geometry.dart';
 import 'storage.dart';
 import 'theme.dart';
 import 'ui/songti_font.dart';
@@ -15,6 +16,7 @@ import 'ui/songti_font.dart';
 Future<void> main([List<String> args = const <String>[]]) async {
   WidgetsFlutterBinding.ensureInitialized();
   await ensureWindowsWindowManager();
+  await WindowGeometry.instance.start();
   final reminders = ReminderService.instance;
   const persistence = SharedPreferencesStorePersistence();
   await SingleInstanceController.install(

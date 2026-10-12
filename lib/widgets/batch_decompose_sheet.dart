@@ -143,6 +143,7 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
       _error = null;
     });
     try {
+      await store.ensureCredentialLoaded();
       final results = await store.ai.decomposeBatch(
         taskTitles: picked.map((task) => task.title).toSet().toList(),
         config: AIConfig.fromJson(store.aiConfig.toJson()),

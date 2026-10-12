@@ -428,6 +428,8 @@ class _InputSheetState extends State<InputSheet> {
     if (text.isEmpty || _busy || _closed) return;
     final store = context.read<Store>();
     final boardId = widget.boardId ?? store.activeBoardId;
+    if (_mode != InputModePref.single) await store.ensureCredentialLoaded();
+    if (!mounted || _closed) return;
     final config = AIConfig.fromJson(store.aiConfig.toJson());
     final settings = AppSettings.fromJson(store.settings.toJson());
     final inputs = (_mode == InputModePref.single && !_batch
