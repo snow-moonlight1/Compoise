@@ -4,6 +4,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -105,6 +106,27 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// desktop without a Secret Service). Only the API key is affected; the
   /// task library keeps saving normally.
   bool credentialUnavailable = false;
+
+  /// Linux reads the keyring synchronously on the UI thread, and a locked
+  /// keyring raises an unlock prompt that blocks the first frame. There the
+  /// key is read only when something actually needs it.
+  static bool deferCredentialLoad =
+      Platform.isLinux && !Platform.environment.containsKey('FLUTTER_TEST');
+  bool _credentialLoaded = false;
+  Future<void>? _credentialLoading;
+
+  /// Whether the API key has been read from the keyring yet.
+  bool get credentialLoaded => _credentialLoaded;
+
+  /// Reads the API key once, on first need. Safe to call repeatedly.
+  Future<void> ensureCredentialLoaded() {
+    if (_credentialLoaded) return Future.value();
+    return _credentialLoading ??= _loadCredential().whenComplete(() {
+      _credentialLoading = null;
+      if (!_disposed) notifyListeners();
+    });
+  }
+
   late SharedPreferences _prefs;
   SaveProtocol? _saveProtocol;
   Map<String, String>? _savedValues;
@@ -533,6 +555,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         Board(id: newId(), name: t['defaultBoardName']!, createdAt: _now()),
       ];
     }
+    _relabelDefaultBoards(persist: false);
     final validIds = boards.map((b) => b.id).toSet();
     for (final task in tasks) {
       if (!validIds.contains(task.boardId)) {
@@ -603,7 +626,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return;
     }
-    await _loadCredential();
+    if (!deferCredentialLoad) await _loadCredential();
     _persistAll();
     _applyDeadlinePromotion();
     unawaited(reconcileReminders());
@@ -657,7 +680,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (!validIds.contains(task.boardId)) task.boardId = boards.first.id;
     }
     _removeOrphanScheduleItems();
-    await _loadCredential();
+    if (!deferCredentialLoad) await _loadCredential();
     _persistAll();
     _applyDeadlinePromotion();
     unawaited(reconcileReminders());
@@ -1607,7 +1630,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void updateSettings(AppSettings Function(AppSettings) change) {
+    final previousLanguage = settings.language;
     settings = change(settings);
+    if (settings.language != previousLanguage) _relabelDefaultBoards();
     settings.urgencyThresholdDays = settings.urgencyThresholdDays.clamp(1, 14);
     _applyDeadlinePromotion();
     _saveSettings();
@@ -1616,6 +1641,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<bool> updateAIConfig(AIConfig config) async {
     if (hasStartupRecovery || !ready || _disposed) return false;
+    await ensureCredentialLoaded();
     final requested = config.apiKey;
     if (credentialUnavailable) {
       // Without a keyring the key cannot be stored safely. Keep every other
@@ -1706,10 +1732,12 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       _confirmedCredential = '';
       credentialUnavailable = true;
     }
+    _credentialLoaded = true;
     aiConfig.apiKey = _confirmedCredential;
   }
 
   Future<bool> retryCredential() async {
+    await ensureCredentialLoaded();
     final rollback = _pendingCredentialRollback;
     if (rollback != null) {
       return _runTransaction(() => _restoreCredential(rollback));
@@ -1786,6 +1814,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     int version = ExportData.currentVersion,
     bool allowScheduleLoss = false,
   }) async {
+    await ensureCredentialLoaded();
     await _drainCommits();
     await _credentialWrites;
     if (credentialError != null) throw StateError('Credential unavailable');
@@ -1921,6 +1950,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     required _CredentialImportReservation reservation,
     bool Function()? stillConfirmed,
   }) async {
+    if (importCredential) await ensureCredentialLoaded();
     late ImportPlan effective;
     var oldCredential = _confirmedCredential;
     var newCredential = oldCredential;
@@ -2494,6 +2524,24 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _saveBoardsMeta() => _markDirty();
+
+  /// A board still carrying the built-in default name (in any language) was
+  /// never renamed, so it follows the current language. Renamed boards keep
+  /// the user's name.
+  void _relabelDefaultBoards({bool persist = true}) {
+    final defaults = {
+      for (final lang in Language.values) dictOf(lang)['defaultBoardName']!,
+    };
+    final current = t['defaultBoardName']!;
+    var changed = false;
+    for (final board in boards) {
+      if (board.name != current && defaults.contains(board.name)) {
+        board.name = current;
+        changed = true;
+      }
+    }
+    if (changed && persist) _saveBoardsMeta();
+  }
 
   void _saveConfig() => _markDirty();
 
