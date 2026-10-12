@@ -138,6 +138,12 @@ class WindowGeometry with WindowListener {
     } catch (_) {}
   }
 
+  // Linux reports only the live resize/move events; Windows and macOS also
+  // send the "-d" end events. Both are debounced into one save.
+  @override
+  void onWindowResize() => _scheduleSave();
+  @override
+  void onWindowMove() => _scheduleSave();
   @override
   void onWindowResized() => _scheduleSave();
   @override
