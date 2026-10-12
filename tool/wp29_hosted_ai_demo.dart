@@ -2,7 +2,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:matrixflow_native/experiments/wp29_hosted_ai/wp29_hosted_ai.dart';
+import 'package:compoise/experiments/wp29_hosted_ai/wp29_hosted_ai.dart';
 
 const demoTaskText = 'SYNTHETIC-WP29-TASK-9f3c-not-a-user';
 const demoImage = [7, 7, 7, 9, 1, 2, 3, 4];

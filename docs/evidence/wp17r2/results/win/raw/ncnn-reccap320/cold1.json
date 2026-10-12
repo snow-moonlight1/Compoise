@@ -20,7 +20,7 @@
   },
   "images": [
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_light_base.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_light_base.png",
       "width": 1080, "height": 1403,
       "decode_ms": 7.105, "preprocess_ms": 0.000, "det_ms": 113.205, "rec_ms": 112.175, "total_ms": 232.487,
       "error": "",

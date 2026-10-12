@@ -7,9 +7,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/settings_backup_flow.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/settings_backup_flow.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _cjk = '整';
@@ -562,13 +562,13 @@ void main() {
       // against the live library.
       final store = await open(
         seed: {
-          'matrixflow-boards': jsonEncode([
+          'compoise-boards': jsonEncode([
             for (var b = 0; b < 499; b++)
               {'id': 'b$b', 'name': 'B$b', 'createdAt': 1},
           ]),
-          'matrixflow-tasks': jsonEncode([]),
-          'matrixflow-active-board': 'b0',
-          'matrixflow-has-seen-onboarding': true,
+          'compoise-tasks': jsonEncode([]),
+          'compoise-active-board': 'b0',
+          'compoise-has-seen-onboarding': true,
         },
       );
       expect(store.boards, hasLength(499));
@@ -598,7 +598,7 @@ void main() {
       );
       final prefs = await SharedPreferences.getInstance();
       expect(
-        (jsonDecode(prefs.getString('matrixflow-boards')!) as List).length,
+        (jsonDecode(prefs.getString('compoise-boards')!) as List).length,
         500,
       );
     },
@@ -1269,7 +1269,7 @@ void main() {
         isTrue,
       );
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('matrixflow-config'), isNot(contains(sentinel)));
+      expect(prefs.getString('compoise-config'), isNot(contains(sentinel)));
     },
   );
 

@@ -10,14 +10,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/platform/device_time_zone.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/planner_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/platform/device_time_zone.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/planner_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -156,7 +156,7 @@ Future<Store> _fresh({SaveWrite? writer}) async {
   // The platform guard in setUpAll runs before any preferences are touched.
   final prefs = await SharedPreferences.getInstance();
   await prefs.clear();
-  await prefs.setBool('matrixflow-has-seen-onboarding', true);
+  await prefs.setBool('compoise-has-seen-onboarding', true);
   final store = await _open(writer: writer);
   final plan = store.previewImport(_fixture(), 'overwrite');
   expect((await store.applyImport(plan)).success, isTrue);
@@ -858,10 +858,10 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       final fixture = _fixture();
-      await prefs.setString('matrixflow-boards', jsonEncode(fixture['boards']));
-      await prefs.setString('matrixflow-tasks', jsonEncode(fixture['tasks']));
+      await prefs.setString('compoise-boards', jsonEncode(fixture['boards']));
+      await prefs.setString('compoise-tasks', jsonEncode(fixture['tasks']));
       await prefs.setString(
-        'matrixflow-settings',
+        'compoise-settings',
         jsonEncode(fixture['settings']),
       );
       await prefs.setString(SaveProtocol.scheduleKey, 'broken');

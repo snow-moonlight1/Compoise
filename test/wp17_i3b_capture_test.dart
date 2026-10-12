@@ -3,10 +3,10 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_saf.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_backend.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/screenshot_import/screenshot_saf.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
 
 import 'support/wp17_i3a_fixtures.dart' as f;
 

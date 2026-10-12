@@ -8,7 +8,7 @@ import 'screenshot_capture.dart';
 final class ScreenshotSaf {
   ScreenshotSaf({MethodChannel? channel})
     : _channel =
-          channel ?? const MethodChannel('com.matrixflow/screenshot_import');
+          channel ?? const MethodChannel('com.compoise/screenshot_import');
   final MethodChannel _channel;
   String? _session;
 

@@ -128,7 +128,7 @@ void main() {
     expect(integration.contains("ValueKey('task-input')"), isTrue);
     expect(integration.contains("ValueKey('submit-tasks')"), isTrue);
     expect(integration.contains("ValueKey('onboarding-skip-btn')"), isTrue);
-    expect(integration.contains('matrixflow-has-seen-onboarding'), isTrue);
+    expect(integration.contains('compoise-has-seen-onboarding'), isTrue);
     expect(integration.contains('seenOnboarding: false'), isTrue);
     expect(integration.contains('await app.main()'), isTrue);
     expect(
@@ -154,7 +154,7 @@ void main() {
     expect(smoke.contains('SharedPreferences'), isFalse);
     expect(smoke.contains('Store('), isFalse);
     expect(smoke.contains('setMockInitialValues'), isFalse);
-    expect(smoke.contains('MATRIXFLOW_OS25_SMOKE_RESULT'), isTrue);
+    expect(smoke.contains('COMPOISE_OS25_SMOKE_RESULT'), isTrue);
     expect(smoke.contains('exit(2)'), isTrue);
     expect(integration.contains('tool/os25_platform_smoke.dart'), isTrue);
   });

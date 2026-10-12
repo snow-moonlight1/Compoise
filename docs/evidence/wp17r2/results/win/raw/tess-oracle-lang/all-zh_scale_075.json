@@ -15,7 +15,7 @@
   },
   "images": [
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_075.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_075.png",
       "width": 810, "height": 1052,
       "decode_ms": 3.919, "preprocess_ms": 0.000, "det_ms": 165.585, "rec_ms": 0.000, "total_ms": 173.151,
       "error": "",

@@ -1,11 +1,11 @@
 # WP17-I6：官方模型 Android/Linux 应用接线与完整导入验收
 
-执行日期：2026-10-03（Asia/Shanghai）。共同基线 `5fb4592ccc10cdcc1698e27f68d2367a3d83cf18`，独立分支 `codex/wp17-i6`，执行树 `C:/Users/20214/.codex/worktrees/wp17-i6/martix`，本地 author/committer `wp17-i6-agent <wp17-i6-agent@local.invalid>`。没有修改主检出、Store/SaveProtocol、备份契约、Windows runner、发行工作流、依赖或公共路线图；不 push/tag/release。
+执行日期：2026-10-03（Asia/Shanghai）。共同基线 `5fb4592ccc10cdcc1698e27f68d2367a3d83cf18`，独立分支 `codex/wp17-i6`，执行树 `C:/Users/20214/.codex/worktrees/wp17-i6/compoise`，本地 author/committer `wp17-i6-agent <wp17-i6-agent@local.invalid>`。没有修改主检出、Store/SaveProtocol、备份契约、Windows runner、发行工作流、依赖或公共路线图；不 push/tag/release。
 
 ## 实现
 
 - Android 可选 `wp17OcrModels` 指向外部资源目录。构建阶段核对官方模型、字典、上游许可附件和完整资源清单的 SHA256/大小；模型必须同时启用 native OCR。`wp17OcrValidation=true` 仅为 debug 添加 `.wp17i6` 身份，拒绝带该验证开关的 release task。默认配置不包含模型或 native OCR。
-- 新 APK-local `com.matrixflow/ocr_assets` 通道在 IO worker 上将已打包的资源验证后整体安装到自身 `filesDir/wp17-ocr`；失败不返回可用目录。不使用下载或外部存储。既有 SAF 通道继续负责实际 content URI 有界读取与临时 PNG 清理。
+- 新 APK-local `com.compoise/ocr_assets` 通道在 IO worker 上将已打包的资源验证后整体安装到自身 `filesDir/wp17-ocr`；失败不返回可用目录。不使用下载或外部存储。既有 SAF 通道继续负责实际 content URI 有界读取与临时 PNG 清理。
 - Flutter 的资源优先级为环境变量、dart-define、可选 APK/Linux bundle、旧 application-support 路径。Linux 从实际可执行文件旁的 `data/wp17-ocr` 读取，不安装到 `/usr/local/lib`。识别算法和 native ABI 未改变。
 - `stage_official_bundle.py` 在发布前检查当前 reviewed lock 与官方 deployment 的 Paddle/ONNX/conversion provenance、权重、字典、许可，生成 12 文件加 manifest 的完整目录；整目录替换，`--check` 只读。五项新增 Python 回归覆盖损坏模型/许可证、过时 provenance、失败时保留旧目录和只读时间戳。
 - 专用构建脚本和设备测试均须显式启用。生产主入口也有独立 APK/Linux release bundle；设备 harness 用生产截图页面、校对组件和 Store。凭据使用空端口，保存失败仅通过既有 saveWriter 注入。没有注入识别文本、draft 或 bitmap。
@@ -107,7 +107,7 @@ python3 native/ocr/tools/stage_official_bundle.py --deploy "$WP17_I6_DEPLOY" --o
 
 ## 可运行产物
 
-APK 均在 `W/artifacts`，official main/device 身份均 `com.matrixflow.app.wp17i6`，normal 身份 `com.matrixflow.app`，包身份另有 `W/logs/apk-*-facts.txt`。debug 签名用于隔离验收，未作为发行包。
+APK 均在 `W/artifacts`，official main/device 身份均 `com.compoise.app.wp17i6`，normal 身份 `com.compoise.app`，包身份另有 `W/logs/apk-*-facts.txt`。debug 签名用于隔离验收，未作为发行包。
 
 | APK | 字节 | SHA256 |
 |---|---:|---|

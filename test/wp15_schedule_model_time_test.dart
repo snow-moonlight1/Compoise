@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
 
 void main() {
   final start = DateTime.utc(2026, 9, 29, 9).millisecondsSinceEpoch;

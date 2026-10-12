@@ -21,7 +21,7 @@ LOG="${WP17_LINUX_LOG:-$HOME/wp17i4-linux-drive.log}"
 MODE="${WP17_LINUX_MODE:-profile}"
 # The bundle library the app ships; passed to the test because flutter_tester is
 # the resolved executable under `flutter test`/`flutter run` on Linux.
-BUNDLE_LIB="$REPO/build/linux/x64/$MODE/bundle/lib/libmatrixflow_ocr.so"
+BUNDLE_LIB="$REPO/build/linux/x64/$MODE/bundle/lib/libcompoise_ocr.so"
 
 export PATH="$FLUTTER/bin:$PATH"
 export WP17_OCR_NCNN_DIR="$NCNN/lib/cmake/ncnn"

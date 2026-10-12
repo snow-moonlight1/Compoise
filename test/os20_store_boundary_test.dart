@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers.dart';
@@ -157,10 +157,10 @@ void main() {
       addTearDown(ReminderService.resetForTest);
       ReminderService.instance = other;
       SharedPreferences.setMockInitialValues({
-        'matrixflow-boards':
+        'compoise-boards':
             '[{"id":"b","name":"Board","createdAt":1}]',
-        'matrixflow-tasks': '[]',
-        'matrixflow-has-seen-onboarding': true,
+        'compoise-tasks': '[]',
+        'compoise-has-seen-onboarding': true,
       });
       final store = Store(reminders: injected);
       addTearDown(store.dispose);

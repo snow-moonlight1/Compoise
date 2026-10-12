@@ -14,9 +14,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/wp19_dev_mode/wp19_dev_data.dart';
-import 'package:matrixflow_native/experiments/wp19_dev_mode/wp19_dev_model.dart';
-import 'package:matrixflow_native/models.dart';
+import 'package:compoise/experiments/wp19_dev_mode/wp19_dev_data.dart';
+import 'package:compoise/experiments/wp19_dev_mode/wp19_dev_model.dart';
+import 'package:compoise/models.dart';
 
 const _productTaskKeys = [
   'id',

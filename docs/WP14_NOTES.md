@@ -48,7 +48,7 @@ Store 侧的读写口：`todayGroups({allBoards, now})`、`completedTodayCount({
 
 ## 验收证据
 
-在 `D:/Dev_project/martix-wp14-today` 上，Flutter 3.32.8（`D:/Dev_SDKs/Flutter_3.32.8`）：
+在 `D:/Dev_project/compoise-wp14-today` 上，Flutter 3.32.8（`D:/Dev_SDKs/Flutter_3.32.8`）：
 
 - `flutter analyze --no-pub` → No issues found（exit 0）。
 - `flutter test --no-pub test/wp14_planned_date_model_test.dart test/wp14_planned_date_policy_test.dart test/wp14_today_screen_test.dart` → **42 通过，0 失败**（exit 0）。

@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'rf02_import_commit_race_test.dart' as race;
@@ -77,8 +77,8 @@ Future<Store> _open({SaveWrite? writer, CredentialStore? credentials}) async {
 
 Future<Store> _seed({SaveWrite? writer, CredentialStore? credentials}) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-boards': jsonEncode([_board('b').toJson()]),
-    'matrixflow-tasks': jsonEncode([_task('t').toJson()]),
+    'compoise-boards': jsonEncode([_board('b').toJson()]),
+    'compoise-tasks': jsonEncode([_task('t').toJson()]),
     SaveProtocol.scheduleKey: jsonEncode([_block('old').toJson()]),
   });
   return _open(writer: writer, credentials: credentials);
@@ -681,7 +681,7 @@ void main() {
               if (reject &&
                   (failure == 'pointer'
                       ? key == SaveProtocol.pointerKey
-                      : key.startsWith('matrixflow-save-') &&
+                      : key.startsWith('compoise-save-') &&
                             key != SaveProtocol.pointerKey)) {
                 return false;
               }

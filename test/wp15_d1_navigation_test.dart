@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/platform/device_time_zone.dart';
-import 'package:matrixflow_native/platform/device_time_zone_controller.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/planner_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/platform/device_time_zone.dart';
+import 'package:compoise/platform/device_time_zone_controller.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/planner_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,11 +59,11 @@ Future<Store> seeded(
   Future<bool> Function(String key, String value)? writer,
 }) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-has-seen-onboarding': true,
-    'matrixflow-boards': jsonEncode([
+    'compoise-has-seen-onboarding': true,
+    'compoise-boards': jsonEncode([
       Board(id: 'b', name: 'Synthetic board', createdAt: 1).toJson(),
     ]),
-    'matrixflow-tasks': jsonEncode(tasks.map((task) => task.toJson()).toList()),
+    'compoise-tasks': jsonEncode(tasks.map((task) => task.toJson()).toList()),
   });
   final store = Store(saveWriter: writer);
   await store.init();

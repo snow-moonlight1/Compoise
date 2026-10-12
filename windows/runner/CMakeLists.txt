@@ -9,7 +9,6 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "wp15_d3_validation.cpp"
-  "wp28_u2_desktop.cpp"
   "main.cpp"
   "single_instance.cpp"
   "utils.cpp"
@@ -23,27 +22,13 @@ add_executable(${BINARY_NAME} WIN32
 # that need different build settings.
 apply_standard_settings(${BINARY_NAME})
 
-# Explicit diagnostic builds only; production builds cannot select a test lock.
-file(READ "${FLUTTER_MANAGED_DIR}/ephemeral/generated_config.cmake" WP28_U2_FLUTTER_CONFIG)
-# Base64 encoding of WP28_U2_HARNESS=true in Flutter's generated DART_DEFINES.
-string(FIND "${WP28_U2_FLUTTER_CONFIG}" "V1AyOF9VMl9IQVJORVNTPXRydWU=" WP28_U2_DART_DEFINE)
-if("$ENV{WP28_U2_HARNESS_BUILD}" STREQUAL "1")
-  if(WP28_U2_DART_DEFINE EQUAL -1)
-    message(FATAL_ERROR "WP28_U2_HARNESS_BUILD=1 requires --dart-define=WP28_U2_HARNESS=true")
-  endif()
-  target_compile_definitions(${BINARY_NAME} PRIVATE "WP28_U2_HARNESS")
-elseif(NOT WP28_U2_DART_DEFINE EQUAL -1)
-  message(FATAL_ERROR "WP28_U2_HARNESS=true requires WP28_U2_HARNESS_BUILD=1")
-endif()
+file(READ "${FLUTTER_MANAGED_DIR}/ephemeral/generated_config.cmake" FLUTTER_GENERATED_CONFIG)
 
 # D3 native diagnostics require both the build environment and Dart opt-in.
-string(FIND "${WP28_U2_FLUTTER_CONFIG}" "V1AxNV9EM19ERVZJQ0U9dHJ1ZQ==" WP15_D3_DART_DEFINE)
+string(FIND "${FLUTTER_GENERATED_CONFIG}" "V1AxNV9EM19ERVZJQ0U9dHJ1ZQ==" WP15_D3_DART_DEFINE)
 if("$ENV{WP15_D3_DEVICE_BUILD}" STREQUAL "1")
   if(WP15_D3_DART_DEFINE EQUAL -1)
     message(FATAL_ERROR "WP15_D3_DEVICE_BUILD=1 requires WP15_D3_DEVICE=true")
-  endif()
-  if(NOT WP28_U2_DART_DEFINE EQUAL -1 OR "$ENV{WP28_U2_HARNESS_BUILD}" STREQUAL "1")
-    message(FATAL_ERROR "D3 and U2 harness builds cannot be combined")
   endif()
   target_compile_definitions(${BINARY_NAME} PRIVATE "WP15_D3_DEVICE")
 elseif(NOT WP15_D3_DART_DEFINE EQUAL -1)

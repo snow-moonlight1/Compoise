@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/planner/planner_week_view.dart';
-import 'package:matrixflow_native/screens/planner_screen.dart';
+import 'package:compoise/planner/planner_week_view.dart';
+import 'package:compoise/screens/planner_screen.dart';
 
 import 'wp15_c2_test_support.dart';
 

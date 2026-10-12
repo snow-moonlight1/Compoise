@@ -263,7 +263,7 @@ jobs:
         run: |
           set -euo pipefail
           BUNDLE=build/linux/x64/release/bundle
-          test -x "$BUNDLE/matrixflow_native" || { echo "Missing Linux executable: $BUNDLE/matrixflow_native"; exit 1; }
+          test -x "$BUNDLE/compoise" || { echo "Missing Linux executable: $BUNDLE/compoise"; exit 1; }
           test -f "$BUNDLE/data/app.so" || { echo "Missing $BUNDLE/data/app.so"; exit 1; }
           test -d "$BUNDLE/data/flutter_assets" || { echo "Missing $BUNDLE/data/flutter_assets"; exit 1; }
           du -sh "$BUNDLE"

@@ -1,6 +1,6 @@
 # WP15-B2：备份日程预览与兼容提示验收
 
-日期：2026-10-01（Asia/Shanghai）。在已附着的独立工作树 `C:/Users/20214/.codex/worktrees/wp15-b1-backup-v3/martix` 中，从集成基线 `ea6c4d0d8e58dd15e4c68d9824c9c0ac0bb445c6` 新建 `codex/wp15-b2`；保留原 B1 分支。依据 [WP15 契约第 5 节](WP15_CONTRACT.md)、[B1 验收记录](WP15_B1_NOTES.md) 和 [备份格式](BACKUP_FORMAT.md)。本包独立提交，不推送。
+日期：2026-10-01（Asia/Shanghai）。在已附着的独立工作树 `C:/Users/20214/.codex/worktrees/wp15-b1-backup-v3/compoise` 中，从集成基线 `ea6c4d0d8e58dd15e4c68d9824c9c0ac0bb445c6` 新建 `codex/wp15-b2`；保留原 B1 分支。依据 [WP15 契约第 5 节](WP15_CONTRACT.md)、[B1 验收记录](WP15_B1_NOTES.md) 和 [备份格式](BACKUP_FORMAT.md)。本包独立提交，不推送。
 
 ## 实现范围
 

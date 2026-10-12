@@ -2,18 +2,18 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers.dart';
 
-const String slotA = 'matrixflow-save-a';
-const String slotB = 'matrixflow-save-b';
-const String kTasks = 'matrixflow-tasks';
-const String kBoards = 'matrixflow-boards';
-const String kActiveBoard = 'matrixflow-active-board';
-const String kOnboarding = 'matrixflow-has-seen-onboarding';
+const String slotA = 'compoise-save-a';
+const String slotB = 'compoise-save-b';
+const String kTasks = 'compoise-tasks';
+const String kBoards = 'compoise-boards';
+const String kActiveBoard = 'compoise-active-board';
+const String kOnboarding = 'compoise-has-seen-onboarding';
 
 /// Lands batches in the current mock store and can refuse the commit point or
 /// hold a payload, so a test can watch a save fail or arrive late.

@@ -57,12 +57,12 @@ adb shell dumpsys package com.miui.notes | grep -E "versionName|versionCode|targ
 ```bash
 adb shell am start -a android.intent.action.SEND -t text/plain \
   --es android.intent.extra.TEXT "买牛奶" \
-  -n com.matrixflow.app/com.matrixflow.matrixflow_native.MainActivity
+  -n com.compoise.app/com.compoise.app.MainActivity
 # 冷启动（先杀进程）与热启动各测一次
-adb shell am force-stop com.matrixflow.app
+adb shell am force-stop com.compoise.app
 adb shell am start -a android.intent.action.SEND -t text/plain \
   --es android.intent.extra.TEXT "买牛奶" \
-  -n com.matrixflow.app/com.matrixflow.matrixflow_native.MainActivity
+  -n com.compoise.app/com.compoise.app.MainActivity
 ```
 
 多行清单要由测试发送端传入真实换行；在命令行里写 `\n` 可能只传入反斜杠和字母 `n`，不足以验证换行处理。以上命令需在接收入口实现或临时探针安装后执行。

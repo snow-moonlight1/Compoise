@@ -20,7 +20,7 @@ _spec.loader.exec_module(gate)
 DIAGNOSTIC_MARKERS = (
     "WP28_U2_ROOT", "WP28_U2_NAMESPACE", "WP28_U2_RUN", "wp28U2Status",
     "wp28-u2-device-", "wp28-u2-", "WP28-U2 pid=",
-    "WP15_D3_RUN", "WP15_D3_NAMESPACE", "WP15_D3_ROOT", "matrixflow/wp15_d3",
+    "WP15_D3_RUN", "WP15_D3_NAMESPACE", "WP15_D3_ROOT", "compoise/wp15_d3",
     "SYNTHETIC_OLD_ENCRYPTED_FILE_NEVER_READ", "synthetic-screenshot-",
     "R2SeedCredentials", "Synthetic transaction retry",
     "store-open-approved-",

@@ -66,9 +66,6 @@ jobs:
       - name: Windows candidate audit regressions
         run: python3 -m unittest discover -s scripts/tests -p test_wp28_r2_candidate_audit.py
 
-      - name: Windows native validation workflow contracts
-        run: python3 -m unittest discover -s scripts/tests -p 'test_wp28_r3*.py'
-
       - name: Record device smoke boundary
         shell: bash
         run: |
@@ -189,9 +186,6 @@ jobs:
       - name: Mock integration test
         run: flutter test --no-pub integration_test/app_test.dart
 
-      - name: Windows upgrade and path regressions
-        run: flutter test --no-pub test/wp28_windows_path_alias_test.dart test/wp28_u1_upgrade_test.dart test/wp28_u1_boundaries_test.dart test/wp28_u1_windows_plugin_test.dart test/wp28_u2_credentials_test.dart
-
       - name: Build Windows debug
         run: flutter build windows --debug
 
@@ -222,7 +216,7 @@ jobs:
       - name: Run real notification and tray smoke
         shell: pwsh
         env:
-          MATRIXFLOW_OS25_SMOKE_RESULT: ${{ runner.temp }}/os25-platform-smoke.txt
+          COMPOISE_OS25_SMOKE_RESULT: ${{ runner.temp }}/os25-platform-smoke.txt
         run: |
           flutter run -d windows -t tool/os25_platform_smoke.dart --no-pub
-          Get-Content "$env:MATRIXFLOW_OS25_SMOKE_RESULT"
+          Get-Content "$env:COMPOISE_OS25_SMOKE_RESULT"

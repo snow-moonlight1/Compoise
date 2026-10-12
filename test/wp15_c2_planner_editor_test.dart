@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/planner/schedule_edit_session.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/planner/schedule_edit_session.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
 import 'wp15_c2_test_support.dart';
 
 Future<void> _detail(WidgetTester tester, {String id = 'block'}) =>

@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:matrixflow_native/services/desktop_shell_host.dart';
-import 'package:matrixflow_native/services/desktop_shell_windows.dart';
-import 'package:matrixflow_native/services/reminder_service.dart';
+import 'package:compoise/services/desktop_shell_host.dart';
+import 'package:compoise/services/desktop_shell_windows.dart';
+import 'package:compoise/services/reminder_service.dart';
 
 /// Real Windows notification and tray smoke.
 ///
@@ -14,10 +14,10 @@ import 'package:matrixflow_native/services/reminder_service.dart';
 ///
 /// flutter run -d windows -t tool/os25_platform_smoke.dart --no-pub
 ///
-/// Set MATRIXFLOW_OS25_SMOKE_RESULT to a file path to keep the one-line report.
+/// Set COMPOISE_OS25_SMOKE_RESULT to a file path to keep the one-line report.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final resultPath = Platform.environment['MATRIXFLOW_OS25_SMOKE_RESULT'];
+  final resultPath = Platform.environment['COMPOISE_OS25_SMOKE_RESULT'];
   if (!Platform.isWindows) {
     _write(
       resultPath,
@@ -54,7 +54,7 @@ class _SmokeWindowState extends State<_SmokeWindow> {
   }
 
   Future<void> _run() async {
-    final resultPath = Platform.environment['MATRIXFLOW_OS25_SMOKE_RESULT'];
+    final resultPath = Platform.environment['COMPOISE_OS25_SMOKE_RESULT'];
     final notifications = FlutterLocalNotificationsReminderService();
     final taskId = 'os25-smoke-${DateTime.now().microsecondsSinceEpoch}';
     WindowsDesktopShellHost? host;

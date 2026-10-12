@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/services/desktop_exit_coordinator.dart';
-import 'package:matrixflow_native/services/desktop_shell_host.dart';
-import 'package:matrixflow_native/services/desktop_shell_service.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/ui/desktop_exit_strings.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/services/desktop_exit_coordinator.dart';
+import 'package:compoise/services/desktop_shell_host.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/ui/desktop_exit_strings.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -257,7 +257,7 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       SharedPreferences.setMockInitialValues({
-        'matrixflow-has-seen-onboarding': true,
+        'compoise-has-seen-onboarding': true,
       });
       final gate = Completer<void>();
       var armed = false;
@@ -300,7 +300,7 @@ void main() {
         await tester.binding.setSurfaceSize(const Size(1200, 800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         SharedPreferences.setMockInitialValues({
-          'matrixflow-has-seen-onboarding': true,
+          'compoise-has-seen-onboarding': true,
         });
         var reject = false;
         final store = Store(

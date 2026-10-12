@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/recovery_text.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/recovery_text.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'rf02_import_commit_race_test.dart' as fixture;

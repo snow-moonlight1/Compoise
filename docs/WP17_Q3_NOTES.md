@@ -1,6 +1,6 @@
 # WP17-Q3：可复现的 OCR 质量门禁
 
-基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp17-q3`，工作树 `D:/Dev_project/martix-wp17-q3`。提交身份只在本工作树设为 `wp17-q3-agent <wp17-q3-agent@local.invalid>`。完整提交 SHA 以该工作树的 `git rev-parse HEAD` 为准。未改 main，未派子 Agent，未 push、amend、tag 或发 Release。
+基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp17-q3`，工作树 `D:/Dev_project/compoise-wp17-q3`。提交身份只在本工作树设为 `wp17-q3-agent <wp17-q3-agent@local.invalid>`。完整提交 SHA 以该工作树的 `git rev-parse HEAD` 为准。未改 main，未派子 Agent，未 push、amend、tag 或发 Release。
 
 本包只新增 `native/ocr/tools/q3_*.py`、`q3_linux.sh` 和本文件。Q1 脚本、R2 golden、生产 native、适配器、模型锁和 pubspec 未改。没有 Dart 测试：评分器不需要产品代码。字体、PNG、模型、日志都在私有目录，不入库。
 
@@ -16,7 +16,7 @@
 
 Windows Pillow 12.3.0 的数据集是 `q3-s17217-fonta2b93e6c2db0-img9b35d1ecaaa4`，图片集摘要 `9b35d1ecaaa4c00a7fe08191cb10ab7569d1df03e3a634107369cc7324aa6c17`。Linux 上 Pillow 10.2.0 与已有的 Pillow 12.3.0 生成了同一套 PNG，数据集 `q3-s17217-fonta2b93e6c2db0-imgaffa132dfb05`，图片集摘要 `affa132dfb051a740465b592684dd083f533e65c94a9d68044e31934e93284c7`。七张图的摘要都不同，换行后的真值字符串相同。`compare` 因此拒绝把两边当成同一对照，退出码 1。
 
-只读复用的库和模型：Windows `wp17q1-private/native-win-after/Release/matrixflow_ocr.dll` 与 `wp17i5-private/deploy-win`；Linux `wp17q1-private/native-linux-after/libmatrixflow_ocr.so` 与 `wp17i6-private/official-deploy`。字典摘要与锁一致：`d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b`。字典没有 U+0020；首行 U+3000 是 CTC 第 1 类，第 0 类是 blank。生产加载器会去掉行尾 ASCII 空格。这次输出里的词间空格是被删掉，不是换成 U+3000。
+只读复用的库和模型：Windows `wp17q1-private/native-win-after/Release/compoise_ocr.dll` 与 `wp17i5-private/deploy-win`；Linux `wp17q1-private/native-linux-after/libcompoise_ocr.so` 与 `wp17i6-private/official-deploy`。字典摘要与锁一致：`d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b`。字典没有 U+0020；首行 U+3000 是 CTC 第 1 类，第 0 类是 blank。生产加载器会去掉行尾 ASCII 空格。这次输出里的词间空格是被删掉，不是换成 U+3000。
 
 | 平台 | 严格 CER | 去空白 CER | 漏行 | 额外行 | 空图 | 失败图 | 日期严格 | 日期去空白 |
 |---|---|---|---|---|---|---|---|---|

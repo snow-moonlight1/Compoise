@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/schedule_item.dart';
+import 'package:compoise/schedule_item.dart';
 import 'wp15_c2_test_support.dart';
 
 /// Gestures on a schedule block: tap selects, handles resize, long press

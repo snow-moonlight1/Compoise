@@ -33,7 +33,7 @@ case "${1:-disabled}" in
       --dart-define=INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=false \
       > "$root/logs/build-device.log" 2>&1
     bundle="$WP17_REPO/build/linux/x64/debug/bundle"
-    test -f "$bundle/lib/libmatrixflow_ocr.so"
+    test -f "$bundle/lib/libcompoise_ocr.so"
     python3 native/ocr/tools/stage_official_bundle.py --deploy "$WP17_I7_DEPLOY" --out "$bundle/data"
     # mktemp avoids deleting or overwriting previous accepted artifacts.
     destination=$(mktemp -d "$root/artifacts/linux-device-XXXXXX")

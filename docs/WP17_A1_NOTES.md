@@ -1,6 +1,6 @@
 # WP17-A1：官方模型 arm64 Android 验收探针
 
-2026-10-03（Asia/Shanghai）。固定基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp17-a1`，工作树 `D:/Dev_project/martix-wp17-a1`，仅本树身份 `wp17-a1-agent <wp17-a1-agent@local.invalid>`。未找到适用 AGENTS；已读 I5/I6/I7/Q1 NOTES、官方 bundle 和 Android 驱动。完整提交 SHA 在外部 `handoff.json`，避免文档自引用。
+2026-10-03（Asia/Shanghai）。固定基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp17-a1`，工作树 `D:/Dev_project/compoise-wp17-a1`，仅本树身份 `wp17-a1-agent <wp17-a1-agent@local.invalid>`。未找到适用 AGENTS；已读 I5/I6/I7/Q1 NOTES、官方 bundle 和 Android 驱动。完整提交 SHA 在外部 `handoff.json`，避免文档自引用。
 
 **交付已编译的诊断 APK、arm64 Debug/Release 原生探针与默认关闭的宿主驱动；arm64 设备验收仍未通过。** ADB 实查只有 `emulator-5562 offline`，ABI/SDK/包身份均不可读；本机现有 API23/API35 镜像均为 x86_64。本轮没有安装任何 APK、启动 AVD、使用真实手机或以历史 I4/x86_64 结果替代官方 arm64 证据。
 
@@ -17,24 +17,24 @@
 - 第一应用在完整 suite/teardown 结果落盘后自行退出；第二应用从同一磁盘创建生产 Store，深比板、任务全部字段/子项、ID、备注、完成态、日期、设置、schedule 和 pointer。expected.json 仅作比较。
 - Debug/Release 独立 smoke 分别做冷单图、同会话三批十张有效图、坏 PNG 后恢复、缺字典；检查真实远端退出 sentinel、原 R2 文本与几何，强杀/残缺输出拒绝。应用内也执行缺字典/坏 PNG/恢复检查。
 
-宿主要求当前专用设备 serial/fingerprint 的显式 enrollment，拒绝 offline、非 arm64、API<23 和已有诊断包；串行使用 `Local\MatrixFlow-WP17-device-<serial>` Windows mutex，集成端其他驱动须共享该锁。只操作自己安装的 `com.matrixflow.app.wp17i6` 和每轮 UUID 目录，不改全局设置、日志缓冲或正常应用数据。未知 DocumentsUI 失败关闭，未提供 picker/OCR/bitmap 注入替代路线。
+宿主要求当前专用设备 serial/fingerprint 的显式 enrollment，拒绝 offline、非 arm64、API<23 和已有诊断包；串行使用 `Local\Compoise-WP17-device-<serial>` Windows mutex，集成端其他驱动须共享该锁。只操作自己安装的 `com.compoise.app.wp17i6` 和每轮 UUID 目录，不改全局设置、日志缓冲或正常应用数据。未知 DocumentsUI 失败关闭，未提供 picker/OCR/bitmap 注入替代路线。
 
 内存采样保留原 dumpsys meminfo 与 /proc/status：Java/Native heap PSS、支持时的 heap RSS、整进程 RSS/PSS、累计 VmHWM 分列；缺字段为 null。阶段包含 picker/review 等待，HWM 不当作每批可重置峰值，250ms 采样可能漏短峰。native smoke 时间不含模型加载，host wall 含进程/模型/ADB；Dart cold/hot 调用和完整 SAF 流程耗时另列，文件系统冷缓存不受控。Android am 无 waitpid，进程自然消失、suite 结果、退出意图与 `os_exit_code=null` 分开记录，并拒绝检测到的 crash/force-stop；不声称取得 Android 应用 OS 退出码。
 
 ## 实际产物与检查
 
-私有根 `W=D:/Dev_project/martix-wp17-a1-private`，含源码镜像、PUB/Gradle/临时缓存、官方部署、SDK 副本、日志和产物。输入 Flutter `D:/Dev_SDKs/Flutter_3.32.8` 与最终 `W/flutter` 均校验 toolchain.json 的 Flutter 3.32.8 / Dart 3.8.1 和完整 framework/engine revision；Android SDK `D:/Dev_SDKs/Android_studio_SDK`，NDK `28.0.12433566`，JDK17，CMake/Ninja，编译 `android-23`。
+私有根 `W=D:/Dev_project/compoise-wp17-a1-private`，含源码镜像、PUB/Gradle/临时缓存、官方部署、SDK 副本、日志和产物。输入 Flutter `D:/Dev_SDKs/Flutter_3.32.8` 与最终 `W/flutter` 均校验 toolchain.json 的 Flutter 3.32.8 / Dart 3.8.1 和完整 framework/engine revision；Android SDK `D:/Dev_SDKs/Android_studio_SDK`，NDK `28.0.12433566`，JDK17，CMake/Ninja，编译 `android-23`。
 
 官方部署从 I6 缓存只读核验后复制；现行 stager 检查官方 provenance、权重、字典及全部许可。五模型文件合计 10,717,392 B；arm64 ncnn 静态库 SHA256 `ff736cecd9851452724f3cb1fc47c40d789f83a805ba5855cdcc91eb80c77870`，stb SHA256 `594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3`，沿用 ncnn pin `c6b351b56fbe32e0381ae00331e3df649b20d7b7`。源缓存和锁未写入，未下载/转换模型。APK 的 12 文件/manifest 逐字节验 hash；原 R2 十图夹具 779,871 B / 13,637,160 pixels，符合原 48 MiB / 24 Mi 像素预算，逐图摘要在 `W/logs/fixtures.json`。
 
 | 产物（均在 W，不提交/不安装） | 字节 | SHA256 |
 |---|---:|---|
-| native/Debug/libmatrixflow_ocr.so | 41,840,344 | `44eaa9c5414e0ed49c47662ff0bb2e02a9dfd6e65268a9c524c6c23dbbd7886a` |
-| native/Release/libmatrixflow_ocr.so | 41,762,240 | `9cb55c153ce533b325d2ab7144278995d4731e0dfe7132928e49b0d48cb06270` |
+| native/Debug/libcompoise_ocr.so | 41,840,344 | `44eaa9c5414e0ed49c47662ff0bb2e02a9dfd6e65268a9c524c6c23dbbd7886a` |
+| native/Release/libcompoise_ocr.so | 41,762,240 | `9cb55c153ce533b325d2ab7144278995d4731e0dfe7132928e49b0d48cb06270` |
 | artifacts/wp17-a1-arm64-probe.apk | 132,811,072 | `5baeaac6bd4d65e904d9ebe8a152ffc266efebf393183d3ebf13b4b6a9cadf80` |
 | artifacts/wp17-a1-normal-build-only.apk | 91,313,992 | `d55097a21193ceceec8677fbda901c88a3ecfacc7b68197bf81f4e59297f523a` |
 
-两种原生库和 smoke 的 ELF64/AArch64、四个 C ABI 导出、NEEDED 与 CMake API23 配置实查通过；APK arm64 native 为 Debug、剥离后 6,633,816 B，SHA256 `34f4ef40364b9bc1109efb02a7ababddf35e33b4ccc768a68877b8af0742bb3f`。诊断 APK 身份 `.wp17i6` / minSdk23；普通 APK 为 `com.matrixflow.app` / 默认 main，确认没有 OCR 库或模型。均为常规 debug 构建，不是发行产物。
+两种原生库和 smoke 的 ELF64/AArch64、四个 C ABI 导出、NEEDED 与 CMake API23 配置实查通过；APK arm64 native 为 Debug、剥离后 6,633,816 B，SHA256 `34f4ef40364b9bc1109efb02a7ababddf35e33b4ccc768a68877b8af0742bb3f`。诊断 APK 身份 `.wp17i6` / minSdk23；普通 APK 为 `com.compoise.app` / 默认 main，确认没有 OCR 库或模型。均为常规 debug 构建，不是发行产物。
 
 | 实际命令/检查 | exit / 结果 | W/logs 证据 |
 |---|---|---|

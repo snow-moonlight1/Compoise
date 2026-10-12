@@ -1,7 +1,7 @@
 # Optional reviewed resources, shared by the two desktop bundle installers.
 # Ordinary builds do not find Python, ncnn, or any models.
 if(DEFINED ENV{WP17_OCR_MODELS_DIR} AND NOT "$ENV{WP17_OCR_MODELS_DIR}" STREQUAL "")
-  if(NOT TARGET matrixflow_ocr)
+  if(NOT TARGET compoise_ocr)
     message(FATAL_ERROR "Official OCR resources require the native OCR target")
   endif()
   set(WP17_I8_MODELS "$ENV{WP17_OCR_MODELS_DIR}")

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/platform/device_time_zone.dart';
-import 'package:matrixflow_native/platform/device_time_zone_picker.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/platform/device_time_zone.dart';
+import 'package:compoise/platform/device_time_zone_picker.dart';
 
 void main() {
   for (final unknown in [false, true]) {

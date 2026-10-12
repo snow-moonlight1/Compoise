@@ -10,18 +10,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/wp19_dev_mode/wp19_dev_data.dart';
-import 'package:matrixflow_native/experiments/wp19_dev_mode/wp19_dev_mode_app.dart';
+import 'package:compoise/experiments/wp19_dev_mode/wp19_dev_data.dart';
+import 'package:compoise/experiments/wp19_dev_mode/wp19_dev_mode_app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _captureBoundary = ValueKey('capture-boundary');
 
 /// Product-shaped library, so a stray write would be visible as a changed key.
 const _seededLibrary = <String, Object>{
-  'matrixflow-tasks': '[{"id":"real-1","boardId":"b","title":"真任务"}]',
-  'matrixflow-boards': '[{"id":"b","name":"真实项目"}]',
-  'matrixflow-settings': '{"language":"zh"}',
-  'matrixflow-save-pointer': 'slot-a',
+  'compoise-tasks': '[{"id":"real-1","boardId":"b","title":"真任务"}]',
+  'compoise-boards': '[{"id":"b","name":"真实项目"}]',
+  'compoise-settings': '{"language":"zh"}',
+  'compoise-save-pointer': 'slot-a',
 };
 
 void main() {

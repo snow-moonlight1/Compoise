@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/services/desktop_exit_coordinator.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/services/desktop_exit_coordinator.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Keys implements CredentialStore {
@@ -303,7 +303,7 @@ void main() {
         keys,
         writer: (key, value) async {
           if (armed &&
-              key.startsWith('matrixflow-save-') &&
+              key.startsWith('compoise-save-') &&
               key != SaveProtocol.pointerKey) {
             armed = false;
             entered.complete();
@@ -418,7 +418,7 @@ void main() {
       expect((await store.flush()).success, isTrue);
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getString('matrixflow-config'),
+        prefs.getString('compoise-config'),
         isNot(contains('synthetic-import')),
       );
       await restart(store, keys, 'synthetic-import');

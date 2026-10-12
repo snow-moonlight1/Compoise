@@ -54,7 +54,7 @@ foreach ($abiName in $Abi) {
     & cmake --build $build | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "build failed for $abiName" }
 
-    $lib = Join-Path $build 'libmatrixflow_ocr.so'
+    $lib = Join-Path $build 'libcompoise_ocr.so'
     if (-not (Test-Path -LiteralPath $lib)) { throw "missing $lib" }
     Write-Host ("library : {0} ({1:N0} bytes)" -f $lib, (Get-Item $lib).Length)
     & $readelf -d $lib | Select-String -Pattern 'NEEDED|SONAME'

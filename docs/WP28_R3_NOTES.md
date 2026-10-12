@@ -1,8 +1,8 @@
 # WP28-R3：独立 Windows 原生验收 CI
 
 基线：`459f9a28cefdcac9196825b2d4ac70250dbf3b8d`。独立分支 `codex/wp28-r3`，
-工作树 `D:/Dev_project/martix-wp28-r3`。固定 Flutter 3.32.8 / Dart 3.8.1，
-`pubspec.lock` 未变；独立 `PUB_CACHE=D:/Dev_project/martix-wp28-r3-cache`。
+工作树 `D:/Dev_project/compoise-wp28-r3`。固定 Flutter 3.32.8 / Dart 3.8.1，
+`pubspec.lock` 未变；独立 `PUB_CACHE=D:/Dev_project/compoise-wp28-r3-cache`。
 没有修改主检出、`pr.yml`/`release.yml`、产品入口、Store、签名、版本或模型锁。
 本包不推送。云端实际跑矩阵留给集成。
 
@@ -31,7 +31,7 @@
 未改产品行为。
 
 完整矩阵证据根
-`D:/Dev_project/martix-wp28-r3/build/wp28-r3/2529b808-e0fe-4311-b432-c06fe6aa1c1d`。
+`D:/Dev_project/compoise-wp28-r3/build/wp28-r3/2529b808-e0fe-4311-b432-c06fe6aa1c1d`。
 `ci-report.json`：`passed=true`，`skip=false`，`normalCandidate=false`，
 `failures=[]`，commit `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`。
 桌面探测 `usable=true`，`isolated=true`，session 1，输入桌面 Default。

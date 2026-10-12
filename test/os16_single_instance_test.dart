@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/services/reminder_service.dart';
-import 'package:matrixflow_native/services/single_instance.dart';
+import 'package:compoise/services/reminder_service.dart';
+import 'package:compoise/services/single_instance.dart';
 
 void main() {
   group('OS16 single-instance arguments', () {
@@ -19,7 +19,7 @@ void main() {
 
     test('accepts a raw JSON payload argument', () {
       final decoded = notificationPayloadFromArguments([
-        '--matrixflow-notification-payload={"boardId":"b","taskId":"t"}',
+        '--compoise-notification-payload={"boardId":"b","taskId":"t"}',
       ]);
       expect(decoded?.boardId, 'b');
       expect(decoded?.taskId, 't');
@@ -33,13 +33,13 @@ void main() {
       );
       expect(
         notificationPayloadFromArguments([
-          '--matrixflow-notification-payload=not-json',
+          '--compoise-notification-payload=not-json',
         ]),
         isNull,
       );
       expect(
         notificationPayloadFromArguments([
-          '--matrixflow-notification-payload=',
+          '--compoise-notification-payload=',
         ]),
         isNull,
       );
@@ -66,7 +66,7 @@ void main() {
       var restored = 0;
       var delivered = 0;
       dispatchSingleInstanceActivation(
-        const ['--matrixflow-notification-payload={"boardId":"b","taskId":""}'],
+        const ['--compoise-notification-payload={"boardId":"b","taskId":""}'],
         restoreWindow: () => restored++,
         deliverPayload: (_) => delivered++,
       );

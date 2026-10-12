@@ -8,24 +8,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/main.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/search_screen.dart';
-import 'package:matrixflow_native/screens/settings_backup_flow.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/services/desktop_shell_service.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/theme.dart';
-import 'package:matrixflow_native/ui/songti_font.dart';
-import 'package:matrixflow_native/widgets/animated_task_title.dart';
-import 'package:matrixflow_native/widgets/input_sheet.dart';
-import 'package:matrixflow_native/widgets/quadrant_pane.dart';
-import 'package:matrixflow_native/widgets/task_card.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
-import 'package:matrixflow_native/widgets/task_hierarchy_checkbox.dart';
-import 'package:matrixflow_native/widgets/task_list_view.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/main.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/search_screen.dart';
+import 'package:compoise/screens/settings_backup_flow.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/theme.dart';
+import 'package:compoise/ui/songti_font.dart';
+import 'package:compoise/widgets/animated_task_title.dart';
+import 'package:compoise/widgets/input_sheet.dart';
+import 'package:compoise/widgets/quadrant_pane.dart';
+import 'package:compoise/widgets/task_card.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
+import 'package:compoise/widgets/task_hierarchy_checkbox.dart';
+import 'package:compoise/widgets/task_list_view.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -133,7 +133,7 @@ Future<Store> setup(
   Map<String, Object>? initialPrefs,
 }) async {
   final prefs = <String, Object>{
-    'matrixflow-has-seen-onboarding': true,
+    'compoise-has-seen-onboarding': true,
     ...?initialPrefs,
   };
   SharedPreferences.setMockInitialValues(prefs);
@@ -2630,10 +2630,10 @@ void main() {
         tester,
         deviceLocales: [const Locale('zh', 'CN')],
         initialPrefs: {
-          'matrixflow-settings': jsonEncode(
+          'compoise-settings': jsonEncode(
             AppSettings(language: Language.en).toJson(),
           ),
-          'matrixflow-boards': jsonEncode([
+          'compoise-boards': jsonEncode([
             Board(id: 'b1', name: 'Custom Board', createdAt: 1).toJson(),
           ]),
         },
@@ -2716,15 +2716,15 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: MatrixFlowApp widget entry point respects injected deviceLocales',
+    'WP06-N: CompoiseApp widget entry point respects injected deviceLocales',
     (tester) async {
       viewport(tester, const Size(390, 844));
       SharedPreferences.setMockInitialValues({
-        'matrixflow-has-seen-onboarding': true,
+        'compoise-has-seen-onboarding': true,
       });
 
       await tester.pumpWidget(
-        const MatrixFlowApp(deviceLocales: [Locale('zh', 'CN')]),
+        const CompoiseApp(deviceLocales: [Locale('zh', 'CN')]),
       );
       await tester.pumpAndSettle();
 

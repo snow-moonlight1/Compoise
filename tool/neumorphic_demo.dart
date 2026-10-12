@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:matrixflow_native/experiments/neumorphic/neumorphic.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/theme.dart';
+import 'package:compoise/experiments/neumorphic/neumorphic.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/theme.dart';
 
 /// Headless-safe entry for the experiment gallery. It is not the production
 /// app: `flutter run` without `-t` still starts `lib/main.dart`.

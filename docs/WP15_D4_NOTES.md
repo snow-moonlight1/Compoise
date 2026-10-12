@@ -1,6 +1,6 @@
 # WP15-D4：日程键盘与语义收口
 
-2026-10-03；工作树 `D:/Dev_project/martix-wp15-d4`；分支 `codex/wp15-d4`；固定基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，没有改用后续 main。实现提交 `738183e9bda2573adc18f6ddcbe4584c4efbde1d`；验收文档另作提交，其完整 SHA 随最终交接给出。提交身份仅在本工作树为 `wp15-d4-agent`。
+2026-10-03；工作树 `D:/Dev_project/compoise-wp15-d4`；分支 `codex/wp15-d4`；固定基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，没有改用后续 main。实现提交 `738183e9bda2573adc18f6ddcbe4584c4efbde1d`；验收文档另作提交，其完整 SHA 随最终交接给出。提交身份仅在本工作树为 `wp15-d4-agent`。
 
 ## 修复与边界
 
@@ -19,7 +19,7 @@
 
 ## 命令与证据
 
-证据根：`D:/Dev_project/martix-wp15-d4/build/wp15-d4/`，全部忽略、不提交。targeted/analyze 在实现提交前执行，revision=固定基线、dirty=true；后续全量/原生/普通构建执行实现提交。`source-manifest.json` 记录实现提交的文件 SHA-256；生成插件文件及验收文档导致的 dirty 不代表另有未提交产品更改。
+证据根：`D:/Dev_project/compoise-wp15-d4/build/wp15-d4/`，全部忽略、不提交。targeted/analyze 在实现提交前执行，revision=固定基线、dirty=true；后续全量/原生/普通构建执行实现提交。`source-manifest.json` 记录实现提交的文件 SHA-256；生成插件文件及验收文档导致的 dirty 不代表另有未提交产品更改。
 
 | 实际命令（固定 SDK；工作树内） | 结果 | 证据 |
 | --- | --- | --- |

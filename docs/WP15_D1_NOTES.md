@@ -1,6 +1,6 @@
 # WP15-D1：日程入口与设备时区
 
-基线：`0c36b36da336f4c6551ccf93c49b567cde51f414`。工作树：`D:\Dev_project\martix-wp15-d1`，分支：`codex/wp15-d1`。本包只接入首页/父任务入口与设备 IANA 时区发现、刷新和显示时区切换，复用 A1/A2/C1/C2 已有模型、事务与命令；不代表 WP15-D 或整项 WP15 已验收，公共导航文档与全量/云端门禁由集成端统一处理。
+基线：`0c36b36da336f4c6551ccf93c49b567cde51f414`。工作树：`D:\Dev_project\compoise-wp15-d1`，分支：`codex/wp15-d1`。本包只接入首页/父任务入口与设备 IANA 时区发现、刷新和显示时区切换，复用 A1/A2/C1/C2 已有模型、事务与命令；不代表 WP15-D 或整项 WP15 已验收，公共导航文档与全量/云端门禁由集成端统一处理。
 
 ## 接入与改动边界
 
@@ -31,7 +31,7 @@
 
 ## 平台实现
 
-- Android：`DeviceTimeZoneBridge` 响应 `matrixflow/device_time_zone` 的 `systemZone`，注册 `ACTION_TIMEZONE_CHANGED`（API 33+ 用 `RECEIVER_NOT_EXPORTED`），`onDestroy` 反注册并清空通道处理器。
+- Android：`DeviceTimeZoneBridge` 响应 `compoise/device_time_zone` 的 `systemZone`，注册 `ACTION_TIMEZONE_CHANGED`（API 33+ 用 `RECEIVER_NOT_EXPORTED`），`onDestroy` 反注册并清空通道处理器。
 - Windows：`flutter_window.cpp` 新增同名通道（`{platform:"windows", identity:TimeZoneKeyName}`，UTF-8 转换），在 `WM_SETTINGCHANGE`/`WM_TIMECHANGE` 上推送 `onTimeZoneChanged`，`OnDestroy` 释放通道。
 - 未使用 FFI 直读注册表，也未新增依赖。
 

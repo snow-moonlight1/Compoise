@@ -9,6 +9,7 @@ import '../ai_capabilities.dart';
 import '../ai_presets.dart';
 import '../models.dart';
 import '../services/desktop_shell_service.dart';
+import '../services/linux_test_notification.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
 import '../theme.dart';
@@ -141,7 +142,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _editAIConfig(Store store, void Function(AIConfig) edit) {
     final next = store.copyAIConfig();
     edit(next);
+    final keyChanged = next.apiKey != store.aiConfig.apiKey;
     store.updateAIConfig(next);
+    if (keyChanged && store.credentialUnavailable) {
+      _apiKeyController.text = store.aiConfig.apiKey;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.removeCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(store.t['credentialUnavailableTip']!),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   void _onProviderChanged(String newProvider, Store store) {
@@ -458,11 +471,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Text(t['retrySave']!),
                   ),
                 ],
-              ),
-            if (store.windowsCredentialsNeedSetup)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(t['upgradeCredentials']!),
               ),
             Row(
               children: [
@@ -1009,6 +1017,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Map<String, String> t,
     Store store,
   ) async {
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      final shown = await sendLinuxTestNotification(
+        title: t['appTitle']!,
+        body: t['reminderTestBody'] ?? 'Compoise test notification',
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            shown
+                ? t['testNotificationSentPlain'] ?? 'Test notification sent.'
+                : t['reminderTestNoService'] ??
+                      'Test notification failed: no notification service.',
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
     final service = ReminderService.instance;
     await service.init();
     final permission = await service.checkPermission();

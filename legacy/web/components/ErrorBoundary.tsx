@@ -47,11 +47,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('MatrixFlow AI crashed:', error, info.componentStack);
+    console.error('Compoise crashed:', error, info.componentStack);
   }
 
   private handleReset = () => {
-    ['matrixflow-tasks', 'matrixflow-boards', 'matrixflow-config', 'matrixflow-settings']
+    ['compoise-tasks', 'compoise-boards', 'compoise-config', 'compoise-settings']
       .forEach(key => localStorage.removeItem(key));
     window.location.reload();
   };

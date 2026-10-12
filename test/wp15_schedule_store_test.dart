@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -59,11 +59,11 @@ void main() {
 
   Future<Store> seeded() async {
     SharedPreferences.setMockInitialValues({
-      'matrixflow-boards': jsonEncode([
+      'compoise-boards': jsonEncode([
         Board(id: board, name: 'Board', createdAt: 1).toJson(),
         Board(id: otherBoard, name: 'Other', createdAt: 1).toJson(),
       ]),
-      'matrixflow-tasks': jsonEncode([task('a').toJson(), task('b').toJson()]),
+      'compoise-tasks': jsonEncode([task('a').toJson(), task('b').toJson()]),
     });
     return open();
   }
@@ -115,7 +115,7 @@ void main() {
         jsonDecode(values[SaveProtocol.scheduleKey]!) as List,
         hasLength(3),
       );
-      expect(jsonDecode(values['matrixflow-tasks']!) as List, hasLength(2));
+      expect(jsonDecode(values['compoise-tasks']!) as List, hasLength(2));
       store.dispose();
       final reopened = await open();
       addTearDown(reopened.dispose);
@@ -387,10 +387,10 @@ void main() {
 
   test('orphaned saved link is recovery data, not a dropped record', () async {
     SharedPreferences.setMockInitialValues({
-      'matrixflow-boards': jsonEncode([
+      'compoise-boards': jsonEncode([
         Board(id: board, name: 'Board', createdAt: 1).toJson(),
       ]),
-      'matrixflow-tasks': '[]',
+      'compoise-tasks': '[]',
       SaveProtocol.scheduleKey: jsonEncode([block('orphan', 'gone').toJson()]),
     });
     final store = await open();
@@ -457,10 +457,10 @@ void main() {
   test('a damaged schedule is only cleared after an explicit discard',
       () async {
         SharedPreferences.setMockInitialValues({
-          'matrixflow-boards': jsonEncode([
+          'compoise-boards': jsonEncode([
             Board(id: board, name: 'Board', createdAt: 1).toJson(),
           ]),
-          'matrixflow-tasks': jsonEncode([task('a').toJson()]),
+          'compoise-tasks': jsonEncode([task('a').toJson()]),
           SaveProtocol.scheduleKey: jsonEncode([
             block('orphan', 'gone').toJson(),
           ]),

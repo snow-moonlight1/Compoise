@@ -4,7 +4,7 @@
  "device": "Android API 23 x86_64 emulator (SSE4.2, no AVX)",
  "cli": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\build-android-x86_64\\wp17r2_ocr.stripped",
  "assets": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets",
- "samples": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples",
+ "samples": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples",
  "started": "2026-09-29T19:35:38",
  "runs": {
   "ncnn-cpu-t4": {

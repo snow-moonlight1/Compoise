@@ -1,6 +1,6 @@
 # TEST-H1：消除 SharedPreferences 测试跨用例污染
 
-执行日期：2026-10-04（Asia/Shanghai）。基线 **`459f9a28cefdcac9196825b2d4ac70250dbf3b8d`**，分支 `codex/test-h1`，工作树 `D:/Dev_project/martix-test-h1`。仓库内没有适用的 AGENTS.md（全仓查找无 AGENTS/CLAUDE/QODER/.cursorrules），按交接包约束执行。提交身份只写入本工作树：`git config user.name test-h1-agent` / `user.email test-h1-agent@local`。
+执行日期：2026-10-04（Asia/Shanghai）。基线 **`459f9a28cefdcac9196825b2d4ac70250dbf3b8d`**，分支 `codex/test-h1`，工作树 `D:/Dev_project/compoise-test-h1`。仓库内没有适用的 AGENTS.md（全仓查找无 AGENTS/CLAUDE/QODER/.cursorrules），按交接包约束执行。提交身份只写入本工作树：`git config user.name test-h1-agent` / `user.email test-h1-agent@local`。
 
 工具链：`D:/Dev_SDKs/Flutter_3.32.8` → Flutter 3.32.8、framework revision `edada7c56e`、engine `ef0cd00091`、Dart 3.8.1，与 `toolchain.json` 的 `verified` 三项逐字一致。`flutter pub get --enforce-lockfile` 退出码 0；`pubspec.yaml`/`pubspec.lock` 未改。
 
@@ -12,7 +12,7 @@
 
 - `Store.init()` 尾部调用 `_persistAll()`（`lib/storage.dart:626`），它只经 `_markDirty()` → `_scheduleCommit()` → `_runTransaction()` 把整库提交挂在串行 `_commitGate` 上（`lib/storage.dart:2437-2472`）。`await store.init()` 返回时该批次只是"已排队"，`makeStore` 随即把 Store 交出去。
 - `SharedPreferences.setMockInitialValues` 替换进程级 `SharedPreferencesStorePlatform.instance` 并清空单例（shared_preferences 2.5.3 `lib/src/shared_preferences_legacy.dart:279-291`），而句柄每次调用都动态解析该实例（同文件 `:30-31`）。于是上一个用例仍持有的句柄会把旧库写进**下一个用例的 mock**。
-- 新 mock 被旧写入污染后，`getInstance()` 的快照即含旧 `matrixflow-save-pointer` 与对应 slot，`SaveProtocol.load()` 返回旧批次 → 下一用例从上一个库启动，表现为 `store.tasks.single` 类偶发失败。
+- 新 mock 被旧写入污染后，`getInstance()` 的快照即含旧 `compoise-save-pointer` 与对应 slot，`SaveProtocol.load()` 返回旧批次 → 下一用例从上一个库启动，表现为 `store.tasks.single` 类偶发失败。
 - 若用例边界恰好切在 slot 与 pointer 两次写之间，新用例还会读到"有指针无批次"，`SaveProtocol.readCommitted` 抛 `FormatException: Missing committed batch`，`init` 把它记为 corrupt 并进入启动恢复态。
 
 ## 前后证据

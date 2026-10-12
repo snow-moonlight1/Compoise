@@ -30,13 +30,13 @@ case "$mode" in
       python3 native/ocr/tools/drive_official_import.py \
       --platform linux --repo "$WP17_REPO" --root "$WP17_I6_ROOT" \
       --flutter "$WP17_FLUTTER/bin/flutter" \
-      --application "$WP17_I6_ROOT/artifacts/linux-device/matrixflow_native" "${driver_arguments[@]}"
+      --application "$WP17_I6_ROOT/artifacts/linux-device/compoise" "${driver_arguments[@]}"
     ;;
   normal)
     unset WP17_OCR_NCNN_DIR WP17_OCR_STB_DIR
     flutter build linux --release --no-pub > "$WP17_I6_ROOT/logs/build-normal.log" 2>&1
     bundle="$WP17_REPO/build/linux/x64/release/bundle"
-    test ! -e "$bundle/lib/libmatrixflow_ocr.so"
+    test ! -e "$bundle/lib/libcompoise_ocr.so"
     test ! -e "$bundle/data/wp17-ocr"
     ;;
   official|device)
@@ -55,7 +55,7 @@ case "$mode" in
     fi
     flutter "${arguments[@]}" > "$WP17_I6_ROOT/logs/build-$mode.log" 2>&1
     bundle="$WP17_REPO/build/linux/x64/$configuration/bundle"
-    test -f "$bundle/lib/libmatrixflow_ocr.so"
+    test -f "$bundle/lib/libcompoise_ocr.so"
     python3 native/ocr/tools/stage_official_bundle.py --deploy "$WP17_I6_DEPLOY" --out "$bundle/data"
     ;;
   *) echo 'mode must be normal, official, device, accept or accept-file-entry' >&2; exit 2 ;;

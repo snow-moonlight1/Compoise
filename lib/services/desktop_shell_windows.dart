@@ -38,7 +38,7 @@ Future<void> ensureWindowsWindowManager() async {
 class WindowsDesktopShellHost
     with WindowListener, TrayListener
     implements DesktopShellHost {
-  static const _hotkeyChannel = MethodChannel('matrixflow/os14_hotkey');
+  static const _hotkeyChannel = MethodChannel('compoise/os14_hotkey');
 
   DesktopShellHostCallbacks? _callbacks;
   VoidCallback? _hotkeyTrigger;

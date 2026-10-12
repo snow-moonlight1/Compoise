@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/backup_export.dart';
-import 'package:matrixflow_native/import_preflight.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_item.dart';
+import 'package:compoise/backup_export.dart';
+import 'package:compoise/import_preflight.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_item.dart';
 
 const _start = 1790701200000;
 

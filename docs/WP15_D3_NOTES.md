@@ -1,6 +1,6 @@
 # WP15-D3：Windows 原生日程页面与时区通知验收
 
-日期：2026-10-03；工作树 `D:/Dev_project/martix-wp15-d3`；分支 `codex/wp15-d3`。共同基线为 `5fb4592ccc10cdcc1698e27f68d2367a3d83cf18`。先应用 D2 原提交 `ae663e27e217e208680cb7adce7474306187a948`，在本分支产生前置提交 `7c9c084ebb2174def5002948eaaf62ccedd56061`；D3 自身另作一份提交，完整 SHA 随交接给出。验收日志的 revision 是上述前置 SHA，dirty=true，表示运行本包提交前的源码；没有把旧树结果算作本轮结果。
+日期：2026-10-03；工作树 `D:/Dev_project/compoise-wp15-d3`；分支 `codex/wp15-d3`。共同基线为 `5fb4592ccc10cdcc1698e27f68d2367a3d83cf18`。先应用 D2 原提交 `ae663e27e217e208680cb7adce7474306187a948`，在本分支产生前置提交 `7c9c084ebb2174def5002948eaaf62ccedd56061`；D3 自身另作一份提交，完整 SHA 随交接给出。验收日志的 revision 是上述前置 SHA，dirty=true，表示运行本包提交前的源码；没有把旧树结果算作本轮结果。
 
 固定 Flutter 3.32.8 / Dart 3.8.1，Windows SDK 位于 `D:/Dev_SDKs/Flutter_3.32.8`。实测宿主版本为 Windows NT 10.0.26200.0，脚本运行于 PowerShell 7.6.5。依赖沿用原锁文件，`pub get --enforce-lockfile` exit 0。
 
@@ -37,7 +37,7 @@
 
 ## 命令、退出码与证据
 
-根目录：`D:/Dev_project/martix-wp15-d3/build/wp15-d3`。日志、截图、缓存、生成文件和二进制均不提交。
+根目录：`D:/Dev_project/compoise-wp15-d3/build/wp15-d3`。日志、截图、缓存、生成文件和二进制均不提交。
 
 | 命令或检查 | 结果 | 证据 |
 | --- | --- | --- |

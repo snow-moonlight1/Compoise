@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
 
 import 'support/wp17_i3a_fixtures.dart';
 

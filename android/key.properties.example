@@ -13,7 +13,7 @@ absolute path is used as declared, otherwise it is looked up under
 workflow writes together with `android/key.properties`.
 
 ```properties
-keyAlias=matrixflow-release
+keyAlias=compoise-release
 keyPassword=REPLACE_WITH_KEY_PASSWORD
 storePassword=REPLACE_WITH_STORE_PASSWORD
 storeFile=release.jks

@@ -5,7 +5,7 @@
  "host_cpu": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
  "cli": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets\\build-win\\Release\\wp17r2_ocr.exe",
  "assets": "C:\\Users\\20214\\AppData\\Local\\wp17r2-assets",
- "samples": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples",
+ "samples": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples",
  "started": "2026-09-29T18:11:13",
  "runs": {
   "ncnn-cpu-t4": {

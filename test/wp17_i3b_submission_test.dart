@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/import_preview/draft_model.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_submission.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/import_preview/draft_model.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screenshot_import/screenshot_submission.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 DraftBatch confirmed(String board, {bool confirm = true}) {
@@ -68,7 +68,7 @@ class Writer {
   final entered = Completer<void>();
   Future<bool> write(String key, String value) async {
     if (armed &&
-        key.startsWith('matrixflow-save-') &&
+        key.startsWith('compoise-save-') &&
         key != SaveProtocol.pointerKey) {
       if (!entered.isCompleted) entered.complete();
       await gate?.future;

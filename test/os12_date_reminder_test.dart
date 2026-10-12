@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/calendar_dates.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/task_query.dart';
-import 'package:matrixflow_native/widgets/input_sheet.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
+import 'package:compoise/calendar_dates.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/task_query.dart';
+import 'package:compoise/widgets/input_sheet.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

@@ -3,11 +3,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/import_preview/draft_model.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/gutter_scan.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_adapter.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/import_preview/draft_model.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/gutter_scan.dart';
+import 'package:compoise/screenshot_import/screenshot_adapter.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
 
 import 'support/wp17_i3a_fixtures.dart';
 

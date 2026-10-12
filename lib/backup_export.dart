@@ -788,5 +788,5 @@ int _recordBytes(List<Map<String, dynamic>> records) =>
 /// File name for one part. A single-file backup keeps the plain name, so an
 /// older build reads it exactly as before.
 String backupFileName(String date, BackupPart part) => part.total == 1
-    ? 'matrixflow_backup_$date.json'
-    : 'matrixflow_backup_${date}_part${part.index}of${part.total}.json';
+    ? 'compoise_backup_$date.json'
+    : 'compoise_backup_${date}_part${part.index}of${part.total}.json';

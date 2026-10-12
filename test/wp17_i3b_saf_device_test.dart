@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_saf.dart';
+import 'package:compoise/screenshot_import/screenshot_backend.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/screenshot_import/screenshot_saf.dart';
 
 import 'support/wp17_i3a_fixtures.dart' as f;
 

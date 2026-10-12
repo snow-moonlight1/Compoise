@@ -172,7 +172,7 @@ export default function App() {
     let corrupted = 0;
     const onCorrupt = () => { corrupted += 1; };
 
-    const savedConfig = safeParse<typeof aiConfig>('matrixflow-config', null as unknown as typeof aiConfig, onCorrupt);
+    const savedConfig = safeParse<typeof aiConfig>('compoise-config', null as unknown as typeof aiConfig, onCorrupt);
     if (savedConfig) {
       // Legacy providers map to the OpenAI-compatible protocol
       const legacy = (savedConfig as any).provider;
@@ -191,7 +191,7 @@ export default function App() {
       });
     }
 
-    const savedSettings = safeParse<Partial<AppSettings>>('matrixflow-settings', null as unknown as Partial<AppSettings>, onCorrupt);
+    const savedSettings = safeParse<Partial<AppSettings>>('compoise-settings', null as unknown as Partial<AppSettings>, onCorrupt);
     if (savedSettings) {
       setAppSettings({
          language: savedSettings.language ?? 'en',
@@ -209,8 +209,8 @@ export default function App() {
       setInputMode(savedSettings.defaultInputMode ?? 'single');
     }
 
-    const loadedBoards = safeParse<Board[]>('matrixflow-boards', [], onCorrupt);
-    const loadedTasks = safeParse<Task[]>('matrixflow-tasks', [], onCorrupt);
+    const loadedBoards = safeParse<Board[]>('compoise-boards', [], onCorrupt);
+    const loadedTasks = safeParse<Task[]>('compoise-tasks', [], onCorrupt);
 
     let tasksOut: Task[] = [];
 
@@ -241,10 +241,10 @@ export default function App() {
 
   // Save changes (after hydration; empty lists persist too, so clearing all
   // tasks no longer resurrects them on reload)
-  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-tasks', JSON.stringify(tasks)); }, [tasks, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-boards', JSON.stringify(boards)); }, [boards, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-config', JSON.stringify(aiConfig)); }, [aiConfig, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('matrixflow-settings', JSON.stringify(appSettings)); }, [appSettings, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('compoise-tasks', JSON.stringify(tasks)); }, [tasks, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('compoise-boards', JSON.stringify(boards)); }, [boards, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('compoise-config', JSON.stringify(aiConfig)); }, [aiConfig, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('compoise-settings', JSON.stringify(appSettings)); }, [appSettings, hydrated]);
 
   // Keep <html lang> in sync with the UI language
   useEffect(() => {
@@ -898,7 +898,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `matrixflow_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `compoise_backup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -15,7 +15,7 @@
   },
   "images": [
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_light_base.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_light_base.png",
       "width": 1080, "height": 1403,
       "decode_ms": 7.712, "preprocess_ms": 0.000, "det_ms": 335.755, "rec_ms": 0.000, "total_ms": 351.301,
       "error": "",
@@ -37,7 +37,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_dark_base.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_dark_base.png",
       "width": 1080, "height": 1403,
       "decode_ms": 7.608, "preprocess_ms": 0.000, "det_ms": 567.087, "rec_ms": 0.000, "total_ms": 582.995,
       "error": "",
@@ -59,7 +59,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/en_light_base.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/en_light_base.png",
       "width": 1080, "height": 1403,
       "decode_ms": 7.829, "preprocess_ms": 0.000, "det_ms": 225.672, "rec_ms": 0.000, "total_ms": 241.395,
       "error": "",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/ja_light_base.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/ja_light_base.png",
       "width": 1080, "height": 1403,
       "decode_ms": 8.751, "preprocess_ms": 0.000, "det_ms": 405.009, "rec_ms": 0.000, "total_ms": 423.436,
       "error": "",
@@ -103,7 +103,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_small_text.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_small_text.png",
       "width": 1080, "height": 1480,
       "decode_ms": 6.313, "preprocess_ms": 0.000, "det_ms": 321.683, "rec_ms": 0.000, "total_ms": 334.780,
       "error": "",
@@ -126,7 +126,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_075.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_075.png",
       "width": 810, "height": 1052,
       "decode_ms": 4.087, "preprocess_ms": 0.000, "det_ms": 261.199, "rec_ms": 0.000, "total_ms": 269.208,
       "error": "",
@@ -143,7 +143,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_150.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_scale_150.png",
       "width": 1620, "height": 2104,
       "decode_ms": 12.974, "preprocess_ms": 0.000, "det_ms": 528.605, "rec_ms": 0.000, "total_ms": 553.465,
       "error": "",
@@ -163,7 +163,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/zh_long_scroll.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/zh_long_scroll.png",
       "width": 1080, "height": 4525,
       "decode_ms": 27.448, "preprocess_ms": 0.000, "det_ms": 1300.231, "rec_ms": 0.000, "total_ms": 1357.254,
       "error": "",
@@ -203,7 +203,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/en_small_text.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/en_small_text.png",
       "width": 1080, "height": 1480,
       "decode_ms": 7.329, "preprocess_ms": 0.000, "det_ms": 258.647, "rec_ms": 0.000, "total_ms": 276.202,
       "error": "",
@@ -227,7 +227,7 @@
       ]
     },
     {
-      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\martix\\docs\\evidence\\wp17r2\\samples\\images/ja_dark_small_text.png",
+      "path": "C:\\Users\\20214\\.codex\\worktrees\\wp17-r2-ocr-benchmark\\compoise\\docs\\evidence\\wp17r2\\samples\\images/ja_dark_small_text.png",
       "width": 1080, "height": 1480,
       "decode_ms": 9.563, "preprocess_ms": 0.000, "det_ms": 388.133, "rec_ms": 0.000, "total_ms": 408.435,
       "error": "",

@@ -1,7 +1,7 @@
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/storage.dart';
 
 const c1Zone = 'Asia/Shanghai';
 

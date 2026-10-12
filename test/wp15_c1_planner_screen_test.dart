@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/screens/planner_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/widgets/schedule_layout.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/screens/planner_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/widgets/schedule_layout.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -91,16 +91,16 @@ String _snapshotBytes(StoreSnapshot snapshot) => jsonEncode({
 
 Future<Store> _store() async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-boards': jsonEncode(
+    'compoise-boards': jsonEncode(
       c1Boards().map((board) => board.toJson()).toList(),
     ),
-    'matrixflow-tasks': jsonEncode(
+    'compoise-tasks': jsonEncode(
       c1Tasks().map((task) => task.toJson()).toList(),
     ),
-    'matrixflow-schedule': jsonEncode(
+    'compoise-schedule': jsonEncode(
       c1Items().map((item) => item.toJson()).toList(),
     ),
-    'matrixflow-settings': jsonEncode(
+    'compoise-settings': jsonEncode(
       AppSettings(language: Language.en).toJson(),
     ),
   });
@@ -369,13 +369,13 @@ void main() {
     'corrupt saved schedule displays recovery rather than a false empty grid',
     (tester) async {
       SharedPreferences.setMockInitialValues({
-        'matrixflow-boards': jsonEncode(
+        'compoise-boards': jsonEncode(
           c1Boards().map((board) => board.toJson()).toList(),
         ),
-        'matrixflow-tasks': jsonEncode(
+        'compoise-tasks': jsonEncode(
           c1Tasks().map((task) => task.toJson()).toList(),
         ),
-        'matrixflow-schedule': 'broken schedule',
+        'compoise-schedule': 'broken schedule',
       });
       final store = Store();
       await store.init();

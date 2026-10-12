@@ -6,14 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/services/desktop_shell_service.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/task_stats.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/task_stats.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -544,7 +544,7 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(1000, 1800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       SharedPreferences.setMockInitialValues({
-        'matrixflow-has-seen-onboarding': true,
+        'compoise-has-seen-onboarding': true,
       });
       final ai = DiscoveryAI();
       final store = Store(aiService: ai);

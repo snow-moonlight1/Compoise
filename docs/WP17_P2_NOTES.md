@@ -1,6 +1,6 @@
 # WP17-P2：native allocator 对照（2026-10-03）
 
-固定基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`；分支 `codex/wp17-p2`；工作树 `D:/Dev_project/martix-wp17-p2`。只在本树配置 `wp17-p2-agent <wp17-p2-agent@localhost>`，未找到适用 AGENTS。未依赖 Q2/Q3 未提交代码，未派 Agent、跨会话发消息、push、amend、签名、tag 或发布。
+固定基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`；分支 `codex/wp17-p2`；工作树 `D:/Dev_project/compoise-wp17-p2`。只在本树配置 `wp17-p2-agent <wp17-p2-agent@localhost>`，未找到适用 AGENTS。未依赖 Q2/Q3 未提交代码，未派 Agent、跨会话发消息、push、amend、签名、tag 或发布。
 
 **结论：保留 Q1 生产分配器。** 没有找到跨轮次、跨模式稳定且不增峰的候选。P2 只交付显式 opt-in 实验/回归及本记录；`ocr_runtime.cpp`、C ABI、模型/字典/锁、识别阈值/CTC、Dart/适配器、平台构建入口、质量真值、共享文档和 `test/helpers.dart` 均未改。不能把下面的单个平台/模式提速当默认优化。
 
@@ -19,7 +19,7 @@ ncnn 的 drop threshold 是块数条件，不能当字节上限；依据为固�
 
 ## 环境与方法
 
-私有根 `W = D:/Dev_project/martix-wp17-p2-private`、`L = /home/ubuntu/wp17p2-private`。日志/模型缺失测试副本/边界 PNG/库/缓存均为本包私有；旧 SDK、官方部署只读且检查全部五模型及五许可/模型卡摘要。Windows 官方部署 `C:/Users/20214/AppData/Local/wp17i5-private/deploy-win`，Linux `/home/ubuntu/wp17i6-private/official-deploy`。未下载模型。
+私有根 `W = D:/Dev_project/compoise-wp17-p2-private`、`L = /home/ubuntu/wp17p2-private`。日志/模型缺失测试副本/边界 PNG/库/缓存均为本包私有；旧 SDK、官方部署只读且检查全部五模型及五许可/模型卡摘要。Windows 官方部署 `C:/Users/20214/AppData/Local/wp17i5-private/deploy-win`，Linux `/home/ubuntu/wp17i6-private/official-deploy`。未下载模型。
 
 Flutter Windows `D:/Dev_SDKs/Flutter_3.32.8`、Linux `/home/ubuntu/develop/flutter`，均 3.32.8 / Dart 3.8.1；framework 完整 revision 和 engine revision 与 `toolchain.json` 一致。Windows 使用 VS2022，Linux clang 18.1.3 / Ninja，全部 **Release**。ncnn.lib SHA256 `7a3da36c6295ab64d1c40b1f4ad123daa72daf916d6612a129cc21f9e955312f`，libncnn.a `d6dea6d6eba1a50ab8774de131753c4d8ef7b18bd5bca8f058903461948b0c18`，stb `594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3`。Windows 构建和 Linux `sdk.json`/CMakeCache 保存实际依赖。请求线程数 4；Linux consumer 未找到 OpenMP，链接列表只有固定 ncnn 静态库，不能宣称有效四线程并行。WSL 不是物理 Linux/低端设备。
 

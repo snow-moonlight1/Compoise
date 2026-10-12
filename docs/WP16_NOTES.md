@@ -46,11 +46,11 @@
 
 ## 验收证据
 
-在 `D:/Dev_project/martix-wp16-today` 上，Flutter 3.32.8（`D:/Dev_SDKs/Flutter_3.32.8`），本地时间 2026-09-29 17:48（UTC+8）：
+在 `D:/Dev_project/compoise-wp16-today` 上，Flutter 3.32.8（`D:/Dev_SDKs/Flutter_3.32.8`），本地时间 2026-09-29 17:48（UTC+8）：
 
 - `flutter analyze --no-pub` → No issues found（exit 0）。
 - `flutter test --no-pub test/wp16_today_celebration_test.dart` → **26 通过，0 失败**（exit 0）。
-- `flutter test --no-pub` 默认全量套件 → **986 通过，1 失败**（exit 1）。失败的不是本包：`test/wp14_planned_date_policy_test.dart` 的 “planning a task moves no quadrant and touches no deadline”。它把 `DateTime.now()` 再加 9 小时，并期望计划日仍是今天零点。17:48 再加 9 小时已经是下一天，期望 `1790611200000`，实际 `1790697600000`（正好差一个本地日）。在未改代码的 `D:/Dev_project/martix`（同一提交 `96ca181`）上单独跑这条，失败相同。本包没有改 `setPlannedDay` 或 `planned_policy.dart`。
+- `flutter test --no-pub` 默认全量套件 → **986 通过，1 失败**（exit 1）。失败的不是本包：`test/wp14_planned_date_policy_test.dart` 的 “planning a task moves no quadrant and touches no deadline”。它把 `DateTime.now()` 再加 9 小时，并期望计划日仍是今天零点。17:48 再加 9 小时已经是下一天，期望 `1790611200000`，实际 `1790697600000`（正好差一个本地日）。在未改代码的 `D:/Dev_project/compoise`（同一提交 `96ca181`）上单独跑这条，失败相同。本包没有改 `setPlannedDay` 或 `planned_policy.dart`。
 - 本包 26 项覆盖：最后一项勾完才庆祝，还剩一项不庆祝；当前看板忽略其他看板，所有看板要等范围内都完成；打开即空、进页前已完成、切换筛选、切换看板、取消计划、改走截止日期、删除、完成不在今天的任务、前台刷新和空列表刷新都不庆祝，且不占用当天；关闭按钮在等待数秒后仍在，点了才收起，同日第二次清空不再出现；离开页面再进来仍然去重；时钟拨到下一天可以再庆祝；应用减少动画和系统 `disableAnimations` 都是第一帧静态卡片；未减少时淡入从 0 到 1；详情里只保存子项不庆祝，父任务自动完成把最后一项做完会庆祝；390×844 上关闭按钮可点且测试绑定没有抛出溢出。
 - 勾选完成之后，父任务的象限、`plannedDate`、`deadline` 保持原值；设置 JSON 没有新键。
 

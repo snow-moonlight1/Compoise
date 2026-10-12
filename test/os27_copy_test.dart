@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/onboarding_screen.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/onboarding_screen.dart';
+import 'package:compoise/storage.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

@@ -52,7 +52,7 @@ AI 请求直接发送到你配置的服务商，费用由该服务商收取。�
 - Flutter **3.32.8**、Dart **3.8.1**
 - Android：Android SDK 和 JDK
 - Windows：Windows 主机以及 Visual Studio 的“使用 C++ 的桌面开发”工作负载
-- Linux：clang、CMake、Ninja、GTK 3、libsecret 和 Ayatana AppIndicator 开发包；AI 密钥保存需要已解锁的 Secret Service 密钥环
+- Linux：clang、CMake、Ninja 以及 GTK 3、libsecret、Ayatana AppIndicator 开发包（见下方“Linux 依赖”）
 
 在仓库根目录运行：
 
@@ -75,6 +75,41 @@ flutter run -d linux
 ```
 
 检查、Release 构建和签名步骤见 [开发指南](docs/DEVELOPMENT.md)。
+
+### Windows 便携版
+
+**安装**：下载 `compoise-vX.Y.Z+N-windows-portable.zip`，解压到任意目录，运行其中的 `compoise.exe`。无需安装程序，也不写注册表启动项。请保持解压目录完整，不要只复制 exe。
+
+**数据位置**：任务、任务板和设置保存在 `%APPDATA%\Compoise\Compoise\`；API 密钥以系统加密方式保存在同一目录，加密密钥存于 Windows 凭据管理器。解压目录本身不保存数据，因此升级时删除旧目录、解压新版即可。
+
+**卸载**：在托盘图标菜单中选择“退出”，然后删除解压目录。如需一并删除数据，再删除 `%APPDATA%\Compoise` 文件夹，并在“控制面板 → 凭据管理器 → Windows 凭据”中删除与 Compoise 相关的条目。建议先在“设置 → 导出 JSON”备份。
+
+**SmartScreen 提示**：目前 Windows 程序尚未进行代码签名，首次运行时可能出现“Windows 已保护你的电脑”。确认文件来自本仓库的 Releases 页面后，点击提示中的 **“更多信息”**，再点击 **“仍要运行”**。如果 zip 被标记为来自网络，也可以在解压前右键 zip → 属性 → 勾选“解除锁定”。
+
+### Linux 依赖
+
+以 Debian / Ubuntu 为例，运行预览版需要：
+
+```sh
+sudo apt install libgtk-3-0 libsecret-1-0 libayatana-appindicator3-1 fonts-noto-cjk
+```
+
+从源码构建还需要 `clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libayatana-appindicator3-dev`。
+
+- **GTK 3**：界面运行所需。
+- **libsecret**：通过 Secret Service（如 GNOME Keyring、KWallet）保存 API 密钥。
+- **AppIndicator**：托盘相关组件依赖。
+- **中文字体**：系统缺少中文字体时界面会显示方块，请安装 `fonts-noto-cjk` 或其他 CJK 字体。
+- **密钥环（可选）**：没有可用的密钥环时，任务和设置照常保存，只是无法保存 API 密钥、AI 功能不可用，应用会给出一次简短提示。
+
+## 代码签名策略（计划中）
+
+Windows 程序的代码签名**仍在计划中，目前发布的程序未签名**。计划申请 [SignPath Foundation](https://signpath.org) 的开源项目计划获得免费签名（由 [SignPath.io](https://signpath.io) 提供），获批后本节会更新为正式策略：
+
+- 提交者与审核者：[@snow-moonlight1](https://github.com/snow-moonlight1)
+- 批准者：[@snow-moonlight1](https://github.com/snow-moonlight1)
+- 只对本仓库 GitHub Actions 发布工作流从带标签提交构建的 Windows 程序签名，每次签名都由人工批准。
+- 隐私：除非用户主动请求，本程序不会向其他网络系统传输任何信息。使用 AI 功能时，相关任务文本会发送到你自己配置的模型端点。详见 [隐私说明](docs/PRIVACY_POLICY.md)。
 
 ## 项目结构
 

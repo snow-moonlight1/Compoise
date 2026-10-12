@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _sentinel = 'SYNTHETIC_OS09_SENTINEL_INVALID';
@@ -78,127 +78,70 @@ void main() {
   );
 
   test(
-    'first migration scrubs mirror and both slots; repeat startup keeps secure key',
+    'a plaintext key in old config is ignored; only the keyring is read',
     () async {
       SharedPreferences.setMockInitialValues({
-        'matrixflow-config': jsonEncode(AIConfig(apiKey: _sentinel).toJson()),
+        'compoise-config': jsonEncode(AIConfig(apiKey: _sentinel).toJson()),
       });
-      final credential = _MemoryCredential();
-      final first = await open(credential);
-      expect(first.credentialError, isNull);
-      expect(credential.value, _sentinel);
-      final prefs = await SharedPreferences.getInstance();
-      for (final key in [
-        'matrixflow-config',
-        'matrixflow-save-a',
-        'matrixflow-save-b',
-      ]) {
-        expect(prefs.getString(key) ?? '', isNot(contains(_sentinel)));
-      }
-      await first.flush();
-      first.dispose();
-      final second = await open(credential);
-      expect(second.aiConfig.apiKey, _sentinel);
-      expect(second.credentialError, isNull);
-      second.dispose();
-    },
-  );
-
-  test(
-    'migration removes a credential from each pre-existing OS06 slot',
-    () async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final legacyConfig = jsonEncode(AIConfig(apiKey: _sentinel).toJson());
-      final values = <String, String>{
-        'matrixflow-tasks': '[]',
-        'matrixflow-boards': '[]',
-        'matrixflow-config': legacyConfig,
-        'matrixflow-settings': '{}',
-        'matrixflow-active-board': '',
-        'matrixflow-has-seen-onboarding': 'false',
-      };
-      final protocol = SaveProtocol(prefs);
-      expect((await protocol.commit(values)).success, isTrue);
-      expect((await protocol.commit(values)).success, isTrue);
-      expect(prefs.getString('matrixflow-save-a'), contains(_sentinel));
-      expect(prefs.getString('matrixflow-save-b'), contains(_sentinel));
       final credential = _MemoryCredential();
       final store = await open(credential);
       expect(store.credentialError, isNull);
-      for (final key in [
-        'matrixflow-save-a',
-        'matrixflow-save-b',
-        'matrixflow-config',
-      ]) {
-        expect(prefs.getString(key), isNot(contains(_sentinel)));
-      }
-      expect(SaveProtocol(prefs).load(), isNotNull);
+      expect(store.credentialUnavailable, isFalse);
+      expect(store.aiConfig.apiKey, isEmpty);
+      expect(credential.value, isNull);
       store.dispose();
     },
   );
 
-  test('OS05 recovery resolution migrates legacy credential before saving', () async {
-    SharedPreferences.setMockInitialValues({
-      'matrixflow-config': jsonEncode(AIConfig(apiKey: _sentinel).toJson()),
-      'matrixflow-tasks': '{damaged',
-    });
-    final credential = _MemoryCredential();
-    final store = Store(credentialStore: credential);
-    await store.init();
-    expect(store.hasStartupRecovery, isTrue);
-    expect(credential.value, isNull);
-    expect(await store.discardDamagedStartupData(), isTrue);
-    expect(credential.value, _sentinel);
-    final prefs = await SharedPreferences.getInstance();
-    for (final key in ['matrixflow-config', 'matrixflow-save-a', 'matrixflow-save-b']) {
-      expect(prefs.getString(key) ?? '', isNot(contains(_sentinel)));
-    }
+  test('without a keyring ordinary data still saves and reloads', () async {
+    SharedPreferences.setMockInitialValues({});
+    final credential = _MemoryCredential()
+      ..failRead = true
+      ..failWrite = true;
+    final store = await open(credential);
+    expect(store.ready, isTrue);
+    expect(store.credentialUnavailable, isTrue);
+    expect(store.credentialError, isNull);
+    store.addTasks([
+      Task(
+        id: 'no-keyring-task',
+        title: 'Saved without keyring',
+        quadrant: 1,
+        boardId: store.activeBoardId,
+        createdAt: 1,
+      ),
+    ]);
+    final config = store.copyAIConfig()
+      ..apiKey = 'SYNTHETIC_BLOCKED_INVALID'
+      ..model = 'kept-model';
+    expect(await store.updateAIConfig(config), isFalse);
+    expect(store.aiConfig.apiKey, isEmpty);
+    expect((await store.flush()).success, isTrue);
+    expect(store.persistenceError, isNull);
     store.dispose();
+
+    final reopened = await open(credential);
+    expect(reopened.tasks.map((t) => t.id), contains('no-keyring-task'));
+    expect(reopened.aiConfig.model, 'kept-model');
+    expect(reopened.credentialUnavailable, isTrue);
+    reopened.dispose();
   });
 
-  for (final failure in ['write', 'read', 'scrub']) {
-    test(
-      'migration $failure failure retains legacy and retry completes',
-      () async {
-        SharedPreferences.setMockInitialValues({
-          'matrixflow-config': jsonEncode(AIConfig(apiKey: _sentinel).toJson()),
-        });
-        final credential =
-            _MemoryCredential()
-              ..failWrite = failure == 'write'
-              ..failRead = failure == 'read';
-        var blockScrub = failure == 'scrub';
-        final store = await open(
-          credential,
-          writer: (key, value) async {
-            if (blockScrub && key == 'matrixflow-config') return false;
-            return (await SharedPreferences.getInstance()).setString(
-              key,
-              value,
-            );
-          },
-        );
-        expect(store.credentialError, isNotNull);
-        final prefs = await SharedPreferences.getInstance();
-        expect(prefs.getString('matrixflow-config'), contains(_sentinel));
-        final attempted = store.aiConfig..apiKey = 'SYNTHETIC_BLOCKED_INVALID';
-        expect(await store.updateAIConfig(attempted), isFalse);
-        expect(credential.value, isNot('SYNTHETIC_BLOCKED_INVALID'));
-        credential.failWrite = false;
-        credential.failRead = false;
-        blockScrub = false;
-        expect(await store.retryCredentialMigration(), isTrue);
-        expect((await store.retrySave()).success, isTrue);
-        expect(
-          prefs.getString('matrixflow-config'),
-          isNot(contains(_sentinel)),
-        );
-        expect(store.aiConfig.apiKey, _sentinel);
-        store.dispose();
-      },
+  test('importing a backup with a key works without a keyring', () async {
+    SharedPreferences.setMockInitialValues({});
+    final credential = _MemoryCredential()
+      ..failRead = true
+      ..failWrite = true;
+    final store = await open(credential);
+    final plan = store.previewImport(backup(), 'overwrite');
+    expect(
+      (await store.applyImport(plan, importCredential: true)).success,
+      isTrue,
     );
-  }
+    expect(store.boards.map((b) => b.id), contains('backup-board'));
+    expect(store.aiConfig.apiKey, isEmpty);
+    store.dispose();
+  });
 
   test('credential changes and deletion verify secure storage', () async {
     SharedPreferences.setMockInitialValues({});
@@ -298,7 +241,7 @@ void main() {
       credential,
       writer: (key, value) async {
         if (failBatch &&
-            key.startsWith('matrixflow-save-') &&
+            key.startsWith('compoise-save-') &&
             key != SaveProtocol.pointerKey) {
           return false;
         }
@@ -323,29 +266,35 @@ void main() {
     store.dispose();
   });
 
-  test('failed rollback retains a retry that restores the old credential', () async {
-    SharedPreferences.setMockInitialValues({});
-    final credential = _MemoryCredential();
-    var failBatch = false;
-    final store = await open(
-      credential,
-      writer: (key, value) async {
-        if (failBatch && key.startsWith('matrixflow-save-')) return false;
-        return (await SharedPreferences.getInstance()).setString(key, value);
-      },
-    );
-    final originalBoard = store.boards.first.id;
-    final plan = store.previewImport(backup(), 'overwrite');
-    failBatch = true;
-    credential.failDelete = true;
-    expect((await store.applyImport(plan, importCredential: true)).success, isFalse);
-    expect(store.boards.first.id, originalBoard);
-    expect(credential.value, _sentinel);
-    expect(store.credentialError, isNotNull);
-    credential.failDelete = false;
-    expect(await store.retryCredential(), isTrue);
-    expect(credential.value, isNull);
-    expect(store.credentialError, isNull);
-    store.dispose();
-  });
+  test(
+    'failed rollback retains a retry that restores the old credential',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final credential = _MemoryCredential();
+      var failBatch = false;
+      final store = await open(
+        credential,
+        writer: (key, value) async {
+          if (failBatch && key.startsWith('compoise-save-')) return false;
+          return (await SharedPreferences.getInstance()).setString(key, value);
+        },
+      );
+      final originalBoard = store.boards.first.id;
+      final plan = store.previewImport(backup(), 'overwrite');
+      failBatch = true;
+      credential.failDelete = true;
+      expect(
+        (await store.applyImport(plan, importCredential: true)).success,
+        isFalse,
+      );
+      expect(store.boards.first.id, originalBoard);
+      expect(credential.value, _sentinel);
+      expect(store.credentialError, isNotNull);
+      credential.failDelete = false;
+      expect(await store.retryCredential(), isTrue);
+      expect(credential.value, isNull);
+      expect(store.credentialError, isNull);
+      store.dispose();
+    },
+  );
 }

@@ -25,7 +25,7 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
     try {
       final bytes = Uint8List.fromList(utf8.encode(store.recoveryCopyJson()));
       final path = await FilePicker.platform.saveFile(
-        fileName: 'matrixflow_recovery.json',
+        fileName: 'compoise_recovery.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
         bytes: bytes,
@@ -94,20 +94,16 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
     final store = context.watch<Store>();
     final t = store.t;
     const labels = {
-      'matrixflow-tasks': 'recoveryTasks',
-      'matrixflow-schedule': 'scheduleTitle',
-      'matrixflow-boards': 'recoveryBoards',
-      'matrixflow-config': 'recoveryConfig',
-      SaveProtocol.windowsCredentialsRequiredKey:
-          'recoveryCredentialUpgradeState',
-      SaveProtocol.windowsCredentialNoticeReadKey:
-          'recoveryCredentialUpgradeState',
-      'matrixflow-settings': 'recoverySettings',
-      'matrixflow-active-board': 'recoveryActiveBoard',
-      'matrixflow-has-seen-onboarding': 'recoveryOnboarding',
-      'matrixflow-save-pointer': 'recoverySaveBatch',
-      'matrixflow-save-a': 'recoverySaveBatch',
-      'matrixflow-save-b': 'recoverySaveBatch',
+      'compoise-tasks': 'recoveryTasks',
+      'compoise-schedule': 'scheduleTitle',
+      'compoise-boards': 'recoveryBoards',
+      'compoise-config': 'recoveryConfig',
+      'compoise-settings': 'recoverySettings',
+      'compoise-active-board': 'recoveryActiveBoard',
+      'compoise-has-seen-onboarding': 'recoveryOnboarding',
+      'compoise-save-pointer': 'recoverySaveBatch',
+      'compoise-save-a': 'recoverySaveBatch',
+      'compoise-save-b': 'recoverySaveBatch',
     };
     return Scaffold(
       appBar: AppBar(title: Text(t['recoveryTitle']!)),

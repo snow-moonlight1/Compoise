@@ -53,7 +53,7 @@ class CandidateTests(unittest.TestCase):
             evidence = {'productName': 'Compoise', 'companyName': 'Compoise', 'authenticode': 'NotSigned', 'fileVersionNumeric': '1.0.0.1', 'fileVersionString': '1.0.0+1', 'legalCopyright': 'Compoise contributors', 'appDataDir': r'%APPDATA%\Compoise\Compoise'}
         else:
             artifact.write_bytes(b'synthetic APK; not signed or installable')
-            evidence = {'apkSignatureVerified': 'true', 'apkSignatureDN': 'CN=Synthetic test', 'apkSignatureCertSha256': CERT, 'apkPackage': 'com.matrixflow.app', 'apkVersionName': '1.0.0', 'apkVersionCode': '1'}
+            evidence = {'apkSignatureVerified': 'true', 'apkSignatureDN': 'CN=Synthetic test', 'apkSignatureCertSha256': CERT, 'apkPackage': 'com.compoise.app', 'apkVersionName': '1.0.0', 'apkVersionCode': '1'}
         facts = {**self.ctx, 'source': {'dirty': False, 'paths': [], 'diffSha256': gate.digest(b'')}, 'evidence': evidence}
         facts_path = self.base / (platform + '-facts.json')
         facts_path.write_text(json.dumps(facts))
@@ -192,7 +192,7 @@ class CandidateTests(unittest.TestCase):
         self.rejected_seal()
 
     def test_ocr_and_unsafe_zip_residue(self):
-        for name in ('matrixflow_ocr.dll', 'ncnn/PP_OCRv5_mobile_det.ncnn.bin', 'licenses/PaddleOCR-LICENSE.txt', 'licenses/APACHE-2.0.txt', 'licenses/PP-OCRv5_mobile_rec.MODEL_CARD.md', '../escape.txt', '/escape.txt', 'C:/escape.txt', 'compoise.exe'):
+        for name in ('compoise_ocr.dll', 'ncnn/PP_OCRv5_mobile_det.ncnn.bin', 'licenses/PaddleOCR-LICENSE.txt', 'licenses/APACHE-2.0.txt', 'licenses/PP-OCRv5_mobile_rec.MODEL_CARD.md', '../escape.txt', '/escape.txt', 'C:/escape.txt', 'compoise.exe'):
             with self.subTest(name=name):
                 self.make_platform('Windows')
                 with zipfile.ZipFile(self.directory / gate.artifact_name(self.ctx, 'Windows'), 'a') as archive:
@@ -236,7 +236,7 @@ class ReleaseBuildGateTests(unittest.TestCase):
             self.skipTest('PowerShell is required for the release build preflight')
         gates = (
             'WP17_OCR_NCNN_DIR', 'WP17_OCR_NCNN_ROOT', 'WP17_OCR_STB_DIR',
-            'WP28_U2_HARNESS_BUILD', 'WP15_D3_DEVICE_BUILD',
+            'WP15_D3_DEVICE_BUILD',
         )
         for active in gates:
             with self.subTest(gate=active):

@@ -31,7 +31,7 @@
 
 ### 平台侧要付的代价（不写代码也得先量出来）
 
-- 现在 `MainActivity` 是 5 行空壳（`android/app/src/main/kotlin/com/matrixflow/matrixflow_native/MainActivity.kt:5`，`class MainActivity : FlutterActivity()`），**没有** `onNewIntent`、没有 MethodChannel。要接分享就得加平台代码 + 一个 channel；本仓库只有桌面侧有 channel（`lib/services/desktop_shell_windows.dart:41`、`lib/services/single_instance.dart:47`）。
+- 现在 `MainActivity` 是 5 行空壳（`android/app/src/main/kotlin/com/compoise/compoise/MainActivity.kt:5`，`class MainActivity : FlutterActivity()`），**没有** `onNewIntent`、没有 MethodChannel。要接分享就得加平台代码 + 一个 channel；本仓库只有桌面侧有 channel（`lib/services/desktop_shell_windows.dart:41`、`lib/services/single_instance.dart:47`）。
 - 清单里唯一的 `<queries>` 是 Flutter 模板自带的 `PROCESS_TEXT`（`android/app/src/main/AndroidManifest.xml:52-62`，注释写明供 Flutter engine 的 `ProcessTextPlugin` 使用）。**它的方向是“我们把选中文本发给别人”，不是“别人把选中文本交给我们”**，别把它当成已具备接收能力。
 - 当前活动配置 `launchMode="singleTop"`、`exported="true"`、只有一个 `MAIN/LAUNCHER` filter（`AndroidManifest.xml:15-36`）。加分享 filter 会让 `MainActivity` 成为外部可达入口，必须自己校验入参（官方文档原话：“要特别留意检查进入的数据”）。
 - `singleTop` 下热启动走 `onNewIntent`、冷启动走 `getIntent()`，两条都要处理；Flutter 侧需要一个“待处理分享队列”，否则冷启动时引擎还没 attach 就丢数据。
@@ -73,7 +73,7 @@
 
 **落点与边界（尽量零新增依赖）**
 
-- 平台侧：`AndroidManifest.xml` 增加 `SEND`（+P2 时 `PROCESS_TEXT`）filter；`MainActivity` 加 `onNewIntent`/冷启动暂存 + MethodChannel `matrixflow/capture`（getPending / consumed 两个方法即可）。这跟现有桌面 channel 的做法同构（`lib/services/desktop_shell_windows.dart:41`）。
+- 平台侧：`AndroidManifest.xml` 增加 `SEND`（+P2 时 `PROCESS_TEXT`）filter；`MainActivity` 加 `onNewIntent`/冷启动暂存 + MethodChannel `compoise/capture`（getPending / consumed 两个方法即可）。这跟现有桌面 channel 的做法同构（`lib/services/desktop_shell_windows.dart:41`）。
 - Dart 侧：新增一个纯 Dart 解析入口（输入 `List<String> lines` + 元数据，输出“草稿列表”），**不改** `input_sheet.dart` 的既有语义；落库走已有 `Store.newTask` + `addTasks`（`lib/storage.dart:659,697`）。
 - 解析规则必须显式声明“丢掉了什么”：文本分享不含完成态、日期、所属清单、子任务层级，除非小米实测证明带标记。不能把“只能拿文本”说成“已导入笔记”。
 - **`Task` 目前没有 `source` / `origin` / 外部 ID / 指纹字段**（`lib/models.dart:168-184`），`recoveryPending` 有白名单，`tags` 是唯一的自由载体。要么先加一个可选 `captureSource`（属于数据契约变更，需同步 `toJson` 的 v1 抑制规则与 `ImportPreflight` 的未知字段告警），要么先用 `tags` 承载并在文档里写清是权宜。不要静默塞进 `reasoning`。

@@ -2,7 +2,7 @@
 
 日期：2026-10-03。默认发行仍不含 OCR。本包只增加显式 opt-in 的官方模型候选路线，并用独立 manifest 记录启用状态、来源、库/资源哈希和许可证。没有签名、没有正式发布，也没有打开默认发行开关。
 
-基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`。分支 `codex/wp17-i8`。独立工作树 `D:\Dev_project\martix-wp17-i8`。提交身份 `wp17-i8-agent <wp17-i8-agent@local.invalid>`。仓库本地 `user.name` 仍是其他工作树共用的 `wp17-q2-agent`，本包提交只用本次命令覆盖身份，没有改共享配置。没有 amend、push、tag 或调用其他 Agent。设备、AVD 和真实窗口都没有占用。
+基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`。分支 `codex/wp17-i8`。独立工作树 `D:\Dev_project\compoise-wp17-i8`。提交身份 `wp17-i8-agent <wp17-i8-agent@local.invalid>`。仓库本地 `user.name` 仍是其他工作树共用的 `wp17-q2-agent`，本包提交只用本次命令覆盖身份，没有改共享配置。没有 amend、push、tag 或调用其他 Agent。设备、AVD 和真实窗口都没有占用。
 
 Flutter 固定为 `toolchain.json` 的 3.32.8 / Dart 3.8.1。Windows SDK `D:\Dev_SDKs\Flutter_3.32.8`，Linux `/home/ubuntu/develop/flutter`。`pub get --enforce-lockfile` 没有改 `pubspec.lock`。模型锁 `native/ocr/tools/models.lock.json` 的 SHA-256 仍是 `f38320cefe758056f619dc293eb63201c42a7c82f8af506bafbc4dda81551c1d`。
 
@@ -24,13 +24,13 @@ python scripts/wp17_i8_candidate.py --platform windows|linux|android-x86_64|andr
 
 | 候选 | 提交 | 退出 | 结果 |
 |---|---|---:|---|
-| Windows 官方 | `25f739e9f26e334f7a3f823ff48f6478e5f27c2d` | 0 | `matrixflow_ocr.dll` 14,126,080 字节，`7deb6c7796ee973e`；native12 为 12 图 / 274 行，文字差 0，最大几何差 0。身份 Compoise 1.0.0+1，未签名。R1 拒绝 OCR 残留 |
+| Windows 官方 | `25f739e9f26e334f7a3f823ff48f6478e5f27c2d` | 0 | `compoise_ocr.dll` 14,126,080 字节，`7deb6c7796ee973e`；native12 为 12 图 / 274 行，文字差 0，最大几何差 0。身份 Compoise 1.0.0+1，未签名。R1 拒绝 OCR 残留 |
 | Windows 默认 | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 19 个文件，OCR 残留 0。同一身份，未签名 |
-| Linux 官方，复用已复核 ncnn | `84f235d2917bf43115b9a3e7174ce716b702001e` | 0 | `lib/libmatrixflow_ocr.so` 16,940,384 字节；native12 文字差 0，最大几何差 0 |
+| Linux 官方，复用已复核 ncnn | `84f235d2917bf43115b9a3e7174ce716b702001e` | 0 | `lib/libcompoise_ocr.so` 16,940,384 字节；native12 文字差 0，最大几何差 0 |
 | Linux 官方，干净源码编译 ncnn | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 同一 native12 结果。库 SHA-256 `2128f163d485a7c612e7ed00fee18cf68887d47f8c19df2b04c23d19d0939642`。ncnn 提交 `c6b351b56fbe32e0381ae00331e3df649b20d7b7` |
 | Linux 默认 | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 19 个文件，OCR 残留 0 |
-| Android x86_64 官方 | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 单 ABI `lib/x86_64/libmatrixflow_ocr.so` 5,390,184 字节。包名 `com.matrixflow.app`，versionName 1.0.0，未签名 |
-| Android arm64-v8a 官方 | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 单 ABI `lib/arm64-v8a/libmatrixflow_ocr.so` 6,482,256 字节。同一应用身份，未签名 |
+| Android x86_64 官方 | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 单 ABI `lib/x86_64/libcompoise_ocr.so` 5,390,184 字节。包名 `com.compoise.app`，versionName 1.0.0，未签名 |
+| Android arm64-v8a 官方 | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 单 ABI `lib/arm64-v8a/libcompoise_ocr.so` 6,482,256 字节。同一应用身份，未签名 |
 | Android x86_64 默认 | `ba63fa6f4e6dd6ebfff2b7f14737d62c56c25d65` | 0 | 443 个条目，OCR 残留 0。同一应用身份，未签名 |
 
 官方包都带 14 项 OCR 路径：五个模型/字典文件、六份许可与 notice、`deployed.json`、`bundle-manifest.json`，以及对应平台的一个 OCR 库。notice 为 6,343 字节，SHA-256 `f54ad9b0c5a4367900c2849e69b374426d3f52f39be7744a36935ee00d17bfe9`，与 `native/ocr/THIRD_PARTY_OCR_NOTICES.md` 一致。全新 Linux 部署根里锁住的 4 个 ncnn 产物、5 份上游许可附件和字典，共 10 个文件，逐一匹配原锁。
@@ -39,7 +39,7 @@ python scripts/wp17_i8_candidate.py --platform windows|linux|android-x86_64|andr
 
 证明在私有根，不入库：
 
-- Windows / Android：`D:\Dev_project\martix-wp17-i8-private\runs\`
+- Windows / Android：`D:\Dev_project\compoise-wp17-i8-private\runs\`
 - Linux：`/home/ubuntu/wp17i8-private/runs/`
 - 每份目录有 `OCR_CANDIDATE.json`。桌面官方另有 `native12.json`
 
@@ -47,7 +47,7 @@ python scripts/wp17_i8_candidate.py --platform windows|linux|android-x86_64|andr
 
 包装回归 `python native/ocr/tools/i8_test_packaging.py`：12 项通过，退出 0。覆盖缺模型、缺许可、伪造 notice、错误 ABI、默认包 OCR 残留，以及复制失败后保留已安装字节和时间戳。
 
-真实缓存 `D:\Dev_project\martix-wp17-i8-private\faults\results.json`：完整资源退出 0；缺模型、坏摘要、缺许可、坏 notice 均退出 3。空缓存离线准备退出 4，日志为缺少 `ppocrv5_dict.txt`。
+真实缓存 `D:\Dev_project\compoise-wp17-i8-private\faults\results.json`：完整资源退出 0；缺模型、坏摘要、缺许可、坏 notice 均退出 3。空缓存离线准备退出 4，日志为缺少 `ppocrv5_dict.txt`。
 
 构建中的三次失败和修复：
 

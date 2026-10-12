@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/theme.dart';
-import 'package:matrixflow_native/ui/orphan_squeeze.dart';
-import 'package:matrixflow_native/widgets/home_actions.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/theme.dart';
+import 'package:compoise/ui/orphan_squeeze.dart';
+import 'package:compoise/widgets/home_actions.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

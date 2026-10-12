@@ -6,17 +6,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/completed_screen.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/search_screen.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/ui/platform_ui_policy.dart';
-import 'package:matrixflow_native/widgets/date_edit_fields.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
-import 'package:matrixflow_native/widgets/task_edit_draft.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/completed_screen.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/search_screen.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/ui/platform_ui_policy.dart';
+import 'package:compoise/widgets/date_edit_fields.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
+import 'package:compoise/widgets/task_edit_draft.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -425,7 +425,7 @@ http.Response _modelsNamed(String id) => http.Response(
 
 Future<Store> _store(List<Task> tasks, {AIService? aiService}) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-has-seen-onboarding': true,
+    'compoise-has-seen-onboarding': true,
   });
   final store = Store(aiService: aiService);
   await store.init();

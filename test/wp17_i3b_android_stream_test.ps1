@@ -19,10 +19,10 @@ $stageStdlib = $stageClasspath | Where-Object { $_ -like '*\kotlin-stdlib-2.0.21
 New-Item -ItemType Directory -Path $stageOutput | Out-Null
 try {
   & java -cp ($stageClasspath -join ';') org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -no-stdlib -no-reflect -classpath $stageStdlib -d $stageOutput `
-    (Join-Path $stageRoot 'android\app\src\main\kotlin\com\matrixflow\matrixflow_native\ScreenshotPngStage.kt') `
+    (Join-Path $stageRoot 'android\app\src\main\kotlin\com\compoise\compoise\ScreenshotPngStage.kt') `
     (Join-Path $PSScriptRoot 'wp17_i3b_android_stream_test.kt')
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  & java -cp "$stageOutput;$stageStdlib" com.matrixflow.matrixflow_native.Wp17_i3b_android_stream_testKt
+  & java -cp "$stageOutput;$stageStdlib" com.compoise.app.Wp17_i3b_android_stream_testKt
   exit $LASTEXITCODE
 } finally {
   $stageResolved = [System.IO.Path]::GetFullPath($stageOutput)

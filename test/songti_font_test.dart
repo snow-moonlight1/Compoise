@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:matrixflow_native/ui/songti_font.dart';
+import 'package:compoise/ui/songti_font.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

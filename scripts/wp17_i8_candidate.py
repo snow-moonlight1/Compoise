@@ -59,7 +59,7 @@ def inspect(bundle: Path, platform: str, enabled: bool, assets: Path | None) -> 
             raise PreparationError("linked candidate file")
         files = {p.relative_to(bundle).as_posix(): p.read_bytes() for p in bundle.rglob("*") if p.is_file()}
     hashes = {n: {"bytes": len(v), "sha256": hashlib.sha256(v).hexdigest()} for n, v in sorted(files.items())}
-    ocr = [n for n in files if any(k in n.lower() for k in ("matrixflow_ocr", "wp17-ocr", "ncnn", "ppocr", "paddle"))]
+    ocr = [n for n in files if any(k in n.lower() for k in ("compoise_ocr", "wp17-ocr", "ncnn", "ppocr", "paddle"))]
     if not enabled:
         if ocr:
             raise PreparationError("default build contains OCR residue: " + str(ocr))
@@ -73,8 +73,8 @@ def inspect(bundle: Path, platform: str, enabled: bool, assets: Path | None) -> 
         if files[prefix + name] != (assets / name).read_bytes():
             raise PreparationError("candidate resource differs: " + name)
     abi = platform.removeprefix("android-") if platform.startswith("android") else "x86_64"
-    library = (f"lib/{abi}/libmatrixflow_ocr.so" if platform.startswith("android") else
-               "matrixflow_ocr.dll" if platform == "windows" else "lib/libmatrixflow_ocr.so")
+    library = (f"lib/{abi}/libcompoise_ocr.so" if platform.startswith("android") else
+               "compoise_ocr.dll" if platform == "windows" else "lib/libcompoise_ocr.so")
     if library not in files or machine(files[library]) != abi:
         raise PreparationError("missing or wrong ABI OCR library")
     if platform.startswith("android"):
@@ -247,7 +247,7 @@ def main() -> int:
             raise PreparationError("aapt2 required for APK identity")
         badging = run([tools[-1], "dump", "badging", built]).decode("utf-8")
         match = re.search(r"package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging)
-        if not match or match.groups() != ("com.matrixflow.app", build_number, version):
+        if not match or match.groups() != ("com.compoise.app", build_number, version):
             raise PreparationError("APK normal identity/version differs")
         identity = dict(zip(("package", "versionCode", "versionName"), match.groups()))
     runtime = None

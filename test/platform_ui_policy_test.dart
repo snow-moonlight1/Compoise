@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ui/platform_ui_policy.dart';
+import 'package:compoise/ui/platform_ui_policy.dart';
 
 void main() {
   test('Linux keeps desktop input without Windows shell settings', () {

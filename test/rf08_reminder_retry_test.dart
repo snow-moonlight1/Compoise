@@ -7,8 +7,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Platform double: an accepted schedule stays pending until cancelled, and
@@ -123,10 +123,10 @@ Future<void> _settle(ReminderService service) async {
 /// coordination and the exit barrier act on the same ledger.
 Future<Store> _storeWith(ReminderService service, List<Task> tasks) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-boards': jsonEncode([
+    'compoise-boards': jsonEncode([
       Board(id: 'b1', name: 'Board', createdAt: 1).toJson(),
     ]),
-    'matrixflow-tasks': jsonEncode(tasks.map((t) => t.toJson()).toList()),
+    'compoise-tasks': jsonEncode(tasks.map((t) => t.toJson()).toList()),
   });
   final store = Store(
     reminders: service,

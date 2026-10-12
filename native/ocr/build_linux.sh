@@ -9,4 +9,4 @@ cmake -S "$SOURCE" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release \
   -Dncnn_DIR="$R2_WORK/ncnn-build/install/lib/cmake/ncnn" \
   -DWP17_STB_DIR="$R2_WORK/assets/third_party"
 cmake --build "$BUILD" -j "$(nproc)"
-printf 'library: %s/libmatrixflow_ocr.so\n' "$BUILD"
+printf 'library: %s/libcompoise_ocr.so\n' "$BUILD"

@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:matrixflow_native/ai_presets.dart';
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/models.dart';
+import 'package:compoise/ai_presets.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/models.dart';
 
 AIConfig config({AIProtocol protocol = AIProtocol.openai, String? base}) =>
     AIConfig(

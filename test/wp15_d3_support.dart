@@ -14,7 +14,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences_windows/shared_preferences_windows.dart';
 
-const d3Channel = MethodChannel('matrixflow/wp15_d3');
+const d3Channel = MethodChannel('compoise/wp15_d3');
 
 class _D3Paths extends PathProviderWindows {
   _D3Paths(this.root);

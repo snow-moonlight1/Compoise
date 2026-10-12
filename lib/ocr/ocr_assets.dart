@@ -12,7 +12,7 @@ Future<String?> bundledOcrAssetsRoot({
   if (android ?? Platform.isAndroid) {
     try {
       return await const MethodChannel(
-        'com.matrixflow/ocr_assets',
+        'com.compoise/ocr_assets',
       ).invokeMethod<String>('prepare');
     } on MissingPluginException {
       return null;

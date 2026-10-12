@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/completed_screen.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/search_screen.dart';
-import 'package:matrixflow_native/widgets/reminder_failure_banner.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/completed_screen.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/search_screen.dart';
+import 'package:compoise/widgets/reminder_failure_banner.dart';
 import 'helpers.dart';
 import 'shortcuts_command_palette_test.dart' show wrapApp;
 

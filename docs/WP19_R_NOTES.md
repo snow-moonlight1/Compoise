@@ -1,6 +1,6 @@
 # WP19-R 开发管理模式隔离原型
 
-起点 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp19-r`，工作树 `D:/Dev_project/martix-wp19-r`。
+起点 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp19-r`，工作树 `D:/Dev_project/compoise-wp19-r`。
 本包只新增文件，未改任何产品源码；提交身份仅在本工作树生效（`git config --worktree`）。
 
 ## 结论（先看这条）
@@ -55,7 +55,7 @@ flutter run -t lib/experiments/wp19_dev_mode/main.dart
 
 | 命令 | 退出码 | 结果 |
 |---|---|---|
-| `git worktree add -b codex/wp19-r D:/Dev_project/martix-wp19-r 459f9a2` | 0 | 新树，名称此前不存在 |
+| `git worktree add -b codex/wp19-r D:/Dev_project/compoise-wp19-r 459f9a2` | 0 | 新树，名称此前不存在 |
 | `flutter pub get --enforce-lockfile` | 0 | 未改 pubspec/lock；顺带生成 3 个未跟踪 `linux/flutter/generated_*`、3 个 `windows/flutter/generated_*` 行尾差异（均未暂存） |
 | `flutter analyze --no-pub` | 0 | 无 issue |
 | `WP19R_OUT=<私有根>/evidence flutter test --no-pub tool/wp19_dev_mode_compare.dart` | 0 | 2 个探针用例通过，打印组织对照并校验派生/撤销/导出不变量 |
@@ -93,13 +93,13 @@ flutter run -t lib/experiments/wp19_dev_mode/main.dart
 ## 未验证
 
 - 未在真实窗口或设备上手工操作：Android/Windows/Linux 的实际窗口、物理键盘与输入法、读屏器、系统级 200% 缩放都未测；`200%` 是 `TextScaler.linear(2.0)` 模拟，`360 dp` 是 `tester.view.physicalSize` 设定的逻辑视口。
-- 未跑 `flutter build`（正常入口未改，构建入口未变由全量套件与静态审计用例支撑）；未安装任何 APK，避免覆盖 `com.matrixflow.app` 正常包身份。
+- 未跑 `flutter build`（正常入口未改，构建入口未变由全量套件与静态审计用例支撑）；未安装任何 APK，避免覆盖 `com.compoise.app` 正常包身份。
 - 未验证与 Store 并发写、备份导入导出、提醒投递的互操作——原型按设计不接这些。
 - 未做设备/GPU 相关串行占用，无 AVD、无原生 GUI 会话。
 
 ## 给集成端的提示（本包未改，属边界外）
 
-1. 共享 `D:/Dev_project/martix/.git/config` 里 `[user] name = wp18-r-agent`（WP18-R 写进了 common config，不是 worktree 作用域）。所有没有自己 `config.worktree` 身份的新工作树都会继承它。建议集成端清掉并让各包用 `git config --worktree`。
+1. 共享 `D:/Dev_project/compoise/.git/config` 里 `[user] name = wp18-r-agent`（WP18-R 写进了 common config，不是 worktree 作用域）。所有没有自己 `config.worktree` 身份的新工作树都会继承它。建议集成端清掉并让各包用 `git config --worktree`。
 2. 基线 `459f9a2` 之后 main 已有 21 个提交（含 `f6d0c6e` planner 键盘修复、`abc182d` 八包集成）。本包按分派固定在 `459f9a2`，未跟随后续 main；集成时若基线漂移需重跑本包三条定向用例。
 3. 本包只新增文件，无共享契约改动；`docs/README.md`、`docs/ROADMAP.md` 的 WP19 状态由集成端决定改不改（建议改成“已用隔离原型验证，结论：仅依赖关系缺位”，或直接标注不做）。
 

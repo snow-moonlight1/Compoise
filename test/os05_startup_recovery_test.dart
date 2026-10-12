@@ -4,8 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/screens/startup_recovery_screen.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/screens/startup_recovery_screen.dart';
+import 'package:compoise/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,12 +38,12 @@ void main() {
     await store.flush();
     expect(store.hasStartupRecovery, isFalse);
     expect(
-      store.startupDataStates['matrixflow-tasks'],
+      store.startupDataStates['compoise-tasks'],
       StartupDataState.missing,
     );
     expect(store.boards, hasLength(1));
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('matrixflow-boards'), isNotNull);
+    expect(prefs.getString('compoise-boards'), isNotNull);
   });
 
   test(
@@ -52,22 +52,22 @@ void main() {
       const damaged = '[{"id":"synthetic","title":"unfinished';
       const healthyBoards = '[{"id":"b","name":"B","createdAt":1}]';
       SharedPreferences.setMockInitialValues({
-        'matrixflow-tasks': damaged,
-        'matrixflow-boards': healthyBoards,
-        'matrixflow-has-seen-onboarding': true,
+        'compoise-tasks': damaged,
+        'compoise-boards': healthyBoards,
+        'compoise-has-seen-onboarding': true,
       });
       final first = Store();
       await first.init();
       await first.flush();
       expect(first.hasStartupRecovery, isTrue);
-      expect(first.recoveryKeys, contains('matrixflow-tasks'));
+      expect(first.recoveryKeys, contains('compoise-tasks'));
       expect(
-        first.startupDataStates['matrixflow-tasks'],
+        first.startupDataStates['compoise-tasks'],
         StartupDataState.corrupt,
       );
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('matrixflow-tasks'), damaged);
-      expect(prefs.getString('matrixflow-boards'), healthyBoards);
+      expect(prefs.getString('compoise-tasks'), damaged);
+      expect(prefs.getString('compoise-boards'), healthyBoards);
       first.dispose();
 
       final second = Store();
@@ -75,18 +75,18 @@ void main() {
       await second.init();
       await second.flush();
       expect(second.hasStartupRecovery, isTrue);
-      expect(prefs.getString('matrixflow-tasks'), damaged);
+      expect(prefs.getString('compoise-tasks'), damaged);
     },
   );
 
   test('OS05: wrong top levels and primitive types remain untouched', () async {
     SharedPreferences.setMockInitialValues({
-      'matrixflow-tasks': '{}',
-      'matrixflow-boards': '42',
-      'matrixflow-config': 7,
-      'matrixflow-settings': 'false',
-      'matrixflow-has-seen-onboarding': 'true',
-      'matrixflow-active-board': 3,
+      'compoise-tasks': '{}',
+      'compoise-boards': '42',
+      'compoise-config': 7,
+      'compoise-settings': 'false',
+      'compoise-has-seen-onboarding': 'true',
+      'compoise-active-board': 3,
     });
     final store = Store();
     addTearDown(store.dispose);
@@ -95,12 +95,12 @@ void main() {
     expect(store.ready, isTrue);
     expect(store.recoveryKeys, hasLength(6));
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('matrixflow-tasks'), '{}');
-    expect(prefs.getString('matrixflow-boards'), '42');
-    expect(prefs.get('matrixflow-config'), 7);
-    expect(prefs.getString('matrixflow-settings'), 'false');
-    expect(prefs.get('matrixflow-has-seen-onboarding'), 'true');
-    expect(prefs.get('matrixflow-active-board'), 3);
+    expect(prefs.getString('compoise-tasks'), '{}');
+    expect(prefs.getString('compoise-boards'), '42');
+    expect(prefs.get('compoise-config'), 7);
+    expect(prefs.getString('compoise-settings'), 'false');
+    expect(prefs.get('compoise-has-seen-onboarding'), 'true');
+    expect(prefs.get('compoise-active-board'), 3);
   });
 
   test(
@@ -111,8 +111,8 @@ void main() {
         {'id': '', 'boardId': 'b', 'title': 'Bad'},
       ]);
       SharedPreferences.setMockInitialValues({
-        'matrixflow-boards': '[{"id":"b","name":"B","createdAt":1}]',
-        'matrixflow-tasks': source,
+        'compoise-boards': '[{"id":"b","name":"B","createdAt":1}]',
+        'compoise-tasks': source,
       });
       final store = Store();
       addTearDown(store.dispose);
@@ -120,21 +120,21 @@ void main() {
       expect(store.tasks, hasLength(1));
       expect(store.hasStartupRecovery, isTrue);
       final copy = jsonDecode(store.recoveryCopyJson()) as Map<String, dynamic>;
-      expect(copy['format'], 'matrixflow-startup-recovery-v1');
+      expect(copy['format'], 'compoise-startup-recovery-v1');
       expect(
         (copy['entries'] as List).where(
           (entry) =>
-              entry['key'] == 'matrixflow-tasks' && entry['value'] == source,
+              entry['key'] == 'compoise-tasks' && entry['value'] == source,
         ),
         hasLength(1),
       );
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('matrixflow-tasks'), source);
+      expect(prefs.getString('compoise-tasks'), source);
       expect(await store.discardDamagedStartupData(), isTrue);
       await store.flush();
       expect(store.hasStartupRecovery, isFalse);
       expect(
-        jsonDecode(prefs.getString('matrixflow-tasks')!) as List,
+        jsonDecode(prefs.getString('compoise-tasks')!) as List,
         hasLength(1),
       );
     },
@@ -144,8 +144,8 @@ void main() {
     'OS05: legacy normalized records migrate without recovery lock',
     () async {
       SharedPreferences.setMockInitialValues({
-        'matrixflow-boards': '[{"id":"b"}]',
-        'matrixflow-tasks': '[{"id":"t","boardId":"b","quadrant":"Q2"}]',
+        'compoise-boards': '[{"id":"b"}]',
+        'compoise-tasks': '[{"id":"t","boardId":"b","quadrant":"Q2"}]',
       });
       final store = Store();
       addTearDown(store.dispose);
@@ -153,7 +153,7 @@ void main() {
       await store.flush();
       expect(store.hasStartupRecovery, isFalse);
       expect(
-        store.startupDataStates['matrixflow-tasks'],
+        store.startupDataStates['compoise-tasks'],
         StartupDataState.migrated,
       );
       expect(store.tasks.single.quadrant, 2);
@@ -164,7 +164,7 @@ void main() {
     tester,
   ) async {
     const source = '[{"id":"unfinished"';
-    SharedPreferences.setMockInitialValues({'matrixflow-tasks': source});
+    SharedPreferences.setMockInitialValues({'compoise-tasks': source});
     final store = Store();
     addTearDown(store.dispose);
     await store.init();
@@ -183,7 +183,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.hasStartupRecovery, isTrue);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('matrixflow-tasks'), source);
+    expect(prefs.getString('compoise-tasks'), source);
     expect(find.text(store.t['recoveryTitle']!), findsOneWidget);
   });
 
@@ -192,8 +192,8 @@ void main() {
   ) async {
     const source = '[{"id":"unfinished"';
     SharedPreferences.setMockInitialValues({
-      'matrixflow-tasks': source,
-      'matrixflow-settings': '{"language":"en"}',
+      'compoise-tasks': source,
+      'compoise-settings': '{"language":"en"}',
     });
     final store = Store();
     addTearDown(store.dispose);
@@ -211,12 +211,12 @@ void main() {
     await tester.pumpAndSettle();
     final copy =
         jsonDecode(utf8.decode(picker.savedBytes!)) as Map<String, dynamic>;
-    expect(copy['format'], 'matrixflow-startup-recovery-v1');
+    expect(copy['format'], 'compoise-startup-recovery-v1');
     expect(
       copy['entries'],
       contains(
         allOf(
-          containsPair('key', 'matrixflow-tasks'),
+          containsPair('key', 'compoise-tasks'),
           containsPair('value', source),
         ),
       ),
@@ -225,7 +225,7 @@ void main() {
       copy['entries'],
       contains(
         allOf(
-          containsPair('key', 'matrixflow-settings'),
+          containsPair('key', 'compoise-settings'),
           containsPair('value', '{"language":"en"}'),
         ),
       ),

@@ -7,8 +7,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Credential store whose writes can be held open or made to fail.
@@ -73,7 +73,7 @@ class SlotBarrier {
 
   Future<bool> write(String key, String value) async {
     if (armed &&
-        key.startsWith('matrixflow-save-') &&
+        key.startsWith('compoise-save-') &&
         key != SaveProtocol.pointerKey) {
       final index = _slotWrites++;
       while (_entered.length <= index) {

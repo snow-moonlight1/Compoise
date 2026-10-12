@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
 
 /// OS26 keeps the release workflow, the packaging script, the Android release
 /// gate and the release identity metadata aligned with the source tree.
@@ -331,7 +331,7 @@ void main() {
         .first;
     expect(linuxJob.contains('flutter build linux --release --no-pub'), isTrue);
     expect(linuxJob.contains('build/linux/x64/release/bundle'), isTrue);
-    expect(linuxJob.contains('matrixflow_native'), isTrue);
+    expect(linuxJob.contains('compoise'), isTrue);
     expect(
       linuxJob.contains('No Linux installer, archive or checksum is published'),
       isTrue,
@@ -341,7 +341,7 @@ void main() {
     expect(
       text(
         'linux/CMakeLists.txt',
-      ).contains('set(BINARY_NAME "matrixflow_native")'),
+      ).contains('set(BINARY_NAME "compoise")'),
       isTrue,
     );
 
@@ -421,7 +421,7 @@ void main() {
       final validation = text('docs/RELEASE_VALIDATION.md');
       expect(validation.contains(r'%APPDATA%\Compoise\Compoise'), isTrue);
       expect(
-        validation.contains(r'%APPDATA%\com.matrixflow\MatrixFlow AI'),
+        validation.contains(r'%APPDATA%\com.compoise\Compoise'),
         isTrue,
       );
       expect(validation.contains('d9e3b56'), isTrue);

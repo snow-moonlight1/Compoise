@@ -16,8 +16,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // `--dart-define=RF09_CAPTURE=1` arrives as a string, so both spellings work.
@@ -27,29 +27,26 @@ const bool _capture =
 
 // --- locked format goldens ---------------------------------------------------
 
-const String goldenSlotRev1 = '{"revision":1,"values":{"matrixflow-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\martix\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","matrixflow-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","matrixflow-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","matrixflow-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","matrixflow-active-board":"board \\"quoted\\" \\\\ back 🎯","matrixflow-has-seen-onboarding":"true"},"check":274342734}';
-const int goldenCheckRev1 = 274342734;
-const String goldenSlotRev2 = '{"revision":2,"values":{"matrixflow-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\martix\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","matrixflow-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","matrixflow-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","matrixflow-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","matrixflow-active-board":"board \\"quoted\\" \\\\ back 🎯","matrixflow-has-seen-onboarding":"true"},"check":325067599}';
-const int goldenCheckRev2 = 325067599;
-const String goldenScrubSlotA = '{"revision":1,"values":{"matrixflow-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\martix\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","matrixflow-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","matrixflow-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\",\\"headers\\":{\\"X-Note\\":\\"中文 \\\\\\\\ back\\\\nsecond line\\"}}","matrixflow-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","matrixflow-active-board":"board \\"quoted\\" \\\\ back 🎯","matrixflow-has-seen-onboarding":"true"},"check":2729130440}';
-const String goldenScrubSlotB = '{"revision":2,"values":{"matrixflow-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\martix\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","matrixflow-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","matrixflow-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\",\\"headers\\":{\\"X-Note\\":\\"中文 \\\\\\\\ back\\\\nsecond line\\"}}","matrixflow-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","matrixflow-active-board":"board \\"quoted\\" \\\\ back 🎯","matrixflow-has-seen-onboarding":"true"},"check":2783787465}';
-const String goldenScrubMirror = '{"provider":"custom","baseUrl":"https://example.invalid/v1","model":"synthetic \\"模型\\" 🎯","headers":{"X-Note":"中文 \\\\ back\\nsecond line"}}';
-const int goldenBigPayloadBytes = 279801;
-const int goldenBigPayloadFingerprint = 1267241698;
-const int goldenBigCheck = 3791606609;
+const String goldenSlotRev1 = '{"revision":1,"values":{"compoise-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\compoise\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","compoise-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","compoise-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","compoise-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","compoise-active-board":"board \\"quoted\\" \\\\ back 🎯","compoise-has-seen-onboarding":"true"},"check":2460819076}';
+const int goldenCheckRev1 = 2460819076;
+const String goldenSlotRev2 = '{"revision":2,"values":{"compoise-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\compoise\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","compoise-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","compoise-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","compoise-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","compoise-active-board":"board \\"quoted\\" \\\\ back 🎯","compoise-has-seen-onboarding":"true"},"check":2510888581}';
+const int goldenCheckRev2 = 2510888581;
+const int goldenBigPayloadBytes = 279789;
+const int goldenBigPayloadFingerprint = 1661805430;
+const int goldenBigCheck = 2344897981;
 const int goldenBigMirrorBytes = 236865;
 
 // --- fixtures ----------------------------------------------------------------
 
-const String slotA = 'matrixflow-save-a';
-const String slotB = 'matrixflow-save-b';
-const String kTasks = 'matrixflow-tasks';
-const String kSchedule = 'matrixflow-schedule';
-const String kBoards = 'matrixflow-boards';
-const String kConfig = 'matrixflow-config';
-const String kSettings = 'matrixflow-settings';
-const String kActiveBoard = 'matrixflow-active-board';
-const String kOnboarding = 'matrixflow-has-seen-onboarding';
+const String slotA = 'compoise-save-a';
+const String slotB = 'compoise-save-b';
+const String kTasks = 'compoise-tasks';
+const String kSchedule = 'compoise-schedule';
+const String kBoards = 'compoise-boards';
+const String kConfig = 'compoise-config';
+const String kSettings = 'compoise-settings';
+const String kActiveBoard = 'compoise-active-board';
+const String kOnboarding = 'compoise-has-seen-onboarding';
 
 /// Escape-heavy values chosen so any change in JSON framing or in where a value
 /// is re-encoded shows up as a byte difference: quotes, backslashes, control
@@ -60,7 +57,7 @@ Map<String, String> fixtureValues() => <String, String>{
       'id': 't1',
       'title': '整理季度复盘 "Q1" 🎯',
       'notes': '第一行\n第二行\t制表\u0001\u0007bell',
-      'path': r'C:\Dev\martix\src',
+      'path': r'C:\Dev\compoise\src',
       'markup': r'"<b>&amp;</b>" 100% $free {not interpolated}',
       'empty': '',
       'subtasks': <Object?>[
@@ -407,47 +404,6 @@ void main() {
       }
     });
 
-    test('scrubCredentials rewrites both slots and the mirror with locked bytes',
-        () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final prefs = await SharedPreferences.getInstance();
-      final writer = RecordingWriter(prefs: prefs);
-      final protocol = SaveProtocol(prefs, writer: writer.call);
-      final values = fixtureValuesWithKey();
-      await protocol.commit(values);
-      await protocol.commit(values);
-      expect(prefs.getString(slotA), contains('sk-synthetic-never-real'));
-      expect(prefs.getString(slotB), contains('sk-synthetic-never-real'));
-
-      expect(await protocol.scrubCredentials(), isTrue);
-      final scrubbedA = prefs.getString(slotA)!;
-      final scrubbedB = prefs.getString(slotB)!;
-      final scrubbedMirror = prefs.getString(kConfig)!;
-      if (_capture) {
-        reportGolden('goldenScrubSlotA', scrubbedA);
-        reportGolden('goldenScrubSlotB', scrubbedB);
-        reportGolden('goldenScrubMirror', scrubbedMirror);
-      } else {
-        expect(scrubbedA, goldenScrubSlotA);
-        expect(scrubbedB, goldenScrubSlotB);
-        expect(scrubbedMirror, goldenScrubMirror);
-      }
-      for (final text in <String>[scrubbedA, scrubbedB, scrubbedMirror]) {
-        expect(text, isNot(contains('sk-synthetic-never-real')));
-      }
-      // A rewritten check must still satisfy the reader.
-      final scrubbedValues = Map<String, String>.of(values)
-        ..[kConfig] = jsonEncode(
-          (<String, Object?>{...jsonDecode(values[kConfig]!) as Map<String, Object?>}
-                ..remove('customApiKey')),
-        );
-      expect(scrubbedA, referencePayload(1, scrubbedValues));
-      expect(scrubbedB, referencePayload(2, scrubbedValues));
-      final batch = SaveProtocol(prefs).load();
-      expect(batch, isNotNull);
-      expect(batch!.revision, 2);
-      expect(batch.values[kConfig], scrubbedValues[kConfig]);
-    });
   });
 
   group('S2 checksum and damaged batch rejection', () {
@@ -632,12 +588,12 @@ void main() {
         StartupDataState.corrupt,
       );
       // Nothing was rewritten: the damaged batch is still there untouched.
-      expect(recoveryPrefs.getString(slotA), contains('"matrixflow-settings":7'));
+      expect(recoveryPrefs.getString(slotA), contains('"compoise-settings":7'));
       store.dispose();
     });
 
     test('an unknown pointer is rejected', () async {
-      await seed(slot: false, pointer: 'matrixflow-save-c');
+      await seed(slot: false, pointer: 'compoise-save-c');
       expect(() => SaveProtocol(prefs).load(),
           failsWith('Invalid save pointer'));
     });

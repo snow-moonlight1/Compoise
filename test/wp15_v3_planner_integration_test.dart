@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/screens/planner_screen.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/screens/planner_screen.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

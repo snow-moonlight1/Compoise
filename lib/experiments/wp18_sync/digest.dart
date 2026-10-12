@@ -8,7 +8,7 @@ library;
 
 import 'dart:convert';
 
-import 'package:matrixflow_native/recovery_text.dart' show recoverySha256Hex;
+import 'package:compoise/recovery_text.dart' show recoverySha256Hex;
 
 /// Encodes [value] so equal content always produces equal text, regardless of
 /// the order a device happened to write its JSON keys in.

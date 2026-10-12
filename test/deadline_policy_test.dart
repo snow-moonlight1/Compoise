@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

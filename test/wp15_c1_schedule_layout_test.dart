@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/widgets/schedule_layout.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/widgets/schedule_layout.dart';
 
 import 'support/wp15_c1_fixtures.dart';
 

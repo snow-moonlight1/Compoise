@@ -1,6 +1,6 @@
 # WP17-Q1：官方 OCR 资源与质量实测
 
-基线 `3ac0b6d9192a0495f1db1f636d9b8726b03179c4`，分支 `codex/wp17-q1`，独立工作树 `D:/Dev_project/martix-wp17-q1`。提交身份仅本树 `wp17-q1-agent <wp17-q1-agent@local.invalid>`；完整提交 SHA 随交接提供。先读 Q1 指定的 evaluation/I1/I5/I6、运行时、模型锁和 R2 参考；未找到适用的 AGENTS.md。
+基线 `3ac0b6d9192a0495f1db1f636d9b8726b03179c4`，分支 `codex/wp17-q1`，独立工作树 `D:/Dev_project/compoise-wp17-q1`。提交身份仅本树 `wp17-q1-agent <wp17-q1-agent@local.invalid>`；完整提交 SHA 随交接提供。先读 Q1 指定的 evaluation/I1/I5/I6、运行时、模型锁和 R2 参考；未找到适用的 AGENTS.md。
 
 结论：同机 Release 原生重用会话峰值下降约 61%（Windows）/55%（Linux）；Linux Flutter 五批完整流程峰值下降约 40%。原生耗时增加，不能称为速度优化或低端设备验收。R2 文字/几何无变化。独立合成真值暴露空格丢失和长行草稿漏检，未在资源提交中改质量阈值。
 
@@ -18,7 +18,7 @@
 以下缩写仅用于本记录：
 
 - `W = C:/Users/20214/AppData/Local/wp17q1-private`。桌面虚拟化对应的真实文件根为 `C:/Users/20214/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/wp17q1-private`；WSL 从这个根只读复制合成样本。
-- `L = /home/ubuntu/wp17q1-private`，自己的 ext4 baseline/after 镜像、pub-cache、构建、日志、Xvfb/DBus/XDG。baseline 用 `git --git-dir=/mnt/d/Dev_project/martix/.git archive <完整基线>`，不使用 Windows 工作树的 .git 指针。
+- `L = /home/ubuntu/wp17q1-private`，自己的 ext4 baseline/after 镜像、pub-cache、构建、日志、Xvfb/DBus/XDG。baseline 用 `git --git-dir=/mnt/d/Dev_project/compoise/.git archive <完整基线>`，不使用 Windows 工作树的 .git 指针。
 - Windows Flutter `D:/Dev_SDKs/Flutter_3.32.8`、Linux `/home/ubuntu/develop/flutter`，均 3.32.8 / Dart 3.8.1；锁版本未升级。Linux 离线 pub 缓存缺 hosted-hashes，只在私有镜像校验除 hash 描述外完全一致后恢复基线 lock；源工作树 lock 不变。
 - Windows ncnn：`C:/Users/20214/AppData/Local/wp17i5-private/assets/ncnn-build-win/install`；stb 同包 `assets/third_party`；模型 `wp17i5-private/deploy-win`。Linux SDK `/home/ubuntu/wp17i4-ncnn-linux/install`，stb `/home/ubuntu/wp17i5-private/assets/third_party`，模型 `/home/ubuntu/wp17i6-private/official-deploy`。旧目录只读复用。
 - Windows VS2022/CMake 4.1.1，Linux Ubuntu-24.04/clang 18.1.3/Ninja。请求线程数 4；Linux SDK 未链接 OpenMP，不能宣称有效四线程并行。WSL/Xvfb 软件渲染不是物理 Linux/手机验收。
@@ -107,7 +107,7 @@ Windows 命令在本工作树执行。下列 `W/L` 按前文展开；日志的 `
 | Linux before/after `cmake -S <repo>/native/ocr -B L/native-linux-<mode> -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -Dncnn_DIR=/home/ubuntu/wp17i4-ncnn-linux/install/lib/cmake/ncnn -DWP17_STB_DIR=/home/ubuntu/wp17i5-private/assets/third_party`；`cmake --build <build> --parallel 4` | 各0 | L/logs 与对应 CMakeCache.txt |
 | Win/Linux `python native/ocr/tools/q1_benchmark.py --library <before或after库> --assets <官方deploy> --build Release --out <W或L>/bench-<平台>-<mode>` | 每个平台两个完整父进程均0，子模式均0 | bench-*/summary.json、模式JSON/samples/stderr |
 | `python native/ocr/tools/validate_official_runtime.py --library <after库> --assets <deploy> --report <W或L>/validate-<平台>-after.json` | Win/Linux各0，原 R2不变 | validate-*-after.json |
-| `wsl -d Ubuntu-24.04 -- bash /mnt/d/Dev_project/martix-wp17-q1/native/ocr/tools/q1_linux.sh setup`，随后 `build-before/build-after/run-before/run-after/profile/dart-profile/quality/limits` | 最终各0，Release真实库/应用 | L/logs/*.{log,exit}、flutter-*.json |
+| `wsl -d Ubuntu-24.04 -- bash /mnt/d/Dev_project/compoise-wp17-q1/native/ocr/tools/q1_linux.sh setup`，随后 `build-before/build-after/run-before/run-after/profile/dart-profile/quality/limits` | 最终各0，Release真实库/应用 | L/logs/*.{log,exit}、flutter-*.json |
 | `python native/ocr/tools/q1_quality.py generate --out W/fixtures --fonts C:/Windows/Fonts`；`score --out W/fixtures --library <after DLL> --baseline-library <before DLL> --assets <deploy-win> --flutter-report W/flutter-after.json` | 最终各0；Linux `q1_linux.sh quality` 0 | W/logs/quality-*，W和L/fixtures/{labels,native-raw,quality}.json |
 | `python native/ocr/tools/q1_limits.py --library <after库> --assets <deploy> --out <W或L>/limits-<平台>` | Win/Linux各0 | limits-*/report.json，L/logs/limits-native-linux.* |
 | `python native/ocr/tools/q1_report.py --root <W或L>` | 0 | W/report.json、W/linux-final-report.json、L/final-summary.json |
