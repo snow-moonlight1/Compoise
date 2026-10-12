@@ -174,3 +174,25 @@ Not verified: real-device look of the shadows/outlines.
 - Tasks｜Schedule switch, neumorphic: the selected tab uses one downward shadow instead of the light/dark pair, so both ends look the same.
 - Home task rows: neumorphic card gap 32dp → 10dp. Comic rows lose the per-task thick box: 12dp side inset and a thin separator; a selected row keeps an outlined tint.
 - Not verified on a device: the visual feel of all of the above.
+
+## Round 12 – Windows / desktop pass
+
+Desktop = Windows/macOS/Linux theme platform (`PlatformUiPolicy.isDesktop`). Phones are unchanged.
+
+| Found | Fix |
+| --- | --- |
+| Schedule guide: content stuck to the top of a fixed 420dp card | Each step centred in its page; card 440×360 max, centred |
+| Windows test toast showed the text twice | Body was sent both as the toast text and as `subtitle`; subtitle dropped. A second click while sending is ignored |
+| "Check permissions" on Windows/desktop (cannot answer) | Shown on Android/iOS only; the test button takes the full row |
+| Tutorial / settings stretch across a wide window | Tutorial capped at 680dp, settings list at 720dp, centred |
+| Pool as a bottom sheet on a big window | ≥900dp desktop: fixed 340dp side panel; narrower windows keep the sheet |
+| Round 今 button and swipe-only day change | Desktop toolbar always has ◀ ▶ and "Today" (disabled when already there); 今 button phone-only |
+| No keyboard | ←/→ day or week, T today, D/W view, Delete (with confirmation), Esc clear selection, Ctrl+N new |
+| Long press needed to drag with a mouse | Mouse press-and-drag moves blocks, week labels and pool cards; touch still long-presses |
+| No mouse affordances | Hover tint + hand cursor on blocks and pool cards; right click a block → Edit / Delete; double click empty grid → new item at that quarter hour (mouse only) |
+| Task detail as a phone bottom sheet on desktop | Centred dialog, ≤560dp wide |
+
+Already right on desktop and left alone: add-task panel is a dialog; scrollbars come from Flutter's desktop scroll behaviour; `VisualDensity.adaptivePlatformDensity` is compact on desktop.
+
+Suggestions (not done): multi-column settings on very wide windows; Shift+wheel to change day; a desktop-specific home layout review.
+Not verified on a real Windows machine: feel of hover, drag, shortcuts and the toast.
