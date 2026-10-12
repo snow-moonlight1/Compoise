@@ -9,6 +9,7 @@ import '../widgets/schedule_layout.dart';
 import 'planner_drag_feedback.dart';
 import 'planner_guide_flag.dart';
 import 'planner_labels.dart';
+import 'planner_skin.dart';
 
 /// Height of the pool when it is opened with a tap, as a share of the page.
 /// A third of the screen: enough for two or three cards while most of
@@ -209,10 +210,16 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       builder: (context, scrollController) {
         return Material(
           color: skin?.canvas ?? theme.colorScheme.surface,
-          elevation: skin == null ? 3 : 0,
+          elevation: skin == null ? 3 : 6,
           shadowColor: skin?.darkShadow ?? theme.colorScheme.shadow,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            side: ComicOutline.maybeOf(context) == null
+                ? BorderSide.none
+                : BorderSide(
+                    color: ComicOutline.maybeOf(context)!.edge,
+                    width: 2,
+                  ),
           ),
           clipBehavior: Clip.antiAlias,
           child: LayoutBuilder(
@@ -768,9 +775,12 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       canRequestFocus: false,
       borderRadius: BorderRadius.circular(8),
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
+        decoration: PlannerSkin.of(context).surface(
+          BoxDecoration(
+            color: theme.colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          raised: false,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -819,6 +829,30 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     );
   }
 
+  /// Plain: an outline only while pointed out. Comic: always outlined.
+  /// Neumorphic: a sunk slab. The pointed-out card keeps the accent outline.
+  BoxDecoration _cardDecoration(ThemeData theme, bool highlighted) {
+    final skin = PlannerSkin.of(context);
+    final base = BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: highlighted ? theme.colorScheme.primary : Colors.transparent,
+        width: 2,
+      ),
+    );
+    if (skin.plain) return base;
+    final skinned = skin.surface(
+      base.copyWith(color: theme.colorScheme.surfaceContainerHighest),
+      raised: false,
+      selected: highlighted,
+    );
+    return highlighted
+        ? skinned.copyWith(
+            border: Border.all(color: theme.colorScheme.primary, width: 3),
+          )
+        : skinned;
+  }
+
   Widget _card(ThemeData theme, Task task) {
     final local = task.deadline == null
         ? null
@@ -833,13 +867,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     );
     final body = DecoratedBox(
       key: highlighted ? _highlightKey : null,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: highlighted ? theme.colorScheme.primary : Colors.transparent,
-          width: 2,
-        ),
-      ),
+      decoration: _cardDecoration(theme, highlighted),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 56),
         child: Padding(

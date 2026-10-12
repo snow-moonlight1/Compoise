@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../widgets/schedule_layout.dart';
 import 'planner_block.dart' show plannerHandleReach;
+import 'planner_skin.dart';
 
 /// Side margin shared by the strip, the grid and the week list.
 const plannerPageMargin = 12.0;
@@ -183,7 +184,7 @@ class _Grid extends StatelessWidget {
               right: 0,
               child: Divider(
                 height: 1,
-                color: theme.colorScheme.outlineVariant,
+                color: PlannerSkin.of(context).hairline(theme),
               ),
             ),
             if (tick.instant != day.window.endAt &&
@@ -194,9 +195,9 @@ class _Grid extends StatelessWidget {
                 right: 0,
                 child: Divider(
                   height: 1,
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.4,
-                  ),
+                  color: PlannerSkin.of(
+                    context,
+                  ).hairline(theme).withValues(alpha: 0.4),
                 ),
               ),
           ],

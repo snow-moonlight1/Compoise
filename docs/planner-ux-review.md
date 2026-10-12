@@ -144,3 +144,24 @@ Not verified / not fixed: real-device feel of drag previews and tab slide; scree
 - "Schedule time" in a task's detail no longer pushes the old full-screen planner page from the home page (phone sheet or side panel): the detail closes and the home page switches to the Schedule tab (same slide, state kept, back key as before) with that task as the focus task (`TaskDetailSession.onScheduleTime` → `_scheduleFromDetail`, `PlannerScreen.focusToken`). The old route stays for the other pages that still use it (Today, Search, Completed).
 - Pool focus: the pool no longer grows to the half height for the highlight; it opens to the usual third at most, switches to the task's quadrant tab, lists the task first (display only, stored order unchanged) and outlines it. Touching the lists/pages, a tab, a drag, or tapping empty space ends the outline.
 - Not verified on a device; focus from Today/Search/Completed still opens the separate page (not asked).
+
+## Round 11 – comic outline & neumorphic skins
+
+The planner now reads the same theme extensions as the home page
+(`ComicOutline`, `NeumorphicSkin`) through one small helper,
+`lib/planner/planner_skin.dart` (`PlannerSkin.of(context)`). With neither
+skin it returns its input, so the default look is unchanged. Dialogs, menus,
+chips, buttons, snackbars, date picker were already themed globally.
+
+| Part | Comic outline | Neumorphic |
+| --- | --- | --- |
+| Tasks｜Schedule switch | 2dp outlined track and selected tab | sunk track, raised selected tab |
+| Schedule block, handles | 2dp edge (3dp selected), no shadow | small shadow pair, no outline |
+| Selection bar, 今 button | outlined pill / disc | raised pill / disc, accent number |
+| Date strip day, week node | outlined filled circle | chosen/today sunk with accent number, others raised |
+| Timeline & week lines | softened edge colour (ink is too heavy for a hairline) | unchanged |
+| Task pool | outlined top edge, outlined cards and board tag | shadowed sheet, sunk cards and tag |
+
+Dark mode uses each skin's dark palette; tests render day, selected block,
+editor, expanded pool and week in 3 skins × light/dark at 400 and 360 wide.
+Not verified: real-device look of the shadows/outlines.

@@ -15,6 +15,7 @@ import '../planner/planner_day_swipe.dart';
 import '../planner/planner_day_timeline.dart';
 import '../planner/planner_labels.dart';
 import '../planner/planner_pinch.dart';
+import '../planner/planner_skin.dart';
 import '../planner/planner_task_pool.dart';
 import '../planner/planner_toolbar.dart';
 import '../planner/planner_view.dart';
@@ -1756,29 +1757,54 @@ class _TodayButtonState extends State<_TodayButton>
             label: widget.tooltip,
             excludeSemantics: true,
             onTap: widget.onPressed,
-            child: Material(
-              color: theme.colorScheme.primaryContainer,
-              elevation: 3,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: widget.onPressed,
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: Center(
-                    child: Text(
-                      widget.label,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            child: _face(theme),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _face(ThemeData theme) {
+    final skin = PlannerSkin.of(context);
+    final label = Text(
+      widget.label,
+      style: theme.textTheme.titleLarge?.copyWith(
+        color: skin.neu != null
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onPrimaryContainer,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+    final face = SizedBox(width: 56, height: 56, child: Center(child: label));
+    if (skin.plain) {
+      return Material(
+        color: theme.colorScheme.primaryContainer,
+        elevation: 3,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: widget.onPressed,
+          child: face,
+        ),
+      );
+    }
+    // Comic: filled, outlined disc. Neumorphic: raised disc, accent number.
+    return DecoratedBox(
+      decoration: skin.surface(
+        BoxDecoration(
+          color: skin.comic != null
+              ? theme.colorScheme.primaryContainer
+              : skin.neu!.canvas,
+          shape: BoxShape.circle,
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: widget.onPressed,
+          child: face,
         ),
       ),
     );

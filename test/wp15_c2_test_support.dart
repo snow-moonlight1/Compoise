@@ -7,6 +7,7 @@ import 'package:matrixflow_native/schedule_item.dart';
 import 'package:matrixflow_native/schedule_time.dart';
 import 'package:matrixflow_native/screens/planner_screen.dart';
 import 'package:matrixflow_native/storage.dart';
+import 'package:matrixflow_native/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'support/wp15_c1_fixtures.dart';
@@ -45,6 +46,7 @@ Future<void> c2Pump(
   bool startTimeBlock = false,
   bool provide = false,
   bool dark = false,
+  String skin = 'default',
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -54,10 +56,13 @@ Future<void> c2Pump(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final app = MaterialApp(
-    theme: ThemeData(
-      useMaterial3: true,
-      platform: TargetPlatform.windows,
-      brightness: dark ? Brightness.dark : Brightness.light,
+    theme: _skinned(
+      ThemeData(
+        useMaterial3: true,
+        platform: TargetPlatform.windows,
+        brightness: dark ? Brightness.dark : Brightness.light,
+      ),
+      skin,
     ),
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
@@ -175,3 +180,9 @@ String c2Library(Store store) => jsonEncode({
   'revisions': store.captureSnapshot().scheduleRevisions,
   'active': store.activeBoardId,
 });
+
+ThemeData _skinned(ThemeData base, String skin) => switch (skin) {
+  'comic' => applyComicOutline(base),
+  'neu' => applyNeumorphic(base),
+  _ => base,
+};

@@ -17,6 +17,7 @@ import '../ui/platform_ui_policy.dart';
 import '../widgets/batch_decompose_sheet.dart';
 import '../widgets/board_picker.dart';
 import '../widgets/home_actions.dart';
+import '../planner/planner_skin.dart';
 import '../widgets/tab_slider.dart';
 import '../widgets/input_sheet.dart';
 import '../widgets/quadrant_transition_layout.dart';
@@ -647,6 +648,7 @@ class _MatrixHomeState extends State<MatrixHome> {
 
   /// Full-width two-way switch between the task board and the schedule.
   Widget _modeSwitch(Map<String, String> t, ThemeData theme) {
+    final skin = PlannerSkin.of(context);
     Widget tab(Key key, int index, IconData icon, String label) {
       final on = _tab == index;
       final ink = on
@@ -663,10 +665,17 @@ class _MatrixHomeState extends State<MatrixHome> {
             child: Container(
               height: 40,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: on ? theme.colorScheme.primaryContainer : null,
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: on && !skin.plain
+                  ? skin.surface(
+                      BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    )
+                  : BoxDecoration(
+                      color: on ? theme.colorScheme.primaryContainer : null,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -700,10 +709,18 @@ class _MatrixHomeState extends State<MatrixHome> {
           constraints: const BoxConstraints(maxWidth: 560),
           child: Container(
             padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(13),
-            ),
+            decoration: skin.plain
+                ? BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(13),
+                  )
+                : skin.surface(
+                    BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    raised: false,
+                  ),
             child: Row(
               children: [
                 tab(

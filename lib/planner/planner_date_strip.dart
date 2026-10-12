@@ -6,6 +6,7 @@ import '../models.dart';
 import '../schedule_time.dart';
 import '../widgets/schedule_layout.dart';
 import 'planner_labels.dart';
+import 'planner_skin.dart';
 
 /// Monday-to-Sunday numbers for the day view. The weeks sit in a page view that
 /// follows the finger and snaps to whole weeks: a small nudge settles back, a
@@ -103,7 +104,7 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
             child: Row(
               children: [
                 for (var index = 0; index < 7; index++)
-                  Expanded(child: _day(theme, monday, index, selected)),
+                  Expanded(child: _day(context, theme, monday, index, selected)),
               ],
             ),
           );
@@ -112,7 +113,22 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
     );
   }
 
+  BoxDecoration _circle(
+    PlannerSkin skin,
+    ThemeData theme,
+    bool selected,
+    bool sunk,
+  ) {
+    final base = BoxDecoration(
+      color: selected ? theme.colorScheme.primary : null,
+      shape: BoxShape.circle,
+    );
+    if (skin.plain || !selected) return base;
+    return skin.surface(base, raised: !sunk, selected: true);
+  }
+
   Widget _day(
+    BuildContext context,
     ThemeData theme,
     ScheduleCivilDate monday,
     int index,
@@ -122,7 +138,12 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
     final label = scheduleDateLabel(date);
     final selected = label == selectedLabel;
     final marked = widget.marked.contains(label);
-    final color = selected
+    final skin = PlannerSkin.of(context);
+    // Neumorphic: the chosen day is sunk with an accent number.
+    final sunk = skin.neu != null && selected;
+    final color = sunk
+        ? theme.colorScheme.primary
+        : selected
         ? theme.colorScheme.onPrimary
         : theme.colorScheme.onSurface;
     final weekday = plannerWeekdayMark(widget.t, widget.language, index + 1);
@@ -150,10 +171,7 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
               width: 36,
               height: 36,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? theme.colorScheme.primary : null,
-                shape: BoxShape.circle,
-              ),
+              decoration: _circle(skin, theme, selected, sunk),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(

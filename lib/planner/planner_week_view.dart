@@ -7,6 +7,7 @@ import '../widgets/schedule_layout.dart';
 import 'planner_day_timeline.dart' show plannerPageMargin;
 import 'planner_format.dart' show plannerClock, plannerDuration;
 import 'planner_labels.dart';
+import 'planner_skin.dart';
 import 'schedule_drag.dart';
 
 /// Vertical week; it scrolls up and down only. A horizontal drag changes week. A node opens that day.
@@ -64,7 +65,7 @@ class _PlannerWeekViewState extends State<PlannerWeekView> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final inset = math.max(0.0, widget.bottomInset) + 8;
-          final lineColor = theme.colorScheme.outlineVariant;
+          final lineColor = PlannerSkin.of(context).hairline(theme);
           // Circles are one slot apart, the first half a slot under the top
           // gap. A day with many labels grows its own row and the page scrolls.
           final slot = plannerWeekSlot(constraints.maxHeight, 0, inset);
@@ -196,7 +197,7 @@ class _DayRow extends StatelessWidget {
               ),
             ),
           ),
-          _node(theme),
+          _node(context, theme),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -241,7 +242,7 @@ class _DayRow extends StatelessWidget {
                   from: 0,
                   fromCentre: first,
                   to: null,
-                  color: theme.colorScheme.outlineVariant,
+                  color: PlannerSkin.of(context).hairline(theme),
                 ),
               ),
             ),
@@ -274,13 +275,19 @@ class _DayRow extends StatelessWidget {
     );
   }
 
-  Widget _node(ThemeData theme) {
+  Widget _node(BuildContext context, ThemeData theme) {
+    final skin = PlannerSkin.of(context);
     final color = today
         ? theme.colorScheme.primary
         : theme.colorScheme.surfaceContainerHighest;
-    final ink = today
+    // Neumorphic: today is sunk with an accent number, the rest are raised.
+    final sunk = skin.neu != null && today;
+    final ink = sunk
+        ? theme.colorScheme.primary
+        : today
         ? theme.colorScheme.onPrimary
         : theme.colorScheme.onSurface;
+    final base = BoxDecoration(color: color, shape: BoxShape.circle);
     return InkWell(
       onTap: onOpenDay,
       canRequestFocus: false,
@@ -290,7 +297,9 @@ class _DayRow extends StatelessWidget {
         width: plannerNodeSize,
         height: plannerNodeSize,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        decoration: skin.plain
+            ? base
+            : skin.surface(base, raised: !sunk, selected: today),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(

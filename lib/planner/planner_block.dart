@@ -7,6 +7,7 @@ import '../quadrant.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/schedule_layout.dart';
 import 'planner_format.dart';
+import 'planner_skin.dart';
 import 'schedule_edit_session.dart';
 
 typedef PlannerDragBuilder =
@@ -316,20 +317,24 @@ class _PlannerBlockState extends State<PlannerBlock> {
             },
           );
     final selected = widget.selected;
+    final skin = PlannerSkin.of(context);
     final content = DecoratedBox(
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          accent.withValues(alpha: entry.completed ? 0.08 : 0.16),
-          theme.colorScheme.surface,
+      decoration: skin.surface(
+        BoxDecoration(
+          color: Color.alphaBlend(
+            accent.withValues(alpha: entry.completed ? 0.08 : 0.16),
+            theme.colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? accent : accent.withValues(alpha: 0.35),
+            width: selected ? 2 : 1,
+          ),
         ),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: selected ? accent : accent.withValues(alpha: 0.35),
-          width: selected ? 2 : 1,
-        ),
+        selected: selected,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(skin.comic != null ? 6 : 7),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -499,15 +504,20 @@ class _Handle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final skin = PlannerSkin.of(context);
+    final base = BoxDecoration(
+      color: theme.colorScheme.surface,
+      shape: BoxShape.circle,
+      border: Border.all(color: color, width: 3),
+      boxShadow: const [BoxShadow(blurRadius: 3, color: Color(0x33000000))],
+    );
     return Container(
       width: 20,
       height: 20,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 3),
-        boxShadow: const [BoxShadow(blurRadius: 3, color: Color(0x33000000))],
-      ),
+      // Same ring in every skin; only the shadow follows it.
+      decoration: skin.plain
+          ? base
+          : skin.surface(base).copyWith(border: base.border),
     );
   }
 }
