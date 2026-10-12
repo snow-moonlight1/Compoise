@@ -47,13 +47,14 @@ Future<void> main() async {
   });
 
   Future<void> boot(WidgetTester tester, {required bool seenOnboarding}) async {
+    // The API key lives only in the secure store.
+    credentials.value = 'test-key';
     SharedPreferences.setMockInitialValues({
       'compoise-config': jsonEncode({
         'providerId': 'custom',
         'provider': 'openai',
         'protocol': 'openai',
         'customBaseUrl': 'http://127.0.0.1:$port',
-        'customApiKey': 'test-key',
         'customModel': 'mock-model',
         'enableThinking': false,
       }),
