@@ -152,7 +152,7 @@ jobs:
         shell: bash
         run: |
           git clone --filter=blob:none -b stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
-          git -C "$RUNNER_TEMP/flutter" checkout -q 3.32.8
+          git -C "$RUNNER_TEMP/flutter" checkout -q -B stable 3.32.8
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
       - name: Require the pinned Flutter revision
