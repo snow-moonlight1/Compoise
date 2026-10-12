@@ -1,8 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
 
 void main() {
   test(

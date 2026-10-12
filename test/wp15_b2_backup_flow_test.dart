@@ -5,11 +5,11 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/screens/settings_backup_flow.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/screens/settings_backup_flow.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _secret = 'SYNTHETIC_PRIVATE_KEY';
@@ -108,9 +108,9 @@ class _Picker extends FilePicker {
 
 Future<Store> _seed(Language language, {SaveWrite? writer}) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-boards': jsonEncode([_board.toJson()]),
-    'matrixflow-tasks': jsonEncode([_task.toJson()]),
-    'matrixflow-settings': jsonEncode(AppSettings(language: language).toJson()),
+    'compoise-boards': jsonEncode([_board.toJson()]),
+    'compoise-tasks': jsonEncode([_task.toJson()]),
+    'compoise-settings': jsonEncode(AppSettings(language: language).toJson()),
     SaveProtocol.scheduleKey: jsonEncode([
       _block('same').toJson(),
       _block('conflict').toJson(),

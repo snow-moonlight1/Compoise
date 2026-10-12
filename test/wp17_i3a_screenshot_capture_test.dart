@@ -6,9 +6,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/import_preview/draft_preview.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/import_preview/draft_preview.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
 
 import 'support/wp17_i3a_fixtures.dart';
 

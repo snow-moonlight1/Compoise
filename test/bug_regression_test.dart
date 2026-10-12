@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers.dart';
@@ -32,8 +32,8 @@ void main() {
 
   test('invalid settings and typed preferences cannot hang startup', () async {
     SharedPreferences.setMockInitialValues({
-      'matrixflow-settings': jsonEncode({'hideCompleted': 'invalid'}),
-      'matrixflow-config': 42,
+      'compoise-settings': jsonEncode({'hideCompleted': 'invalid'}),
+      'compoise-config': 42,
     });
     final store = Store();
     registerTestStore(store);
@@ -201,7 +201,7 @@ void main() {
     'corrupt record does not prevent startup or discard valid siblings',
     () async {
       SharedPreferences.setMockInitialValues({
-        'matrixflow-tasks': jsonEncode([
+        'compoise-tasks': jsonEncode([
           {'id': 'good', 'title': 'keep', 'boardId': ''},
           {'title': 'missing id'},
         ]),

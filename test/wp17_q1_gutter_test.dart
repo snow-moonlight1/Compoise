@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/screenshot_import/gutter_scan.dart';
+import 'package:compoise/screenshot_import/gutter_scan.dart';
 
 import 'support/wp17_i3a_fixtures.dart';
 

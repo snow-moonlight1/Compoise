@@ -11,7 +11,7 @@
 
 ## 本地兼容与失败行为
 
-新提交的双槽快照和兼容镜像均包含 matrixflow-schedule。读取旧提交槽时，该键可缺省并解释为空数组；不会从可能较新的镜像补读。键存在但不是合法数组、含坏 IANA 时区、重复 id 或孤儿引用时进入启动恢复，保留原始槽和镜像，不提交空数组。恢复复制内容包含新键；用户显式丢弃损坏数据后，才移除已失效引用并提交。
+新提交的双槽快照和兼容镜像均包含 compoise-schedule。读取旧提交槽时，该键可缺省并解释为空数组；不会从可能较新的镜像补读。键存在但不是合法数组、含坏 IANA 时区、重复 id 或孤儿引用时进入启动恢复，保留原始槽和镜像，不提交空数组。恢复复制内容包含新键；用户显式丢弃损坏数据后，才移除已失效引用并提交。
 
 Store 当前仍只接收 v1/v2 备份：合并保留现有日程；覆盖把日程置空，并在原子提交失败时一起回滚。WP15-B 须把 v3 日程集合接入 ExportData、预检、导入预览/冲突、导出分卷和恢复模拟，同时补上覆盖预览中日程删除数量。当前 v1/v2 导出不携带日程，因此不能作为新增记录的无损备份。旧可执行文件重写本地槽也可能丢弃新键；发行前需按 [契约](WP15_CONTRACT.md)处理回退提示。
 
@@ -25,7 +25,7 @@ Store 当前仍只接收 v1/v2 备份：合并保留现有日程；覆盖把日�
 
 - `malformed schedule JSON in a committed slot enters recovery`：已提交槽里的日程值不是合法 JSON 时进入启动恢复，槽字节保持原样，`recoveryCopyJson()` 含原始坏文本，不被空数组顶替。
 - `a duplicated schedule id in a committed slot enters recovery`：同一槽内重复 id 触发 `validateScheduleCollection` 后进入恢复，同批任务仍完整读出。
-- `a damaged schedule is only cleared after an explicit discard`：损坏期间镜像保持原值；只有 `discardDamagedStartupData()` 之后才提交 `matrixflow-schedule: "[]”`，重开库不再报告恢复，任务的 plannedDate 不变。
+- `a damaged schedule is only cleared after an explicit discard`：损坏期间镜像保持原值；只有 `discardDamagedStartupData()` 之后才提交 `compoise-schedule: "[]”`，重开库不再报告恢复，任务的 plannedDate 不变。
 
 读取行为已核对：坏 JSON 与合法但空数组都走同一条 `read()` 判定；缺键记为 `missing`（不判损坏），坏时区/重复 id/孤儿引用记为 `corrupt` 并把该键加入 `_protectedStartupKeys`，`init()` 在 `_persistAll()` 之前返回，因此旧槽和镜像都不被改写。`_loadJson` 改为“有已提交批次时只信该批次”，所以旧槽不会从未提交的镜像补读日程。
 
@@ -35,7 +35,7 @@ Store 当前仍只接收 v1/v2 备份：合并保留现有日程；覆盖把日�
 
 ### 需要评审者注意的跨包改动
 
-`test/rf09_serialization_test.dart` 的 `S4 a single task edit produces exactly one whole-library batch` 锁死了整库批次的键序。A2 把 `matrixflow-schedule` 插进 `_snapshotValues()` 后该断言**确定性失败**（首次全量运行 `+1009 -1`，唯一失败就是它），原提交没有更新它。本轮只在该文件里加了 `kSchedule` 常量并把两处期望列表补上这一键，没有改 `_snapshotValues()` 的键序，也没有动同文件的字节级 golden（golden 用的是测试自带的 `fixtureValues()`，与 Store 键集无关，本来就通过）。`S2 a dropped value fails as incomplete` 继续只要求 6 个旧键，这正是“日程键对旧批次可选”的契约，故未加入期望列表。
+`test/rf09_serialization_test.dart` 的 `S4 a single task edit produces exactly one whole-library batch` 锁死了整库批次的键序。A2 把 `compoise-schedule` 插进 `_snapshotValues()` 后该断言**确定性失败**（首次全量运行 `+1009 -1`，唯一失败就是它），原提交没有更新它。本轮只在该文件里加了 `kSchedule` 常量并把两处期望列表补上这一键，没有改 `_snapshotValues()` 的键序，也没有动同文件的字节级 golden（golden 用的是测试自带的 `fixtureValues()`，与 Store 键集无关，本来就通过）。`S2 a dropped value fails as incomplete` 继续只要求 6 个旧键，这正是“日程键对旧批次可选”的契约，故未加入期望列表。
 
 ### 门禁状态
 
@@ -47,7 +47,7 @@ Store 当前仍只接收 v1/v2 备份：合并保留现有日程；覆盖把日�
 
 上一轮报告的 `failed overwrite leaves all state unchanged` 失败在本轮**三次全量运行（含修复前那一次）和单文件重跑中均未复现**，但它不是 A2 的产品缺陷，而是测试夹具里一条真实的跨用例污染通道，已用临时探针复现并确认可稳定触发（探针文件用完即删，未进入提交）：
 
-`helpers.dart` 的 `makeStore()` 只 `await store.init()`，而 `init()` 末尾的 `_persistAll()` 会把整库提交排进串行队列。`SharedPreferences.setMockInitialValues` 重置的是**进程级平台存储**，但旧 `SharedPreferences` 句柄的写仍会落到重置后的新数据里。于是上一条用例尚未落盘的批次会连同 `matrixflow-save-pointer`、双槽和全部镜像键一起写进下一条用例刚清空的 mock，下一条用例的 `Store()` 直接从上一次的库启动——探针里表现为 `next.tasks=[leak-me and-me]`，3/3 次复现。在同一个 c131dab 分离工作树（不含 A2）跑同一探针得到完全相同的结果（只差 `matrixflow-schedule` 一个键），所以这条通道先于本包存在。反过来，一次把 `dispose()` 提前到重置 mock 之前的对照探针没有留下任何键，说明泄漏取决于“提交是否已经排进队列/在飞”，也就是 CPU 争用会放大这个窗口——这正好对应“混合运行偶发、单跑通过”。
+`helpers.dart` 的 `makeStore()` 只 `await store.init()`，而 `init()` 末尾的 `_persistAll()` 会把整库提交排进串行队列。`SharedPreferences.setMockInitialValues` 重置的是**进程级平台存储**，但旧 `SharedPreferences` 句柄的写仍会落到重置后的新数据里。于是上一条用例尚未落盘的批次会连同 `compoise-save-pointer`、双槽和全部镜像键一起写进下一条用例刚清空的 mock，下一条用例的 `Store()` 直接从上一次的库启动——探针里表现为 `next.tasks=[leak-me and-me]`，3/3 次复现。在同一个 c131dab 分离工作树（不含 A2）跑同一探针得到完全相同的结果（只差 `compoise-schedule` 一个键），所以这条通道先于本包存在。反过来，一次把 `dispose()` 提前到重置 mock 之前的对照探针没有留下任何键，说明泄漏取决于“提交是否已经排进队列/在飞”，也就是 CPU 争用会放大这个窗口——这正好对应“混合运行偶发、单跑通过”。
 
 建议后续单独开一个测试卫生包（不属于 A2，也不该在并行包之间顺手改共享夹具）：要么让 `makeStore()` 在返回前 `await store.flush()`，要么约定每个用例在用结束前显式 flush/dispose。本轮没有改 `helpers.dart`，因为它被多个包共用。
 
@@ -55,6 +55,6 @@ Store 当前仍只接收 v1/v2 备份：合并保留现有日程；覆盖把日�
 
 - 设备级验收未做：Android/Windows/Linux 上设备时区到 IANA id 的映射、DST 样例和真机重开库都属于 WP15-C/D，本轮只有桌面 Dart 虚拟机内的自动化证据。
 - 备份 v3（WP15-B）未接：`Store.exportJson`、预检、分卷与恢复模拟仍只认 v1/v2，覆盖导入的预览没有列出将被删除的日程条数；当前 v1/v2 文件不能作为新增记录的无损备份。
-- 旧可执行文件回退会丢弃 `matrixflow-schedule`，发布说明需要先保留 v3 备份；这条属于 WP15-D。
+- 旧可执行文件回退会丢弃 `compoise-schedule`，发布说明需要先保留 v3 备份；这条属于 WP15-D。
 - `Planner` 界面、未知字段提示的 UI 呈现、以及“撤销编组”若将来加入时的 taskId 还原，都不在本包。
 

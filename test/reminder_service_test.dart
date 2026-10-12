@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/services/desktop_shell_service.dart';
-import 'package:matrixflow_native/services/reminder_service.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
+import 'package:compoise/services/reminder_service.dart';
 
 void main() {
   group('ReminderService FNV-1a ID Generation', () {

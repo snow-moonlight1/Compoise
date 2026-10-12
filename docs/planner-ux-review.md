@@ -35,7 +35,7 @@
 ## 取舍 / 无法在 box 上验证
 
 - 手势（长按拖动、拖手柄、边缘自动滚动、双指缩放）只在 widget 测试里用模拟指针验证；真机手感（长按时长、手指遮挡、手柄大小）需要在手机上试用后再调。
-- 新手引导和「象限滑动提示」的「已看过」标记存放在独立的 SharedPreferences 键（`compoise-planner-guide-seen`、`compoise-planner-tabhint-seen`），而不是首页教程的 `matrixflow-has-seen-onboarding`：后者属于库数据，参与备份、启动恢复和存档协议，新增一个字段会牵动这些契约。独立键不进入备份，换机后会再看一次引导。
+- 新手引导和「象限滑动提示」的「已看过」标记存放在独立的 SharedPreferences 键（`compoise-planner-guide-seen`、`compoise-planner-tabhint-seen`），而不是首页教程的 `compoise-has-seen-onboarding`：后者属于库数据，参与备份、启动恢复和存档协议，新增一个字段会牵动这些契约。独立键不进入备份，换机后会再看一次引导。
 - 编辑日程时，时间按「当前显示时区」解释；保存后记录的时区会更新为显示时区（起止时刻本身不变）。
 - 拖动日程块时只做同一天内的纵向移动（上下拖）；跨天移动请用编辑里的日期选择。周视图里仍可长按把块拖到另一天。
 

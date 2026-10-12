@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/planner/planner_guide_flag.dart';
+import 'package:compoise/planner/planner_guide_flag.dart';
 
 import 'wp15_c2_test_support.dart';
 

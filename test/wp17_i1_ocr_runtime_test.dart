@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
 
 void main() {
   test('cancelled batch retains one result per input without opening native code', () async {

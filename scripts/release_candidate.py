@@ -113,7 +113,7 @@ def validate_proof(directory, platform, ctx, cert):
         require(evidence.get("apkSignatureCertSha256") == expected_cert, "Android certificate does not match pin")
         dn = evidence.get("apkSignatureDN", "")
         require(dn and "cn=android debug" not in dn.lower() and dn != "unknown", "Missing or debug Android certificate DN")
-        require(evidence.get("apkPackage") == "com.matrixflow.app", "Android package mismatch")
+        require(evidence.get("apkPackage") == "com.compoise.app", "Android package mismatch")
         version, build = ctx["version"].split("+")
         require(evidence.get("apkVersionName") == version and evidence.get("apkVersionCode") == build, "Android version mismatch")
     return proof

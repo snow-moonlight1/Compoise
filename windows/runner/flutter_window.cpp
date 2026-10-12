@@ -6,7 +6,6 @@
 #include "single_instance.h"
 #include "utils.h"
 #include "wp15_d3_validation.h"
-#include "wp28_u2_desktop.h"
 
 #include <vector>
 
@@ -15,7 +14,7 @@
 #include "flutter/generated_plugin_registrant.h"
 
 namespace {
-constexpr int kMatrixFlowHotkeyId = 0x4D46;
+constexpr int kCompoiseHotkeyId = 0x4D46;
 
 // Windows reports a zone key ("China Standard Time"), which the Dart side
 // translates through the pinned CLDR table. The current UTC offset and the
@@ -66,7 +65,7 @@ bool FlutterWindow::OnCreate() {
   hotkey_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(),
-          "matrixflow/os14_hotkey", &flutter::StandardMethodCodec::GetInstance());
+          "compoise/os14_hotkey", &flutter::StandardMethodCodec::GetInstance());
   hotkey_channel_->SetMethodCallHandler(
       [this](const auto& call, auto result) {
         if (call.method_name() == "hide") {
@@ -85,7 +84,7 @@ bool FlutterWindow::OnCreate() {
         }
         if (call.method_name() == "unregister") {
           if (hotkey_registered_) {
-            if (::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId) == 0) {
+            if (::UnregisterHotKey(GetHandle(), kCompoiseHotkeyId) == 0) {
               result->Success(flutter::EncodableValue(false));
               return;
             }
@@ -109,7 +108,7 @@ bool FlutterWindow::OnCreate() {
           return;
         }
         if (hotkey_registered_) {
-          if (::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId) == 0) {
+          if (::UnregisterHotKey(GetHandle(), kCompoiseHotkeyId) == 0) {
             result->Success(flutter::EncodableValue(false));
             return;
           }
@@ -119,7 +118,7 @@ bool FlutterWindow::OnCreate() {
         const auto modifiers = std::get<int>(modifiers_it->second);
         // RegisterHotKey returns zero on a conflict or a system-reserved combo.
         hotkey_registered_ =
-            ::RegisterHotKey(GetHandle(), kMatrixFlowHotkeyId, modifiers,
+            ::RegisterHotKey(GetHandle(), kCompoiseHotkeyId, modifiers,
                              key_code) != 0;
         result->Success(flutter::EncodableValue(hotkey_registered_));
       });
@@ -127,7 +126,7 @@ bool FlutterWindow::OnCreate() {
   single_instance_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(),
-          "matrixflow/single_instance",
+          "compoise/single_instance",
           &flutter::StandardMethodCodec::GetInstance());
   SingleInstanceSetDispatcher([this](const std::vector<std::vector<std::string>>&
                                          batch) {
@@ -144,12 +143,6 @@ bool FlutterWindow::OnCreate() {
   });
   single_instance_channel_->SetMethodCallHandler([this](const auto& call,
                                                     auto result) {
-#ifdef WP28_U2_HARNESS
-    if (call.method_name() == "wp28U2Status") {
-      result->Success(flutter::EncodableValue(Wp28U2DesktopStatus(GetHandle())));
-      return;
-    }
-#endif
     if (call.method_name() == "listen") {
       const auto pending = SingleInstanceListenAndTakePending();
       flutter::EncodableList batch;
@@ -177,7 +170,7 @@ bool FlutterWindow::OnCreate() {
   timezone_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(),
-          "matrixflow/device_time_zone",
+          "compoise/device_time_zone",
           &flutter::StandardMethodCodec::GetInstance());
   timezone_channel_->SetMethodCallHandler([](const auto& call, auto result) {
     if (call.method_name() == "systemZone") {
@@ -200,7 +193,7 @@ bool FlutterWindow::OnCreate() {
 #ifdef WP15_D3_DEVICE
   d3_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          flutter_controller_->engine()->messenger(), "matrixflow/wp15_d3",
+          flutter_controller_->engine()->messenger(), "compoise/wp15_d3",
           &flutter::StandardMethodCodec::GetInstance());
   d3_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
     if (call.method_name() == "status") {
@@ -246,7 +239,7 @@ bool FlutterWindow::OnCreate() {
 #endif
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-#if defined(WP15_D3_DEVICE) || defined(WP28_U2_HARNESS)
+#ifdef WP15_D3_DEVICE
     ::ShowWindow(GetHandle(), SW_SHOWNOACTIVATE);
     ::SetWindowPos(GetHandle(), HWND_BOTTOM, 0, 0, 0, 0,
                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -273,7 +266,7 @@ void FlutterWindow::OnDestroy() {
 #endif
   timezone_channel_.reset();
   if (hotkey_registered_) {
-    ::UnregisterHotKey(GetHandle(), kMatrixFlowHotkeyId);
+    ::UnregisterHotKey(GetHandle(), kCompoiseHotkeyId);
     hotkey_registered_ = false;
   }
   hotkey_channel_.reset();
@@ -312,7 +305,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
 
   switch (message) {
     case WM_HOTKEY:
-      if (wparam == kMatrixFlowHotkeyId && hotkey_channel_) {
+      if (wparam == kCompoiseHotkeyId && hotkey_channel_) {
         hotkey_channel_->InvokeMethod("onHotkey", nullptr);
         return 0;
       }

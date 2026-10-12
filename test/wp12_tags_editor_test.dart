@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/widgets/task_tags_editor.dart';
+import 'package:compoise/widgets/task_tags_editor.dart';
 
 /// WP12 tags, component half: what [TaskTagsEditor] owes the draft that owns it.
 /// There is no Store behind these trees — the editor must work on plain lists.

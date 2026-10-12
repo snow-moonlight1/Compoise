@@ -1,13 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/import_preview/draft_model.dart';
-import 'package:matrixflow_native/planner/schedule_edit_session.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/screens/settings_backup_messages.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_submission.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/import_preview/draft_model.dart';
+import 'package:compoise/planner/schedule_edit_session.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/screens/settings_backup_messages.dart';
+import 'package:compoise/screenshot_import/screenshot_submission.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

@@ -21,7 +21,7 @@ import 'windows_time_zone_map.dart';
 /// Method channel implemented by the Android activity and the Windows runner.
 /// It answers `systemZone` and pushes `onTimeZoneChanged` when the platform
 /// reports a system zone change.
-const String deviceTimeZoneChannelName = 'matrixflow/device_time_zone';
+const String deviceTimeZoneChannelName = 'compoise/device_time_zone';
 
 /// Which platform reported the identity, because it decides how the value is
 /// interpreted: only Windows reports a key that needs translation.

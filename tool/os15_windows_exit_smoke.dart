@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:matrixflow_native/services/desktop_shell_service.dart';
-import 'package:matrixflow_native/services/desktop_shell_windows.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
+import 'package:compoise/services/desktop_shell_windows.dart';
 
 String? _reportPath;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  _reportPath = Platform.environment['MATRIXFLOW_OS15_SMOKE_RESULT'];
+  _reportPath = Platform.environment['COMPOISE_OS15_SMOKE_RESULT'];
   _record('START isolated OS15 Windows exit smoke');
   await ensureWindowsWindowManager();
   runApp(const MaterialApp(home: _ExitSmokeWindow()));

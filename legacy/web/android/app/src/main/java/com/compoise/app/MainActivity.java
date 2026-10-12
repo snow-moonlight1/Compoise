@@ -1,4 +1,4 @@
-package com.matrixflow.app;
+package com.compoise.app;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -40,12 +40,12 @@ fi
 flutter build linux --release --no-pub 2>&1 | tail -20
 
 BUNDLE="$REPO/build/linux/x64/release/bundle"
-test -x "$BUNDLE/matrixflow_native" || { echo "missing bundle executable" >&2; exit 1; }
-test -f "$BUNDLE/lib/libmatrixflow_ocr.so" || {
-  echo "the bundle has no lib/libmatrixflow_ocr.so: the OCR target was not built or not installed" >&2
+test -x "$BUNDLE/compoise" || { echo "missing bundle executable" >&2; exit 1; }
+test -f "$BUNDLE/lib/libcompoise_ocr.so" || {
+  echo "the bundle has no lib/libcompoise_ocr.so: the OCR target was not built or not installed" >&2
   exit 1
 }
-ls -l "$BUNDLE/matrixflow_native" "$BUNDLE/lib/" "$BUNDLE/data/flutter_assets" | head -30
+ls -l "$BUNDLE/compoise" "$BUNDLE/lib/" "$BUNDLE/data/flutter_assets" | head -30
 
 mkdir -p "$OUT"
 if [ "$MODEL_SOURCE" = official ]; then
@@ -59,6 +59,6 @@ else
   echo "WP17_MODEL_SOURCE must be official or nihui" >&2
   exit 2
 fi
-cp -f "$BUNDLE/lib/libmatrixflow_ocr.so" "$OUT/"
+cp -f "$BUNDLE/lib/libcompoise_ocr.so" "$OUT/"
 echo "staged    : $OUT"
 ls -l "$OUT" "$OUT/ncnn"

@@ -4,11 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/search_screen.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/search_screen.dart';
+import 'package:compoise/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import '../foundation_regression_test.dart' as fixture;
@@ -154,7 +154,7 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(1000, 1800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       SharedPreferences.setMockInitialValues({
-        'matrixflow-has-seen-onboarding': true,
+        'compoise-has-seen-onboarding': true,
       });
       final ai = fixture.DiscoveryAI();
       final store = Store(aiService: ai);

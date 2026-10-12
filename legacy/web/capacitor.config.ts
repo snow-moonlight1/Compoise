@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.matrixflow.app',
-  appName: 'MatrixFlow AI',
+  appId: 'com.compoise.app',
+  appName: 'Compoise',
   webDir: 'dist'
 };
 

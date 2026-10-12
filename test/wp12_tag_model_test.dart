@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/task_tags.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/task_tags.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers.dart';
@@ -35,10 +35,10 @@ Map<String, dynamic> _taskJson(Map<String, dynamic> overrides) => {
 
 Future<Store> _storeWithRawTasks(List<Map<String, dynamic>> rawTasks) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-boards': jsonEncode([
+    'compoise-boards': jsonEncode([
       {'id': 'b-1', 'name': 'Board', 'createdAt': 1000},
     ]),
-    'matrixflow-tasks': jsonEncode(rawTasks),
+    'compoise-tasks': jsonEncode(rawTasks),
   });
   final store = Store();
   await store.init();

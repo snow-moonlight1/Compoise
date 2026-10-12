@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/completed_screen.dart';
-import 'package:matrixflow_native/screens/search_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/task_filter.dart';
-import 'package:matrixflow_native/task_query.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/completed_screen.dart';
+import 'package:compoise/screens/search_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/task_filter.dart';
+import 'package:compoise/task_query.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

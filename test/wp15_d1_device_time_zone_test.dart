@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/platform/device_time_zone.dart';
-import 'package:matrixflow_native/platform/windows_time_zone_map.dart';
+import 'package:compoise/platform/device_time_zone.dart';
+import 'package:compoise/platform/windows_time_zone_map.dart';
 
 /// A Linux-looking filesystem for the zone sources.
 LinuxDeviceTimeZoneSource linuxSource({

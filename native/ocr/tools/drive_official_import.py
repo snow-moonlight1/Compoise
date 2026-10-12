@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 MARKERS = ("WP17_I6_CANCEL_READY", "WP17_I6_REVIEW_CANCEL_READY", "WP17_I6_SAVE_READY")
-PACKAGE = "com.matrixflow.app.wp17i6"
+PACKAGE = "com.compoise.app.wp17i6"
 REMOTE = "/sdcard/Download/WP17-I6"
 
 
@@ -286,7 +286,7 @@ class Linux:
         for process in Path("/proc").glob("[0-9]*"):
             try:
                 executable = (process / "exe").resolve()
-                if "wp17i6-private" in str(executable) and executable.name == "matrixflow_native":
+                if "wp17i6-private" in str(executable) and executable.name == "compoise":
                     status = (process / "status").read_text()
                     peak = max(peak, int(re.search(r"VmHWM:\s+(\d+)", status).group(1)))
             except (OSError, AttributeError): pass

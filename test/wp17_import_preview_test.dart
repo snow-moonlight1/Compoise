@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/import_preview/draft_model.dart';
-import 'package:matrixflow_native/import_preview/draft_preview.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
+import 'package:compoise/import_preview/draft_model.dart';
+import 'package:compoise/import_preview/draft_preview.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
 
 Map<String, dynamic> image(String id, {bool withDue = false}) => {
   'schema': 'wp17r2-draft/1',
@@ -729,7 +729,7 @@ void main() {
       expect(source, isNot(contains('file_picker')));
       expect(source, isNot(contains('shared_preferences')));
       expect(source, isNot(contains('storage.dart')));
-      expect(source, isNot(contains('package:matrixflow_native/ocr')));
+      expect(source, isNot(contains('package:compoise/ocr')));
       expect(source, isNot(contains('File(')));
       expect(source, isNot(contains('writeAsString')));
       expect(source, isNot(contains('Navigator.')));

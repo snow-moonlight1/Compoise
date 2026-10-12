@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/import_preview/draft_model.dart';
-import 'package:matrixflow_native/screenshot_import/gutter_scan.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_adapter.dart';
+import 'package:compoise/import_preview/draft_model.dart';
+import 'package:compoise/screenshot_import/gutter_scan.dart';
+import 'package:compoise/screenshot_import/screenshot_adapter.dart';
 
 import 'support/wp17_i3a_fixtures.dart';
 

@@ -16,14 +16,14 @@ Windows 上这份目录是 Flutter 子目录时不再调用 `project()`，安装
 
 `flutter analyze --no-pub`：No issues found。
 
-`flutter test --no-pub test/wp17_i1_ocr_runtime_test.dart`：5 项通过。其中 3 项原生测试在设置 `WP17_OCR_TEST_LIBRARY`（Flutter Release 的 `matrixflow_ocr.dll`）和 `WP17_OCR_TEST_ASSETS` 后实际加载了库，覆盖 12 张 R2 图、缺字典、坏 PNG、空文件、超宽图、重复调用和取消。未设置这两个变量时，这 3 项仍然 skip，无库的 CI 可以过。
+`flutter test --no-pub test/wp17_i1_ocr_runtime_test.dart`：5 项通过。其中 3 项原生测试在设置 `WP17_OCR_TEST_LIBRARY`（Flutter Release 的 `compoise_ocr.dll`）和 `WP17_OCR_TEST_ASSETS` 后实际加载了库，覆盖 12 张 R2 图、缺字典、坏 PNG、空文件、超宽图、重复调用和取消。未设置这两个变量时，这 3 项仍然 skip，无库的 CI 可以过。
 
 ### Windows
 
-Flutter 3.32.8。Debug 与 Release 的 `matrixflow_ocr.dll` 都在 `compoise.exe` 旁边：
+Flutter 3.32.8。Debug 与 Release 的 `compoise_ocr.dll` 都在 `compoise.exe` 旁边：
 
-- Debug：`matrixflow_ocr.dll` 20981760 字节，`compoise.exe` 1247744 字节。
-- Release：`matrixflow_ocr.dll` 14126592 字节，`compoise.exe` 247296 字节。
+- Debug：`compoise_ocr.dll` 20981760 字节，`compoise.exe` 1247744 字节。
+- Release：`compoise_ocr.dll` 14126592 字节，`compoise.exe` 247296 字节。
 
 这两份安装库的 12 张图都对照通过。同一会话再跑一张结果相同；销毁后重建会话，结果仍相同。`mf_ocr_free(nullptr)` 调用后进程正常退出。缺模型目录时 `mf_ocr_create` 仍返回会话，识别错误是 `cannot read dict`。
 
@@ -35,7 +35,7 @@ Flutter 3.32.8。Debug 与 Release 的 `matrixflow_ocr.dll` 都在 `compoise.exe
 
 Ubuntu 24.04，clang/clang++ 18。系统没有 g++，OpenMP 也没有找到；库仍然链接并完成推理。`ldd` 只看到 `libstdc++`、`libm`、`libgcc_s`、`libc`。
 
-Release 与 Debug 的 `libmatrixflow_ocr.so` 都跑完 12 张，失败列表为空，重复调用一致。缺文件是 `cannot open image`，缺字典是 `cannot read dict`。批次后 VmHWM：Release 492332 KB，Debug 492580 KB。
+Release 与 Debug 的 `libcompoise_ocr.so` 都跑完 12 张，失败列表为空，重复调用一致。缺文件是 `cannot open image`，缺字典是 `cannot read dict`。批次后 VmHWM：Release 492332 KB，Debug 492580 KB。
 
 WSL 里没有 Flutter SDK，没有执行 `flutter build linux`。`linux/CMakeLists.txt` 把库装到 bundle 的 `lib/` 这条规则没有被 Flutter 打包跑过。Linux 库是在后面的 CMake 修正之前编出的，`ocr_runtime.cpp` 之后没有再改；clang 默认开启异常。
 
@@ -43,8 +43,8 @@ WSL 里没有 Flutter SDK，没有执行 `flutter build linux`。`linux/CMakeLis
 
 Debug APK 含有：
 
-- `lib/x86_64/libmatrixflow_ocr.so` 5851760 字节
-- `lib/arm64-v8a/libmatrixflow_ocr.so` 6636120 字节
+- `lib/x86_64/libcompoise_ocr.so` 5851760 字节
+- `lib/arm64-v8a/libcompoise_ocr.so` 6636120 字节
 
 Release APK 含有剥离后的同名库，5390440 与 6482512 字节。AGP 的 release 原生构建类型是 RelWithDebInfo。两边的 ELF note 都是 API 23（`0x17`）和 NDK `r28-beta1` / `12433566`。`NEEDED` 只有 `liblog`、`libandroid`、`libjnigraphics`、`libm`、`libdl`、`libc`。
 

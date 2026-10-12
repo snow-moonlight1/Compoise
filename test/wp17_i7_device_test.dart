@@ -11,13 +11,13 @@ import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:matrixflow_native/import_preview/draft_preview.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/ocr/ocr_assets.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_import_page.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/import_preview/draft_preview.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/ocr/ocr_assets.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/screenshot_import/screenshot_backend.dart';
+import 'package:compoise/screenshot_import/screenshot_import_page.dart';
+import 'package:compoise/storage.dart';
 import 'support/wp17_i6_reference_drafts.dart';
 
 class _ObservedBackend implements ScreenshotBackend {
@@ -66,9 +66,9 @@ class _DiskWriter {
     if (armed) writes++;
     if (armed &&
         fail &&
-        (key == 'matrixflow-save-a' || key == 'matrixflow-save-b')) {
+        (key == 'compoise-save-a' || key == 'compoise-save-b')) {
       final values = (jsonDecode(value) as Map)['values'] as Map;
-      final tasks = jsonDecode(values['matrixflow-tasks'] as String) as List;
+      final tasks = jsonDecode(values['compoise-tasks'] as String) as List;
       if (tasks.isNotEmpty) {
         attemptedIds = [
           for (final t in tasks) t['id'] as String,
@@ -202,7 +202,7 @@ void main() {
         _assertIsolation(support);
         prefs = await SharedPreferences.getInstance();
         expect(
-          prefs.getKeys().where((k) => k.startsWith('matrixflow')),
+          prefs.getKeys().where((k) => k.startsWith('compoise')),
           isEmpty,
           reason: 'Use a fresh dedicated application identity / XDG root',
         );
@@ -503,7 +503,7 @@ Future<void> _finishProcess(
     'passed': passed,
     'phase': Platform.environment['WP17_I7_PHASE'],
     'pid': pid,
-    'identity': 'matrixflow_native in private XDG root',
+    'identity': 'compoise in private XDG root',
     'data_root': Platform.environment['XDG_DATA_HOME'],
     'failures': binding.failureMethodsDetails.map((f) => f.details).toList(),
   };

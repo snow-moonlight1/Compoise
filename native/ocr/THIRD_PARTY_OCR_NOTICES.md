@@ -83,5 +83,5 @@ package. ncnn is linked statically, CPU only, Vulkan disabled.
 * any `PP_OCRv5_mobile_*.ncnn.bin` / `.param` (weights)
 * `stb_image.h` (vendored copy) — fetched into the asset root instead
 * `ncnn` source tree, `ncnn.lib` / `libncnn.a` / `ncnn.dll`
-* `matrixflow_ocr.dll`, `libmatrixflow_ocr.so`
+* `compoise_ocr.dll`, `libcompoise_ocr.so`
 * APKs, build caches, download logs

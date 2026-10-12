@@ -4,7 +4,7 @@ import { Language } from "./types";
 
 export const translations = {
   en: {
-    appTitle: "MatrixFlow",
+    appTitle: "Compoise",
     q1: "Urgent & Important",
     q2: "Not Urgent & Important",
     q3: "Urgent & Not Important",

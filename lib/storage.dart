@@ -81,13 +81,13 @@ class _CredentialImportReservation {
 }
 
 class Store extends ChangeNotifier with WidgetsBindingObserver {
-  static const _kTasks = 'matrixflow-tasks';
+  static const _kTasks = 'compoise-tasks';
   static const _kSchedule = SaveProtocol.scheduleKey;
-  static const _kBoards = 'matrixflow-boards';
-  static const _kConfig = 'matrixflow-config';
-  static const _kSettings = 'matrixflow-settings';
-  static const _kActiveBoard = 'matrixflow-active-board';
-  static const _kHasSeenOnboarding = 'matrixflow-has-seen-onboarding';
+  static const _kBoards = 'compoise-boards';
+  static const _kConfig = 'compoise-config';
+  static const _kSettings = 'compoise-settings';
+  static const _kActiveBoard = 'compoise-active-board';
+  static const _kHasSeenOnboarding = 'compoise-has-seen-onboarding';
 
   final AIService ai;
   final CredentialStore credentialStore;
@@ -95,17 +95,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   String _confirmedCredential = '';
   String? _pendingCredentialValue;
   String? _pendingCredentialRollback;
-  String? _legacyCredentialForMigration;
   Future<void> _credentialWrites = Future.value();
   int _credentialIntent = 0;
   int _queuedCredentialWrites = 0;
   final List<_CredentialImportReservation> _credentialImports = [];
   String? credentialError;
-  bool _credentialMigrationPending = false;
-  final bool windowsCredentialsRequiredOnOpen;
-  bool _windowsCredentialStatePresent = false;
-  bool windowsCredentialsNeedSetup = false;
-  bool windowsCredentialNoticeRead = false;
+
+  /// True when the platform keyring cannot be used (for example a Linux
+  /// desktop without a Secret Service). Only the API key is affected; the
+  /// task library keeps saving normally.
+  bool credentialUnavailable = false;
   late SharedPreferences _prefs;
   SaveProtocol? _saveProtocol;
   Map<String, String>? _savedValues;
@@ -247,7 +246,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     this.saveWriter,
     CredentialStore? credentialStore,
     this.reminders,
-    this.windowsCredentialsRequiredOnOpen = false,
     StorePersistence? persistence,
   }) : ai = aiService ?? AIService(),
        credentialStore =
@@ -596,20 +594,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           : StartupDataState.corrupt,
     );
     hasSeenOnboarding = onboarding is bool ? onboarding : false;
-    try {
-      final state = WindowsCredentialState.read(_savedValues, _prefs.get);
-      _windowsCredentialStatePresent =
-          state.present || windowsCredentialsRequiredOnOpen;
-      windowsCredentialsNeedSetup = state.present
-          ? state.needsSetup
-          : windowsCredentialsRequiredOnOpen;
-      windowsCredentialNoticeRead = state.noticeRead;
-    } catch (_) {
-      mark(
-        SaveProtocol.windowsCredentialsRequiredKey,
-        StartupDataState.corrupt,
-      );
-    }
     if (hasStartupRecovery) corruptNotice = t['corruptData'];
 
     ready = true;
@@ -619,10 +603,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return;
     }
-    if (!await retryCredentialMigration()) {
-      notifyListeners();
-      return;
-    }
+    await _loadCredential();
     _persistAll();
     _applyDeadlinePromotion();
     unawaited(reconcileReminders());
@@ -640,7 +621,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   String recoveryCopyJson() {
     if (!hasStartupRecovery) throw StateError('No startup recovery pending');
     return jsonEncode({
-      'format': 'matrixflow-startup-recovery-v1',
+      'format': 'compoise-startup-recovery-v1',
       'entries': [
         for (final key in [
           _kTasks,
@@ -650,11 +631,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           _kSettings,
           _kActiveBoard,
           _kHasSeenOnboarding,
-          SaveProtocol.windowsCredentialsRequiredKey,
-          SaveProtocol.windowsCredentialNoticeReadKey,
           SaveProtocol.pointerKey,
-          'matrixflow-save-a',
-          'matrixflow-save-b',
+          'compoise-save-a',
+          'compoise-save-b',
         ])
           if (_prefs.containsKey(key)) {'key': key, 'value': _prefs.get(key)},
       ],
@@ -678,10 +657,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (!validIds.contains(task.boardId)) task.boardId = boards.first.id;
     }
     _removeOrphanScheduleItems();
-    if (!await retryCredentialMigration()) {
-      notifyListeners();
-      return false;
-    }
+    await _loadCredential();
     _persistAll();
     _applyDeadlinePromotion();
     unawaited(reconcileReminders());
@@ -1640,13 +1616,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<bool> updateAIConfig(AIConfig config) async {
     if (hasStartupRecovery || !ready || _disposed) return false;
-    if (_credentialMigrationPending) {
-      aiConfig.apiKey = _legacyCredentialForMigration ?? aiConfig.apiKey;
-      credentialError = t['credentialMigrationError'];
-      if (!_disposed) notifyListeners();
-      return false;
-    }
     final requested = config.apiKey;
+    if (credentialUnavailable) {
+      // Without a keyring the key cannot be stored safely. Keep every other
+      // AI setting; the caller shows a short, dismissing hint.
+      aiConfig = _copyConfig(config);
+      aiConfig.apiKey = _confirmedCredential;
+      _saveConfig();
+      if (!_disposed) notifyListeners();
+      return requested == _confirmedCredential;
+    }
     final hadCredentialError = credentialError != null;
     if (_pendingCredentialRollback != null) {
       credentialError = t['credentialStoreError'];
@@ -1662,7 +1641,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (requested == _confirmedCredential &&
         _queuedCredentialWrites == 0 &&
         _credentialImports.isEmpty &&
-        !(windowsCredentialsNeedSetup && requested.isNotEmpty) &&
         credentialError == null) {
       _pendingCredentialValue = null;
       return true;
@@ -1695,7 +1673,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           aiConfig.apiKey = requested;
           credentialError = null;
           _pendingCredentialValue = null;
-          _recordWindowsCredentialVerification(requested);
           // A failed earlier write blocked the ordinary config save. Persist
           // the latest non-secret fields now that the credential is verified.
           if (hadCredentialError) _saveConfig();
@@ -1719,40 +1696,17 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     return result;
   }
 
-  Future<bool> retryCredentialMigration() async {
-    final rollback = _pendingCredentialRollback;
-    if (rollback != null) return _restoreCredential(rollback);
-    final legacy = _legacyCredentialForMigration ?? aiConfig.apiKey;
-    var wroteCredential = false;
+  /// Reads the API key from the platform keyring. A missing or locked
+  /// keyring only disables the API key; it never blocks ordinary saving.
+  Future<void> _loadCredential() async {
     try {
-      final secured = await credentialStore.read();
-      if (secured != null) {
-        _confirmedCredential = secured;
-      } else if (legacy.isNotEmpty) {
-        await credentialStore.write(legacy);
-        if (await credentialStore.read() != legacy) {
-          throw StateError('Credential verification failed');
-        }
-        _confirmedCredential = legacy;
-        wroteCredential = true;
-      } else {
-        _confirmedCredential = '';
-      }
-      if (!await _saveProtocol!.scrubCredentials()) {
-        throw StateError('Legacy scrub failed');
-      }
-      aiConfig.apiKey = _confirmedCredential;
-      credentialError = null;
-      _credentialMigrationPending = false;
-      _legacyCredentialForMigration = null;
-      if (wroteCredential) _recordWindowsCredentialVerification(legacy);
-      return true;
+      _confirmedCredential = await credentialStore.read() ?? '';
+      credentialUnavailable = false;
     } catch (_) {
-      credentialError = t['credentialMigrationError'];
-      _credentialMigrationPending = true;
-      _legacyCredentialForMigration = legacy;
-      return false;
+      _confirmedCredential = '';
+      credentialUnavailable = true;
     }
+    aiConfig.apiKey = _confirmedCredential;
   }
 
   Future<bool> retryCredential() async {
@@ -1766,61 +1720,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       config.apiKey = pending;
       return updateAIConfig(config);
     }
-    final wasPending = _credentialMigrationPending;
-    final success = await retryCredentialMigration();
-    if (success && wasPending && ready && !_disposed) {
-      _applyDeadlinePromotion();
-      reminderService.rescheduleAllFuture(tasks);
-      _deadlineTimer ??= Timer.periodic(
-        const Duration(hours: 1),
-        (_) => _applyDeadlinePromotion(),
-      );
-      WidgetsBinding.instance.addObserver(this);
-      notifyListeners();
-    }
-    return success;
-  }
-
-  /// Confirming the explanation is separate from configuring a credential.
-  /// The Store must be open and validated, and the ordinary commit owner makes
-  /// this acknowledgement atomic with the whole library. A failed commit rolls
-  /// back only this decision; edits accepted during IO remain pending.
-  Future<bool> acknowledgeWindowsCredentialNotice() =>
-      _runTransaction(() async {
-        if (!ready ||
-            _disposed ||
-            hasStartupRecovery ||
-            startupError != null ||
-            credentialError != null ||
-            !_windowsCredentialStatePresent) {
-          return false;
-        }
-        if (windowsCredentialNoticeRead) return true;
-        windowsCredentialNoticeRead = true;
-        final atCommit = ++_dirtyRevision;
-        final values = _snapshotValues();
-        final result = await _saveProtocol!.commit(values);
-        lastSaveResult = result;
-        if (!result.success) {
-          windowsCredentialNoticeRead = false;
-          persistenceError = t['storageWriteError'];
-          if (!_disposed) notifyListeners();
-          return false;
-        }
-        _savedValues = values;
-        _savedRevision = atCommit;
-        persistenceError = null;
-        if (_dirtyRevision > _savedRevision) _scheduleCommit();
-        if (!_disposed) notifyListeners();
-        return true;
-      });
-
-  void _recordWindowsCredentialVerification(String value) {
-    if (!_windowsCredentialStatePresent) return;
-    final required = value.isEmpty;
-    if (windowsCredentialsNeedSetup == required) return;
-    windowsCredentialsNeedSetup = required;
-    _markDirty();
+    await _loadCredential();
+    if (!credentialUnavailable) credentialError = null;
+    if (!_disposed) notifyListeners();
+    return !credentialUnavailable;
   }
 
   AIConfig _copyConfig(AIConfig source) => AIConfig(
@@ -2021,7 +1924,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     late ImportPlan effective;
     var oldCredential = _confirmedCredential;
     var newCredential = oldCredential;
-    var verifiedCredentialChange = false;
     try {
       await reservation.prior;
       if (_disposed ||
@@ -2036,14 +1938,11 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         return const SaveResult(false, 0);
       }
       oldCredential = _confirmedCredential;
-      newCredential = importCredential && initial.hasCredential
+      newCredential =
+          importCredential && initial.hasCredential && !credentialUnavailable
           ? initial.aiConfig!.apiKey
           : oldCredential;
-      if (newCredential != oldCredential ||
-          (importCredential &&
-              initial.hasCredential &&
-              windowsCredentialsNeedSetup &&
-              newCredential.isNotEmpty)) {
+      if (newCredential != oldCredential) {
         if (newCredential.isEmpty) {
           await credentialStore.delete();
         } else {
@@ -2054,7 +1953,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
           throw StateError('Credential verification failed');
         }
         _confirmedCredential = newCredential;
-        verifiedCredentialChange = true;
       }
       // Commands may have changed the live library while secure storage was
       // pending. The final plan must use that library, as RF02 requires.
@@ -2086,12 +1984,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _applyImportState(effective);
     if (newerConfig != null) aiConfig = newerConfig;
     final atCommit = _dirtyRevision;
-    final values = _snapshotValues(
-      windowsCredentialSetupValue:
-          verifiedCredentialChange && intentAtStart == _credentialIntent
-          ? newCredential.isEmpty
-          : null,
-    );
+    final values = _snapshotValues();
     final result = await _saveProtocol!.commit(values);
     lastSaveResult = result;
     if (!result.success) {
@@ -2140,9 +2033,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (intentAtStart == _credentialIntent) {
       aiConfig.apiKey = newCredential;
       credentialError = null;
-      if (_windowsCredentialStatePresent && verifiedCredentialChange) {
-        windowsCredentialsNeedSetup = newCredential.isEmpty;
-      }
     }
     // Only the revisions up to the snapshot we just wrote are durable. A
     // command accepted while the batch was committing stays dirty and its
@@ -2515,7 +2405,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       if (credentialError != null ||
           _pendingCredentialRollback != null ||
           _pendingCredentialValue != null ||
-          _credentialMigrationPending ||
           _savedRevision < _dirtyRevision ||
           (ledger?.failed ?? false)) {
         return SaveResult(false, lastSaveResult.revision);
@@ -2543,8 +2432,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (credentialError != null ||
         _pendingCredentialValue != null ||
-        _pendingCredentialRollback != null ||
-        _credentialMigrationPending) {
+        _pendingCredentialRollback != null) {
       if (!await retryCredential()) {
         return flush(waitForReminders: waitForReminders);
       }
@@ -2581,7 +2469,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     AIConfig? configValue,
     AppSettings? settingsValue,
     String? activeValue,
-    bool? windowsCredentialSetupValue,
   }) => {
     _kTasks: jsonEncode(
       (tasksValue ?? tasks).map((task) => task.toJson()).toList(),
@@ -2596,13 +2483,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     _kSettings: jsonEncode((settingsValue ?? settings).toJson()),
     _kActiveBoard: activeValue ?? activeBoardId,
     _kHasSeenOnboarding: hasSeenOnboarding.toString(),
-    if (_windowsCredentialStatePresent) ...{
-      SaveProtocol.windowsCredentialsRequiredKey:
-          (windowsCredentialSetupValue ?? windowsCredentialsNeedSetup)
-              .toString(),
-      SaveProtocol.windowsCredentialNoticeReadKey: windowsCredentialNoticeRead
-          .toString(),
-    },
   };
 
   // Each of these marks one accepted mutation dirty. They keep their names

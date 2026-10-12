@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/planner/planner_labels.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/planner/planner_labels.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/storage.dart';
 
 import 'helpers.dart';
 

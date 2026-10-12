@@ -83,7 +83,7 @@ class Resources(test_ocr_bundle.OfficialBundleTest):
                 for p in root.rglob("*"):
                     if p.is_file():
                         archive.write(p, "assets/wp17-ocr/" + p.relative_to(root).as_posix())
-                archive.writestr("lib/arm64-v8a/libmatrixflow_ocr.so", elf)
+                archive.writestr("lib/arm64-v8a/libcompoise_ocr.so", elf)
                 archive.writestr("META-INF/LICENSE", "upstream licence A")
                 archive.writestr("META-INF/license", "upstream licence B")
         write_apk(62)
@@ -98,7 +98,7 @@ class Resources(test_ocr_bundle.OfficialBundleTest):
         (folder / "compoise.exe").write_bytes(b"synthetic executable")
         with patch.object(candidate, "check_bundle", side_effect=AssertionError("must not load models")):
             self.assertFalse(candidate.inspect(folder, "windows", False, None)["ocrEnabled"])
-        (folder / "matrixflow_ocr.dll").write_bytes(b"residue")
+        (folder / "compoise_ocr.dll").write_bytes(b"residue")
         with self.assertRaisesRegex(candidate.PreparationError, "residue"):
             candidate.inspect(folder, "windows", False, None)
 

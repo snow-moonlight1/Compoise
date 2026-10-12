@@ -9,12 +9,12 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/task_query.dart';
-import 'package:matrixflow_native/widgets/quadrant_transition_layout.dart';
-import 'package:matrixflow_native/widgets/task_card.dart';
-import 'package:matrixflow_native/widgets/task_list_view.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/task_query.dart';
+import 'package:compoise/widgets/quadrant_transition_layout.dart';
+import 'package:compoise/widgets/task_card.dart';
+import 'package:compoise/widgets/task_list_view.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,7 +28,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// flutter run -d windows --profile -t tool/os22_perf_bench.dart --no-pub
 ///
-/// Set MATRIXFLOW_OS22_PERF_RESULT to the JSON output path. Debug-mode runs
+/// Set COMPOISE_OS22_PERF_RESULT to the JSON output path. Debug-mode runs
 /// still write a report, but the report marks them as not device frame data.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,7 +61,7 @@ class _BenchAppState extends State<_BenchApp> {
   Future<void> _run() async {
     const fromDefine = String.fromEnvironment('OS22_OUT');
     final resultPath =
-        Platform.environment['MATRIXFLOW_OS22_PERF_RESULT'] ??
+        Platform.environment['COMPOISE_OS22_PERF_RESULT'] ??
         (fromDefine.isEmpty ? null : fromDefine);
     final view = WidgetsBinding.instance.platformDispatcher.views.first;
     final refreshHz = view.display.refreshRate;
@@ -220,16 +220,16 @@ class _BenchAppState extends State<_BenchApp> {
       reduceMotion: false,
     );
     final backend = <String, Object>{
-      'matrixflow-boards': jsonEncode([
+      'compoise-boards': jsonEncode([
         {'id': 'board-synth', 'name': '合成看板', 'createdAt': 1700000000000},
       ]),
-      'matrixflow-tasks': taskJson,
-      'matrixflow-settings': jsonEncode(settings.toJson()),
-      'matrixflow-config': jsonEncode(
+      'compoise-tasks': taskJson,
+      'compoise-settings': jsonEncode(settings.toJson()),
+      'compoise-config': jsonEncode(
         AIConfig().toJson(includeCredential: false),
       ),
-      'matrixflow-active-board': 'board-synth',
-      'matrixflow-has-seen-onboarding': true,
+      'compoise-active-board': 'board-synth',
+      'compoise-has-seen-onboarding': true,
     };
     generate.stop();
     SharedPreferences.setMockInitialValues(backend);

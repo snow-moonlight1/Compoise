@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:matrixflow_native/ocr/ocr_assets.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
+import 'package:compoise/ocr/ocr_assets.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_backend.dart';
 
 /// Runs the shipped resource lookup and the shipped C ABI against the R2
 /// synthetic screenshots inside the real application process.
@@ -91,7 +91,7 @@ void main() {
         // explicitly through WP17_OCR_TEST_LIBRARY.
         expect(
           resolveOcrLibraryPath(),
-          endsWith('/lib/libmatrixflow_ocr.so'),
+          endsWith('/lib/libcompoise_ocr.so'),
           reason:
               'the bundle puts the OCR library next to the other bundle '
               'libraries and that is the path the product resolves',
@@ -101,7 +101,7 @@ void main() {
           isNotNull,
           reason:
               'pass --dart-define=WP17_OCR_TEST_LIBRARY=<bundle>/lib/'
-              'libmatrixflow_ocr.so on Linux',
+              'libcompoise_ocr.so on Linux',
         );
       }
 

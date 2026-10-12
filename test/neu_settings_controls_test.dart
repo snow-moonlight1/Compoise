@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/theme.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/theme.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

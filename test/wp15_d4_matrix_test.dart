@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/screens/planner_screen.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/screens/planner_screen.dart';
+import 'package:compoise/storage.dart';
 
 import 'wp15_c2_test_support.dart';
 import '../tool/wp15_d4_fixture.dart' show d4Fixture;

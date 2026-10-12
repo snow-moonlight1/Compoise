@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
 
 OcrLine line(
   String text,

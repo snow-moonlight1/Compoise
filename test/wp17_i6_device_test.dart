@@ -11,14 +11,14 @@ import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:matrixflow_native/import_preview/draft_preview.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/ocr/ocr_assets.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_import_page.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/import_preview/draft_preview.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/ocr/ocr_assets.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/screenshot_import/screenshot_backend.dart';
+import 'package:compoise/screenshot_import/screenshot_import_page.dart';
+import 'package:compoise/storage.dart';
 import 'support/wp17_i6_reference_drafts.dart';
 
 class _ObservedBackend implements ScreenshotBackend {
@@ -236,7 +236,7 @@ void main() {
         }
         prefs = await SharedPreferences.getInstance();
         expect(
-          prefs.getKeys().where((k) => k.startsWith('matrixflow')),
+          prefs.getKeys().where((k) => k.startsWith('compoise')),
           isEmpty,
           reason: 'Use a fresh dedicated application identity / XDG root',
         );

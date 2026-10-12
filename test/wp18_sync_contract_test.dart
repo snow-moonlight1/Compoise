@@ -7,15 +7,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/applier.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/demo_fixtures.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/digest.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/planner.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/snapshot.dart';
-import 'package:matrixflow_native/import_preflight.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/recovery_text.dart' show recoverySha256Hex;
-import 'package:matrixflow_native/schedule_item.dart';
+import 'package:compoise/experiments/wp18_sync/applier.dart';
+import 'package:compoise/experiments/wp18_sync/demo_fixtures.dart';
+import 'package:compoise/experiments/wp18_sync/digest.dart';
+import 'package:compoise/experiments/wp18_sync/planner.dart';
+import 'package:compoise/experiments/wp18_sync/snapshot.dart';
+import 'package:compoise/import_preflight.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/recovery_text.dart' show recoverySha256Hex;
+import 'package:compoise/schedule_item.dart';
 
 Map<String, dynamic> _decode(Map<String, dynamic> payload) =>
     Map<String, dynamic>.from(jsonDecode(jsonEncode(payload)) as Map);

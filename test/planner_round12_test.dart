@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/theme.dart';
-import 'package:matrixflow_native/widgets/input_sheet.dart';
-import 'package:matrixflow_native/widgets/task_card.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/theme.dart';
+import 'package:compoise/widgets/input_sheet.dart';
+import 'package:compoise/widgets/task_card.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,11 +25,11 @@ ThemeData _theme(String skin) {
 
 Future<Store> _store() async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-has-seen-onboarding': true,
-    'matrixflow-boards': jsonEncode([
+    'compoise-has-seen-onboarding': true,
+    'compoise-boards': jsonEncode([
       Board(id: 'b', name: 'Synthetic board', createdAt: 1).toJson(),
     ]),
-    'matrixflow-tasks': jsonEncode([
+    'compoise-tasks': jsonEncode([
       for (var i = 0; i < 3; i++)
         Task(
           id: 'T$i',

@@ -34,8 +34,8 @@ if ($LASTEXITCODE -ne 0) { throw 'configure failed' }
 & cmake --build $Out --config $Configuration
 if ($LASTEXITCODE -ne 0) { throw 'build failed' }
 
-$dll = Get-ChildItem $Out -Recurse -Filter 'matrixflow_ocr.dll' | Select-Object -First 1
-$smoke = Get-ChildItem $Out -Recurse -Filter 'matrixflow_ocr_smoke.exe' | Select-Object -First 1
-if (-not $dll) { throw 'matrixflow_ocr.dll was not produced' }
+$dll = Get-ChildItem $Out -Recurse -Filter 'compoise_ocr.dll' | Select-Object -First 1
+$smoke = Get-ChildItem $Out -Recurse -Filter 'compoise_ocr_smoke.exe' | Select-Object -First 1
+if (-not $dll) { throw 'compoise_ocr.dll was not produced' }
 Write-Host ("library: {0} ({1:N0} bytes, sha256 {2})" -f $dll.FullName, $dll.Length, (Get-FileHash $dll.FullName -Algorithm SHA256).Hash)
 if ($smoke) { Write-Host ("smoke  : {0}" -f $smoke.FullName) }

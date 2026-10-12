@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/calendar_dates.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/planned_policy.dart';
-import 'package:matrixflow_native/screens/today_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/today_celebration.dart';
-import 'package:matrixflow_native/ui/motion_policy.dart';
+import 'package:compoise/calendar_dates.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/planned_policy.dart';
+import 'package:compoise/screens/today_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/today_celebration.dart';
+import 'package:compoise/ui/motion_policy.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

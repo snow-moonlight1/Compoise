@@ -2,7 +2,7 @@
 
 日期：2026-10-02–03。官方六个输入的原有摘要全部保持；PIR → ONNX → ncnn 已实际完成，并经两个全新转换目录逐字节复现。官方产物已在 Windows / Linux 的同一份 C++ runtime 上通过原 R2 的文字、几何、重复会话和错误边界对照。**I4 的官方转换技术阻塞已关闭；正式发行、Android 官方模型设备流程和真实截图质量门禁仍未关闭。**
 
-基线 `39cf8ed6df7f5290a9b45c970f9c5e279c89230a`；分支 `codex/wp17-i5`；由 Codex 创建的独立工作树 `C:\Users\20214\.codex\worktrees\wp17-i5\martix`；提交身份 `wp17-i5-agent <wp17-i5-agent@local.invalid>`。完整提交 SHA 由交接消息提供，不在本文自引用。只提交本工作树，没有 amend / push / 修改 main，没有调用其他 Agent、ADB 或真实 Compoise 窗口。
+基线 `39cf8ed6df7f5290a9b45c970f9c5e279c89230a`；分支 `codex/wp17-i5`；由 Codex 创建的独立工作树 `C:\Users\20214\.codex\worktrees\wp17-i5\compoise`；提交身份 `wp17-i5-agent <wp17-i5-agent@local.invalid>`。完整提交 SHA 由交接消息提供，不在本文自引用。只提交本工作树，没有 amend / push / 修改 main，没有调用其他 Agent、ADB 或真实 Compoise 窗口。
 
 ## 输入、工具链与来源
 
@@ -31,9 +31,9 @@ pnnx 直接运行该 wheel 中的原生可执行文件，不导入需要 PyTorch
 
 ```bash
 /home/ubuntu/wp17i5-tools/bin/python -m pip install --require-hashes --no-deps \
-  -r /mnt/c/Users/20214/.codex/worktrees/wp17-i5/martix/native/ocr/tools/requirements-convert.txt
+  -r /mnt/c/Users/20214/.codex/worktrees/wp17-i5/compoise/native/ocr/tools/requirements-convert.txt
 /home/ubuntu/wp17i5-tools/bin/python \
-  /mnt/c/Users/20214/.codex/worktrees/wp17-i5/martix/native/ocr/tools/convert_models.py \
+  /mnt/c/Users/20214/.codex/worktrees/wp17-i5/compoise/native/ocr/tools/convert_models.py \
   --assets /home/ubuntu/wp17i5-private/assets --offline --record-outputs
 ```
 
@@ -79,7 +79,7 @@ Linux 对应入口 `prepare_ocr_assets.py` 与 PowerShell 官方路线共用 `pu
 
 ```bash
 /home/ubuntu/wp17i5-tools/bin/python \
-  /mnt/c/Users/20214/.codex/worktrees/wp17-i5/martix/native/ocr/tools/prepare_ocr_assets.py \
+  /mnt/c/Users/20214/.codex/worktrees/wp17-i5/compoise/native/ocr/tools/prepare_ocr_assets.py \
   --assets /home/ubuntu/wp17i5-private/empty-online-assets \
   --deploy /home/ubuntu/wp17i5-private/empty-online-deploy \
   --python /home/ubuntu/wp17i5-tools/bin/python
@@ -116,8 +116,8 @@ powershell -NoProfile -File tool/prepare_ocr_assets.ps1 `
 
 | 原生库 | 字节 | SHA-256 |
 |---|---:|---|
-| Windows `matrixflow_ocr.dll` | 14,126,592 | `e21bf6832f701fd3fbc3c1919a7a05525836f47bf1b78e6e23a7f35b84bdbfc1` |
-| Linux `libmatrixflow_ocr.so` | 16,940,360 | `e35b54ed487797ace9c45aec1d6e279ca18602cc75deccbbb26ca311dfae02db` |
+| Windows `compoise_ocr.dll` | 14,126,592 | `e21bf6832f701fd3fbc3c1919a7a05525836f47bf1b78e6e23a7f35b84bdbfc1` |
+| Linux `libcompoise_ocr.so` | 16,940,360 | `e35b54ed487797ace9c45aec1d6e279ca18602cc75deccbbb26ca311dfae02db` |
 
 实际构建命令：`powershell -File tool/build_ocr_windows.ps1 -Assets <本包私有资产> -Out <本包私有 native-win>`；Linux `cmake -S <工作树>/native/ocr -B /home/ubuntu/wp17i5-private/native-linux -G Ninja -DCMAKE_BUILD_TYPE=Release -Dncnn_DIR=/home/ubuntu/wp17i4-ncnn-linux/install/lib/cmake/ncnn -DWP17_STB_DIR=/home/ubuntu/wp17i5-private/assets/third_party -DWP17_OCR_BUILD_SMOKE=ON`，再 `cmake --build ... --parallel 4`。两端构建均 **0**。
 

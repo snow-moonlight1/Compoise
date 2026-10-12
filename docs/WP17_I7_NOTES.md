@@ -1,6 +1,6 @@
 # WP17-I7：真实 Linux 选择器与独立进程重开
 
-执行日期：2026-10-03（Asia/Shanghai）。基线 **`3ac0b6d9192a0495f1db1f636d9b8726b03179c4`**，分支 `codex/wp17-i7`，工作树 `D:/Dev_project/martix-wp17-i7`，ext4 镜像 `/home/ubuntu/wp17i7-private/repo`。本树没有适用的 AGENTS.md。提交身份通过 `git config --worktree` 设置为 `wp17-i7-agent <wp17-i7-agent@local.invalid>`；最终完整 commit、文件清单在提交后生成的 `D:/Dev_project/martix-wp17-i7-private/handoff.json`，也在交接回复中提供。
+执行日期：2026-10-03（Asia/Shanghai）。基线 **`3ac0b6d9192a0495f1db1f636d9b8726b03179c4`**，分支 `codex/wp17-i7`，工作树 `D:/Dev_project/compoise-wp17-i7`，ext4 镜像 `/home/ubuntu/wp17i7-private/repo`。本树没有适用的 AGENTS.md。提交身份通过 `git config --worktree` 设置为 `wp17-i7-agent <wp17-i7-agent@local.invalid>`；最终完整 commit、文件清单在提交后生成的 `D:/Dev_project/compoise-wp17-i7-private/handoff.json`，也在交接回复中提供。
 
 **真实 GTK 多选、官方 native OCR、失败保存重试及两个独立应用进程的磁盘重开均已通过。** 验收应用是 Linux debug integration harness，调用生产 `ScreenshotImportPage`、默认 `LocalScreenshotBackend`、`pickScreenshotPngFiles`、预览和 Store；不是完整首页/main 入口的发行包。没有注入 picker 返回文件列表、OCR 文本、draft 或 bitmap。唯一存储故障接缝是已有 `saveWriter`，凭据使用空 CredentialStore，避免访问用户密钥环。
 
@@ -34,11 +34,11 @@
 
 内存是实际 PID 的 `/proc/status` VmHWM，不是 PSS 或低端设备保证。第一轮成功 `run-Paknht` 也有独立 PID 34051/35930、各 exit 0；最终以 `run-vIGXFx` 为准。
 
-关键原始证据：最终 run 中的 `host.json`、`process-import/reopen.json`、`flow-import/reopen.json`、`application-import/reopen.log`、`expected.json`、`picker-2/3.json`、`picker-*-opened/selected.xwd`、`session.log`、`session-exit.txt`。Windows 可直接查看的副本位于 `D:/Dev_project/martix-wp17-i7-private/linux-evidence/runs/run-vIGXFx`。失败与成功使用不同目录，没有删除失败后包装成通过。
+关键原始证据：最终 run 中的 `host.json`、`process-import/reopen.json`、`flow-import/reopen.json`、`application-import/reopen.log`、`expected.json`、`picker-2/3.json`、`picker-*-opened/selected.xwd`、`session.log`、`session-exit.txt`。Windows 可直接查看的副本位于 `D:/Dev_project/compoise-wp17-i7-private/linux-evidence/runs/run-vIGXFx`。失败与成功使用不同目录，没有删除失败后包装成通过。
 
 ## 隔离资源与摘要
 
-Windows 私有工具/证据根 W = `D:/Dev_project/martix-wp17-i7-private`，Linux 私有根 L 如上。模型/deployment/xdotool 初始从 I6 私有缓存只读复制；I6 使用的 ncnn SDK 从其记录的 `/home/ubuntu/wp17i4-ncnn-linux/install` 只读复制至 `L/ncnn-install`。ncnn pin 沿用 `c6b351b56fbe32e0381ae00331e3df649b20d7b7`，静态库 24616118 B / `d6dea6d6eba1a50ab8774de131753c4d8ef7b18bd5bca8f058903461948b0c18`；stb 283010 B / `594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3`。
+Windows 私有工具/证据根 W = `D:/Dev_project/compoise-wp17-i7-private`，Linux 私有根 L 如上。模型/deployment/xdotool 初始从 I6 私有缓存只读复制；I6 使用的 ncnn SDK 从其记录的 `/home/ubuntu/wp17i4-ncnn-linux/install` 只读复制至 `L/ncnn-install`。ncnn pin 沿用 `c6b351b56fbe32e0381ae00331e3df649b20d7b7`，静态库 24616118 B / `d6dea6d6eba1a50ab8774de131753c4d8ef7b18bd5bca8f058903461948b0c18`；stb 283010 B / `594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3`。
 
 五个部署权重/字典、许可和完整 conversion provenance 经当前 `stage_official_bundle.py --check` 与 reviewed lock 核验，摘要同 I6 表；没有重新转换或使用历史未授权权重。官方来源及许可证详见 I6 NOTES 和未改动的 models.lock.json。逐文件产物摘要在 `L/logs/artifact-checks.json`；最终 bundle `L/artifacts/linux-device-ksSivD`，native 库 17395752 B / `e9e95e1611f4526589b562480a3f862668fb01dc62384ca4e0fe4e8116754dde`。
 
@@ -57,7 +57,7 @@ export WP17_I7_DEPLOY="$WP17_I7_ROOT/official-deploy"
 export WP17_OCR_STB_DIR="$WP17_I7_ROOT/assets/third_party"
 cd "$WP17_I7_ROOT/repo"
 bash native/ocr/tools/wp17_i7_linux.sh build
-export WP17_I7_APPLICATION="$(cat "$WP17_I7_ROOT/logs/latest-bundle.txt")/matrixflow_native"
+export WP17_I7_APPLICATION="$(cat "$WP17_I7_ROOT/logs/latest-bundle.txt")/compoise"
 bash native/ocr/tools/wp17_i7_linux.sh accept
 ```
 
@@ -76,7 +76,7 @@ bash native/ocr/tools/wp17_i7_linux.sh accept
 | 不启用的 I7 shell 和 Python driver | 0 / 0（SKIPPED） | L/logs/default-device/driver-gate.txt；没有启动设备 |
 | `git diff --check` | 0 | 提交前检查 |
 
-定向实际命令：先设置 `WP17_OCR_TEST_LIBRARY=<bundle>/lib/libmatrixflow_ocr.so`、`WP17_OCR_TEST_ASSETS=L/official-deploy`，执行 `flutter test --no-pub test/wp17_i3a_screenshot_capture_test.dart test/wp17_i3b_capture_test.dart test/wp17_i3b_submission_test.dart test/wp17_import_preview_test.dart test/wp17_i3b_page_test.dart test/wp17_i3a_native_capture_test.dart test/wp17_i1_ocr_runtime_test.dart`。包含十二张原 R2 对照和十图 native capture，后者是测试 runner 流程，不是十图 GTK 设备满批。
+定向实际命令：先设置 `WP17_OCR_TEST_LIBRARY=<bundle>/lib/libcompoise_ocr.so`、`WP17_OCR_TEST_ASSETS=L/official-deploy`，执行 `flutter test --no-pub test/wp17_i3a_screenshot_capture_test.dart test/wp17_i3b_capture_test.dart test/wp17_i3b_submission_test.dart test/wp17_import_preview_test.dart test/wp17_i3b_page_test.dart test/wp17_i3a_native_capture_test.dart test/wp17_i1_ocr_runtime_test.dart`。包含十二张原 R2 对照和十图 native capture，后者是测试 runner 流程，不是十图 GTK 设备满批。
 
 ## 保留失败、清理和未验证项
 

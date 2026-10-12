@@ -29,7 +29,7 @@ import zipfile
 sys.dont_write_bytecode = True
 import stage_official_bundle as bundle
 
-PACKAGE = "com.matrixflow.app.wp17i6"
+PACKAGE = "com.compoise.app.wp17i6"
 BASELINE = "459f9a28cefdcac9196825b2d4ac70250dbf3b8d"
 REPO = Path(__file__).resolve().parents[3]
 SDK_HASHES = {
@@ -55,8 +55,8 @@ def private_root(path: Path) -> Path:
     root = path.resolve()
     if root == REPO or root.is_relative_to(REPO) or REPO.is_relative_to(root):
         raise ValueError("Use a separate external private root")
-    if root.name != "martix-wp17-a1-private":
-        raise ValueError("Private root must be named martix-wp17-a1-private")
+    if root.name != "compoise-wp17-a1-private":
+        raise ValueError("Private root must be named compoise-wp17-a1-private")
     for directory in ("tmp", "logs", "artifacts", "runs"):
         (root / directory).mkdir(parents=True, exist_ok=True)
     return root
@@ -108,7 +108,7 @@ def inventory(command: Commands, adb: Path):
             for key, prop in (("abi", "ro.product.cpu.abilist"),
                               ("sdk", "ro.build.version.sdk"), ("fingerprint", "ro.build.fingerprint")):
                 data[key] = command.run(prefix + ["getprop", prop]).strip()
-            data["packages"] = command.run(prefix + ["pm", "list", "packages", "com.matrixflow.app"]).splitlines()
+            data["packages"] = command.run(prefix + ["pm", "list", "packages", "com.compoise.app"]).splitlines()
         devices.append(data)
     save(command.root / "logs/device-inventory.json", {"devices": devices})
     return devices
@@ -136,7 +136,7 @@ def device_lease(serial: str):
     """Cross-process Windows lease. Integration must share this exact mutex."""
     if os.name != "nt":
         raise RuntimeError("This host driver requires Windows device ownership locking")
-    name = "Local\\MatrixFlow-WP17-device-" + re.sub(r"[^a-zA-Z0-9_-]", "_", serial)
+    name = "Local\\Compoise-WP17-device-" + re.sub(r"[^a-zA-Z0-9_-]", "_", serial)
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_wchar_p]
     kernel.CreateMutexW.restype = ctypes.c_void_p
@@ -335,14 +335,14 @@ def normal_build(args, command: Commands):
         apk = mirror / "build/app/outputs/flutter-apk/app-debug.apk"
         aapt = sorted((args.sdk / "build-tools").glob("*/aapt.exe"))[-1]
         facts = command.run([aapt, "dump", "badging", apk], log="normal-apk-facts")
-        if not re.search(r"^package: name='com\.matrixflow\.app'", facts, re.M):
+        if not re.search(r"^package: name='com\.compoise\.app'", facts, re.M):
             raise ValueError("Default identity changed")
         with zipfile.ZipFile(apk) as archive:
-            if any("matrixflow_ocr" in name or name.startswith("assets/wp17-ocr/") for name in archive.namelist()):
+            if any("compoise_ocr" in name or name.startswith("assets/wp17-ocr/") for name in archive.namelist()):
                 raise ValueError("Default application unexpectedly includes OCR assets/library")
         target = root / "artifacts/wp17-a1-normal-build-only.apk"
         shutil.copyfile(apk, target)
-        save(root / "logs/normal-apk.json", {"package": "com.matrixflow.app", "installed": False,
+        save(root / "logs/normal-apk.json", {"package": "com.compoise.app", "installed": False,
                                             "default_main": True, "ocr_absent": True,
                                             "sha256": sha(target), "bytes": target.stat().st_size})
     finally:
@@ -373,7 +373,7 @@ def build(args, command: Commands):
                      "-DWP17_STB_DIR=" + (assets / "third_party").as_posix(),
                      "-DWP17_OCR_BUILD_SMOKE=ON"], timeout=120, log="native-" + mode + "-configure")
         command.run(["cmake", "--build", out, "--parallel", "2"], timeout=600, log="native-" + mode + "-build")
-        library = out / "libmatrixflow_ocr.so"
+        library = out / "libcompoise_ocr.so"
         facts = elf_facts(library)
         details = command.run([readelf, "-h", "-n", "-d", "--dyn-syms", library], log="elf-" + mode)
         for symbol in ("mf_ocr_create", "mf_ocr_run_file", "mf_ocr_destroy", "mf_ocr_free"):
@@ -381,7 +381,7 @@ def build(args, command: Commands):
                 raise ValueError("Missing C ABI export: " + symbol)
         facts.update({"configured_api": 23, "runtime_api23_verified": False,
                       "needed": re.findall(r"Shared library: \[([^\]]+)\]", details),
-                      "smoke": elf_facts(out / "matrixflow_ocr_smoke")})
+                      "smoke": elf_facts(out / "compoise_ocr_smoke")})
         native[mode] = facts
     save(root / "logs/native-builds.json", native)
     # The caller prepares a private source mirror/pub/Gradle caches. Copy only
@@ -413,7 +413,7 @@ def build(args, command: Commands):
                     raise ValueError("APK model/licence mismatch: " + name)
             if json.loads(archive.read("assets/wp17-ocr/bundle-manifest.json")) != manifest:
                 raise ValueError("APK bundle manifest differs")
-            data = archive.read("lib/arm64-v8a/libmatrixflow_ocr.so")
+            data = archive.read("lib/arm64-v8a/libcompoise_ocr.so")
             if data[:6] != b"\x7fELF\x02\x01" or struct.unpack("<H", data[18:20])[0] != 183:
                 raise ValueError("APK OCR library is not AArch64")
             packaged_native = {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
@@ -542,9 +542,9 @@ class Android:
         for mode in ("Debug", "Release"):
             directory = self.remote_native + "/" + mode
             self.adb("shell", "mkdir", "-p", directory)
-            for filename in ("libmatrixflow_ocr.so", "matrixflow_ocr_smoke"):
+            for filename in ("libcompoise_ocr.so", "compoise_ocr_smoke"):
                 self.adb("push", root / "native" / mode / filename, directory + "/" + filename)
-            self.adb("shell", "chmod", "700", directory + "/matrixflow_ocr_smoke")
+            self.adb("shell", "chmod", "700", directory + "/compoise_ocr_smoke")
             stages = [
                 ("cold1", good_paths[:1], good_names[:1], [None], 0, self.remote_native + "/assets"),
                 ("repeated10", reference * 3, reference_names * 3, [None] * 30, 0, self.remote_native + "/assets"),
@@ -555,7 +555,7 @@ class Android:
             ]
             results[mode] = {}
             for label, paths, names, errors, expected_exit, assets in stages:
-                invocation = (f"LD_LIBRARY_PATH={directory} {directory}/matrixflow_ocr_smoke {assets} "
+                invocation = (f"LD_LIBRARY_PATH={directory} {directory}/compoise_ocr_smoke {assets} "
                               + " ".join(paths) + "; a1_rc=$?; printf '\\nA1_RC=%s\\n' \"$a1_rc\"")
                 started = time.monotonic()
                 raw = self.command.run(self.prefix + ["shell", invocation], timeout=300)
@@ -573,7 +573,7 @@ class Android:
         deadline = started + 900
         # No logcat -c: another package's evidence buffer is never cleared.
         stamp = self.adb("shell", "date '+%m-%d %H:%M:%S.000'").strip()
-        self.adb("shell", "am", "start", "-n", PACKAGE + "/com.matrixflow.matrixflow_native.MainActivity")
+        self.adb("shell", "am", "start", "-n", PACKAGE + "/com.compoise.app.MainActivity")
         samples, stop = [], threading.Event()
         def sample():
             while not stop.is_set():
@@ -662,8 +662,8 @@ def accept(args, command: Commands):
         raise ValueError("Runtime deployment differs from verified APK")
     native = json.loads((command.root / "logs/native-builds.json").read_text())
     for mode, facts in native.items():
-        if facts["sha256"] != sha(command.root / "native" / mode / "libmatrixflow_ocr.so") or facts["smoke"]["sha256"] != sha(
-                command.root / "native" / mode / "matrixflow_ocr_smoke"):
+        if facts["sha256"] != sha(command.root / "native" / mode / "libcompoise_ocr.so") or facts["smoke"]["sha256"] != sha(
+                command.root / "native" / mode / "compoise_ocr_smoke"):
             raise ValueError("Native probe changed since build")
     source = fixtures(command.root)
     run = command.root / "runs" / ("run-" + uuid.uuid4().hex)
@@ -745,7 +745,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", nargs="?", choices=("inventory", "build", "normal-build", "accept"))
     parser.add_argument("--enable", action="store_true")
-    parser.add_argument("--root", type=Path, default=Path("D:/Dev_project/martix-wp17-a1-private"))
+    parser.add_argument("--root", type=Path, default=Path("D:/Dev_project/compoise-wp17-a1-private"))
     parser.add_argument("--adb", type=Path, default=Path("D:/Dev_SDKs/platform-tools/adb.exe"))
     parser.add_argument("--sdk", type=Path, default=Path("D:/Dev_SDKs/Android_studio_SDK"))
     parser.add_argument("--flutter", type=Path, default=Path("D:/Dev_SDKs/Flutter_3.32.8"))

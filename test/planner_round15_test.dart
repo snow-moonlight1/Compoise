@@ -3,9 +3,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/theme.dart';
-import 'package:matrixflow_native/widgets/home_actions.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/theme.dart';
+import 'package:compoise/widgets/home_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'foundation_regression_test.dart' as fixture;

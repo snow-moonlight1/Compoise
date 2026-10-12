@@ -1,9 +1,9 @@
 # WP28-R2：隔离磁盘矩阵与同提交候选
 
 基线：`3ac0b6d9192a0495f1db1f636d9b8726b03179c4`。独立分支
-`codex/wp28-r2`，工作树 `C:/Users/20214/.codex/worktrees/wp28-r2/martix`。
+`codex/wp28-r2`，工作树 `C:/Users/20214/.codex/worktrees/wp28-r2/compoise`。
 固定 Flutter 3.32.8 / Dart 3.8.1，`pubspec.lock` 未变；独立
-`PUB_CACHE=D:/Dev_project/martix-wp28-r2-cache`。没有修改主检出、推送、
+`PUB_CACHE=D:/Dev_project/compoise-wp28-r2-cache`。没有修改主检出、推送、
 amend、tag、Release、签名、版本、模型锁、Store、SaveProtocol 或备份 schema。
 
 ## 实现范围

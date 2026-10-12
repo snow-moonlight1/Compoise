@@ -10,12 +10,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:matrixflow_native/ai_capabilities.dart';
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/settings_model_request.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/ai_capabilities.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/settings_model_request.dart';
+import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _key = 'synthetic-rf06-key';
@@ -716,7 +716,7 @@ void main() {
       'the connection panel shows the partial result and keeps the fee note',
       (tester) async {
         SharedPreferences.setMockInitialValues({
-          'matrixflow-has-seen-onboarding': true,
+          'compoise-has-seen-onboarding': true,
         });
         final service = AIService(
           client: MockClient((request) async {

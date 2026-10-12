@@ -73,8 +73,8 @@ class Arm64DriverTest(unittest.TestCase):
                 a1.authorize(dev, permit)
 
     def test_normal_package_is_read_only_and_not_an_install_target(self):
-        a1.authorize(device(packages=["package:com.matrixflow.app"]), enrollment())
-        self.assertEqual(a1.PACKAGE, "com.matrixflow.app.wp17i6")
+        a1.authorize(device(packages=["package:com.compoise.app"]), enrollment())
+        self.assertEqual(a1.PACKAGE, "com.compoise.app.wp17i6")
 
     def test_meminfo_api23_pss_and_process_rss_have_separate_units(self):
         raw = " Native Heap 123 0 0 0 456 78\n Dalvik Heap 50 0 0\n Dalvik Other 7 0 0\n TOTAL 210 0 0\n"
@@ -153,7 +153,7 @@ class Arm64DriverTest(unittest.TestCase):
         a1.assert_unforced_completion("10-03 19:00:00.100 111 112 I flutter: completed", 111)
         for line in ("10-03 19:00:00.100 111 112 F libc: Fatal signal 9",
                      "10-03 19:00:00.100 111 112 E AndroidRuntime: FATAL EXCEPTION",
-                     "ActivityManager: Killing 111:com.matrixflow.app.wp17i6/u0a42",
+                     "ActivityManager: Killing 111:com.compoise.app.wp17i6/u0a42",
                      "ActivityManager: Force stopping " + a1.PACKAGE,
                      "10-03 19:00:00.100 111 112 I flutter: WP17_A1_REPORT_FAILED=full disk"):
             with self.subTest(line=line), self.assertRaises(ValueError):

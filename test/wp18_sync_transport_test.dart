@@ -5,11 +5,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/applier.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/demo_fixtures.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/planner.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/snapshot.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/transport.dart';
+import 'package:compoise/experiments/wp18_sync/applier.dart';
+import 'package:compoise/experiments/wp18_sync/demo_fixtures.dart';
+import 'package:compoise/experiments/wp18_sync/planner.dart';
+import 'package:compoise/experiments/wp18_sync/snapshot.dart';
+import 'package:compoise/experiments/wp18_sync/transport.dart';
 
 void main() {
   late Directory root;

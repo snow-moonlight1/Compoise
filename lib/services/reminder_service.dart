@@ -308,7 +308,7 @@ class InMemoryReminderLedgerStore implements ReminderLedgerStore {
 /// Read and write failures are reported to the service instead of being turned
 /// into an empty ledger, so a storage problem cannot look like "nothing pending".
 class SharedPreferencesReminderLedgerStore implements ReminderLedgerStore {
-  static const String storageKey = 'matrixflow-reminder-pending';
+  static const String storageKey = 'compoise-reminder-pending';
 
   @override
   Future<String?> read() async {
@@ -1871,7 +1871,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       );
       const windowsSettings = WindowsInitializationSettings(
         appName: 'Compoise',
-        appUserModelId: 'MatrixFlow.MatrixFlowApp.1.0',
+        appUserModelId: 'Compoise.CompoiseApp.1.0',
         guid: '69a03975-2989-4d05-b778-5e824707612f',
       );
       const initSettings = InitializationSettings(
@@ -2010,7 +2010,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   }) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        'matrixflow_reminders',
+        'compoise_reminders',
         'Compoise Reminders',
         channelDescription: 'Task and subtask deadline reminders',
         importance: Importance.max,

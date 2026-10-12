@@ -11,11 +11,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/settings_model_request.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/settings_model_request.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -111,7 +111,7 @@ class _ThrowingService extends AIService {
 
 Future<Store> _openStore(AIService service, {AIConfig? config}) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-has-seen-onboarding': true,
+    'compoise-has-seen-onboarding': true,
   });
   final store = Store(aiService: service);
   await store.init();

@@ -1,6 +1,6 @@
 // WP17-I1/I4 smoke caller for the C ABI.
 //
-// usage: matrixflow_ocr_smoke <assets root> <image.png> [more.png ...]
+// usage: compoise_ocr_smoke <assets root> <image.png> [more.png ...]
 //
 // One line of raw JSON per image, then a machine-readable summary line that
 // records how many images succeeded, the wall time and the peak RSS of this
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 {
     if (argc < 3)
     {
-        fprintf(stderr, "usage: matrixflow_ocr_smoke <assets root> <image.png> [more.png ...]\n");
+        fprintf(stderr, "usage: compoise_ocr_smoke <assets root> <image.png> [more.png ...]\n");
         return 2;
     }
 

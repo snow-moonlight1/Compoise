@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/ui/motion_policy.dart';
-import 'package:matrixflow_native/widgets/task_card.dart';
-import 'package:matrixflow_native/widgets/task_exit.dart';
-import 'package:matrixflow_native/widgets/task_list_view.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/ui/motion_policy.dart';
+import 'package:compoise/widgets/task_card.dart';
+import 'package:compoise/widgets/task_exit.dart';
+import 'package:compoise/widgets/task_list_view.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

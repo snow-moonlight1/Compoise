@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "MatrixFlow AI",
+  "productName": "Compoise",
   "version": "0.1.0",
-  "identifier": "com.matrixflow.ai",
+  "identifier": "com.compoise.ai",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3456",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "MatrixFlow AI",
+        "title": "Compoise",
         "width": 1280,
         "height": 820,
         "resizable": true,

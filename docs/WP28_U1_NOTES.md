@@ -1,13 +1,13 @@
 # WP28-U1：Windows 历史目录接纳
 
 基线：`0c36b36da336f4c6551ccf93c49b567cde51f414`。分支：`codex/wp28-u1`。
-工作树：`C:/Users/20214/.codex/worktrees/wp28-u1/martix`。
+工作树：`C:/Users/20214/.codex/worktrees/wp28-u1/compoise`。
 本包保留 `Compoise/Compoise` 身份，不修改 runner、构建配置、模型、导入规则或快照格式。
 
 ## 启动顺序
 
 `WidgetsFlutterBinding` → Windows window manager → 安装现有单实例/通知参数处理 →
-Windows 升级启动页检查/复制 → 提醒服务 `init` → 原有 `MatrixFlowApp` / Store `init`。
+Windows 升级启动页检查/复制 → 提醒服务 `init` → 原有 `CompoiseApp` / Store `init`。
 创建 ReminderService 对象本身不打开首选项。升级未完成时不创建 Store、不初始化提醒持久化。
 升级页面关闭按钮只在 Store 打开前销毁窗口；进入应用后仍走原有退出、保存、销毁顺序。
 单实例的启动参数接收与后续窗口恢复/通知 payload 分发接线保持原样。
@@ -32,7 +32,7 @@ Windows 升级启动页检查/复制 → 提醒服务 `init` → 原有 `MatrixF
 
 ## 接纳、提交与恢复
 
-源：`<RoamingAppData>/com.matrixflow/MatrixFlow AI`。
+源：`<RoamingAppData>/com.compoise/Compoise`。
 目标：`<RoamingAppData>/Compoise/Compoise`。
 
 1. 目标目录中存在任何用户资料即优先使用目标。有效空库 `{}`、已有空任务集合、坏 pointer/槽、
@@ -48,7 +48,7 @@ Windows 升级启动页检查/复制 → 提醒服务 `init` → 原有 `MatrixF
 5. 清理仅针对本次创建且仍在范围内的临时文件/目录，并再次检查真实路径；不递归清理。
    旧中断残留及未知文件不扫除，位于目标用户目录之外，不阻碍重试。清理失败不回滚已提交库。
 6. 无旧加密文件时首选项逐字节复制；有旧加密文件时只在外层 envelope 添加
-   `flutter.matrixflow-upgrade-credentials-required` 布尔提示，原始键值/槽字符串不改。
+   `flutter.compoise-upgrade-credentials-required` 布尔提示，原始键值/槽字符串不改。
    提示与库共用同一提交点，提交后崩溃也不会丢失重新配置提示。
 
 `SaveProtocol.readCommitted` 是从原 `load` 抽取的只读验证；`load` 仍使用同一实现。

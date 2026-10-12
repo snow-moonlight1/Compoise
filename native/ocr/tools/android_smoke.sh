@@ -4,7 +4,7 @@
 #
 # Requires (pushed separately, never committed):
 #   /data/local/tmp/wp17i4-smoke                 the smoke executable
-#   /data/local/tmp/libmatrixflow_ocr.so         the shared object
+#   /data/local/tmp/libcompoise_ocr.so         the shared object
 #   /data/local/tmp/wp17i4-assets/ncnn/...       the five model files
 #   /data/local/tmp/wp17i4-evidence/images/*.png the 12 synthetic screenshots
 set -u

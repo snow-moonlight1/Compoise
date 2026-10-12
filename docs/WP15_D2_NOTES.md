@@ -1,6 +1,6 @@
 # WP15-D2：日程设备验收与实测修复
 
-基线 `39cf8ed6df7f5290a9b45c970f9c5e279c89230a`；分支 `codex/wp15-d2`；工作树 `D:/Dev_project/martix-wp15-d2`。设备执行记录中的 revision 是该基线，dirty=true，表示执行了本包未提交源码；最终完整提交 SHA 随交接给出。固定 Flutter 3.32.8 / Dart 3.8.1，依赖版本沿用原锁文件。本包不代表 WP15 所有设备门禁已完成。
+基线 `39cf8ed6df7f5290a9b45c970f9c5e279c89230a`；分支 `codex/wp15-d2`；工作树 `D:/Dev_project/compoise-wp15-d2`。设备执行记录中的 revision 是该基线，dirty=true，表示执行了本包未提交源码；最终完整提交 SHA 随交接给出。固定 Flutter 3.32.8 / Dart 3.8.1，依赖版本沿用原锁文件。本包不代表 WP15 所有设备门禁已完成。
 
 ## 改动与实测缺陷
 
@@ -17,7 +17,7 @@
 
 ## 数据与证据边界
 
-测试直接渲染 MatrixHome、TaskDetailPanel、PlannerScreen 及生产详情/编辑/时区选择器，调用生产 `defaultDeviceTimeZoneSource()`。没有注入模拟时区 source。Android 在读取偏好前校验应用支持目录含 `com.matrixflow.app.wp15d2`；Linux 校验专属 XDG 根。使用真实 SharedPreferences 插件及磁盘重读，合成资料通过现有 `previewImport(..., 'overwrite')` / `applyImport` 导入。
+测试直接渲染 MatrixHome、TaskDetailPanel、PlannerScreen 及生产详情/编辑/时区选择器，调用生产 `defaultDeviceTimeZoneSource()`。没有注入模拟时区 source。Android 在读取偏好前校验应用支持目录含 `com.compoise.app.wp15d2`；Linux 校验专属 XDG 根。使用真实 SharedPreferences 插件及磁盘重读，合成资料通过现有 `previewImport(..., 'overwrite')` / `applyImport` 导入。
 
 合成库含板、父任务、已完成子任务、时间块和独立/关联事件，并保留任务日期、截止、提醒、象限、笔记、标签、子任务完成时间等字段。凭据端口禁用密钥写入，提醒使用 InMemoryReminderService；真实通知投递和密钥存储不属于此证据。草稿保存失败是对双槽 pointer 写入返回 false 的故障注入，未损坏真实用户资料。
 
@@ -44,7 +44,7 @@
 | Linux / WSL2 / Xvfb，unset TZ，系统配置 | 四场景通过，0；生产读取 identity/iana=Asia/Shanghai |
 | Android 专用模拟器完整设备验收 | 四场景通过，drive/脚本均 0；真实运行中时区变更，软件渲染 |
 | Android/Linux 未显式开启入口 | 两个脚本均退出 2（blocked），未启动应用 |
-| Android 正常主入口 Debug 构建 | 0；aapt 确认 com.matrixflow.app，未安装正式包 |
+| Android 正常主入口 Debug 构建 | 0；aapt 确认 com.compoise.app，未安装正式包 |
 
 定向回归精确命令（Windows SDK 为 `D:/Dev_SDKs/Flutter_3.32.8/bin/flutter.bat`）：
 
@@ -63,7 +63,7 @@
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tool/wp15_d2_android.ps1 -Run -Device emulator-5580 -SoftwareRendering
 ```
 
-先构建 opt-in APK，使用 aapt 验证身份精确为 `com.matrixflow.app.wp15d2` 后才允许 drive 安装。正式 `com.matrixflow.app` 不安装、不清理、不读取。Android 元数据为 `android-result.json`，构建/驱动日志分别为 `android-isolated-build.log` / `android-drive.log`。
+先构建 opt-in APK，使用 aapt 验证身份精确为 `com.compoise.app.wp15d2` 后才允许 drive 安装。正式 `com.compoise.app` 不安装、不清理、不读取。Android 元数据为 `android-result.json`，构建/驱动日志分别为 `android-isolated-build.log` / `android-drive.log`。
 
 Linux SDK 为 `/home/ubuntu/develop/flutter/bin/flutter`；WSL2 Ubuntu-24.04，内核 6.6.87.2，GTK3 3.24.41，Xvfb 虚拟 X11 显示。系统 `/etc/timezone` 为 Asia/Shanghai，`/etc/localtime` 链接同名 zoneinfo；系统模式 unset TZ。未修改 Linux 系统配置，也不声称 Linux 有原生时区变更推送：本轮验证进入/重新进入页面的读取边界。
 
@@ -74,12 +74,12 @@ GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 \
   bash tool/wp15_d2_linux.sh --run /home/ubuntu/develop/flutter/bin/flutter system
 ```
 
-本机 Linux 缓存缺少固定版本，因此实际调用额外设置 `WP15_D2_PUB_CACHE_SEED=/mnt/d/Dev_project/martix-wp15-d2/build/wp15-d2/pub-cache-seed.tar`，由 Windows 缓存中的锁定 package 源码/哈希/版本元数据制成，不提交该归档。也可指定完整的 package 缓存目录；seed 只复制进临时目录，解析使用 `--offline --enforce-lockfile`，再次比对所有包版本，禁止镜像缓存导致传递依赖升级。
+本机 Linux 缓存缺少固定版本，因此实际调用额外设置 `WP15_D2_PUB_CACHE_SEED=/mnt/d/Dev_project/compoise-wp15-d2/build/wp15-d2/pub-cache-seed.tar`，由 Windows 缓存中的锁定 package 源码/哈希/版本元数据制成，不提交该归档。也可指定完整的 package 缓存目录；seed 只复制进临时目录，解析使用 `--offline --enforce-lockfile`，再次比对所有包版本，禁止镜像缓存导致传递依赖升级。
 
 Linux 每种模式独立记录 `linux-Asia_Tokyo.log` / `linux-system.log` 和对应 result.json。四场景完成后 integration_test 会提示 Linux 未检测到原生 integration_test plugin；本轮以 Flutter VM driver 收到完整测试结果、`WP15_D2_RESULT` 和实际退出码 0 为证据，未声称 Android instrumentation/XCTest 捕获方式。
 
 ## 清理、中断与剩余缺项
 
-Android 专用 AVD `wp15d2`，serial `emulator-5580`，API 35 / x86_64，测试应用 `com.matrixflow.app.wp15d2`。原时区 GMT、auto_time_zone=1；验收先置 Asia/Shanghai，保持日程页打开时变更为 Asia/Tokyo。最终元数据 `liveZoneChanged=true`、`flutterExitCode=0`、`exitCode=0`、`restoredZone=GMT`、`restoredAutoZone=1`。另用 ADB 独立复核原值；drive 已卸载专用 APK，pm list packages 确认不存在，syntheticDataCleared=package-not-installed。只关闭自建 emulator-5580，未操作其他设备或正常包。宿主 emulator 35.2.10 的 headless QEMU 在 GPU 渲染时出现 Windows Application Error / 0xc0000005，实际进程退出 -1073741819，设备驱动退出 1。ANGLE 选项在本宿主回退到 SwiftShader；最终使用 Flutter 软件渲染规避宿主崩溃，实际仍渲染 Android 原生窗口和生产页面，不将此作为默认 GPU 路径稳定性证据。早期设备消失导致恢复失败的尝试退出非零；再次启动专用 AVD 后已先恢复原 GMT、auto_time_zone=1，再开始最终验收。失败日志未当作有效通过。Linux 临时 XDG、合成备份和自建显示/应用进程由退出处理清理。用于重跑的忽略目录 AVD/日志/精确缓存 seed 保留，不包含用户库或个人截图。
+Android 专用 AVD `wp15d2`，serial `emulator-5580`，API 35 / x86_64，测试应用 `com.compoise.app.wp15d2`。原时区 GMT、auto_time_zone=1；验收先置 Asia/Shanghai，保持日程页打开时变更为 Asia/Tokyo。最终元数据 `liveZoneChanged=true`、`flutterExitCode=0`、`exitCode=0`、`restoredZone=GMT`、`restoredAutoZone=1`。另用 ADB 独立复核原值；drive 已卸载专用 APK，pm list packages 确认不存在，syntheticDataCleared=package-not-installed。只关闭自建 emulator-5580，未操作其他设备或正常包。宿主 emulator 35.2.10 的 headless QEMU 在 GPU 渲染时出现 Windows Application Error / 0xc0000005，实际进程退出 -1073741819，设备驱动退出 1。ANGLE 选项在本宿主回退到 SwiftShader；最终使用 Flutter 软件渲染规避宿主崩溃，实际仍渲染 Android 原生窗口和生产页面，不将此作为默认 GPU 路径稳定性证据。早期设备消失导致恢复失败的尝试退出非零；再次启动专用 AVD 后已先恢复原 GMT、auto_time_zone=1，再开始最终验收。失败日志未当作有效通过。Linux 临时 XDG、合成备份和自建显示/应用进程由退出处理清理。用于重跑的忽略目录 AVD/日志/精确缓存 seed 保留，不包含用户库或个人截图。
 
 本批未连接真机；Android 真机完整 D2、Linux 实体桌面、Windows 原生界面/系统时区变更、实体输入设备、系统大字号和读屏仍未验收。Windows 原生验收由并行包独占，本包没有启动 Windows 应用或修改 Windows 系统时区。未覆盖 Linux 运行中修改 /etc 配置后恢复刷新、Android API<26 的完整 D2、所有时区/分卷规模组合或旧版本回退提示。公共文档和剩余 WP15 门禁由集成端收口。本包不 push、不合并其他包。

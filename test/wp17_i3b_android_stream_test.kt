@@ -1,4 +1,4 @@
-package com.matrixflow.matrixflow_native
+package com.compoise.app
 
 import java.io.ByteArrayInputStream
 import java.io.File

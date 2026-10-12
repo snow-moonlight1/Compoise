@@ -3,14 +3,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/completed_screen.dart';
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/widgets/animated_task_title.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
-import 'package:matrixflow_native/widgets/task_exit.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/completed_screen.dart';
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/widgets/animated_task_title.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
+import 'package:compoise/widgets/task_exit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -101,7 +101,7 @@ void main() {
       await store.flush();
       final prefs = await SharedPreferences.getInstance();
       final saved =
-          jsonDecode(prefs.getString('matrixflow-settings')!)
+          jsonDecode(prefs.getString('compoise-settings')!)
               as Map<String, dynamic>;
       expect(saved['reduceMotion'], isTrue);
       final reloaded = Store();
@@ -236,7 +236,7 @@ void main() {
     await store.flush();
     final prefs = await SharedPreferences.getInstance();
     final saved =
-        jsonDecode(prefs.getString('matrixflow-tasks')!) as List<dynamic>;
+        jsonDecode(prefs.getString('compoise-tasks')!) as List<dynamic>;
     expect((saved.first as Map<String, dynamic>)['completed'], isTrue);
 
     // The row is still on screen as a non-interactive snapshot.

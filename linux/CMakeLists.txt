@@ -4,10 +4,10 @@ project(runner LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "matrixflow_native")
+set(BINARY_NAME "compoise")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "com.matrixflow.app")
+set(APPLICATION_ID "com.compoise.app")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -106,11 +106,11 @@ endif()
 # CMake resolves $<TARGET_FILE:...> while configuring; a generator expression
 # inside install(CODE ...) would reach the install script as literal text.
 set(WP17_OCR_BUNDLE_LIB "${CMAKE_INSTALL_PREFIX}/lib")
-if(TARGET matrixflow_ocr)
+if(TARGET compoise_ocr)
   set(WP17_OCR_INSTALL_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/wp17_ocr_install.cmake")
   file(GENERATE OUTPUT "${WP17_OCR_INSTALL_SCRIPT}" CONTENT
-"file(INSTALL DESTINATION \"${WP17_OCR_BUNDLE_LIB}\" TYPE SHARED_LIBRARY FILES \"$<TARGET_FILE:matrixflow_ocr>\")
-message(STATUS \"Installing: ${WP17_OCR_BUNDLE_LIB}/$<TARGET_FILE_NAME:matrixflow_ocr>\")
+"file(INSTALL DESTINATION \"${WP17_OCR_BUNDLE_LIB}\" TYPE SHARED_LIBRARY FILES \"$<TARGET_FILE:compoise_ocr>\")
+message(STATUS \"Installing: ${WP17_OCR_BUNDLE_LIB}/$<TARGET_FILE_NAME:compoise_ocr>\")
 ")
 endif()
 
@@ -119,7 +119,7 @@ install(CODE "
   file(REMOVE_RECURSE \"${BUILD_BUNDLE_DIR}/\")
   " COMPONENT Runtime)
 
-if(TARGET matrixflow_ocr)
+if(TARGET compoise_ocr)
   install(SCRIPT "${WP17_OCR_INSTALL_SCRIPT}" COMPONENT Runtime)
 endif()
 

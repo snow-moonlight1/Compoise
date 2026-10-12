@@ -8,7 +8,7 @@ import 'reminder_service.dart';
 
 /// Command-line prefix carrying a notification [ReminderPayload].
 const String kSingleInstanceNotificationArgument =
-    '--matrixflow-notification-payload=';
+    '--compoise-notification-payload=';
 
 /// Reads the notification task payload from a Windows launch argument list.
 ReminderPayload? notificationPayloadFromArguments(List<String> args) {
@@ -45,7 +45,7 @@ void dispatchSingleInstanceActivation(
 /// Listens for command lines forwarded by later Windows launches.
 class SingleInstanceController {
   static const MethodChannel _channel = MethodChannel(
-    'matrixflow/single_instance',
+    'compoise/single_instance',
   );
 
   static bool get _platformEnabled {

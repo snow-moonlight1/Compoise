@@ -8,33 +8,33 @@ import 'package:window_manager/window_manager.dart';
 
 /// Isolated Windows multi-instance probe.
 ///
-/// Refuses to start without MATRIXFLOW_OS16_DATA_DIR. It writes only inside
+/// Refuses to start without COMPOISE_OS16_DATA_DIR. It writes only inside
 /// that directory and does not open SharedPreferences, credential storage, or
 /// the production notification activator.
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-  final dataDirPath = Platform.environment['MATRIXFLOW_OS16_DATA_DIR'];
+  final dataDirPath = Platform.environment['COMPOISE_OS16_DATA_DIR'];
   if (dataDirPath == null || dataDirPath.trim().isEmpty) {
-    stderr.writeln('MATRIXFLOW_OS16_DATA_DIR is required');
+    stderr.writeln('COMPOISE_OS16_DATA_DIR is required');
     exit(2);
   }
   final dataDir = Directory(dataDirPath);
   await dataDir.create(recursive: true);
   final report = _Reporter(
-    Platform.environment['MATRIXFLOW_OS16_SMOKE_RESULT'],
+    Platform.environment['COMPOISE_OS16_SMOKE_RESULT'],
   );
   final taskId =
-      Platform.environment['MATRIXFLOW_OS16_TASK_ID'] ?? 'os16-task';
+      Platform.environment['COMPOISE_OS16_TASK_ID'] ?? 'os16-task';
   final raceMs =
-      int.tryParse(Platform.environment['MATRIXFLOW_OS16_RACE_MS'] ?? '') ??
+      int.tryParse(Platform.environment['COMPOISE_OS16_RACE_MS'] ?? '') ??
       0;
 
   await windowManager.ensureInitialized();
-  await windowManager.setTitle('MatrixFlow OS16 isolated test');
+  await windowManager.setTitle('Compoise OS16 isolated test');
   runApp(const MaterialApp(home: SizedBox.shrink()));
 
-  const singleInstance = MethodChannel('matrixflow/single_instance');
-  const hotkey = MethodChannel('matrixflow/os14_hotkey');
+  const singleInstance = MethodChannel('compoise/single_instance');
+  const hotkey = MethodChannel('compoise/os14_hotkey');
   var channelReady = false;
   try {
     singleInstance.setMethodCallHandler((call) async {
@@ -62,10 +62,10 @@ Future<void> main(List<String> args) async {
   );
   await _writeLibrary(dataDir, taskId, raceMs, report);
 
-  if (Platform.environment['MATRIXFLOW_OS16_HIDE'] == '1') {
+  if (Platform.environment['COMPOISE_OS16_HIDE'] == '1') {
     final hidden = await hotkey.invokeMethod<bool>('hide');
     report.write('HIDDEN hidden=$hidden');
-  } else if (Platform.environment['MATRIXFLOW_OS16_MINIMIZE'] == '1') {
+  } else if (Platform.environment['COMPOISE_OS16_MINIMIZE'] == '1') {
     await windowManager.minimize();
     report.write(
       'MINIMIZED minimized=${await windowManager.isMinimized()}',

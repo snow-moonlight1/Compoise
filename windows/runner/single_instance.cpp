@@ -211,12 +211,12 @@ struct AcquireResult {
 
 AcquireResult TryAcquire(const std::wstring& sid, SECURITY_ATTRIBUTES* attributes) {
   AcquireResult result;
-  std::wstring mutex_name = L"Global\\MatrixFlow.SingleInstance." + sid;
+  std::wstring mutex_name = L"Global\\Compoise.SingleInstance." + sid;
   std::string scope = "per-user-global";
   HANDLE mutex = CreateMutexW(attributes, TRUE, mutex_name.c_str());
   DWORD error = GetLastError();
   if (mutex == nullptr && error == ERROR_ACCESS_DENIED) {
-    mutex_name = L"Local\\MatrixFlow.SingleInstance." + sid;
+    mutex_name = L"Local\\Compoise.SingleInstance." + sid;
     scope = "per-session-mutex-with-per-user-pipe";
     mutex = CreateMutexW(attributes, TRUE, mutex_name.c_str());
     error = GetLastError();
@@ -228,11 +228,11 @@ AcquireResult TryAcquire(const std::wstring& sid, SECURITY_ATTRIBUTES* attribute
   if (error == ERROR_ALREADY_EXISTS) {
     CloseHandle(mutex);
     result.existing = true;
-    Gate().pipe_name = L"\\\\.\\pipe\\MatrixFlow.SingleInstance." + sid;
+    Gate().pipe_name = L"\\\\.\\pipe\\Compoise.SingleInstance." + sid;
     return result;
   }
 
-  const std::wstring pipe_name = L"\\\\.\\pipe\\MatrixFlow.SingleInstance." + sid;
+  const std::wstring pipe_name = L"\\\\.\\pipe\\Compoise.SingleInstance." + sid;
   HANDLE pipe = CreateOwnerPipe(pipe_name, attributes);
   if (pipe == INVALID_HANDLE_VALUE || pipe == nullptr) {
     ReleaseMutex(mutex);
@@ -266,9 +266,7 @@ void ActivateForeignWindow(uint64_t raw) {
   if (window == nullptr || !IsWindow(window)) return;
   DWORD process_id = 0;
   GetWindowThreadProcessId(window, &process_id);
-#ifndef WP28_U2_HARNESS
   if (process_id != 0) AllowSetForegroundWindow(process_id);
-#endif
   SingleInstanceRestoreWindow(window);
 }
 
@@ -359,26 +357,6 @@ bool SingleInstanceClaim(const std::vector<std::string>& arguments, int* exit_co
 
   bool saw_existing = false;
   std::wstring lock_identity = sid;
-#ifdef WP28_U2_HARNESS
-  wchar_t probe_namespace[64]{};
-  const DWORD length = GetEnvironmentVariableW(
-      L"WP28_U2_NAMESPACE", probe_namespace, 64);
-  if (length != 36) {
-    LocalFree(descriptor);
-    *exit_code = 2;
-    return false;
-  }
-  for (DWORD i = 0; i < length; ++i) {
-    const wchar_t c = probe_namespace[i];
-    if (!((c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'f') || c == L'-')) {
-      LocalFree(descriptor);
-      *exit_code = 2;
-      return false;
-    }
-  }
-  lock_identity += L".WP28-U2.";
-  lock_identity += probe_namespace;
-#endif
   for (int attempt = 0; attempt < 3; ++attempt) {
     AcquireResult acquired = TryAcquire(lock_identity, &attributes);
     if (acquired.failed) {
@@ -450,16 +428,12 @@ std::string SingleInstanceScope() {
 
 void SingleInstanceRestoreWindow(HWND window) {
   if (window == nullptr || !IsWindow(window)) return;
-#ifdef WP28_U2_HARNESS
-  ShowWindow(window, SW_SHOWNOACTIVATE);
-#else
   if (IsIconic(window)) {
     ShowWindow(window, SW_RESTORE);
   } else {
     ShowWindow(window, SW_SHOW);
   }
   SetForegroundWindow(window);
-#endif
 }
 
 void SingleInstanceDrainOnUiThread() {

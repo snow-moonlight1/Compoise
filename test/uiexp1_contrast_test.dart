@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/neumorphic/neumorphic.dart';
+import 'package:compoise/experiments/neumorphic/neumorphic.dart';
 
 String _hex(Color color) {
   String channel(double value) =>

@@ -1,6 +1,6 @@
 # WP17-I3b：截图入口、SAF 临时读取与确认提交
 
-日期：2026-10-01。独立工作树：`C:\Users\20214\.codex\worktrees\wp17-i3a\martix`。
+日期：2026-10-01。独立工作树：`C:\Users\20214\.codex\worktrees\wp17-i3a\compoise`。
 分支 `codex/wp17-i3b` 从集成提交 `ea6c4d0d8e58dd15e4c68d9824c9c0ac0bb445c6` 创建；保留原 `codex/wp17-i3a`。没有重复移植 I3a，也没有合并、改动主检出或推送。
 
 ## 入口与确认边界
@@ -51,7 +51,7 @@ Flutter 3.32.8 / Dart 3.8.1，Windows x64；Android API 23 x86_64 模拟器 `wp1
 | `git diff --check` / 暂存检查 | 通过，0 |
 
 ```powershell
-$env:WP17_OCR_TEST_LIBRARY = 'D:\Dev_project\martix-wp17-i1\build\windows\x64\runner\Release\matrixflow_ocr.dll'
+$env:WP17_OCR_TEST_LIBRARY = 'D:\Dev_project\compoise-wp17-i1\build\windows\x64\runner\Release\compoise_ocr.dll'
 $env:WP17_OCR_TEST_ASSETS = Join-Path $env:LOCALAPPDATA 'wp17r2-assets'
 flutter test --no-pub test/wp17_i3b_submission_test.dart test/wp17_i3b_capture_test.dart test/wp17_i3b_page_test.dart test/wp17_i3b_saf_device_test.dart test/wp17_i3a_screenshot_adapter_test.dart test/wp17_i3a_screenshot_capture_test.dart test/wp17_i3a_picker_test.dart test/wp17_i3a_native_capture_test.dart test/wp17_import_preview_test.dart test/wp17_i1_ocr_runtime_test.dart test/rf02_import_commit_race_test.dart test/rf11_import_target_test.dart test/ux02_regression_test.dart test/os21_page_coordination_test.dart test/os27_copy_test.dart test/platform_ui_policy_test.dart --reporter expanded
 flutter analyze --no-pub

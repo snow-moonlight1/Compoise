@@ -1,6 +1,6 @@
 # WP28-R1：候选产物校验与本地 / CI 一致性
 
-基线 `5fb4592ccc10cdcc1698e27f68d2367a3d83cf18`；独立分支 `codex/wp28-r1`，工作树 `D:/Dev_project/martix-wp28-r1`。固定 Flutter 3.32.8 / Dart 3.8.1，版本保持 `1.0.0+1`，未创建 tag。
+基线 `5fb4592ccc10cdcc1698e27f68d2367a3d83cf18`；独立分支 `codex/wp28-r1`，工作树 `D:/Dev_project/compoise-wp28-r1`。固定 Flutter 3.32.8 / Dart 3.8.1，版本保持 `1.0.0+1`，未创建 tag。
 
 ## 实际修复
 
@@ -13,7 +13,7 @@
 
 ## 验证与证据
 
-证据根：`D:/Dev_project/martix-wp28-r1/release_dist/wp28-r1-evidence`（忽略且不提交）。
+证据根：`D:/Dev_project/compoise-wp28-r1/release_dist/wp28-r1-evidence`（忽略且不提交）。
 
 | 实际命令 / 检查 | 退出码 / 结果 |
 | --- | --- |

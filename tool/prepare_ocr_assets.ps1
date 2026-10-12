@@ -347,7 +347,7 @@ Write-Note "dictionary lines: $dictLines"
 $nativeLib = $null
 foreach ($candidate in @(
         (Join-Path $AssetRoot 'ncnn-build-win/install/bin/ncnn.dll'),
-        (Join-Path $AssetRoot 'windows/matrixflow_ocr.dll'))) {
+        (Join-Path $AssetRoot 'windows/compoise_ocr.dll'))) {
     if (Test-Path -LiteralPath $candidate) { $nativeLib = $candidate; break }
 }
 if ($nativeLib) {
@@ -356,10 +356,10 @@ if ($nativeLib) {
     foreach ($symbol in $RequiredSymbols) {
         if (-not $text.Contains($symbol)) { Fail $exitVerify "$nativeLib does not export $symbol" }
     }
-    Add-Record 'windows/matrixflow_ocr.dll' $nativeLib 'project code' 'flutter build windows with WP17_OCR_NCNN_DIR/WP17_OCR_STB_DIR' 'optional component'
+    Add-Record 'windows/compoise_ocr.dll' $nativeLib 'project code' 'flutter build windows with WP17_OCR_NCNN_DIR/WP17_OCR_STB_DIR' 'optional component'
     Write-Note "native    $nativeLib exports all four ABI symbols"
 } else {
-    Write-Note 'native    no matrixflow_ocr.dll found next to the asset root; build it with'
+    Write-Note 'native    no compoise_ocr.dll found next to the asset root; build it with'
     Write-Note '          WP17_OCR_NCNN_DIR / WP17_OCR_STB_DIR set before flutter build windows'
 }
 

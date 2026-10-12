@@ -7,11 +7,11 @@ library;
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/applier.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/demo_fixtures.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/plan.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/planner.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/snapshot.dart';
+import 'package:compoise/experiments/wp18_sync/applier.dart';
+import 'package:compoise/experiments/wp18_sync/demo_fixtures.dart';
+import 'package:compoise/experiments/wp18_sync/plan.dart';
+import 'package:compoise/experiments/wp18_sync/planner.dart';
+import 'package:compoise/experiments/wp18_sync/snapshot.dart';
 
 SyncPlan _build(
   SyncScenario scenario, {

@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/screens/planner_screen.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/theme.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/screens/planner_screen.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'support/wp15_c1_fixtures.dart';
@@ -20,12 +20,12 @@ Future<Store> c2Store({
   bool recovery = false,
 }) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-boards': jsonEncode(c1Boards().map((b) => b.toJson()).toList()),
-    'matrixflow-tasks': jsonEncode(c1Tasks().map((t) => t.toJson()).toList()),
-    'matrixflow-schedule': recovery
+    'compoise-boards': jsonEncode(c1Boards().map((b) => b.toJson()).toList()),
+    'compoise-tasks': jsonEncode(c1Tasks().map((t) => t.toJson()).toList()),
+    'compoise-schedule': recovery
         ? 'broken'
         : jsonEncode((items ?? c1Items()).map((i) => i.toJson()).toList()),
-    'matrixflow-settings': jsonEncode(
+    'compoise-settings': jsonEncode(
       AppSettings(language: Language.en).toJson(),
     ),
   });

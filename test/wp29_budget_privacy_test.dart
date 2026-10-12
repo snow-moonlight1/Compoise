@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/wp29_hosted_ai/wp29_hosted_ai.dart';
+import 'package:compoise/experiments/wp29_hosted_ai/wp29_hosted_ai.dart';
 
 import '../tool/wp29_hosted_ai_demo.dart';
 

@@ -1,14 +1,14 @@
 # WP29-R：可选托管 AI 的无密钥原型
 
 基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`。分支 `codex/wp29-r`，工作树
-`D:/Dev_project/martix-wp29-r`。提交身份只写在本工作树
+`D:/Dev_project/compoise-wp29-r`。提交身份只写在本工作树
 `config.worktree`：`wp29-r-agent` / `wp29-r-agent@local.invalid`。
 没有改共享 git 身份，没有 AGENTS.md、CLAUDE.md 或 .cursorrules。
 本机 Flutter 3.32.8 stable / Dart 3.8.1，框架修订 `edada7c56e`，
 引擎 `ef0cd00091`，与 `toolchain.json` 的
 `edada7c56edf4a183c1735310e123c7f923584f1` /
 `ef0cd000916d64fa0c5d09cc809fa7ad244a5767` 一致。
-`PUB_CACHE=D:/Dev_project/martix-wp29-r-private/pub-cache`。
+`PUB_CACHE=D:/Dev_project/compoise-wp29-r-private/pub-cache`。
 `pub get --enforce-lockfile` 退出码 0，`pubspec.yaml` 与 `pubspec.lock` 相对基线无差异。
 
 本包是离线实验。生产应用仍由用户自带密钥，协议仍是 `AIProtocol.openai`、
@@ -83,7 +83,7 @@ Batch 不在 ZDR 范围内。DeepSeek 与火山方舟的隐私/保留页这次�
 
 ## 命令
 
-工作目录 `D:/Dev_project/martix-wp29-r`，Flutter `D:/Dev_SDKs/Flutter_3.32.8`。
+工作目录 `D:/Dev_project/compoise-wp29-r`，Flutter `D:/Dev_SDKs/Flutter_3.32.8`。
 
 ```powershell
 dart format lib/experiments/wp29_hosted_ai tool/wp29_hosted_ai_demo.dart test/wp29_hosted_ai_test.dart test/wp29_budget_privacy_test.dart
@@ -102,13 +102,13 @@ dart format --output=none --set-exit-if-changed lib/experiments/wp29_hosted_ai/s
 # 退出码 0，0 个改动
 dart run tool/wp29_hosted_ai_demo.dart
 # 退出码 0。stdout 含 demo_ok，不含合成任务原文。
-# 副本在 D:/Dev_project/martix-wp29-r-private/evidence/，不提交
+# 副本在 D:/Dev_project/compoise-wp29-r-private/evidence/，不提交
 ```
 
 `git diff` 相对基线只应出现本 NOTES 与 `lib/experiments/wp29_hosted_ai/`、
 `tool/wp29_hosted_ai_demo.dart`、`test/wp29_hosted_ai_test.dart`、
 `test/wp29_budget_privacy_test.dart`。`lib/main.dart`、`test/helpers.dart`、
-pubspec 与 lock 无差异。主检出 `D:/Dev_project/martix` 保持干净。
+pubspec 与 lock 无差异。主检出 `D:/Dev_project/compoise` 保持干净。
 
 ## 未验证
 

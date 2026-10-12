@@ -12,12 +12,12 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         screenshots = ScreenshotSafBridge(this,
-            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.matrixflow/screenshot_import"))
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.compoise/screenshot_import"))
         timeZone = DeviceTimeZoneBridge(this,
-            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "matrixflow/device_time_zone"))
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/device_time_zone"))
         timeZone?.start()
         ocrAssets = OcrAssetsBridge(this,
-            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.matrixflow/ocr_assets"))
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.compoise/ocr_assets"))
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (screenshots?.onActivityResult(requestCode, resultCode, data) != true) {

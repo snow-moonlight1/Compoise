@@ -1,6 +1,6 @@
 # WP17-Q2：修复截图任务结构漏检
 
-基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp17-q2`，工作树 `D:/Dev_project/martix-wp17-q2`。提交身份只在本树设为 `wp17-q2-agent <wp17-q2-agent@local.invalid>`。`toolchain.json` 为 Flutter 3.32.8 / Dart 3.8.1（revision `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`），SDK `D:/Dev_SDKs/Flutter_3.32.8`。未找到适用的 AGENTS.md。未改 main，未推送、amend、打 tag 或创建 Release。
+基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp17-q2`，工作树 `D:/Dev_project/compoise-wp17-q2`。提交身份只在本树设为 `wp17-q2-agent <wp17-q2-agent@local.invalid>`。`toolchain.json` 为 Flutter 3.32.8 / Dart 3.8.1（revision `edada7c56edf4a183c1735310e123c7f923584f1`，engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767`），SDK `D:/Dev_SDKs/Flutter_3.32.8`。未找到适用的 AGENTS.md。未改 main，未推送、amend、打 tag 或创建 Release。
 
 ## 两个缺陷
 

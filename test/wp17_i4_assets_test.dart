@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ocr/ocr_assets.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
+import 'package:compoise/ocr/ocr_assets.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_backend.dart';
 
 /// WP17-I4: the deployment layout and the resource lookup that consumes it.
 ///
@@ -104,11 +104,11 @@ void main() {
     final executable = File(Platform.resolvedExecutable).parent.path;
     final resolved = resolveOcrLibraryPath();
     if (Platform.isWindows) {
-      expect(resolved, '$executable\\matrixflow_ocr.dll');
+      expect(resolved, '$executable\\compoise_ocr.dll');
     } else if (Platform.isLinux) {
-      expect(resolved, '$executable/lib/libmatrixflow_ocr.so');
+      expect(resolved, '$executable/lib/libcompoise_ocr.so');
     } else if (Platform.isAndroid) {
-      expect(resolved, 'libmatrixflow_ocr.so');
+      expect(resolved, 'libcompoise_ocr.so');
     }
   });
 
@@ -127,7 +127,7 @@ void main() {
       android: false,
       environment: () => {'WP17_OCR_ASSETS': directory.path},
     );
-    // No matrixflow_ocr.dll exists next to the test executable.
+    // No compoise_ocr.dll exists next to the test executable.
     expect(await backend.availability(), 'NativeMissing');
     await backend.dispose();
   });

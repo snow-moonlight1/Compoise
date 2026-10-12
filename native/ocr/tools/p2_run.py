@@ -68,7 +68,7 @@ def main():
 
     def library(strategy):
         build = root / f"build-{prefix}-{strategy}"
-        return build / "Release/matrixflow_ocr.dll" if windows else build / "libmatrixflow_ocr.so"
+        return build / "Release/compoise_ocr.dll" if windows else build / "libcompoise_ocr.so"
 
     verified = verify_assets(args.assets)
     if args.stage == "build":

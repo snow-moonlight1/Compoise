@@ -21,7 +21,7 @@ AI 层由预设、模型能力判断、模型发现和请求协议适配组成�
 
 ## 平台服务
 
-- Android 使用 applicationId com.compoise.app 作为安装身份，入口是 com.compoise.app.MainActivity；显示名称和桌面图标是独立资源。品牌名称按 Android 系统语言资源切换。发版前的旧包名 com.matrixflow.app 没有发给用户。
+- Android 使用 applicationId com.compoise.app 作为安装身份，入口是 com.compoise.app.MainActivity；显示名称和桌面图标是独立资源。品牌名称按 Android 系统语言资源切换。发版前的旧包名 com.compoise.app 没有发给用户。
 - Windows runner 承接托盘、单实例、全局快捷键、关闭到托盘和窗口生命周期。用户可见窗口标题与当前应用语言同步。
 - Linux runner 提供 GTK 桌面窗口；密钥通过 Secret Service 保存。Linux 当前使用无通知的提醒服务，也没有托盘、全局快捷键或关闭到托盘。
 - Android 和 Windows 的提醒逻辑统一在 Flutter 服务中，平台插件负责通知投递、权限和系统调度。提醒送达受系统权限和设备策略影响。

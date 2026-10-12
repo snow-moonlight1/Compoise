@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/ocr/ocr_assets.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_backend.dart';
+import 'package:compoise/ocr/ocr_assets.dart';
+import 'package:compoise/screenshot_import/screenshot_backend.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +34,7 @@ void main() {
     () async {
       final root = Directory.systemTemp.createTempSync('wp17i6-layout-');
       addTearDown(() => root.deleteSync(recursive: true));
-      final executable = '${root.path}/matrixflow_native';
+      final executable = '${root.path}/compoise';
       expect(
         await bundledOcrAssetsRoot(executable: executable, android: false),
         isNull,
@@ -49,7 +49,7 @@ void main() {
       );
     },
   );
-  const channel = MethodChannel('com.matrixflow/ocr_assets');
+  const channel = MethodChannel('com.compoise/ocr_assets');
   test(
     'Android uses APK-local bridge and propagates verification failure',
     () async {

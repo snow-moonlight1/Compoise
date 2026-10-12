@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:matrixflow_native/ai_presets.dart';
-import 'package:matrixflow_native/ai_service.dart';
-import 'package:matrixflow_native/l10n.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/settings_screen.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/ai_presets.dart';
+import 'package:compoise/ai_service.dart';
+import 'package:compoise/l10n.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/settings_screen.dart';
+import 'package:compoise/storage.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';

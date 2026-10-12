@@ -1,6 +1,6 @@
 # WP17-I3a：多图捕获与 OCR 草稿适配验收
 
-日期：2026-09-30。基线为 `origin/main` 的 `d65780c5e4037ba98a5a2cf9e1bc5418f4bad3f0`；独立工作树 `C:\Users\20214\.codex\worktrees\wp17-i3a\martix`，分支 `codex/wp17-i3a`。本包新增 `lib/screenshot_import/`、本包测试和本记录。没有修改 Store、备份、原生 C++、首页导航、`lib/l10n.dart`、`docs/ROADMAP.md` 或 I1/I2 接口。只提交本工作树，不推送。
+日期：2026-09-30。基线为 `origin/main` 的 `d65780c5e4037ba98a5a2cf9e1bc5418f4bad3f0`；独立工作树 `C:\Users\20214\.codex\worktrees\wp17-i3a\compoise`，分支 `codex/wp17-i3a`。本包新增 `lib/screenshot_import/`、本包测试和本记录。没有修改 Store、备份、原生 C++、首页导航、`lib/l10n.dart`、`docs/ROADMAP.md` 或 I1/I2 接口。只提交本工作树，不推送。
 
 ## 实现与接入接口
 
@@ -71,7 +71,7 @@ flutter analyze --no-pub
 单独设置以下变量后运行上述定向命令；没有设置时本包 2 项和原 I1 3 项真实识别测试跳过，不能算作识别证据：
 
 ```powershell
-$env:WP17_OCR_TEST_LIBRARY = 'D:\Dev_project\martix-wp17-i1\build\windows\x64\runner\Release\matrixflow_ocr.dll'
+$env:WP17_OCR_TEST_LIBRARY = 'D:\Dev_project\compoise-wp17-i1\build\windows\x64\runner\Release\compoise_ocr.dll'
 $env:WP17_OCR_TEST_ASSETS = Join-Path $env:LOCALAPPDATA 'wp17r2-assets'
 ```
 

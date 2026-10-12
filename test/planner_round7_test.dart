@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/planner/planner_drag_feedback.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/widgets/schedule_layout.dart';
-import 'package:matrixflow_native/widgets/tab_slider.dart';
+import 'package:compoise/planner/planner_drag_feedback.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/widgets/schedule_layout.dart';
+import 'package:compoise/widgets/tab_slider.dart';
 
 import 'wp15_c2_test_support.dart';
 

@@ -2,7 +2,7 @@
 
 状态：纯内存草稿模型与校对组件已完成独立验收。截图导入功能没有完成。文件选择器、真实 OCR、Store 写入和全局导航属于 WP17-I3，本包没有接入。
 
-工作树 `D:\Dev_project\martix-wp17-i2`，分支 `grok/wp17-i2`，基线 `origin/main` 的 `c131dab`。`d82ff7f` cherry-pick 为 `f3a614d`，验收补强在其后的单独提交。`main` 未改，未 push。
+工作树 `D:\Dev_project\compoise-wp17-i2`，分支 `grok/wp17-i2`，基线 `origin/main` 的 `c131dab`。`d82ff7f` cherry-pick 为 `f3a614d`，验收补强在其后的单独提交。`main` 未改，未 push。
 
 ## 已验收
 

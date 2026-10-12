@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/experiments/neumorphic/neumorphic.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/theme.dart';
+import 'package:compoise/experiments/neumorphic/neumorphic.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/theme.dart';
 
 /// Evidence and caches for this package stay outside the git worktree.
 Directory uiexp1PrivateRoot() {
@@ -13,7 +13,7 @@ Directory uiexp1PrivateRoot() {
   final path = (override != null && override.isNotEmpty)
       ? override
       : Platform.isWindows
-      ? r'D:\Dev_project\martix-uiexp-1-private'
+      ? r'D:\Dev_project\compoise-uiexp-1-private'
       : '${Directory.systemTemp.path}${Platform.pathSeparator}uiexp1-private';
   final dir = Directory(path);
   dir.createSync(recursive: true);

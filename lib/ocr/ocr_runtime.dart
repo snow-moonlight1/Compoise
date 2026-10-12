@@ -142,10 +142,10 @@ OcrImageResult _failure(String path, String error) => OcrImageResult(
 /// installed next to the executable (Linux from the bundle's [lib] directory),
 /// Android resolves the packaged shared object by name.
 String resolveOcrLibraryPath() {
-  if (Platform.isAndroid) return 'libmatrixflow_ocr.so';
+  if (Platform.isAndroid) return 'libcompoise_ocr.so';
   final executable = File(Platform.resolvedExecutable).parent.path;
-  if (Platform.isWindows) return '$executable\\matrixflow_ocr.dll';
-  if (Platform.isLinux) return '$executable/lib/libmatrixflow_ocr.so';
+  if (Platform.isWindows) return '$executable\\compoise_ocr.dll';
+  if (Platform.isLinux) return '$executable/lib/libcompoise_ocr.so';
   throw UnsupportedError('OCR is available only on Android, Windows and Linux');
 }
 

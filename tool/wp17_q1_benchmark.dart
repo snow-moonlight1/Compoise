@@ -12,12 +12,12 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:matrixflow_native/import_preview/draft_model.dart';
-import 'package:matrixflow_native/import_preview/draft_preview.dart';
-import 'package:matrixflow_native/ocr/ocr_runtime.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_capture.dart';
-import 'package:matrixflow_native/screenshot_import/screenshot_submission.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/import_preview/draft_model.dart';
+import 'package:compoise/import_preview/draft_preview.dart';
+import 'package:compoise/ocr/ocr_runtime.dart';
+import 'package:compoise/screenshot_import/screenshot_capture.dart';
+import 'package:compoise/screenshot_import/screenshot_submission.dart';
+import 'package:compoise/storage.dart';
 
 class _BenchmarkCredentials implements CredentialStore {
   @override

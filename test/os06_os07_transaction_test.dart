@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/screens/startup_recovery_screen.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/screens/startup_recovery_screen.dart';
+import 'package:compoise/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -124,7 +124,7 @@ void main() {
       final protocol = SaveProtocol(
         prefs,
         writer: (key, value) async {
-          if (!blocked && key == 'matrixflow-save-a') {
+          if (!blocked && key == 'compoise-save-a') {
             blocked = true;
             await gate.future;
           }
@@ -132,14 +132,14 @@ void main() {
         },
       );
       Map<String, String> values(String name) => {
-        'matrixflow-tasks': '[]',
-        'matrixflow-boards': jsonEncode([
+        'compoise-tasks': '[]',
+        'compoise-boards': jsonEncode([
           {'id': name, 'name': name, 'createdAt': 1},
         ]),
-        'matrixflow-config': '{}',
-        'matrixflow-settings': '{}',
-        'matrixflow-active-board': name,
-        'matrixflow-has-seen-onboarding': 'false',
+        'compoise-config': '{}',
+        'compoise-settings': '{}',
+        'compoise-active-board': name,
+        'compoise-has-seen-onboarding': 'false',
       };
       final first = protocol.commit(values('first'));
       final second = protocol.commit(values('second'));
@@ -148,7 +148,7 @@ void main() {
       expect((await second).revision, 2);
       final restored = SaveProtocol(prefs).load()!;
       expect(restored.revision, 2);
-      expect(restored.values['matrixflow-active-board'], 'second');
+      expect(restored.values['compoise-active-board'], 'second');
     },
   );
 
@@ -159,7 +159,7 @@ void main() {
       var rejectMirror = false;
       final store = await open(
         writer: (key, value) async {
-          if (rejectMirror && key == 'matrixflow-active-board') return false;
+          if (rejectMirror && key == 'compoise-active-board') return false;
           return (await SharedPreferences.getInstance()).setString(key, value);
         },
       );

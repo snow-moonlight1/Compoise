@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/task_query.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/task_query.dart';
 
 void main() {
   group('task_query unit tests', () {

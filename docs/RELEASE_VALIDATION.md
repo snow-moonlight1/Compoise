@@ -29,7 +29,7 @@ WP15-D2/D3、WP17-I6 与 WP28-R1 已接收独立提交。集成时保留两套 A
 | 固定 SDK 分析与默认全量 | analyze exit 0；短路径修复后 1404 项通过 / 10 条件跳过，test exit 0 |
 | 候选校验与 OCR Python 回归 | 24 项 / 21 项通过，均 exit 0；含五种诊断环境的实际预检拒绝 |
 | 两套 Android 诊断身份同时启用 | Gradle 按预期 exit 1，正常身份不变 |
-| 正常 Android Debug 主入口 | build exit 0，实际 APK 包名 `com.matrixflow.app`；未安装 |
+| 正常 Android Debug 主入口 | build exit 0，实际 APK 包名 `com.compoise.app`；未安装 |
 | D3 Windows 私有桌面矩阵 | 6 业务场景通过，build/driver/native/script 均 exit 0，无进程/临时库残留，宿主时区未改 |
 | Windows 升级/路径专项回归 | 73 项通过，exit 0；真实 8.3 短路径迁移与真实 junction 拒绝均通过 |
 
@@ -118,7 +118,7 @@ CI 侧 `.github/workflows/release.yml` 在推送 `v*` tag 时按 `preflight → 
 |---|---|---|---|
 | Android | `compoise-vX.Y.Z+N-android.apk` | 需用仓库 secret 中的发布 keystore 签名；CI 另要求 `ANDROID_RELEASE_CERT_SHA256` 给出期望证书指纹，调试签名或指纹不符即失败 | **未验证**：尚无发布 keystore，也没有真机安装证据 |
 | Windows | `compoise-vX.Y.Z+N-windows-portable.zip`（便携目录，非安装器） | **未做 Authenticode 签名**，SmartScreen 可能告警；脚本与 CI 都按“未签名”如实记录，签名状态异常（HashMismatch/NotTrusted）即拒绝暂存 | 打包门禁本机实测通过；U2 隔离 Debug/Release 升级退出已验证，正式版本原位升级仍待验证 |
-| Linux | 无交付物 | 不适用 | 预览：CI 用固定工具链编译并检查 `build/linux/x64/release/bundle/`（可执行文件名仍是 `matrixflow_native`），不启动界面、不打包、不签名 |
+| Linux | 无交付物 | 不适用 | 预览：CI 用固定工具链编译并检查 `build/linux/x64/release/bundle/`（可执行文件名仍是 `compoise`），不启动界面、不打包、不签名 |
 
 发布说明中这三条必须原样表达；`RELEASE_METADATA.txt` 与 `RELEASE_MANIFEST.txt` 会写入 tag、完整 commit、工具链、Android 证书 DN 与 SHA-256、Windows 签名状态和 `license=GPL-3.0-only`。项目许可为 GPL-3.0-only，第三方素材见 `assets/licenses/THIRD_PARTY_NOTICES.txt`。
 
@@ -126,7 +126,7 @@ CI 侧 `.github/workflows/release.yml` 在推送 `v*` tag 时按 `preflight → 
 
 Windows 的任务库位置不是安装目录，而是 exe 版本信息派生出来的应用目录：`shared_preferences` 经 `path_provider_windows` 取 `%APPDATA%\<CompanyName>\<ProductName>`，`shared_preferences.json` 和 `flutter_secure_storage.dat` 都落在里面。因此 **`CompanyName` + `ProductName` 就是数据目录的身份**，改动等于换库。
 
-- 2026-09-16 起的构建：`%APPDATA%\com.matrixflow\MatrixFlow AI`。
+- 2026-09-16 起的构建：`%APPDATA%\com.compoise\Compoise`。
 - `d9e3b56`（2026-09-27，开源准备）把两个字段改为 `Compoise` / `Compoise`，此后构建读取 `%APPDATA%\Compoise\Compoise`。
 
 WP28-U1 已集成启动升级适配：在提醒和 Store 打开前检查两处目录，当前目录已有资料时优先使用当前库；只在目标不存在时校验并复制旧首选项，使用不覆盖目标的原子提交。旧目录始终只读，损坏或失败提供恢复与重试，不初始化空库掩盖错误。加密凭据不跨目录复制，提示重新配置。`test/os26_release_test.dart` 仍固定当前身份。
@@ -143,7 +143,7 @@ WP28-U1 已集成启动升级适配：在提醒和 Store 打开前检查两处�
 |---|---|---|
 | Android | 全新设备或清除数据后安装 APK，首启 | 引导页出现、默认板与空矩阵正常，三语切换可用；无网络权限也不影响普通任务；日志中无未处理异常 |
 | Windows | 解压 ZIP 到新目录（或新虚拟机），双击 `compoise.exe` | 首次运行创建 `%APPDATA%\Compoise\Compoise`；单实例锁生效（二次启动只唤起已有窗口）；关闭窗口按桌面设置退出或进托盘 |
-| Linux 预览 | 解压/复制 CI 构建的 bundle，在图形会话中运行 `bundle/matrixflow_native` | 能启动并完成新建、勾选、切换任务板；密钥保存需已解锁的 Secret Service 默认密钥环，缺失时提示可理解且不崩溃；无系统通知、托盘、全局快捷键属已知限制 |
+| Linux 预览 | 解压/复制 CI 构建的 bundle，在图形会话中运行 `bundle/compoise` | 能启动并完成新建、勾选、切换任务板；密钥保存需已解锁的 Secret Service 默认密钥环，缺失时提示可理解且不崩溃；无系统通知、托盘、全局快捷键属已知限制 |
 
 ### 2. 安装
 
@@ -193,9 +193,9 @@ Android 的“同签名”是硬前提：换发布证书即视为不同应用，
 | keystore 布局解析（`android/key.properties` + `android/app/release.jks`，即 CI 与模板文档采用的布局） | 修复前误报“找不到 keystore”从而拒绝合法配置，现按 Gradle 顺序解析，Windows 与 Linux 两侧一致；keystore 缺失时仍如实报 MISSING |
 | `-FlutterSdk <Linux SDK>` | 修复前挑到 `bin/flutter.bat` 而无法执行，现按宿主选择启动器并成功探测固定版本 |
 | Windows 真实打包（`-Platform Windows`，构建 + 身份校验 + ZIP + 校验和 + manifest） | 通过：全新构建 255 s、增量重跑约 2 min；ZIP 13,405,301 字节、19 个条目，`SHA256SUMS.txt` 与 `RELEASE_MANIFEST.txt` 正常写出；manifest 记录 `gitCommit=5b3b39e6…`、`toolchainPinState=matches`、`windowsCodeSigning=unsigned (Authenticode is not configured)`、`license=GPL-3.0-only`、`appDataDir=…\Compoise\Compoise`、`authenticode=NotSigned` |
-| 身份字段断言 | 修复前脚本仍要求 `LegalCopyright` 含 `com.matrixflow`，而 `d9e3b56` 之后实际值是 `Copyright (C) 2026 Compoise contributors.` ⇒ 真实打包必然抛错。现断言当前身份，并新增 `CompanyName` 检查与应用目录记录 |
+| 身份字段断言 | 修复前脚本仍要求 `LegalCopyright` 含 `com.compoise`，而 `d9e3b56` 之后实际值是 `Copyright (C) 2026 Compoise contributors.` ⇒ 真实打包必然抛错。现断言当前身份，并新增 `CompanyName` 检查与应用目录记录 |
 | 脏树标记的可解释性 | manifest 的 `gitWorkingTreeDirty=True` 现在附带 `gitWorkingTreePaths=…`。注意 `flutter pub get` 会重新生成未被跟踪的 `linux/flutter/generated_*` 三个文件，因此**只做过 pub get 的干净检出也会显示为脏**；`windows/flutter/generated_*` 是已跟踪的。建议集成时决定提交或忽略这三个 Linux 文件，与仓库既有的 Windows/Android 约定保持一致 |
-| 数据目录漂移 | 读取自 2026-09-27 构建的 `compoise.exe`：`CompanyName=Compoise`、`ProductName=Compoise` → `%APPDATA%\Compoise\Compoise`（该目录不存在）；旧库仍在 `%APPDATA%\com.matrixflow\MatrixFlow AI\shared_preferences.json`（最后写入 2026-09-25） |
+| 数据目录漂移 | 读取自 2026-09-27 构建的 `compoise.exe`：`CompanyName=Compoise`、`ProductName=Compoise` → `%APPDATA%\Compoise\Compoise`（该目录不存在）；旧库仍在 `%APPDATA%\com.compoise\Compoise\shared_preferences.json`（最后写入 2026-09-25） |
 | `release.yml` 全部 job 步骤 | YAML 解析通过；23 个 bash 块 `bash -n` 通过；4 个 PowerShell 块解析通过（表达式先替换）；publish job 的各步骤在 Linux 沙箱按伪产物实跑：产物装配、发布说明、metadata、产物集合门禁、`sha256sum -c --strict` 全部通过 |
 | 门禁反例 | 多余文件、metadata 缺完整 commit、缺一侧平台产物、缺 Android 签名证明 → 全部拒绝；发布后再篡改产物 → `sha256sum -c` 报失败 |
 | 期间发现并修正的自引入缺陷 | 产物计数用 `grep -v` 在“全部合规”时退出码 1，配合 `pipefail` 会让成功路径中止；已按预期路径修正并纳入反例复测 |

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/storage.dart';
-import 'package:matrixflow_native/widgets/task_detail_panel.dart';
-import 'package:matrixflow_native/widgets/task_edit_draft.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/storage.dart';
+import 'package:compoise/widgets/task_detail_panel.dart';
+import 'package:compoise/widgets/task_edit_draft.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -556,7 +556,7 @@ void main() {
 
 Future<Store> _store(List<Task> tasks) async {
   SharedPreferences.setMockInitialValues({
-    'matrixflow-has-seen-onboarding': true,
+    'compoise-has-seen-onboarding': true,
   });
   final store = Store();
   await store.init();

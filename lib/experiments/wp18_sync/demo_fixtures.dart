@@ -5,8 +5,8 @@
 /// and the tests, so a green suite and a printed plan describe the same thing.
 library;
 
-import 'package:matrixflow_native/experiments/wp18_sync/planner.dart';
-import 'package:matrixflow_native/experiments/wp18_sync/snapshot.dart';
+import 'package:compoise/experiments/wp18_sync/planner.dart';
+import 'package:compoise/experiments/wp18_sync/snapshot.dart';
 
 const int epoch = 1790000000000;
 const int dayMs = 86400000;

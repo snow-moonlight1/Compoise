@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:matrixflow_native/main.dart' as app;
-import 'package:matrixflow_native/screens/matrix_screen.dart';
-import 'package:matrixflow_native/services/desktop_shell_windows.dart';
-import 'package:matrixflow_native/storage.dart';
+import 'package:compoise/main.dart' as app;
+import 'package:compoise/screens/matrix_screen.dart';
+import 'package:compoise/services/desktop_shell_windows.dart';
+import 'package:compoise/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,7 +48,7 @@ Future<void> main() async {
 
   Future<void> boot(WidgetTester tester, {required bool seenOnboarding}) async {
     SharedPreferences.setMockInitialValues({
-      'matrixflow-config': jsonEncode({
+      'compoise-config': jsonEncode({
         'providerId': 'custom',
         'provider': 'openai',
         'protocol': 'openai',
@@ -57,12 +57,12 @@ Future<void> main() async {
         'customModel': 'mock-model',
         'enableThinking': false,
       }),
-      'matrixflow-settings': jsonEncode({
+      'compoise-settings': jsonEncode({
         'language': 'en',
         'suppressGroupPrompt': true,
         'suppressLongTermPrompt': true,
       }),
-      if (seenOnboarding) 'matrixflow-has-seen-onboarding': true,
+      if (seenOnboarding) 'compoise-has-seen-onboarding': true,
     });
     await tester.binding.setSurfaceSize(const Size(400, 900));
     await app.main();
@@ -86,8 +86,8 @@ Future<void> main() async {
       expect(ReminderService.instance, isA<NoopReminderService>());
       expect(await credentials.read(), 'test-key');
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('matrixflow-has-seen-onboarding'), isTrue);
-      expect(prefs.getString('matrixflow-os25-user-profile'), isNull);
+      expect(prefs.getBool('compoise-has-seen-onboarding'), isTrue);
+      expect(prefs.getString('compoise-os25-user-profile'), isNull);
 
       final models = await _get(port, '/models');
       expect(models.status, 200);
@@ -161,7 +161,7 @@ Future<void> main() async {
       );
       expect(store.hasSeenOnboarding, isTrue);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('matrixflow-has-seen-onboarding'), isTrue);
+      expect(prefs.getBool('compoise-has-seen-onboarding'), isTrue);
     } finally {
       await unmount(tester);
       await tester.binding.setSurfaceSize(null);

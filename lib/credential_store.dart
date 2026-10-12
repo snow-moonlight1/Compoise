@@ -13,7 +13,7 @@ class SystemCredentialStore implements CredentialStore {
   final FlutterSecureStorage storage;
 
   const SystemCredentialStore({
-    this.key = 'matrixflow-custom-api-key',
+    this.key = 'compoise-custom-api-key',
     this.storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(migrateWithBackup: true),
     ),

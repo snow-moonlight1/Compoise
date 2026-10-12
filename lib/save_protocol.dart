@@ -21,56 +21,13 @@ class SavedBatch {
   const SavedBatch(this.revision, this.values);
 }
 
-/// Non-secret Windows upgrade state. Committed values are authoritative;
-/// booleans outside a batch are bootstrap/compatibility mirrors only.
-class WindowsCredentialState {
-  final bool present;
-  final bool needsSetup;
-  final bool noticeRead;
-  const WindowsCredentialState(this.present, this.needsSetup, this.noticeRead);
-
-  static WindowsCredentialState read(
-    Map<String, String>? values,
-    Object? Function(String key) mirror,
-  ) {
-    bool flag(String key) {
-      if (values?.containsKey(key) == true) {
-        final raw = values![key];
-        if (raw != 'true' && raw != 'false') {
-          throw const FormatException('Invalid Windows credential state');
-        }
-        return raw == 'true';
-      }
-      final raw = mirror(key);
-      if (raw != null && raw is! bool) {
-        throw const FormatException('Invalid Windows credential mirror');
-      }
-      return raw == true;
-    }
-
-    final present = [
-      SaveProtocol.windowsCredentialsRequiredKey,
-      SaveProtocol.windowsCredentialNoticeReadKey,
-    ].any((key) => values?.containsKey(key) == true || mirror(key) != null);
-    return WindowsCredentialState(
-      present,
-      flag(SaveProtocol.windowsCredentialsRequiredKey),
-      flag(SaveProtocol.windowsCredentialNoticeReadKey),
-    );
-  }
-}
-
 class SaveProtocol {
-  static const pointerKey = 'matrixflow-save-pointer';
+  static const pointerKey = 'compoise-save-pointer';
 
   /// Optional in older committed batches; new Store snapshots always include it.
-  static const scheduleKey = 'matrixflow-schedule';
-  static const windowsCredentialsRequiredKey =
-      'matrixflow-upgrade-credentials-required';
-  static const windowsCredentialNoticeReadKey =
-      'matrixflow-upgrade-credential-notice-read';
-  static const _slotA = 'matrixflow-save-a';
-  static const _slotB = 'matrixflow-save-b';
+  static const scheduleKey = 'compoise-schedule';
+  static const _slotA = 'compoise-save-a';
+  static const _slotB = 'compoise-save-b';
   final SharedPreferences prefs;
   final SaveWrite? writer;
   String? _activeSlot;
@@ -91,7 +48,6 @@ class SaveProtocol {
   }
 
   /// Read-only inspection of the same protocol, before opening preferences.
-  /// The Windows upgrade adapter supplies the plugin's decoded file values.
   /// Inactive slots and compatibility mirrors never override the pointer.
   static SavedBatch? readCommitted(Object? Function(String key) read) {
     final pointer = read(pointerKey);
@@ -114,23 +70,13 @@ class SaveProtocol {
       throw const FormatException('Invalid committed batch');
     }
     final values = Map<String, String>.from(decoded['values'] as Map);
-    for (final key in [
-      windowsCredentialsRequiredKey,
-      windowsCredentialNoticeReadKey,
-    ]) {
-      if (values.containsKey(key) &&
-          values[key] != 'true' &&
-          values[key] != 'false') {
-        throw const FormatException('Invalid Windows credential state');
-      }
-    }
     if (!{
-      'matrixflow-tasks',
-      'matrixflow-boards',
-      'matrixflow-config',
-      'matrixflow-settings',
-      'matrixflow-active-board',
-      'matrixflow-has-seen-onboarding',
+      'compoise-tasks',
+      'compoise-boards',
+      'compoise-config',
+      'compoise-settings',
+      'compoise-active-board',
+      'compoise-has-seen-onboarding',
     }.every(values.containsKey)) {
       throw const FormatException('Incomplete committed batch');
     }
@@ -185,9 +131,7 @@ class SaveProtocol {
     // repaired by a later save; startup always reads the committed slot.
     for (final entry in values.entries) {
       try {
-        if (entry.key == 'matrixflow-has-seen-onboarding' ||
-            entry.key == windowsCredentialsRequiredKey ||
-            entry.key == windowsCredentialNoticeReadKey) {
+        if (entry.key == 'compoise-has-seen-onboarding') {
           await prefs.setBool(entry.key, entry.value == 'true');
         } else {
           await _set(entry.key, entry.value);
@@ -202,78 +146,9 @@ class SaveProtocol {
   Future<bool> _set(String key, String value) =>
       writer?.call(key, value) ?? prefs.setString(key, value);
 
-  /// Remove legacy plaintext from both batch slots and the compatibility
-  /// mirror. Safe to repeat after interruption. Call only after a secure-store
-  /// write has been read back successfully (or when no credential exists).
-  Future<bool> scrubCredentials() async {
-    for (final slot in [_slotA, _slotB]) {
-      final raw = prefs.getString(slot);
-      if (raw == null) continue;
-      String updated;
-      try {
-        final batch = jsonDecode(raw) as Map<String, dynamic>;
-        final values = Map<String, String>.from(batch['values'] as Map);
-        final config =
-            jsonDecode(values['matrixflow-config']!) as Map<String, dynamic>;
-        if (!config.containsKey('customApiKey')) continue;
-        config.remove('customApiKey');
-        values['matrixflow-config'] = jsonEncode(config);
-        // Same framing helper as the writer, so a rewritten slot still loads.
-        final valuesJson = jsonEncode(values);
-        final prefix = _bodyPrefix(batch['revision']);
-        updated = _bodyPayload(
-          prefix,
-          valuesJson,
-          _bodyChecksum(prefix, valuesJson),
-        );
-      } catch (_) {
-        // An uncommitted damaged slot cannot be used for recovery. Keep the
-        // committed slot, but remove this copy in case it contains plaintext.
-        if (slot == _activeSlot || !await prefs.remove(slot)) return false;
-        continue;
-      }
-      try {
-        if (!await _set(slot, updated) || prefs.getString(slot) != updated) {
-          return false;
-        }
-      } catch (_) {
-        return false;
-      }
-    }
-    final mirror = prefs.getString('matrixflow-config');
-    if (mirror != null) {
-      String? updated;
-      try {
-        final config = jsonDecode(mirror) as Map<String, dynamic>;
-        if (config.containsKey('customApiKey')) {
-          config.remove('customApiKey');
-          updated = jsonEncode(config);
-        }
-      } catch (_) {
-        // A committed slot is authoritative. A malformed compatibility mirror
-        // must not leave a possible plaintext copy behind.
-        if (_activeSlot == null || !await prefs.remove('matrixflow-config')) {
-          return false;
-        }
-      }
-      if (updated != null) {
-        try {
-          if (!await _set('matrixflow-config', updated) ||
-              prefs.getString('matrixflow-config') != updated) {
-            return false;
-          }
-        } catch (_) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
   /// The framing in front of the encoded values map: `{"revision":N,"values":`.
   ///
-  /// `revision` stays loosely typed because `scrubCredentials` re-frames
-  /// whatever the stored batch holds; `jsonEncode` renders it exactly the way
+  /// `revision` stays loosely typed; `jsonEncode` renders it exactly the way
   /// the map literal this replaced did.
   static String _bodyPrefix(Object? revision) =>
       '{"revision":${jsonEncode(revision)},"values":';
@@ -285,7 +160,7 @@ class SaveProtocol {
   /// Adler-32 over the UTF-8 bytes of the committed body, which is exactly
   /// `prefix + valuesJson + '}'`.
   ///
-  /// [load], [_commitOnce] and [scrubCredentials] all call this one helper: if
+  /// [load] and [_commitOnce] both call this one helper: if
   /// any of them framed or summed differently, a library an older build wrote
   /// would be reported as damaged. The pieces are fed in order, so the
   /// whole-library values string is turned into UTF-8 once and is never

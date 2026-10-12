@@ -2,15 +2,15 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:matrixflow_native/services/desktop_shell_service.dart';
-import 'package:matrixflow_native/services/desktop_shell_windows.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
+import 'package:compoise/services/desktop_shell_windows.dart';
 import 'package:tray_manager/tray_manager.dart';
 
 String? _smokeReportPath;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  _smokeReportPath = Platform.environment['MATRIXFLOW_OS14_SMOKE_RESULT'];
+  _smokeReportPath = Platform.environment['COMPOISE_OS14_SMOKE_RESULT'];
   _record('before ensureWindowsWindowManager');
   await ensureWindowsWindowManager();
   _record('after ensureWindowsWindowManager');
@@ -42,7 +42,7 @@ class _SmokeWindowState extends State<_SmokeWindow> {
   }
 
   Future<void> _run() async {
-    final resultPath = Platform.environment['MATRIXFLOW_OS14_SMOKE_RESULT'];
+    final resultPath = Platform.environment['COMPOISE_OS14_SMOKE_RESULT'];
     final host = WindowsDesktopShellHost();
     final service = DesktopShellService.forTest(host);
     var exitCode = 1;

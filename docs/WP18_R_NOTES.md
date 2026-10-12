@@ -1,6 +1,6 @@
 # WP18-R：可选同步的离线冲突原型（实验包记录）
 
-基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp18-r`，工作树 `D:/Dev_project/martix-wp18-r`。
+基线 `459f9a28cefdcac9196825b2d4ac70250dbf3b8d`，分支 `codex/wp18-r`，工作树 `D:/Dev_project/compoise-wp18-r`。
 本包只做隔离技术原型：没有产品入口、没有后台任务、不接 Store/账号/云盘，也不声明当前手工备份等于同步。
 
 ## 1. 交付与边界
@@ -94,7 +94,7 @@ dart run tool/wp18_sync_lab.dart transport [--root DIR] [--keep]
 ## 8. 验证记录
 
 - `flutter pub get --enforce-lockfile`：退出 0；`pubspec.yaml`/`pubspec.lock` 无改动（`git diff --name-only` 空）。
-- 工具链校验：`toolchain.json` pin Flutter 3.32.8 stable / revision `edada7c56e…` / Dart 3.8.1；本机 `D:/Dev_SDKs/Flutter_3.32.8/bin/flutter --version` 输出 3.32.8 / `edada7c56e` / Dart 3.8.1，匹配。缓存、日志、临时库、输出全部在本包私有根 `D:/Dev_project/martix-wp18-r-private`（`PUB_CACHE` 指向其中 `pub_cache`）。
+- 工具链校验：`toolchain.json` pin Flutter 3.32.8 stable / revision `edada7c56e…` / Dart 3.8.1；本机 `D:/Dev_SDKs/Flutter_3.32.8/bin/flutter --version` 输出 3.32.8 / `edada7c56e` / Dart 3.8.1，匹配。缓存、日志、临时库、输出全部在本包私有根 `D:/Dev_project/compoise-wp18-r-private`（`PUB_CACHE` 指向其中 `pub_cache`）。
 - `dart run tool/wp18_sync_lab.dart catalog`：退出 0，`scenarios=33 mismatches=0`。
 - `dart run tool/wp18_sync_lab.dart transport`：退出 0，`transport failures: 0`（离线/重试/幂等/取消/条件写/损坏/超限 7 类）。
 - `dump` + `files` 往返：退出 0，写出 `wp18_plan.json`、`wp18_plan.md`、`wp18_merged.v3.json`、`wp18_merged.envelope.json`；同一场景改用普通 v3 + `--presence presenceOnly` 时不写任何文件、0 项自动应用、2 项待决（删除无法由缺失证明）。
@@ -140,4 +140,4 @@ dart run tool/wp18_sync_lab.dart transport [--root DIR] [--keep]
 
 集成端把 `376120fc2420d5aba191650bcb00a3e6491eaf26` 与 `baf1d3000866a8d7a33dee133984684ec18b8919` 摘到八包之后的 `main`，新提交是 `bbd1ea5f9baca3a144dc53f5f56ae6a0d7a93e74` 与 `c7d461a4909f71dffcdaf45c8ac889c171e4acf5`。相对 `abc182ddc41ccbdcdb9d3ae5be0c3b16a3b25831` 只增加本包文件。
 
-在 `D:/Dev_project/martix`、Flutter 3.32.8 上与另外三个原型一起复验：`flutter analyze --no-pub` 退出 0（`No issues found`，33.7s）；`dart run tool/wp18_sync_lab.dart catalog` 退出 0（`scenarios=33 mismatches=0`）；`dart run tool/wp18_sync_lab.dart transport` 退出 0（`transport failures: 0`）。四个原型的定向测试共 167 项通过，其中本包 87 项。默认全量 `flutter test --no-pub` 退出 0，`+1623 ~13`；本包没有 skip。仍不接入 Store、账号、云盘或后台同步。
+在 `D:/Dev_project/compoise`、Flutter 3.32.8 上与另外三个原型一起复验：`flutter analyze --no-pub` 退出 0（`No issues found`，33.7s）；`dart run tool/wp18_sync_lab.dart catalog` 退出 0（`scenarios=33 mismatches=0`）；`dart run tool/wp18_sync_lab.dart transport` 退出 0（`transport failures: 0`）。四个原型的定向测试共 167 项通过，其中本包 87 项。默认全量 `flutter test --no-pub` 退出 0，`+1623 ~13`；本包没有 skip。仍不接入 Store、账号、云盘或后台同步。

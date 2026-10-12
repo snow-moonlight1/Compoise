@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/schedule_item.dart';
-import 'package:matrixflow_native/schedule_time.dart';
-import 'package:matrixflow_native/widgets/schedule_layout.dart';
+import 'package:compoise/schedule_item.dart';
+import 'package:compoise/schedule_time.dart';
+import 'package:compoise/widgets/schedule_layout.dart';
 
-import 'package:matrixflow_native/screens/planner_screen.dart';
-import 'package:matrixflow_native/save_protocol.dart';
+import 'package:compoise/screens/planner_screen.dart';
+import 'package:compoise/save_protocol.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'wp15_c2_test_support.dart';
 

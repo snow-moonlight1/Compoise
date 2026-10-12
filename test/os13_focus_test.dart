@@ -2,9 +2,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:matrixflow_native/models.dart';
-import 'package:matrixflow_native/widgets/quadrant_transition_layout.dart';
-import 'package:matrixflow_native/widgets/task_exit.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/widgets/quadrant_transition_layout.dart';
+import 'package:compoise/widgets/task_exit.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
