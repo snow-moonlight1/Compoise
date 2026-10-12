@@ -84,6 +84,9 @@ jobs:
           for p in windows windows_arm64 linux android; do
             want=false
             if [ "$EVENT" = push ] || [ "$PLATFORM" = all ] || [ "${PLATFORM//-/_}" = "$p" ]; then want=true; fi
+            # Windows ARM64 stays manual-only: Flutter 3.32.8 has no arm64 Windows
+            # SDK and does not recognise the Visual Studio 2026 on windows-11-arm.
+            if [ "$p" = windows_arm64 ] && [ "$PLATFORM" != windows-arm64 ]; then want=false; fi
             echo "$p=$want" >> "$GITHUB_OUTPUT"
             declare "want_$p=$want"
           done
