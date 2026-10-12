@@ -7,6 +7,7 @@ import 'package:matrixflow_native/schedule_item.dart';
 import 'package:matrixflow_native/schedule_time.dart';
 import 'package:matrixflow_native/screens/planner_screen.dart';
 import 'package:matrixflow_native/storage.dart';
+import 'package:matrixflow_native/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'support/wp15_c1_fixtures.dart';
@@ -44,11 +45,28 @@ Future<void> c2Pump(
   String? initialTaskId,
   bool startTimeBlock = false,
   bool provide = false,
+  bool dark = false,
+  String skin = 'default',
+  // Phone by default: these suites describe the touch layout. Desktop-only
+  // behaviour (side pool, keys, mouse) passes TargetPlatform.windows.
+  TargetPlatform platform = TargetPlatform.android,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
+  // Media queries must see the same window the layout does.
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   final app = MaterialApp(
-    theme: ThemeData(useMaterial3: true, platform: TargetPlatform.windows),
+    theme: _skinned(
+      ThemeData(
+        useMaterial3: true,
+        platform: platform,
+        brightness: dark ? Brightness.dark : Brightness.light,
+      ),
+      skin,
+    ),
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
     builder: (context, child) => MediaQuery(
@@ -67,7 +85,9 @@ Future<void> c2Pump(
     ),
   );
   await tester.pumpWidget(
-    provide ? ChangeNotifierProvider<Store>.value(value: store, child: app) : app,
+    provide
+        ? ChangeNotifierProvider<Store>.value(value: store, child: app)
+        : app,
   );
   await tester.pumpAndSettle();
 }
@@ -163,3 +183,9 @@ String c2Library(Store store) => jsonEncode({
   'revisions': store.captureSnapshot().scheduleRevisions,
   'active': store.activeBoardId,
 });
+
+ThemeData _skinned(ThemeData base, String skin) => switch (skin) {
+  'comic' => applyComicOutline(base),
+  'neu' => applyNeumorphic(base),
+  _ => base,
+};

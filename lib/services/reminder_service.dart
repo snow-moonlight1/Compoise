@@ -1999,6 +1999,10 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     }
   }
 
+  @visibleForTesting
+  NotificationDetails debugDetails({String? body}) =>
+      _details(body: body, sound: true, vibrate: true);
+
   NotificationDetails _details({
     String? body,
     required bool sound,
@@ -2014,8 +2018,9 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         playSound: sound,
         enableVibration: vibrate,
       ),
-      windows: WindowsNotificationDetails(
-        subtitle: (body != null && body.trim().isNotEmpty) ? body : null,
+      // The body already goes in as the toast's text line. Repeating it as
+      // the subtitle made Windows show it twice.
+      windows: const WindowsNotificationDetails(
         duration: WindowsNotificationDuration.long,
       ),
     );

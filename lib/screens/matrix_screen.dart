@@ -17,6 +17,8 @@ import '../ui/platform_ui_policy.dart';
 import '../widgets/batch_decompose_sheet.dart';
 import '../widgets/board_picker.dart';
 import '../widgets/home_actions.dart';
+import '../planner/planner_skin.dart';
+import '../widgets/tab_slider.dart';
 import '../widgets/input_sheet.dart';
 import '../widgets/quadrant_transition_layout.dart';
 import '../widgets/task_detail_panel.dart';
@@ -92,7 +94,27 @@ class _MatrixHomeState extends State<MatrixHome> {
     onChanged: () {
       if (mounted) setState(() {});
     },
+    onScheduleTime: _scheduleFromDetail,
   );
+
+  String? _focusTaskId;
+  int _focusToken = 0;
+
+  /// "Schedule time" in a task's detail: close the detail and show the
+  /// Schedule tab with that task in focus (no separate full-screen page).
+  @visibleForTesting
+  Future<void> debugScheduleTask(String taskId) => _scheduleFromDetail(taskId);
+
+  Future<void> _scheduleFromDetail(String taskId) async {
+    if (!mounted) return;
+    setState(() {
+      _focusTaskId = taskId;
+      _focusToken += 1;
+      _plannerBuilt = true;
+    });
+    if (_detail.taskId != null) _detail.handleClose();
+    if (_tab != 1) await _selectTab(1);
+  }
 
   Future<bool> _protectDetailDraft() => _detail.confirmLeave(context);
 
@@ -273,9 +295,15 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
 
     return PopScope(
-      canPop: !_selecting && _focusedQuadrant == null && !_listExitFading,
+      canPop:
+          _tab == 0 &&
+          !_selecting &&
+          _focusedQuadrant == null &&
+          !_listExitFading,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        // The schedule page handles its own back (and returns to tasks).
+        if (_tab == 1) return;
         if (_selecting) {
           setState(() {
             _selecting = false;
@@ -494,6 +522,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                               task: detailTask,
                               highlightSubtaskId: _detail.highlightSubtaskId,
                               isSidebar: true,
+                              onScheduleTime: _scheduleFromDetail,
                               onDirtyChanged: _detail.reportDraft,
                               onClose: _detail.handleClose,
                             );
@@ -508,7 +537,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                       mainContent = activeCenter;
                     }
 
-                    return Column(
+                    final tasksPage = Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _header(
@@ -574,6 +603,36 @@ class _MatrixHomeState extends State<MatrixHome> {
                         _bottomBar(context, store, t, theme, wide, policy),
                       ],
                     );
+                    // Tasks and Schedule are two equal main views. Both stay
+                    // mounted once opened, so each keeps its own state.
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _modeSwitch(t, theme),
+                        Expanded(
+                          child: TabSlider(
+                            index: _tab,
+                            children: [
+                              tasksPage,
+                              if (_plannerBuilt)
+                                PlannerScreen(
+                                  store: store,
+                                  initialBoardId: store.activeBoardId,
+                                  autoGuide: true,
+                                  embedded: true,
+                                  active: _tab == 1,
+                                  initialTaskId: _focusTaskId,
+                                  startTimeBlock: _focusTaskId != null,
+                                  focusToken: _focusToken,
+                                  onLeave: () => _selectTab(0),
+                                )
+                              else
+                                const SizedBox.shrink(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
@@ -582,6 +641,131 @@ class _MatrixHomeState extends State<MatrixHome> {
         ),
       ),
     );
+  }
+
+  int _tab = 0;
+  bool _plannerBuilt = false;
+
+  /// Full-width two-way switch between the task board and the schedule.
+  Widget _modeSwitch(Map<String, String> t, ThemeData theme) {
+    final skin = PlannerSkin.of(context);
+    Widget tab(Key key, int index, IconData icon, String label) {
+      final on = _tab == index;
+      final ink = on
+          ? theme.colorScheme.onPrimaryContainer
+          : theme.colorScheme.onSurfaceVariant;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: on,
+          child: InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => _selectTab(index),
+            child: Container(
+              height: 40,
+              alignment: Alignment.center,
+              decoration: on && skin.neu != null
+                  // The light/dark pair is lopsided against a light track:
+                  // the left tab looked blurred next to the right one. One
+                  // downward shadow reads the same at both ends.
+                  ? BoxDecoration(
+                      color: skin.neu!.canvas,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: skin.neu!.darkShadow.withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    )
+                  : on && !skin.plain
+                  ? skin.surface(
+                      BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    )
+                  : BoxDecoration(
+                      color: on ? theme.colorScheme.primaryContainer : null,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 18, color: ink),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      // Full width on a phone; centered and capped on a wide desktop window.
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: skin.plain
+                ? BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(13),
+                  )
+                : skin.surface(
+                    BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    raised: false,
+                  ),
+            child: Row(
+              children: [
+                tab(
+                  const ValueKey('home-tab-tasks'),
+                  0,
+                  Icons.grid_view_rounded,
+                  t['scheduleNavTasks'] ?? 'Tasks',
+                ),
+                tab(
+                  const ValueKey('schedule-btn'),
+                  1,
+                  Icons.calendar_month_outlined,
+                  t['scheduleNavLabel'] ?? 'Schedule',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectTab(int index) async {
+    if (index == _tab) return;
+    // Leaving an unsaved detail draft keeps the same guard as any navigation.
+    if (index == 1 && (!await _protectDetailDraft() || !mounted)) return;
+    setState(() {
+      _tab = index;
+      if (index == 1) _plannerBuilt = true;
+    });
   }
 
   Widget _bottomBar(
@@ -862,66 +1046,17 @@ class _MatrixHomeState extends State<MatrixHome> {
   }
 
   Future<void> _openMore() async {
-    final policy = PlatformUiPolicy.of(context);
-    Widget panel(BuildContext ctx) => ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(ctx).height,
-        maxWidth: 400,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            key: const ValueKey('more-schedule'),
-            leading: const Icon(Icons.calendar_month_outlined),
-            title: Text(ctx.read<Store>().t['scheduleOpen']!),
-            onTap: () => Navigator.of(ctx).pop('schedule'),
-          ),
-          ListTile(
-            key: const ValueKey('more-screenshot-import'),
-            leading: const Icon(Icons.image_outlined),
-            title: Text(ctx.read<Store>().t['screenshotImportTitle']!),
-            onTap: () => Navigator.of(ctx).pop('screenshot-import'),
-          ),
-          const Flexible(child: HomeMorePanel()),
-        ],
-      ),
-    );
-    final Object? action;
-    if (policy.isTouchLayout) {
-      action = await showModalBottomSheet<Object>(
-        context: context, isScrollControlled: true, useSafeArea: true,
-        builder: panel,
-      );
-    } else {
-      action = await showDialog<Object>(
-        context: context,
-        builder: (ctx) => Dialog(
-          alignment: Alignment.topRight,
-          insetPadding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
-          child: panel(ctx),
-        ),
-      );
-    }
-    if (action == 'screenshot-import') {
-      if (!mounted || !await _protectDetailDraft() || !mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              ScreenshotImportPage(backend: widget.screenshotBackend),
-        ),
-      );
-      return;
-    }
-    if (action == 'schedule') {
-      // Leaving an unsaved detail draft for the schedule keeps the same guard
-      // as every other navigation away from the page.
-      if (!mounted || !await _protectDetailDraft() || !mounted) return;
-      await openPlannerScreen(context, store: context.read<Store>());
-      return;
-    }
+    final action = await showHomeMore(context);
     if (!mounted || action == null) return;
     switch (action) {
+      case HomeMoreAction.screenshotImport:
+        if (!await _protectDetailDraft() || !mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                ScreenshotImportPage(backend: widget.screenshotBackend),
+          ),
+        );
       case HomeMoreAction.switchBoard:
         await _openBoardPicker();
       case HomeMoreAction.today:
@@ -935,8 +1070,6 @@ class _MatrixHomeState extends State<MatrixHome> {
         });
       case HomeMoreAction.settings:
         _openSettings();
-      default:
-        break;
     }
   }
 

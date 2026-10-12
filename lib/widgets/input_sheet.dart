@@ -7,6 +7,7 @@ import '../models.dart';
 import '../planned_policy.dart';
 import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
+import '../theme.dart';
 import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
 import 'task_edit_draft.dart';
@@ -94,6 +95,28 @@ class _InputSheetState extends State<InputSheet> {
     super.dispose();
   }
 
+  Widget _modeChip({
+    required Key key,
+    required String label,
+    required bool selected,
+    required VoidCallback? onTap,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: ChoiceChip(
+      key: key,
+      showCheckmark: false,
+      label: SizedBox(
+        width: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(label, maxLines: 1),
+        ),
+      ),
+      selected: selected,
+      onSelected: onTap == null ? null : (_) => onTap(),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final t = context.watch<Store>().t;
@@ -117,26 +140,33 @@ class _InputSheetState extends State<InputSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
+        // Three equal slots. Selection is only a colour change (no check
+        // mark), so nothing resizes or re-wraps when the mode switches.
+        Row(
           children: [
             for (final mode in InputModePref.values)
-              ChoiceChip(
-                label: Text(
-                  t[mode == InputModePref.single ? 'modeManual' : 'modeAI']!,
+              Expanded(
+                child: _modeChip(
+                  key: ValueKey('mode-${mode.name}'),
+                  label:
+                      t[mode == InputModePref.single
+                          ? 'modeManual'
+                          : 'modeAI']!,
+                  selected: _mode == mode && !_batch,
+                  onTap: _busy || _pendingManualSave
+                      ? null
+                      : () => _switchMode(mode, false),
                 ),
-                selected: _mode == mode && !_batch,
-                onSelected: _busy || _pendingManualSave
-                    ? null
-                    : (_) => _switchMode(mode, false),
               ),
-            ChoiceChip(
-              key: const ValueKey('batch-mode'),
-              label: Text(t['batchIndependent']!),
-              selected: _batch,
-              onSelected: _busy || _pendingManualSave
-                  ? null
-                  : (_) => _switchMode(InputModePref.single, true),
+            Expanded(
+              child: _modeChip(
+                key: const ValueKey('batch-mode'),
+                label: t['batchModeShort']!,
+                selected: _batch,
+                onTap: _busy || _pendingManualSave
+                    ? null
+                    : () => _switchMode(InputModePref.single, true),
+              ),
             ),
           ],
         ),
@@ -160,6 +190,7 @@ class _InputSheetState extends State<InputSheet> {
             t['stepsOneTask']!,
             style: Theme.of(context).textTheme.labelMedium,
           ),
+          const SizedBox(height: 8),
           TaskStepsComposer(
             key: _stepsKey,
             t: t,
@@ -174,16 +205,21 @@ class _InputSheetState extends State<InputSheet> {
             t[_batch ? 'batchIndependentHint' : 'aiInputHint']!,
             style: Theme.of(context).textTheme.labelMedium,
           ),
+          const SizedBox(height: 8),
           TextField(
             key: const ValueKey('task-input'),
             controller: _controller,
             focusNode: _inputFocus,
             onChanged: (_) => setState(() {}),
             readOnly: _busy || _pendingManualSave,
-            maxLines: 5,
-            minLines: 3,
+            maxLines: 4,
+            minLines: 2,
             autofocus: !widget.embedded,
             decoration: InputDecoration(
+              // Comic: the text sat too close to the 2dp outline.
+              contentPadding: ComicOutline.maybeOf(context) == null
+                  ? null
+                  : const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               hintText:
                   t[_mode == InputModePref.brainDump
                       ? 'inputPlaceholderAI'
@@ -442,11 +478,11 @@ class _InputSheetState extends State<InputSheet> {
         store.addTasks([
           _place(
             store.newTask(
-              title,
-              quadrant: widget.quadrant ?? qDo,
-              deadline: deadlineSnapshot,
-              plannedDate: plannedSnapshot,
-            )
+                title,
+                quadrant: widget.quadrant ?? qDo,
+                deadline: deadlineSnapshot,
+                plannedDate: plannedSnapshot,
+              )
               ..reminderAt = _selectedReminderAt
               ..subtasks = [
                 for (final line in inputs) SubTask(id: newId(), title: line),

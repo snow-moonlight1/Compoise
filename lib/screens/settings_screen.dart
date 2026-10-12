@@ -1,5 +1,7 @@
+import 'dart:math' as math;
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +17,7 @@ import '../ui/songti_font.dart';
 import '../ui/motion_policy.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/accessible_tap_target.dart';
+import '../planner/planner_guide.dart';
 import 'onboarding_screen.dart';
 import 'settings_backup_flow.dart';
 import 'settings_desktop.dart';
@@ -209,7 +212,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         top: false,
         child: ListView(
           key: const ValueKey('settings-list'),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          // Wide desktop window: a readable ~720dp column in the middle; the
+          // scrollbar stays at the window edge. Phones keep 16dp sides.
+          padding: EdgeInsets.fromLTRB(_side(context), 8, _side(context), 32),
           children: [
             _sectionTitle(
               theme,
@@ -632,17 +637,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => _showWindowsReminderGuideDialog(context, t),
               ),
               const SizedBox(height: 8),
+              // Windows cannot report a notification permission, so there is
+              // nothing to check: the test button takes the whole row.
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('check-permissions-btn'),
-                      icon: const Icon(Icons.security, size: 16),
-                      label: Text(t['checkPermissions'] ?? 'Check Permissions'),
-                      onPressed: () => _checkAndShowPermissions(context, t),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const ValueKey('test-windows-notif-btn'),
@@ -657,38 +655,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ] else ...[
-              ListTile(
-                key: const ValueKey('reminder-guide-tile'),
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.battery_charging_full_outlined,
-                  color: theme.colorScheme.primary,
-                ),
-                title: Text(
-                  t['reminderGuide'] ?? 'Punctual Alert & Keep-Alive Guide',
-                ),
-                subtitle: Text(
-                  t['reminderGuideDesc'] ??
-                      'Guide to configure battery optimization and auto-start on Android ROMs',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              // Battery optimisation / auto-start is a phone matter; Linux and
+              // macOS have nothing to configure there.
+              if (!policy.isDesktop) ...[
+                ListTile(
+                  key: const ValueKey('reminder-guide-tile'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.battery_charging_full_outlined,
+                    color: theme.colorScheme.primary,
                   ),
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showReminderGuideDialog(context, t),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('check-permissions-btn'),
-                      icon: const Icon(Icons.security, size: 16),
-                      label: Text(t['checkPermissions'] ?? 'Check Permissions'),
-                      onPressed: () => _checkAndShowPermissions(context, t),
+                  title: Text(
+                    t['reminderGuide'] ?? 'Punctual Alert & Keep-Alive Guide',
+                  ),
+                  subtitle: Text(
+                    t['reminderGuideDesc'] ??
+                        'Guide to configure battery optimization and auto-start on Android ROMs',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showReminderGuideDialog(context, t),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Row(
+                children: [
+                  // Only the phones can report a notification permission.
+                  if (_canQueryPermission) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('check-permissions-btn'),
+                        icon: const Icon(Icons.security, size: 16),
+                        label: Text(
+                          t['checkPermissions'] ?? 'Check Permissions',
+                        ),
+                        onPressed: () => _checkAndShowPermissions(context, t),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const ValueKey('test-android-notif-btn'),
@@ -732,6 +739,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               },
+            ),
+            ListTile(
+              key: const ValueKey('reopen-planner-guide-btn'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.calendar_month_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(t['scheduleGuideReplay']!),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showPlannerGuide(context, t, markSeen: false),
             ),
             if (policy.showDesktopShortcuts)
               ListTile(
@@ -966,6 +984,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Map<String, String> t,
     Store store,
   ) async {
+    // A second click while the first send is in flight would show the
+    // notification twice.
+    if (_sendingTest) return;
+    _sendingTest = true;
+    try {
+      await _sendTestReminderOnce(context, t, store);
+    } finally {
+      _sendingTest = false;
+    }
+  }
+
+  bool _sendingTest = false;
+
+  static double _side(BuildContext context) =>
+      math.max(16.0, (MediaQuery.sizeOf(context).width - 720) / 2);
+
+  bool get _canQueryPermission =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
+  Future<void> _sendTestReminderOnce(
+    BuildContext context,
+    Map<String, String> t,
+    Store store,
+  ) async {
     final service = ReminderService.instance;
     await service.init();
     final permission = await service.checkPermission();
@@ -983,7 +1026,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     switch (result.status) {
       case ReminderScheduleStatus.scheduled:
       case ReminderScheduleStatus.displayed:
-        message = t['testNotificationSent'] ?? 'Test notification sent.';
+        // The stock wording names the Windows Action Center.
+        message = defaultTargetPlatform == TargetPlatform.windows
+            ? t['testNotificationSent'] ?? 'Test notification sent.'
+            : t['testNotificationSentPlain'] ?? 'Test notification sent.';
       case ReminderScheduleStatus.scheduledInApp:
         message = t['reminderTestInAppOnly'] ?? 'Armed inside the app only.';
       case ReminderScheduleStatus.superseded:
@@ -1254,41 +1300,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
       const SizedBox(height: 10),
       if (_models.models.isNotEmpty && !_models.customModelMode) ...[
         _raisedMenu(
-        DropdownButtonFormField<String>(
-          key: const ValueKey('model-selector'),
-          isExpanded: true,
-          decoration: _inputDecoration(
-            labelText: t['customModel'],
-            menu: true,
-          ),
-          value: _models.models.contains(store.aiConfig.model)
-              ? store.aiConfig.model
-              : '__custom__',
-          items: [
-            for (final m in _models.models)
-              DropdownMenuItem(
-                value: m,
-                child: Text(m, overflow: TextOverflow.ellipsis),
-              ),
-            DropdownMenuItem(
-              value: '__custom__',
-              child: Text(
-                t['customModelOption']!,
-                style: TextStyle(color: theme.colorScheme.primary),
-              ),
+          DropdownButtonFormField<String>(
+            key: const ValueKey('model-selector'),
+            isExpanded: true,
+            decoration: _inputDecoration(
+              labelText: t['customModel'],
+              menu: true,
             ),
-          ],
-          onChanged: (val) {
-            if (val == '__custom__') {
-              setState(() {
-                _models.customModelMode = true;
-              });
-            } else if (val != null) {
-              _modelController.text = val;
-              _editAIConfig(store, (config) => config.model = val);
-            }
-          },
-        ),
+            value: _models.models.contains(store.aiConfig.model)
+                ? store.aiConfig.model
+                : '__custom__',
+            items: [
+              for (final m in _models.models)
+                DropdownMenuItem(
+                  value: m,
+                  child: Text(m, overflow: TextOverflow.ellipsis),
+                ),
+              DropdownMenuItem(
+                value: '__custom__',
+                child: Text(
+                  t['customModelOption']!,
+                  style: TextStyle(color: theme.colorScheme.primary),
+                ),
+              ),
+            ],
+            onChanged: (val) {
+              if (val == '__custom__') {
+                setState(() {
+                  _models.customModelMode = true;
+                });
+              } else if (val != null) {
+                _modelController.text = val;
+                _editAIConfig(store, (config) => config.model = val);
+              }
+            },
+          ),
         ),
       ] else ...[
         TextField(
@@ -1342,43 +1388,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 10),
         _raisedMenu(
           DropdownButton<AIProtocol>(
-          key: const ValueKey('protocol-selector'),
-          isExpanded: true,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          underline: NeumorphicSkin.maybeOf(context) == null
-              ? null
-              : const SizedBox.shrink(),
-          items: [
-            DropdownMenuItem(
-              value: AIProtocol.openai,
-              child: Text(
-                t['providerOpenAI']!,
-                overflow: TextOverflow.ellipsis,
+            key: const ValueKey('protocol-selector'),
+            isExpanded: true,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            underline: NeumorphicSkin.maybeOf(context) == null
+                ? null
+                : const SizedBox.shrink(),
+            items: [
+              DropdownMenuItem(
+                value: AIProtocol.openai,
+                child: Text(
+                  t['providerOpenAI']!,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            DropdownMenuItem(
-              value: AIProtocol.openaiResponses,
-              child: Text(
-                t['providerOpenAIResponses']!,
-                overflow: TextOverflow.ellipsis,
+              DropdownMenuItem(
+                value: AIProtocol.openaiResponses,
+                child: Text(
+                  t['providerOpenAIResponses']!,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            DropdownMenuItem(
-              value: AIProtocol.anthropic,
-              child: Text(
-                t['providerAnthropic']!,
-                overflow: TextOverflow.ellipsis,
+              DropdownMenuItem(
+                value: AIProtocol.anthropic,
+                child: Text(
+                  t['providerAnthropic']!,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
-          value: store.aiConfig.protocol,
-          onChanged: (value) {
-            if (value != null && value != store.aiConfig.protocol) {
-              _editAIConfig(store, (config) => config.protocol = value);
-              _models.invalidate();
-              setState(() {});
-            }
-          },
+            ],
+            value: store.aiConfig.protocol,
+            onChanged: (value) {
+              if (value != null && value != store.aiConfig.protocol) {
+                _editAIConfig(store, (config) => config.protocol = value);
+                _models.invalidate();
+                setState(() {});
+              }
+            },
           ),
         ),
         const SizedBox(height: 12),
@@ -1478,7 +1524,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context,
               inset: true,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: tip,
               ),
             );
@@ -1583,14 +1632,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: neuPreview
                 ? null
                 : BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.4,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.4,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.4,
+                      ),
+                    ),
+                  ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1644,9 +1695,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           );
-          return neuPreview
-              ? neuSlab(context, inset: true, child: card)
-              : card;
+          return neuPreview ? neuSlab(context, inset: true, child: card) : card;
         },
       ),
       const SizedBox(height: 8),
@@ -1743,9 +1792,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  TextAlignVertical? get _fieldAlign => NeumorphicSkin.maybeOf(context) == null
-      ? null
-      : TextAlignVertical.top;
+  TextAlignVertical? get _fieldAlign =>
+      NeumorphicSkin.maybeOf(context) == null ? null : TextAlignVertical.top;
 
   InputDecoration _inputDecoration({
     String? labelText,
@@ -1803,6 +1851,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (neu == null) {
       return ChoiceChip(
         key: key,
+        showCheckmark: false,
         label: label,
         selected: selected,
         onSelected: onSelected,
@@ -1818,21 +1867,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: TextButton(
         key: key,
         onPressed: () => onSelected(true),
-        style: TextButton.styleFrom(
-          foregroundColor: selected ? accent : neu.ink,
-          backgroundColor: const Color(0x00000000),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          minimumSize: const Size(48, 40),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(NeumorphicSkin.radius),
-          ),
-        ).copyWith(
-          overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
-          splashFactory: NoSplash.splashFactory,
-          backgroundBuilder: (context, states, child) =>
-              child ?? const SizedBox.shrink(),
-        ),
+        style:
+            TextButton.styleFrom(
+              foregroundColor: selected ? accent : neu.ink,
+              backgroundColor: const Color(0x00000000),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              minimumSize: const Size(48, 40),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(NeumorphicSkin.radius),
+              ),
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+              splashFactory: NoSplash.splashFactory,
+              backgroundBuilder: (context, states, child) =>
+                  child ?? const SizedBox.shrink(),
+            ),
         child: label,
       ),
     );

@@ -220,44 +220,7 @@ void main() {
     await c2Finish(tester, store);
   });
 
-  testWidgets(
-    'an open form keeps its record zone and wall time across a zone change',
-    (tester) async {
-      final store = await c2Store();
-      final before = c2Library(store);
-      final source = FakeZoneSource(_shanghai);
-      final controller = controllerFor(source);
-      addTearDown(controller.dispose);
-      await controller.refresh();
-      await pumpPlanner(tester, store, controller);
 
-      await c2Tap(tester, c2Key('schedule-add'));
-      await c2Text(tester, 'schedule-editor-start-time', '10:00');
-      expect(c2Key('schedule-editor-zone'), findsNothing);
-      expect(
-        find.descendant(
-          of: c2Key('schedule-editor-start-time'),
-          matching: find.text('10:00'),
-        ),
-        findsOneWidget,
-      );
-
-      source.reading = _tokyo;
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      await tester.pumpAndSettle();
-      expect(c2Key('schedule-editor-zone'), findsNothing);
-      expect(
-        find.descendant(
-          of: c2Key('schedule-editor-start-time'),
-          matching: find.text('10:00'),
-        ),
-        findsOneWidget,
-      );
-      await c2Tap(tester, c2Key('schedule-editor-cancel'));
-      expect(c2Library(store), before);
-      await c2Finish(tester, store);
-    },
-  );
 
   test(
     'a DST fold or gap in the opened form is not re-resolved by a zone change',

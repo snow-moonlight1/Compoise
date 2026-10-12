@@ -7,7 +7,14 @@ import '../task_stats.dart';
 import '../theme.dart';
 import '../ui/platform_ui_policy.dart';
 
-enum HomeMoreAction { switchBoard, today, completed, select, settings }
+enum HomeMoreAction {
+  switchBoard,
+  today,
+  completed,
+  select,
+  screenshotImport,
+  settings,
+}
 
 class HomeActionButton extends StatelessWidget {
   final Key? buttonKey;
@@ -54,72 +61,54 @@ class HomeActionButton extends StatelessWidget {
           ? null
           : (context, states, child) => child ?? const SizedBox.shrink(),
     );
-    Widget child =
-        compact
-            ? IconButton(
-              key: buttonKey,
-              tooltip: tooltip ?? label,
-              onPressed: onPressed,
-              icon: Icon(icon, color: iconColor),
-              // quiet.merge wins on overlay. styleFrom would otherwise
-              // derive a gray pressed mask from foregroundColor.
-              style: quiet.merge(
-                IconButton.styleFrom(
-                  foregroundColor: skin?.ink,
-                  backgroundColor: skin == null
-                      ? null
-                      : const Color(0x00000000),
-                  minimumSize: const Size(
-                    PlatformUiPolicy.minActionSize,
-                    PlatformUiPolicy.minActionSize,
-                  ),
-                  tapTargetSize: MaterialTapTargetSize.padded,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      skin == null ? 12 : 14,
-                    ),
-                  ),
+    Widget child = compact
+        ? IconButton(
+            key: buttonKey,
+            tooltip: tooltip ?? label,
+            onPressed: onPressed,
+            icon: Icon(icon, color: iconColor),
+            // quiet.merge wins on overlay. styleFrom would otherwise
+            // derive a gray pressed mask from foregroundColor.
+            style: quiet.merge(
+              IconButton.styleFrom(
+                foregroundColor: skin?.ink,
+                backgroundColor: skin == null ? null : const Color(0x00000000),
+                minimumSize: const Size(
+                  PlatformUiPolicy.minActionSize,
+                  PlatformUiPolicy.minActionSize,
+                ),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(skin == null ? 12 : 14),
                 ),
               ),
-            )
-            : TextButton.icon(
-              key: buttonKey,
-              onPressed: onPressed,
-              icon: Icon(icon, size: 20, color: iconColor),
-              label: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              style: quiet.merge(
-                TextButton.styleFrom(
-                  foregroundColor: skin?.ink,
-                  backgroundColor: skin == null
-                      ? null
-                      : const Color(0x00000000),
-                  padding: skin == null
-                      ? null
-                      : const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                  minimumSize: Size(
-                    expanded ? double.infinity : PlatformUiPolicy.minActionSize,
-                    barHeight,
-                  ),
-                  tapTargetSize: MaterialTapTargetSize.padded,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+            ),
+          )
+        : TextButton.icon(
+            key: buttonKey,
+            onPressed: onPressed,
+            icon: Icon(icon, size: 20, color: iconColor),
+            label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            style: quiet.merge(
+              TextButton.styleFrom(
+                foregroundColor: skin?.ink,
+                backgroundColor: skin == null ? null : const Color(0x00000000),
+                padding: skin == null
+                    ? null
+                    : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: Size(
+                  expanded ? double.infinity : PlatformUiPolicy.minActionSize,
+                  barHeight,
+                ),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-            );
+            ),
+          );
     if (skin != null) {
-      child = NeuPressable(
-        skin: skin,
-        radius: compact ? 14 : 16,
-        child: child,
-      );
+      child = NeuPressable(skin: skin, radius: compact ? 14 : 16, child: child);
     }
     if (expanded && (skin != null || comic != null)) {
       child = Padding(
@@ -253,6 +242,13 @@ Future<HomeMoreAction?> showHomeMore(BuildContext context) {
     context: context,
     builder: (ctx) => Dialog(
       insetPadding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
+      // Comic / neumorphic dialogs are rounded (comic with an ink outline);
+      // clip the square panel to that shape so no corner pokes out.
+      clipBehavior:
+          ComicOutline.maybeOf(context) != null ||
+              NeumorphicSkin.maybeOf(context) != null
+          ? Clip.antiAlias
+          : Clip.none,
       alignment: Alignment.topRight,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
@@ -276,11 +272,15 @@ class HomeMorePanel extends StatelessWidget {
     if (stats.totalTasks == 0) {
       rateText = t['completionRateEmpty'] ?? 'All boards: no tasks';
     } else {
-      rateText = (t['completionRateSummary'] ??
-              'All boards: {done}/{total} completed ({percent}%)')
-          .replaceAll('{done}', '${stats.completedTasks}')
-          .replaceAll('{total}', '${stats.totalTasks}')
-          .replaceAll('{percent}', '${(stats.completionRate * 100).round()}');
+      rateText =
+          (t['completionRateSummary'] ??
+                  'All boards: {done}/{total} completed ({percent}%)')
+              .replaceAll('{done}', '${stats.completedTasks}')
+              .replaceAll('{total}', '${stats.totalTasks}')
+              .replaceAll(
+                '{percent}',
+                '${(stats.completionRate * 100).round()}',
+              );
     }
 
     return Material(
@@ -339,21 +339,28 @@ class HomeMorePanel extends StatelessWidget {
               ),
               title: Text(t['showCompletedTasks'] ?? 'Show completed tasks'),
               value: !store.settings.hideCompleted,
-              onChanged:
-                  (show) => store.updateSettings(
-                    (s) => s..hideCompleted = !show,
-                  ),
+              onChanged: (show) =>
+                  store.updateSettings((s) => s..hideCompleted = !show),
             ),
             ListTile(
               key: const ValueKey('select-tasks-btn'),
               minVerticalPadding: 12,
               enabled: canSelect,
               leading: const Icon(Icons.layers),
-              title: Text(t['selectTasks'] ?? t['selectionMode'] ?? 'Select tasks'),
-              onTap:
-                  canSelect
-                      ? () => Navigator.pop(context, HomeMoreAction.select)
-                      : null,
+              title: Text(
+                t['selectTasks'] ?? t['selectionMode'] ?? 'Select tasks',
+              ),
+              onTap: canSelect
+                  ? () => Navigator.pop(context, HomeMoreAction.select)
+                  : null,
+            ),
+            ListTile(
+              key: const ValueKey('more-screenshot-import'),
+              minVerticalPadding: 12,
+              leading: const Icon(Icons.image_outlined),
+              title: Text(t['screenshotImportTitle']!),
+              onTap: () =>
+                  Navigator.pop(context, HomeMoreAction.screenshotImport),
             ),
             ListTile(
               key: const ValueKey('more-settings-btn'),

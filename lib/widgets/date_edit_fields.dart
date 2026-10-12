@@ -415,6 +415,7 @@ class DeadlineDayChips extends StatelessWidget {
       runSpacing: 4,
       children: [
         ChoiceChip(
+          showCheckmark: false,
           key: _key('today'),
           avatar: const Icon(Icons.today, size: 16),
           label: Text(t['today']!),
@@ -424,6 +425,7 @@ class DeadlineDayChips extends StatelessWidget {
               : null,
         ),
         ChoiceChip(
+          showCheckmark: false,
           key: _key('tomorrow'),
           avatar: const Icon(Icons.event, size: 16),
           label: Text(t['tomorrow']!),
@@ -433,6 +435,7 @@ class DeadlineDayChips extends StatelessWidget {
               : null,
         ),
         ChoiceChip(
+          showCheckmark: false,
           key: _key('custom'),
           avatar: const Icon(Icons.calendar_month, size: 16),
           label: Text(isCustom ? formatCivilDate(selected!) : t['pickDate']!),

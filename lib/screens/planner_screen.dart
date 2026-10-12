@@ -1,15 +1,24 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
 import '../models.dart';
 import '../planner/planner_block.dart';
 import '../planner/planner_date_strip.dart';
+import '../planner/planner_detail_card.dart';
+import '../planner/planner_drag_feedback.dart';
+import '../planner/planner_guide.dart';
+import '../planner/planner_guide_flag.dart';
+import '../planner/planner_day_swipe.dart';
 import '../planner/planner_day_timeline.dart';
 import '../planner/planner_labels.dart';
 import '../planner/planner_pinch.dart';
+import '../planner/planner_skin.dart';
 import '../planner/planner_task_pool.dart';
 import '../planner/planner_toolbar.dart';
 import '../planner/planner_view.dart';
@@ -50,6 +59,11 @@ class PlannerScreen extends StatefulWidget {
     this.initialBoardId,
     this.initialTaskId,
     this.startTimeBlock = false,
+    this.autoGuide = false,
+    this.embedded = false,
+    this.active = true,
+    this.focusToken = 0,
+    this.onLeave,
     this.now,
   }) : assert(store == null || snapshot == null);
 
@@ -72,6 +86,22 @@ class PlannerScreen extends StatefulWidget {
 
   /// Opens the editor for that task's new time block once the page can save.
   final bool startTimeBlock;
+
+  /// Shows the first-visit guide once. Off for embedded and test mounts.
+  final bool autoGuide;
+
+  /// A main tab of the home page: a peer of the task board, so no back arrow.
+  final bool embedded;
+
+  /// False while the page is mounted but hidden (another home tab is shown);
+  /// the back key then belongs to that tab.
+  final bool active;
+
+  /// Bumped by the host to focus [initialTaskId] again on a mounted page.
+  final int focusToken;
+
+  /// Embedded page: back with nothing left to close asks the host to leave.
+  final VoidCallback? onLeave;
   final DateTime Function()? now;
 
   @override
@@ -83,20 +113,23 @@ class _PlannerScreenState extends State<PlannerScreen>
   late ScheduleCivilDate _date;
   late PlannerView _view;
   String? _boardId;
-  final _horizontal = ScrollController();
   final _vertical = ScrollController();
   final _pool = DraggableScrollableController();
   final _hover = ValueNotifier<PlannerHover?>(null);
+  final _itemPointer = PlannerDragPointer();
   final _addFocus = FocusNode();
+  final _keysFocus = FocusNode(debugLabel: 'schedule-keys');
   final _stackKey = GlobalKey();
   final _viewportKey = GlobalKey();
   final _dropKeys = <String, GlobalKey>{};
   bool _editorOpen = false;
   bool _retryingStore = false;
-  String? _adjustingId;
+  String? _selectedId;
   String _dropHint = 'Release to place at {time}.';
   double _poolMin = 0.12;
   Offset? _poolPointer;
+  Offset? _tapDown;
+  Duration _tapAt = Duration.zero;
   ScheduleDayLayout? _paintedDay;
   List<ScheduleDayLayout> _weekLayouts = const [];
   late final AnimationController _motion;
@@ -159,6 +192,11 @@ class _PlannerScreenState extends State<PlannerScreen>
   @override
   void initState() {
     super.initState();
+    _loadDockWidth();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.active) _reclaimKeys();
+    });
+    _pool.addListener(_poolMoved);
     _motion = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 240),
@@ -178,11 +216,18 @@ class _PlannerScreenState extends State<PlannerScreen>
     _view = widget.initialView;
     _boardId = widget.initialBoardId;
     _armPreselectedBlock();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToDefault();
+      _maybeGuide();
+    });
   }
 
   @override
   void didUpdateWidget(PlannerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Coming back to the tab: the keyboard shortcuts work straight away.
+    if (widget.active && !oldWidget.active) _reclaimKeys();
     if (oldWidget.timeZoneController != widget.timeZoneController) {
       (oldWidget.timeZoneController ?? _ownedZone)?.removeListener(
         _onZoneChanged,
@@ -194,6 +239,10 @@ class _PlannerScreenState extends State<PlannerScreen>
         oldWidget.displayTimeZoneId != widget.displayTimeZoneId) {
       _readZone();
     }
+    if (oldWidget.focusToken != widget.focusToken) {
+      _startedPreselectedBlock = false;
+      _armPreselectedBlock();
+    }
   }
 
   @override
@@ -202,11 +251,13 @@ class _PlannerScreenState extends State<PlannerScreen>
     _ownedZone?.dispose();
     _ownedZone = null;
     _motion.dispose();
-    _horizontal.dispose();
     _vertical.dispose();
+    _pool.removeListener(_poolMoved);
     _pool.dispose();
     _hover.dispose();
+    _itemPointer.dispose();
     _addFocus.dispose();
+    _keysFocus.dispose();
     super.dispose();
   }
 
@@ -221,9 +272,7 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (_zone == null) return;
     _startedPreselectedBlock = true;
     if (!store.tasks.any((task) => task.id == taskId)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(store.t['scheduleTaskMissing']!)));
+      _fail(store.t['scheduleTaskMissing']!);
       return;
     }
     await _revealTask(store, taskId);
@@ -244,8 +293,13 @@ class _PlannerScreenState extends State<PlannerScreen>
       if (view != null) _view = view;
       if (date != null) _date = date;
     });
+    _selectedId = null;
     _resetScroll();
-    _motion.forward(from: 0);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _motion.value = 1;
+    } else {
+      _motion.forward(from: 0);
+    }
   }
 
   void _shift(int days) {
@@ -290,8 +344,168 @@ class _PlannerScreenState extends State<PlannerScreen>
   }
 
   void _resetScroll() {
-    if (_vertical.positions.length == 1) _vertical.jumpTo(0);
-    if (_horizontal.positions.length == 1) _horizontal.jumpTo(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToDefault();
+    });
+  }
+
+  /// A day opens near the morning (or an hour before now, for today) instead
+  /// of at midnight, so the first screen already shows useful hours.
+  void _scrollToDefault() {
+    if (_vertical.positions.length != 1) return;
+    if (_view == PlannerView.week) {
+      _vertical.jumpTo(0);
+      return;
+    }
+    final scale = math.max(
+      1.0,
+      MediaQuery.textScalerOf(context).scale(14) / 14,
+    );
+    var hour = 7;
+    if (_sameDate(_date, _today())) {
+      final now = widget.now?.call() ?? DateTime.now();
+      final local = _zone == null
+          ? now
+          : scheduleLocalTime(now.millisecondsSinceEpoch, _zone!);
+      hour = math.max(0, local.hour - 1);
+    }
+    var target = hour * 96.0 * scale;
+    final placements = _paintedDay?.placements ?? const <SchedulePlacement>[];
+    if (placements.isNotEmpty) {
+      // Never hide the first item of the day above the fold.
+      final first = placements.map((p) => p.top).reduce(math.min);
+      target = math.min(target, math.max(0.0, first - 48 * scale));
+    }
+    _vertical.jumpTo(
+      target.clamp(0.0, _vertical.position.maxScrollExtent).toDouble(),
+    );
+  }
+
+  /// Failure message: one at a time, gone after ~4 s or on the close icon, no
+  /// undo, floating above the pool bar and the selection bar. While a dialog is
+  /// up its own inline text carries the error instead.
+  void _fail(String message) {
+    if (!mounted || _editorOpen) return;
+    final height = MediaQuery.sizeOf(context).height;
+    final sheet = _docked
+        ? 0.0
+        : _pool.isAttached
+        ? _pool.pixels
+        : _poolMin * height;
+    final bar = _selectedId == null ? 0.0 : 64.0;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        key: const ValueKey('schedule-error'),
+        behavior: SnackBarBehavior.floating,
+        showCloseIcon: true,
+        duration: const Duration(seconds: 4),
+        margin: EdgeInsets.fromLTRB(16, 0, 16, sheet + bar + 12),
+        content: Text(message),
+      ),
+    );
+  }
+
+  bool _foldingPool = false;
+  bool _poolOpen = false;
+
+  /// Folds the pool to its bar: eased, quick, and instant under "reduce motion".
+  Future<void> _foldPool() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pool.jumpTo(_poolMin);
+      return Future<void>.value();
+    }
+    return _pool.animateTo(
+      _poolMin,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// Expanding the pool drops the selection, so only one of them is ever up.
+  void _poolMoved() {
+    final open = _pool.isAttached && _pool.size > _poolMin + 0.02;
+    if (open != _poolOpen && mounted && !_foldingPool) {
+      setState(() => _poolOpen = open);
+    }
+    if (_foldingPool || _selectedId == null || !_pool.isAttached) return;
+    if (_pool.size > _poolMin + 0.02) setState(() => _selectedId = null);
+  }
+
+  void _deselect() {
+    if (_selectedId != null) setState(() => _selectedId = null);
+  }
+
+  /// Tap on a block: select it (round handles on both edges plus the detail
+  /// panel). The pool folds down so the panel has room, and the block is kept
+  /// clear of the panel.
+  void _selectItem(String id) {
+    setState(() => _selectedId = id);
+    if (_pool.isAttached && _pool.size > _poolMin + 0.02) {
+      _foldingPool = true;
+      _foldPool().whenComplete(() => _foldingPool = false);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revealSelected());
+  }
+
+  void _revealSelected() {
+    final day = _paintedDay;
+    final id = _selectedId;
+    if (!mounted || day == null || id == null || _view != PlannerView.day) {
+      return;
+    }
+    if (!_vertical.hasClients) return;
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final placement = day.placements
+        .where((p) => p.entry.item.id == id)
+        .firstOrNull;
+    if (placement == null) return;
+    final viewport = box.size.height;
+    // Space the detail panel and the folded pool take at the bottom.
+    final covered = 72 + 64.0;
+    final top = placement.top - plannerHandleReach - 8;
+    final bottom = placement.top + placement.height + plannerHandleReach + 8;
+    final offset = _vertical.offset;
+    double? next;
+    if (top < offset) {
+      next = top;
+    } else if (bottom > offset + viewport - covered) {
+      next = math.min(bottom - (viewport - covered), top);
+    }
+    if (next == null) return;
+    final clamped = next
+        .clamp(0.0, _vertical.position.maxScrollExtent)
+        .toDouble();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _vertical.jumpTo(clamped);
+    } else {
+      _vertical.animateTo(
+        clamped,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _maybeGuide() async {
+    if (!widget.autoGuide || widget.snapshot != null) return;
+    if (await PlannerGuideFlags.seen(PlannerGuideFlags.guideKey)) return;
+    if (!mounted) return;
+    final t = dictOf((widget.store ?? context.read<Store>()).settings.language);
+    await showPlannerGuide(context, t);
+    _reclaimKeys();
+  }
+
+  /// Desktop shortcuts only fire while focus sits inside the planner. A dialog
+  /// closing, the tab switch or a click on the tab bar leaves it elsewhere, so
+  /// pull it back unless the user is typing in a field.
+  void _reclaimKeys() {
+    if (!mounted || !PlatformUiPolicy.of(context).isDesktop) return;
+    final current = FocusManager.instance.primaryFocus?.context?.widget;
+    if (current is EditableText) return;
+    if (!_keysFocus.hasFocus) _keysFocus.requestFocus();
   }
 
   Future<void> _addPoolTask(Store store, int quadrant) async {
@@ -341,64 +555,166 @@ class _PlannerScreenState extends State<PlannerScreen>
     await showBatchDecomposeSheet(context, longTerm);
   }
 
-  Future<void> _create(Store store, ScheduleCivilDate date) async {
-    if (_editorOpen || store.hasStartupRecovery || !store.ready) return;
-    setState(() => _editorOpen = true);
+  ScheduleItem _withTimes(ScheduleItem item, int startAt, int endAt) =>
+      item.kind == ScheduleItemKind.timeBlock
+      ? ScheduleItem.timeBlock(
+          id: item.id,
+          taskId: item.taskId!,
+          startAt: startAt,
+          endAt: endAt,
+          timeZoneId: item.timeZoneId,
+        )
+      : ScheduleItem.event(
+          id: item.id,
+          title: item.title!,
+          taskId: item.taskId,
+          boardId: item.boardId,
+          startAt: startAt,
+          endAt: endAt,
+          timeZoneId: item.timeZoneId,
+        );
+
+  /// Applies a finished drag. [minutes] is already snapped to 15 minutes.
+  Future<void> _applyChange(
+    Store store,
+    ScheduleItem item,
+    ScheduleEditMode mode,
+    int minutes,
+  ) async {
+    if (store.hasStartupRecovery || !store.ready) {
+      _fail(store.t['scheduleRecovery']!);
+      return;
+    }
+    final delta = minutes * Duration.millisecondsPerMinute;
+    const min = 15 * Duration.millisecondsPerMinute;
+    final start = switch (mode) {
+      ScheduleEditMode.move => item.startAt + delta,
+      ScheduleEditMode.resizeStart => math.min(
+        item.startAt + delta,
+        item.endAt - min,
+      ),
+      _ => item.startAt,
+    };
+    final end = switch (mode) {
+      ScheduleEditMode.move => item.endAt + delta,
+      ScheduleEditMode.resizeEnd => math.max(
+        item.endAt + delta,
+        item.startAt + min,
+      ),
+      _ => item.endAt,
+    };
+    await _replaceTimes(store, item, start, end);
+  }
+
+  Future<void> _replaceTimes(
+    Store store,
+    ScheduleItem item,
+    int start,
+    int end,
+  ) async {
+    final revision = store.scheduleRevision(item.id);
+    final ScheduleItem updated;
     try {
-      final session = ScheduleEditSession.create(
-        store,
-        ScheduleItemKind.event,
-        _zone!,
-        date,
-      );
-      final filter = _boardId;
-      session.boardId =
-          filter != null && store.boards.any((board) => board.id == filter)
-          ? filter
-          : store.activeBoardId;
-      final saved = await showScheduleEditor(context, session);
-      if (saved == true && mounted) _savedMessage(store);
-    } finally {
-      if (mounted) setState(() => _editorOpen = false);
+      updated = _withTimes(item, start, end);
+    } on FormatException {
+      _fail(store.t['scheduleEditorInvalid']!);
+      return;
+    }
+    bool changed;
+    try {
+      changed = store.updateScheduleItem(updated, expectedRevision: revision);
+    } on StateError {
+      _fail(store.t['scheduleEditorStale']!);
+      return;
+    } on FormatException {
+      _fail(store.t['scheduleEditorInvalid']!);
+      return;
+    }
+    if (!changed) {
+      _fail(store.t['scheduleEditorStale']!);
+      return;
+    }
+    final result = await store.flush(waitForReminders: false);
+    if (!mounted) return;
+    if (!result.success) {
+      _fail(store.t['scheduleEditorUnsaved']!);
     }
   }
 
-  void _savedMessage(Store store, [String? message]) {
-    final height = MediaQuery.sizeOf(context).height;
-    final sheet = _pool.isAttached ? _pool.pixels : _poolMin * height;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.fromLTRB(16, 0, 16, sheet + 16),
-        content: Text(message ?? store.t['scheduleEditorSaved']!),
-      ),
-    );
-  }
-
-  Future<void> _edit(
-    Store store,
-    ScheduleItem item,
-    ScheduleEditMode mode, {
-    int? revision,
-    ScheduleWallTime? target,
-    bool delete = false,
-  }) async {
+  /// Opens the plain edit form for [item].
+  Future<void> _editItem(Store store, ScheduleItem item) async {
     if (_editorOpen || store.hasStartupRecovery || !store.ready) return;
     setState(() => _editorOpen = true);
     try {
       final session = ScheduleEditSession.edit(
         store,
         item,
-        mode: mode,
         displayZone: _zone!,
-        target: target,
-        revision: revision,
+        revision: store.scheduleRevision(item.id),
       );
-      final modal = delete
-          ? showScheduleDelete(context, session)
-          : showScheduleEditor(context, session);
-      final saved = await modal;
-      if (saved == true && mounted) _savedMessage(store);
+      await showScheduleEditor(context, session);
+    } finally {
+      if (mounted) setState(() => _editorOpen = false);
+    }
+  }
+
+  /// Deletes after one centered confirmation.
+  Future<void> _deleteItem(Store store, ScheduleItem item) async {
+    if (store.hasStartupRecovery || !store.ready) return;
+    final revision = store.scheduleRevision(item.id);
+    final ok = await showScheduleDeleteConfirm(context, store.t);
+    if (ok != true || !mounted) return;
+    if (!store.deleteScheduleItem(item.id, expectedRevision: revision)) {
+      _fail(store.t['scheduleDeleteFailed']!);
+      return;
+    }
+    setState(() => _selectedId = null);
+    final result = await store.flush(waitForReminders: false);
+    if (mounted && !result.success) _fail(store.t['scheduleDeleteFailed']!);
+  }
+
+  /// New event from the pool's "+": opens the plain form with a free hour.
+  Future<void> _create(
+    Store store,
+    ScheduleCivilDate date, {
+    ScheduleWallTime? at,
+  }) async {
+    if (_editorOpen || store.hasStartupRecovery || !store.ready) return;
+    setState(() => _editorOpen = true);
+    try {
+      final day = _paintedDay;
+      final start = at ?? (day == null ? null : _freeStart(day));
+      final session = ScheduleEditSession.create(
+        store,
+        ScheduleItemKind.event,
+        _zone!,
+        date,
+        suggestedStart: start,
+      );
+      if (start == null) {
+        session.start.time = '09:00';
+      }
+      final endMs =
+          resolveWallTime(
+            ScheduleWallTime(
+              date,
+              hour: int.parse(session.start.time.substring(0, 2)),
+              minute: int.parse(session.start.time.substring(3, 5)),
+            ),
+            _zone!,
+          ) +
+          const Duration(hours: 1).inMilliseconds;
+      final end = _wallFromInstant(endMs);
+      session.end.date = scheduleDateLabel(end.date);
+      session.end.time =
+          '${end.hour.toString().padLeft(2, '0')}:'
+          '${end.minute.toString().padLeft(2, '0')}';
+      final filter = _boardId;
+      session.boardId =
+          filter != null && store.boards.any((board) => board.id == filter)
+          ? filter
+          : store.activeBoardId;
+      await showScheduleEditor(context, session);
     } finally {
       if (mounted) setState(() => _editorOpen = false);
     }
@@ -420,32 +736,61 @@ class _PlannerScreenState extends State<PlannerScreen>
     return day.window.startAt + (elapsed ~/ quarter) * quarter;
   }
 
+  /// Week-list blocks are dragged to another day with the long-press draggable.
   Widget _drag(
     Store store,
     ScheduleItem item,
+    String title,
     ScheduleEditMode mode,
     Widget child, {
     Key? key,
-  }) => LongPressDraggable<ScheduleDragPayload>(
-    key: key,
-    data: ScheduleDragPayload(item, store.scheduleRevision(item.id), mode),
-    maxSimultaneousDrags: _editorOpen ? 0 : 1,
-    dragAnchorStrategy: pointerDragAnchorStrategy,
-    feedback: Material(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Text(
-          store.t[mode == ScheduleEditMode.move
-              ? 'scheduleEditorMove'
-              : mode == ScheduleEditMode.resizeStart
-              ? 'scheduleEditorResizeStart'
-              : 'scheduleEditorResizeEnd']!,
+    Size? size,
+  }) {
+    final data = ScheduleDragPayload(
+      item,
+      store.scheduleRevision(item.id),
+      mode,
+    );
+    // Same look and size as the label; the original stays behind, faded.
+    final feedback = PlannerDragFeedback(
+      pointer: _itemPointer,
+      size: size ?? const Size(160, 40),
+      child: Material(
+        type: MaterialType.transparency,
+        child: SizedBox(
+          width: size?.width ?? 160,
+          height: size?.height ?? 40,
+          child: child,
         ),
       ),
-    ),
-    child: child,
-  );
+    );
+    final ghost = Opacity(opacity: 0.38, child: child);
+    void moved(DragUpdateDetails details) =>
+        _itemPointer.update(details.globalPosition);
+    final desktop = PlatformUiPolicy.of(context).isDesktop;
+    final touch = LongPressDraggable<ScheduleDragPayload>(
+      key: desktop ? null : key,
+      data: data,
+      maxSimultaneousDrags: _editorOpen ? 0 : 1,
+      dragAnchorStrategy: _itemPointer.anchor,
+      onDragUpdate: moved,
+      feedback: feedback,
+      childWhenDragging: ghost,
+      child: child,
+    );
+    if (!desktop) return touch;
+    // Desktop mouse: press and drag right away.
+    return PlannerMouseDraggable<ScheduleDragPayload>(
+      key: key,
+      data: data,
+      maxSimultaneousDrags: _editorOpen ? 0 : 1,
+      dragAnchorStrategy: _itemPointer.anchor,
+      onDragUpdate: moved,
+      feedback: feedback,
+      childWhenDragging: ghost,
+      child: touch,
+    );
+  }
 
   Future<void> _pickDate(Map<String, String> t) async {
     final picked = await showDatePicker(
@@ -511,6 +856,81 @@ class _PlannerScreenState extends State<PlannerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final inner = _buildBody(context);
+    // Back closes the top-most thing first: selection, then the open pool,
+    // then (embedded) returns to the task board, then leaves.
+    return PopScope(
+      canPop:
+          !widget.active ||
+          (!widget.embedded && _selectedId == null && !_poolOpen),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_selectedId != null) {
+          setState(() => _selectedId = null);
+        } else if (_poolOpen && _pool.isAttached) {
+          _foldPool();
+        } else {
+          widget.onLeave?.call();
+        }
+      },
+      child: PlatformUiPolicy.of(context).isDesktop && widget.active
+          ? _keys(inner)
+          : inner,
+    );
+  }
+
+  Store? get _liveStore =>
+      widget.snapshot != null ? null : widget.store ?? context.read<Store>();
+
+  /// Desktop keyboard: arrows move a day/week, T today, D/W switch view,
+  /// Delete removes the selected item (after the usual confirmation), Esc
+  /// clears the selection, Ctrl+N creates an item.
+  Widget _keys(Widget child) {
+    void delete() {
+      final store = _liveStore;
+      final id = _selectedId;
+      if (store == null || id == null || _editorOpen) return;
+      final item = store.scheduleItems.where((i) => i.id == id).firstOrNull;
+      if (item != null) _deleteItem(store, item);
+    }
+
+    void create() {
+      final store = _liveStore;
+      if (store != null) _create(store, _date);
+    }
+
+    void guarded(VoidCallback action) {
+      if (_editorOpen) return;
+      action();
+    }
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+            guarded(() => _navigate(-1)),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+            guarded(() => _navigate(1)),
+        const SingleActivator(LogicalKeyboardKey.keyT): () => guarded(_goToday),
+        const SingleActivator(LogicalKeyboardKey.keyD): () =>
+            guarded(() => _setView(PlannerView.day)),
+        const SingleActivator(LogicalKeyboardKey.keyW): () =>
+            guarded(() => _setView(PlannerView.week)),
+        const SingleActivator(LogicalKeyboardKey.delete): delete,
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_selectedId != null) _deselect();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): create,
+      },
+      child: Focus(
+        key: const ValueKey('schedule-keys'),
+        focusNode: _keysFocus,
+        autofocus: true,
+        child: Listener(onPointerDown: (_) => _reclaimKeys(), child: child),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     if (widget.snapshot != null) return _buildData(widget.snapshot!);
     final store = widget.store ?? context.watch<Store>();
     return ListenableBuilder(
@@ -527,6 +947,128 @@ class _PlannerScreenState extends State<PlannerScreen>
       },
     );
   }
+
+  Offset? _lastClick;
+  Duration _lastClickAt = Duration.zero;
+
+  /// Desktop: a mouse double click on an empty part of the day timeline
+  /// creates an item at that quarter hour. Touch never does this, and a plain
+  /// listener keeps every other gesture as it was.
+  Widget _doubleClickCreate(Store? store, double scale, Widget child) {
+    if (store == null) return child;
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) {
+        if (e.kind != PointerDeviceKind.mouse ||
+            e.buttons != kPrimaryMouseButton) {
+          return;
+        }
+        final last = _lastClick;
+        final quick =
+            last != null &&
+            e.timeStamp - _lastClickAt < const Duration(milliseconds: 400) &&
+            (e.position - last).distance < 8;
+        _lastClick = quick ? null : e.position;
+        _lastClickAt = e.timeStamp;
+        if (quick) _createAt(store, e.position, scale);
+      },
+      child: child,
+    );
+  }
+
+  void _createAt(Store store, Offset global, double scale) {
+    final day = _paintedDay;
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (day == null || box == null || !box.hasSize || _editorOpen) return;
+    final local = box.globalToLocal(global);
+    // Left of the hour labels is not the grid.
+    if (local.dx < plannerPageMargin + 44 * scale) return;
+    final y = (_vertical.hasClients ? _vertical.offset : 0) + local.dy;
+    if (y < 0 || y >= day.axisHeight) return;
+    final onBlock = day.placements.any(
+      (p) => y >= p.top && y <= p.top + p.height,
+    );
+    if (onBlock) return;
+    _create(store, _date, at: _wallAt(day, y));
+  }
+
+  /// Right click on a block: edit or delete.
+  Future<void> _blockMenu(Store store, ScheduleItem item, Offset at) async {
+    final t = store.t;
+    _selectItem(item.id);
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        at & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          key: const ValueKey('schedule-menu-edit'),
+          value: 'edit',
+          child: Text(t['scheduleEditorEdit']!),
+        ),
+        PopupMenuItem(
+          key: const ValueKey('schedule-menu-delete'),
+          value: 'delete',
+          child: Text(t['scheduleEditorDelete']!),
+        ),
+      ],
+    );
+    if (!mounted) return;
+    if (choice == 'edit') _editItem(store, item);
+    if (choice == 'delete') _deleteItem(store, item);
+  }
+
+  /// Day: jump to today; week: to this week. The view mode stays.
+  void _goToday() {
+    final today = _today();
+    _present(date: today, x: _isAfter(today, _date) ? 0.22 : -0.22);
+  }
+
+  /// Whether the last layout put the pool in a side panel.
+  bool _docked = false;
+
+  /// Side pool width the user dragged to (desktop); null until they do.
+  double? _dockWidth;
+  double _dockNow = plannerDockWidth;
+  static const _dockPrefKey = 'compoise-planner-dock-width';
+
+  static double _clampDock(double width, double window) => width.clamp(
+    plannerDockMinWidth,
+    math.max(plannerDockMinWidth, math.min(plannerDockMaxWidth, window / 2)),
+  );
+
+  Future<void> _loadDockWidth() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getDouble(_dockPrefKey);
+      if (saved != null && mounted) setState(() => _dockWidth = saved);
+    } catch (_) {}
+  }
+
+  Future<void> _saveDockWidth() async {
+    final width = _dockWidth;
+    if (width == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_dockPrefKey, width);
+    } catch (_) {}
+  }
+
+  /// The side pool's left edge: drag it to resize, left-right cursor on hover.
+  Widget _dockHandle(double window) => MouseRegion(
+    key: const ValueKey('schedule-pool-resize'),
+    cursor: SystemMouseCursors.resizeLeftRight,
+    child: GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: (details) => setState(
+        () => _dockWidth = _clampDock(_dockNow - details.delta.dx, window),
+      ),
+      onHorizontalDragEnd: (_) => _saveDockWidth(),
+    ),
+  );
 
   Widget _buildData(StoreSnapshot data, {Store? liveStore}) {
     final t = dictOf(data.settings.language);
@@ -564,11 +1106,7 @@ class _PlannerScreenState extends State<PlannerScreen>
           timeZoneId: zone,
           entries: entries,
           pixelsPerHour: 96 * scale,
-          minimumItemHeight:
-              (_adjustingId != null && scheduleDateLabel(date) == selected
-                  ? 150
-                  : 60) *
-              scale,
+          minimumItemHeight: 48 * scale,
         ),
     ];
     _weekLayouts = layouts;
@@ -577,37 +1115,81 @@ class _PlannerScreenState extends State<PlannerScreen>
     );
     final zoneLabel =
         '${_zoneController?.followsDeviceZone ?? false ? t['scheduleZoneDevice'] : t['scheduleDisplayZone']}: $zone';
-    final linked = {
+    final scheduledIds = {
       for (final item in data.scheduleItems)
         if (item.taskId != null) item.taskId!,
     };
-    final tasks = [
-      for (final task in data.tasks)
-        if (!task.completed &&
-            !linked.contains(task.id) &&
-            (boardId == null || task.boardId == boardId))
-          task,
-    ]..sort((a, b) => a.title.compareTo(b.title));
+    final tasks = plannerPoolTasks(data.tasks, boardId: boardId);
+    final desktop = PlatformUiPolicy.of(context).isDesktop;
+    final todayFab = _view == PlannerView.day
+        ? !_sameDate(_today(), _date)
+        : !week.any((d) => _sameDate(d, _today()));
+    final selectedEntry = _selectedId == null
+        ? null
+        : entries.where((e) => e.item.id == _selectedId).firstOrNull;
+    if (_selectedId != null && selectedEntry == null) {
+      // The item vanished (deleted, undone or edited elsewhere).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedId != null) setState(() => _selectedId = null);
+      });
+    }
 
     Widget blockFor(ScheduleDayLayout day, SchedulePlacement placement) {
+      final item = placement.entry.item;
+      final concurrent = day.placements
+          .where(
+            (other) =>
+                other.entry.item.id != item.id &&
+                scheduleIntervalsOverlap(
+                  other.slice.startAt,
+                  other.slice.endAt,
+                  placement.slice.startAt,
+                  placement.slice.endAt,
+                ),
+          )
+          .length;
       return PlannerBlock(
         placement: placement,
         dateLabel: scheduleDateLabel(day.date),
         zone: zone,
         t: t,
-        liveStore: liveStore,
+        writable: liveStore != null,
+        selected: _selectedId == item.id,
+        pixelsPerHour: day.pixelsPerHour,
+        concurrent: concurrent,
         compact: _view == PlannerView.week,
-        adjusting: _adjustingId == placement.entry.item.id,
-        onOpen: () => _openDetail(placement.entry.item.id, data, t, liveStore),
-        onHandle: (mode) {
+        dayStart: day.window.startAt,
+        dayEnd: day.window.endAt,
+        onTap: () {
+          final store = liveStore;
+          if (_selectedId == item.id && store != null) {
+            _editItem(store, item);
+            return;
+          }
+          _selectItem(item.id);
+        },
+        onChange: (mode, minutes) {
           final store = liveStore;
           if (store == null) return;
-          _edit(store, placement.entry.item, mode);
+          _applyChange(store, item, mode, minutes);
         },
-        drag: (mode, child, {key}) {
+        onContextMenu: liveStore == null
+            ? null
+            : (at) => _blockMenu(liveStore, item, at),
+        scrollOffset: () => _vertical.hasClients ? _vertical.offset : 0.0,
+        onDragGlobal: _autoScrollFromGlobal,
+        drag: (mode, child, {key, size}) {
           final store = liveStore;
           if (store == null) return child;
-          return _drag(store, placement.entry.item, mode, child, key: key);
+          return _drag(
+            store,
+            item,
+            placement.entry.title,
+            mode,
+            child,
+            key: key,
+            size: size,
+          );
         },
       );
     }
@@ -622,278 +1204,386 @@ class _PlannerScreenState extends State<PlannerScreen>
                   .clamp(0.08, 0.2)
                   .toDouble();
               _poolMin = poolMin;
-              return Stack(
-                key: _stackKey,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      PlannerToolbar(
-                        t: t,
-                        dateLabel: _view == PlannerView.day
-                            ? plannerDayTitle(
-                                _date,
-                                data.settings.language,
-                                t,
-                              )
-                            : plannerWeekTitle(
-                                week.first,
-                                week.last,
-                                data.settings.language,
-                              ),
-                        view: _view,
-                        canPrevious: _canPrevious,
-                        canNext: _canNext,
-                        zoneLabel: zoneLabel,
-                        filterLabel: '${t['scheduleBoardFilter']}: $filterName',
-                        onPrevious: () => _navigate(-1),
-                        onNext: () => _navigate(1),
-                        onPickDate: () => _pickDate(t),
-                        onToday: () {
-                          final today = _today();
-                          if (_sameDate(today, _date)) return;
-                          _present(
-                            date: today,
-                            x: _isAfter(today, _date) ? 0.22 : -0.22,
-                          );
-                        },
-                        onView: _setView,
-                        onFilter: () => _pickBoard(data, t),
-                        onZone: _zoneController == null
-                            ? null
-                            : () => _chooseZone(_zoneController!, t),
-                      ),
-                      if (liveStore == null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            t['scheduleReadOnly']!,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
+              final docked = desktop && constraints.maxWidth >= 900;
+              _docked = docked;
+              _dockNow = _clampDock(
+                _dockWidth ?? plannerDockWidth,
+                constraints.maxWidth,
+              );
+              final dockW = _dockNow;
+              final bottomPad = docked ? 0.0 : poolMin * constraints.maxHeight;
+              final Widget content =
+                  // Taps on empty content fold an opened pool. A plain
+                  // listener: it never joins the gesture arena, so blocks,
+                  // handles, swipes and drags behave exactly as before.
+                  Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (e) {
+                      _tapDown = _poolOpen ? e.position : null;
+                      _tapAt = e.timeStamp;
+                    },
+                    onPointerMove: (e) {
+                      if (_tapDown != null &&
+                          (e.position - _tapDown!).distance > 12) {
+                        _tapDown = null;
+                      }
+                    },
+                    onPointerUp: (e) {
+                      final down = _tapDown;
+                      _tapDown = null;
+                      if (down == null || !_poolOpen || !_pool.isAttached) {
+                        return;
+                      }
+                      if (e.timeStamp - _tapAt >
+                          const Duration(milliseconds: 300)) {
+                        return;
+                      }
+                      if (_highlightTaskId != null) {
+                        setState(() => _highlightTaskId = null);
+                      }
+                      _foldPool();
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        PlannerToolbar(
+                          t: t,
+                          dateLabel: _view == PlannerView.day
+                              ? plannerDayTitle(
+                                  _date,
+                                  data.settings.language,
+                                  t,
+                                )
+                              : plannerWeekTitle(
+                                  week.first,
+                                  week.last,
+                                  data.settings.language,
+                                ),
+                          view: _view,
+                          canPrevious: _canPrevious,
+                          canNext: _canNext,
+                          zoneLabel: zoneLabel,
+                          filterLabel:
+                              '${t['scheduleBoardFilter']}: $filterName',
+                          onPrevious: () => _navigate(-1),
+                          onNext: () => _navigate(1),
+                          onPickDate: () => _pickDate(t),
+                          onView: _setView,
+                          onFilter: () => _pickBoard(data, t),
+                          onZone: _zoneController == null
+                              ? null
+                              : () => _chooseZone(_zoneController!, t),
+                          onBack: !widget.embedded && Navigator.canPop(context)
+                              ? () => Navigator.maybePop(context)
+                              : null,
+                          onGuide: () =>
+                              showPlannerGuide(context, t, markSeen: false),
+                          onToday: desktop ? _goToday : null,
+                          todayInView: !todayFab,
                         ),
-                      if (liveStore?.persistenceError != null)
-                        Semantics(
-                          liveRegion: true,
-                          child: Padding(
+                        if (liveStore == null)
+                          Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(t['scheduleUnsaved']!),
+                            child: Text(
+                              t['scheduleReadOnly']!,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ),
-                        ),
-                      if (liveStore?.persistenceError != null)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            key: const ValueKey('schedule-persistence-retry'),
-                            onPressed: _retryingStore
-                                ? null
-                                : () async {
-                                    setState(() => _retryingStore = true);
-                                    try {
-                                      await liveStore!.retrySave(
-                                        waitForReminders: false,
-                                      );
-                                    } finally {
-                                      if (mounted) {
-                                        setState(() => _retryingStore = false);
+                        if (liveStore?.persistenceError != null)
+                          Semantics(
+                            liveRegion: true,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Text(t['scheduleUnsaved']!),
+                            ),
+                          ),
+                        if (liveStore?.persistenceError != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              key: const ValueKey('schedule-persistence-retry'),
+                              onPressed: _retryingStore
+                                  ? null
+                                  : () async {
+                                      setState(() => _retryingStore = true);
+                                      try {
+                                        await liveStore!.retrySave(
+                                          waitForReminders: false,
+                                        );
+                                      } finally {
+                                        if (mounted) {
+                                          setState(
+                                            () => _retryingStore = false,
+                                          );
+                                        }
                                       }
-                                    }
-                                  },
-                            child: Text(t['scheduleEditorRetry']!),
+                                    },
+                              child: Text(t['scheduleEditorRetry']!),
+                            ),
                           ),
-                        ),
-                      if (_adjustingId != null && liveStore != null)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            key: const ValueKey('schedule-hide-handles'),
-                            onPressed: () =>
-                                setState(() => _adjustingId = null),
-                            child: Text(t['scheduleEditorHideHandles']!),
-                          ),
-                        ),
-                      Expanded(
-                        child: ClipRect(
-                          child: AnimatedBuilder(
-                            animation: _motion,
-                            builder: (context, child) {
-                              final turned = Curves.easeOutCubic.transform(
-                                _motion.value,
-                              );
-                              return FractionalTranslation(
-                                key: const ValueKey('schedule-motion'),
-                                translation: Offset(
-                                  _slideX * (1 - turned),
-                                  0,
-                                ),
-                                child: Opacity(
-                                  opacity: (0.45 + 0.55 * turned).clamp(0, 1),
-                                  child: child,
-                                ),
+                        // A short window (landscape phone) keeps the room for the
+                        // grid; the date picker and swipes still move between days.
+                        if (_view == PlannerView.day &&
+                            MediaQuery.sizeOf(context).height >= 480)
+                          PlannerDateStrip(
+                            monday: monday,
+                            selected: _date,
+                            marked: _markedDays(entries, zone),
+                            t: t,
+                            language: data.settings.language,
+                            onSelect: (date) {
+                              if (_sameDate(date, _date)) return;
+                              _present(
+                                date: date,
+                                x: _isAfter(date, _date) ? 0.22 : -0.22,
                               );
                             },
-                            child: Column(
-                              children: [
-                                if (_view == PlannerView.day)
-                                  PlannerDateStrip(
-                                    monday: monday,
-                                    selected: _date,
-                                    marked: {
-                                      for (final day in layouts)
-                                        if (day.placements.isNotEmpty)
-                                          scheduleDateLabel(day.date),
-                                    },
-                                    t: t,
-                                    language: data.settings.language,
-                                    onSelect: (date) {
-                                      if (_sameDate(date, _date)) return;
-                                      _present(
-                                        date: date,
-                                        x: _isAfter(date, _date)
-                                            ? 0.22
-                                            : -0.22,
-                                      );
-                                    },
-                                    onWeek: (direction) =>
-                                        _shift(direction * 7),
+                            onWeek: (direction) => _shift(direction * 7),
+                          ),
+                        Expanded(
+                          child: ClipRect(
+                            child: AnimatedBuilder(
+                              animation: _motion,
+                              builder: (context, child) {
+                                final turned = Curves.easeOutCubic.transform(
+                                  _motion.value,
+                                );
+                                return FractionalTranslation(
+                                  key: const ValueKey('schedule-motion'),
+                                  translation: Offset(
+                                    _slideX * (1 - turned),
+                                    0,
                                   ),
-                                Expanded(
-                                  child: KeyedSubtree(
-                                    key: _viewportKey,
-                                    child: PlannerPinch(
-                            onPinchIn: _view == PlannerView.day
-                                ? () => _setView(PlannerView.week)
-                                : null,
-                            onPinchOut: _view == PlannerView.week
-                                ? () => _setView(PlannerView.day)
-                                : null,
-                            child: _view == PlannerView.day
-                                ? PlannerDayTimeline(
-                                    day: _paintedDay!,
-                                    scale: scale,
-                                    vertical: _vertical,
-                                    horizontal: _horizontal,
-                                    moreTemplate: t['scheduleMoreCount']!,
-                                    nowLabel: t['scheduleNow']!,
-                                    hover: _hover,
-                                    now: widget.now?.call() ?? DateTime.now(),
-                                    onScheduleDrop: liveStore == null
-                                        ? null
-                                        : (payload, dy) => _edit(
-                                            liveStore,
-                                            payload.item,
-                                            payload.mode,
-                                            revision: payload.revision,
-                                            target: _wallAt(_paintedDay!, dy),
-                                          ),
-                                    onPoolMove: _setHoverFromContent,
-                                    onPoolAccept: liveStore == null
-                                        ? null
-                                        : (taskId, dy) {
-                                            final day = _paintedDay;
-                                            if (day == null) return;
-                                            _hover.value = null;
-                                            _placeTask(
-                                              liveStore,
-                                              taskId,
-                                              _wallAt(day, dy),
-                                            );
-                                          },
-                                    block: (placement) =>
-                                        blockFor(_paintedDay!, placement),
-                                  )
-                                : PlannerWeekView(
-                                    days: layouts,
-                                    today: _today(),
-                                    scale: scale,
-                                    vertical: _vertical,
-                                    t: t,
-                                    onOpenDay: (date) => _present(
-                                      view: PlannerView.day,
-                                      date: date,
-                                      x: 0.16,
+                                  child: Opacity(
+                                    opacity: (0.45 + 0.55 * turned).clamp(0, 1),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: KeyedSubtree(
+                                      key: _viewportKey,
+                                      child: PlannerPinch(
+                                        onPinchIn: _view == PlannerView.day
+                                            ? () => _setView(PlannerView.week)
+                                            : null,
+                                        onPinchOut: _view == PlannerView.week
+                                            ? () => _setView(PlannerView.day)
+                                            : null,
+                                        child: _view == PlannerView.day
+                                            ? PlannerDaySwipe(
+                                                onSwipe: _shift,
+                                                child: _doubleClickCreate(
+                                                  desktop ? liveStore : null,
+                                                  scale,
+                                                  PlannerDayTimeline(
+                                                    day: _paintedDay!,
+                                                    scale: scale,
+                                                    vertical: _vertical,
+                                                    nowLabel: t['scheduleNow']!,
+                                                    hover: _hover,
+                                                    now:
+                                                        widget.now?.call() ??
+                                                        DateTime.now(),
+                                                    selectedId: _selectedId,
+                                                    emptyLabel:
+                                                        entries.isEmpty ||
+                                                            _paintedDay!
+                                                                .placements
+                                                                .isEmpty
+                                                        ? t['scheduleEmptyHint']
+                                                        : null,
+                                                    onGridTap: (_) =>
+                                                        _deselect(),
+                                                    onPoolMove:
+                                                        _setHoverFromContent,
+                                                    onPoolAccept:
+                                                        liveStore == null
+                                                        ? null
+                                                        : (taskId, dy) {
+                                                            final day =
+                                                                _paintedDay;
+                                                            if (day == null) {
+                                                              return;
+                                                            }
+                                                            _hover.value = null;
+                                                            _placeTask(
+                                                              liveStore,
+                                                              taskId,
+                                                              _wallAt(day, dy),
+                                                            );
+                                                          },
+                                                    block: (placement) =>
+                                                        blockFor(
+                                                          _paintedDay!,
+                                                          placement,
+                                                        ),
+                                                  ),
+                                                ),
+                                              )
+                                            : GestureDetector(
+                                                behavior:
+                                                    HitTestBehavior.translucent,
+                                                onTap: _deselect,
+                                                child: PlannerWeekView(
+                                                  days: layouts,
+                                                  today: _today(),
+                                                  scale: scale,
+                                                  vertical: _vertical,
+                                                  t: t,
+                                                  onOpenDay: (date) => _present(
+                                                    view: PlannerView.day,
+                                                    date: date,
+                                                    x: 0.16,
+                                                  ),
+                                                  onWeek: (direction) =>
+                                                      _shift(direction * 7),
+                                                  bottomInset: bottomPad,
+                                                  dropKey: _dropKey,
+                                                  onScheduleDrop:
+                                                      liveStore == null
+                                                      ? null
+                                                      : (payload, date) =>
+                                                            _dropOnWeekDay(
+                                                              liveStore,
+                                                              payload,
+                                                              date,
+                                                            ),
+                                                  block: blockFor,
+                                                ),
+                                              ),
+                                      ),
                                     ),
-                                    onWeek: (direction) =>
-                                        _shift(direction * 7),
-                                    bottomInset:
-                                        poolMin * constraints.maxHeight,
-                                    dropKey: _dropKey,
-                                    onScheduleDrop: liveStore == null
-                                        ? null
-                                        : (payload, date) => _dropOnWeekDay(
-                                            liveStore,
-                                            payload,
-                                            date,
-                                          ),
-                                    block: blockFor,
                                   ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
+                      ],
+                    ),
+                  );
+              final Widget pool = PlannerTaskPool(
+                docked: docked,
+                controller: _pool,
+                minSize: poolMin,
+                tasks: tasks,
+                scheduledIds: scheduledIds,
+                t: t,
+                zone: zone,
+                writable: liveStore != null,
+                addFocus: _addFocus,
+                addEnabled: !_editorOpen,
+                boardLabel: boardId != null && data.boards.length > 1
+                    ? filterName
+                    : null,
+                onBoard: () => _pickBoard(data, t),
+                onAddToQuadrant: liveStore == null
+                    ? null
+                    : (quadrant) => _addPoolTask(liveStore, quadrant),
+                highlightTaskId: _highlightTaskId,
+                highlightToken: _highlightToken,
+                onOpenTask: liveStore == null
+                    ? null
+                    : (task) => showTaskEditSheet(
+                        context,
+                        task,
+                        onScheduleTime: (taskId) =>
+                            _revealTask(liveStore, taskId),
                       ),
-                    ],
-                  ),
-                  PlannerTaskPool(
-                    controller: _pool,
-                    minSize: poolMin,
-                    tasks: tasks,
-                    t: t,
-                    zone: zone,
-                    writable: liveStore != null,
-                    addFocus: _addFocus,
-                    addEnabled: !_editorOpen,
-                    boardLabel:
-                        '${t['scheduleBoardShort']}: $filterName',
-                    onBoard: () => _pickBoard(data, t),
-                    onAddToQuadrant: liveStore == null
-                        ? null
-                        : (quadrant) => _addPoolTask(liveStore, quadrant),
-                    highlightTaskId: _highlightTaskId,
-                    highlightToken: _highlightToken,
-                    onOpenTask: liveStore == null
-                        ? null
-                        : (task) => showTaskEditSheet(
-                            context,
-                            task,
-                            onScheduleTime: (taskId) =>
-                                _revealTask(liveStore, taskId),
+                onAdd: liveStore == null
+                    ? () {}
+                    : () => _create(liveStore, _date),
+                onDragStarted: (_) {
+                  if (_selectedId != null) {
+                    setState(() => _selectedId = null);
+                  }
+                  if (_pool.isAttached) _foldPool();
+                },
+                onDragUpdate: (_, global) {
+                  _poolPointer = global;
+                  _autoScrollFromGlobal(global);
+                },
+                onDragEnd: (task, details) {
+                  final store = liveStore;
+                  final point = _poolPointer ?? details.offset;
+                  final hover = _hover.value;
+                  _poolPointer = null;
+                  _hover.value = null;
+                  if (store == null || details.wasAccepted) return;
+                  if (_overSheet(point)) return;
+                  if (_view == PlannerView.day && hover != null) {
+                    final day = _paintedDay;
+                    if (day == null) return;
+                    _placeTask(store, task.id, _wallAt(day, hover.top + 1));
+                    return;
+                  }
+                  _finishPoolDrop(store, task, point, hover);
+                },
+              );
+              return Stack(
+                key: _stackKey,
+                children: [
+                  if (docked)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: content),
+                        SizedBox(width: dockW, child: pool),
+                      ],
+                    )
+                  else ...[
+                    content,
+                    pool,
+                  ],
+                  if (docked)
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: dockW - 4,
+                      width: 8,
+                      child: _dockHandle(constraints.maxWidth),
+                    ),
+                  if (selectedEntry != null && !_editorOpen)
+                    Positioned(
+                      left: 12,
+                      right: docked ? dockW + 12 : 12,
+                      bottom: bottomPad + 8,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          child: PlannerDetailCard(
+                            entry: selectedEntry,
+                            zone: zone,
+                            language: data.settings.language,
+                            t: t,
+                            writable: liveStore != null,
+                            onEdit: () =>
+                                _editItem(liveStore!, selectedEntry.item),
+                            onDelete: () =>
+                                _deleteItem(liveStore!, selectedEntry.item),
                           ),
-                    onAdd: liveStore == null
-                        ? () {}
-                        : () => _create(liveStore, _date),
-                    onDragStarted: (_) {
-                      if (_pool.isAttached) {
-                        _pool.animateTo(
-                          _poolMin,
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                        );
-                      }
-                    },
-                    onDragUpdate: (_, global) {
-                      _poolPointer = global;
-                      _autoScrollFromGlobal(global);
-                    },
-                    onDragEnd: (task, details) {
-                      final store = liveStore;
-                      final point = _poolPointer ?? details.offset;
-                      final hover = _hover.value;
-                      _poolPointer = null;
-                      _hover.value = null;
-                      if (store == null || details.wasAccepted) return;
-                      if (_overSheet(point)) return;
-                      if (_view == PlannerView.day && hover != null) {
-                        final day = _paintedDay;
-                        if (day == null) return;
-                        _placeTask(store, task.id, _wallAt(day, hover.top + 1));
-                        return;
-                      }
-                      _finishPoolDrop(store, task, point, hover);
-                    },
-                  ),
+                        ),
+                      ),
+                    ),
+                  if (!desktop &&
+                      todayFab &&
+                      selectedEntry == null &&
+                      !_poolOpen)
+                    Positioned(
+                      right: 22,
+                      bottom: bottomPad + 22,
+                      child: _TodayButton(
+                        key: const ValueKey('schedule-today'),
+                        label: t['scheduleTodayShort']!,
+                        tooltip: t['scheduleBackToday']!,
+                        onPressed: _goToday,
+                      ),
+                    ),
                 ],
               );
             },
@@ -903,6 +1593,25 @@ class _PlannerScreenState extends State<PlannerScreen>
     );
   }
 
+  /// Every local day that has an item, for the dots under the date strip.
+  Set<String> _markedDays(List<ScheduleEntry> entries, String zone) {
+    final days = <String>{};
+    for (final entry in entries) {
+      final a = scheduleLocalTime(entry.item.startAt, zone);
+      // An item ending exactly at midnight does not touch the next day.
+      final b = scheduleLocalTime(entry.item.endAt - 1, zone);
+      var day = ScheduleCivilDate(a.year, a.month, a.day);
+      final last = scheduleDateLabel(ScheduleCivilDate(b.year, b.month, b.day));
+      for (var i = 0; i < 62; i++) {
+        final label = scheduleDateLabel(day);
+        days.add(label);
+        if (label == last) break;
+        day = day.addDays(1);
+      }
+    }
+    return days;
+  }
+
   GlobalKey _dropKey(String label) =>
       _dropKeys.putIfAbsent(label, GlobalKey.new);
 
@@ -910,6 +1619,12 @@ class _PlannerScreenState extends State<PlannerScreen>
     final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.attached || !box.hasSize) return false;
     final local = box.globalToLocal(global);
+    if (_docked) {
+      return local.dx >= box.size.width - _dockNow &&
+          local.dx <= box.size.width &&
+          local.dy >= 0 &&
+          local.dy <= box.size.height;
+    }
     final sheet = _pool.isAttached ? _pool.pixels : _poolMin * box.size.height;
     return local.dy >= box.size.height - sheet &&
         local.dy <= box.size.height &&
@@ -955,10 +1670,7 @@ class _PlannerScreenState extends State<PlannerScreen>
       setState(() => _editorOpen = true);
       final picked = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay(
-          hour: suggested.hour,
-          minute: suggested.minute,
-        ),
+        initialTime: TimeOfDay(hour: suggested.hour, minute: suggested.minute),
       );
       if (mounted) setState(() => _editorOpen = false);
       if (picked == null || !mounted) return;
@@ -1026,8 +1738,7 @@ class _PlannerScreenState extends State<PlannerScreen>
 
   ScheduleCivilDate? _dateUnder(Offset global) {
     for (final entry in _dropKeys.entries) {
-      final box =
-          entry.value.currentContext?.findRenderObject() as RenderBox?;
+      final box = entry.value.currentContext?.findRenderObject() as RenderBox?;
       if (box == null || !box.attached || !box.hasSize) continue;
       final local = box.globalToLocal(global);
       if (local.dx < 0 ||
@@ -1079,7 +1790,11 @@ class _PlannerScreenState extends State<PlannerScreen>
     ) {
       if (free(instant)) return _wallFromInstant(instant);
     }
-    for (var instant = day.window.startAt; instant < cursor; instant += quarter) {
+    for (
+      var instant = day.window.startAt;
+      instant < cursor;
+      instant += quarter
+    ) {
       if (free(instant)) return _wallFromInstant(instant);
     }
     return _wallFromInstant(cursor);
@@ -1094,8 +1809,8 @@ class _PlannerScreenState extends State<PlannerScreen>
     );
   }
 
-  /// A pool drop keeps the existing review path. An empty overlap list is saved
-  /// immediately; anything ambiguous opens the editor instead of writing blind.
+  /// A pool drop creates the schedule item straight away. Overlap is allowed:
+  /// the new item sits beside the others and a soft message offers undo.
   Future<void> _placeTask(
     Store store,
     String taskId,
@@ -1105,82 +1820,62 @@ class _PlannerScreenState extends State<PlannerScreen>
       return;
     }
     if (!store.tasks.any((task) => task.id == taskId)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(store.t['scheduleTaskMissing']!)));
+      _fail(store.t['scheduleTaskMissing']!);
       return;
     }
-    setState(() => _editorOpen = true);
+    final ScheduleItem item;
     try {
-      final session = ScheduleEditSession.create(
-        store,
-        ScheduleItemKind.timeBlock,
-        _zone!,
-        start.date,
-        suggestedStart: start,
+      final startAt = resolveWallTime(start, _zone!);
+      item = ScheduleItem.timeBlock(
+        id: newId(),
+        taskId: taskId,
+        startAt: startAt,
+        endAt: startAt + const Duration(hours: 1).inMilliseconds,
+        timeZoneId: _zone!,
       );
-      session.taskId = taskId;
-      var openEditor = false;
-      try {
-        final endMs =
-            resolveWallTime(start, _zone!) +
-            const Duration(hours: 1).inMilliseconds;
-        final end = _wallFromInstant(endMs);
-        session.end.date = scheduleDateLabel(end.date);
-        session.end.time =
-            '${end.hour.toString().padLeft(2, '0')}:'
-            '${end.minute.toString().padLeft(2, '0')}';
-        session.end.offset = null;
-        final review = session.review();
-        if (review.overlaps.isEmpty) {
-          final result = await session.submit(review);
-          if (!mounted) return;
-          if (result == ScheduleSubmitResult.saved) {
-            _savedMessage(store);
-            return;
-          }
-          if (result == ScheduleSubmitResult.unsaved) {
-            if (mounted) _savedMessage(store, store.t['scheduleEditorUnsaved']);
-            return;
-          }
-        }
-        openEditor = true;
-      } on ScheduleTimeException {
-        openEditor = true;
-      } on FormatException {
-        if (mounted) _savedMessage(store, store.t['scheduleEditorInvalid']);
-        return;
-      }
-      if (!openEditor || !mounted) return;
-      final saved = await showScheduleEditor(context, session);
-      if (saved == true && mounted) _savedMessage(store);
-    } finally {
-      if (mounted) setState(() => _editorOpen = false);
+    } on ScheduleTimeException {
+      _fail(store.t['scheduleEditorGap']!);
+      return;
+    }
+    try {
+      store.addScheduleItem(item);
+    } on FormatException {
+      _fail(store.t['scheduleDropFailed']!);
+      return;
+    } on StateError {
+      _fail(store.t['scheduleDropFailed']!);
+      return;
+    }
+    final result = await store.flush(waitForReminders: false);
+    if (!mounted) return;
+    if (!result.success) {
+      _fail(store.t['scheduleEditorUnsaved']!);
     }
   }
 
+  /// Moves a week-list block to another day, keeping its clock time and length.
   void _dropOnWeekDay(
     Store store,
     ScheduleDragPayload payload,
     ScheduleCivilDate date,
   ) {
-    final instant = payload.mode == ScheduleEditMode.resizeEnd
-        ? payload.item.endAt
-        : payload.item.startAt;
-    final local = scheduleLocalTime(instant, _zone!);
-    _edit(
-      store,
-      payload.item,
-      payload.mode,
-      revision: payload.revision,
-      target: ScheduleWallTime(
-        date,
-        hour: local.hour,
-        minute: local.minute,
-        second: local.second,
-        millisecond: local.millisecond,
-      ),
-    );
+    final item = payload.item;
+    final local = scheduleLocalTime(item.startAt, _zone!);
+    try {
+      final start = resolveWallTime(
+        ScheduleWallTime(
+          date,
+          hour: local.hour,
+          minute: local.minute,
+          second: local.second,
+          millisecond: local.millisecond,
+        ),
+        _zone!,
+      );
+      _replaceTimes(store, item, start, start + item.endAt - item.startAt);
+    } on ScheduleTimeException {
+      _fail(store.t['scheduleEditorGap']!);
+    }
   }
 
   /// Shown while no zone can be used. It names the reason the device identity
@@ -1256,191 +1951,6 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (!mounted) return;
     _armPreselectedBlock();
   }
-
-  Future<void> _openDetail(
-    String id,
-    StoreSnapshot snapshot,
-    Map<String, String> t,
-    Store? liveStore,
-  ) async {
-    // Keep the actual grid focus across the detail -> editor/delete route chain.
-    // The intermediate detail button is disposed before the editor closes.
-    final origin = FocusManager.instance.primaryFocus;
-    ScheduleItem? chosenItem;
-    int? chosenRevision;
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) {
-        Widget detail() {
-          final current = liveStore?.captureSnapshot() ?? snapshot;
-          final entry = scheduleEntries(
-            items: current.scheduleItems,
-            tasks: current.tasks,
-            boards: current.boards,
-          ).where((entry) => entry.item.id == id).firstOrNull;
-          final theme = Theme.of(context);
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * 0.85,
-              ),
-              child: SingleChildScrollView(
-                key: const ValueKey('schedule-detail'),
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: entry == null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(t['scheduleUnavailable']!),
-                          Text(t['scheduleUnavailable']!),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            key: const ValueKey('schedule-detail-close'),
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(t['close']!),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.title,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(plannerEntryLabel(entry, t)),
-                          Text('${t['scheduleDisplayZone']}: ${_zone!}'),
-                          Text(
-                            '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, _zone!)}',
-                          ),
-                          Text(
-                            '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, _zone!)}',
-                          ),
-                          Text(
-                            '${t['scheduleRecordedZone']}: ${entry.item.timeZoneId}',
-                          ),
-                          Text(
-                            '${t['scheduleStart']}: ${scheduleInstantLabel(entry.item.startAt, entry.item.timeZoneId)}',
-                          ),
-                          Text(
-                            '${t['scheduleEnd']}: ${scheduleInstantLabel(entry.item.endAt, entry.item.timeZoneId)}',
-                          ),
-                          Text(
-                            '${t['scheduleElapsed']}: '
-                            '${Duration(milliseconds: entry.item.endAt - entry.item.startAt)}',
-                          ),
-                          if (liveStore == null) Text(t['scheduleReadOnly']!),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              if (liveStore != null &&
-                                  !liveStore.hasStartupRecovery) ...[
-                                TextButton(
-                                  key: const ValueKey('schedule-detail-edit'),
-                                  onPressed: () {
-                                    chosenItem = entry.item;
-                                    chosenRevision = current
-                                        .scheduleRevisionFor(id);
-                                    Navigator.pop(context, 'edit');
-                                  },
-                                  child: Text(t['scheduleEditorEdit']!),
-                                ),
-                                PopupMenuButton<String>(
-                                  key: const ValueKey('schedule-detail-actions'),
-                                  tooltip: t['scheduleEditorMore'],
-                                  itemBuilder: (_) => [
-                                    for (final choice in [
-                                      ('move', 'scheduleEditorMove'),
-                                      (
-                                        'resizeStart',
-                                        'scheduleEditorResizeStart',
-                                      ),
-                                      ('resizeEnd', 'scheduleEditorResizeEnd'),
-                                      ('handles', 'scheduleEditorHandles'),
-                                      ('delete', 'scheduleEditorDelete'),
-                                    ])
-                                      PopupMenuItem(
-                                        value: choice.$1,
-                                        child: Text(t[choice.$2]!),
-                                      ),
-                                  ],
-                                  onSelected: (action) {
-                                    chosenItem = entry.item;
-                                    chosenRevision = current
-                                        .scheduleRevisionFor(id);
-                                    Navigator.pop(context, action);
-                                  },
-                                  icon: const Icon(Icons.more_horiz),
-                                ),
-                              ],
-                              TextButton(
-                                key: const ValueKey('schedule-detail-close'),
-                                onPressed: () => Navigator.pop(context),
-                                child: Text(t['close']!),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          );
-        }
-
-        return liveStore == null
-            ? detail()
-            : ListenableBuilder(
-                listenable: liveStore,
-                builder: (_, _) => detail(),
-              );
-      },
-    );
-    if (!mounted) return;
-    if (action == 'handles') {
-      setState(() => _adjustingId = id);
-    } else if (action != null && liveStore != null && chosenItem != null) {
-      await _edit(
-        liveStore,
-        chosenItem!,
-        switch (action) {
-          'move' => ScheduleEditMode.move,
-          'resizeStart' => ScheduleEditMode.resizeStart,
-          'resizeEnd' => ScheduleEditMode.resizeEnd,
-          _ => ScheduleEditMode.edit,
-        },
-        revision: chosenRevision,
-        delete: action == 'delete',
-      );
-    }
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final removed =
-          liveStore != null &&
-          !liveStore.scheduleItems.any((item) => item.id == id);
-      if (!removed && origin?.context != null && origin!.canRequestFocus) {
-        origin.requestFocus();
-      } else if (liveStore != null) {
-        _addFocus.requestFocus();
-        final addContext = _addFocus.context;
-        if (addContext != null) {
-          Scrollable.ensureVisible(
-            addContext,
-            duration: const Duration(milliseconds: 150),
-          );
-        }
-      }
-    });
-    // A read-only dialog may close without another frame being scheduled.
-    WidgetsBinding.instance.scheduleFrame();
-  }
 }
 
 /// Opens the schedule for the live library. Every entry point uses this so the
@@ -1456,6 +1966,123 @@ Future<void> openPlannerScreen(
       store: store,
       initialTaskId: taskId,
       startTimeBlock: startTimeBlock,
+      // Same board as the task page, so both pages count the same tasks.
+      initialBoardId: store?.activeBoardId,
+      autoGuide: true,
     ),
   ),
 );
+
+/// Round "today" button, bottom right; grows in unless motion is reduced.
+/// Width of the side task pool on a wide desktop window.
+const double plannerDockWidth = 400;
+const double plannerDockMinWidth = 280;
+const double plannerDockMaxWidth = 560;
+
+class _TodayButton extends StatefulWidget {
+  const _TodayButton({
+    super.key,
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  State<_TodayButton> createState() => _TodayButtonState();
+}
+
+class _TodayButtonState extends State<_TodayButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.value = 1;
+    } else if (!_c.isAnimating && _c.value == 0) {
+      _c.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+    return FadeTransition(
+      opacity: curve,
+      child: ScaleTransition(
+        scale: curve,
+        child: Tooltip(
+          message: widget.tooltip,
+          child: Semantics(
+            button: true,
+            label: widget.tooltip,
+            excludeSemantics: true,
+            onTap: widget.onPressed,
+            child: _face(theme),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _face(ThemeData theme) {
+    final skin = PlannerSkin.of(context);
+    final label = Text(
+      widget.label,
+      style: theme.textTheme.titleLarge?.copyWith(
+        color: skin.neu != null
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onPrimaryContainer,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+    final face = SizedBox(width: 56, height: 56, child: Center(child: label));
+    if (skin.plain) {
+      return Material(
+        color: theme.colorScheme.primaryContainer,
+        elevation: 3,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: widget.onPressed,
+          child: face,
+        ),
+      );
+    }
+    // Comic: filled, outlined disc. Neumorphic: raised disc, accent number.
+    return DecoratedBox(
+      decoration: skin.surface(
+        BoxDecoration(
+          color: skin.comic != null
+              ? theme.colorScheme.primaryContainer
+              : skin.neu!.canvas,
+          shape: BoxShape.circle,
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: widget.onPressed,
+          child: face,
+        ),
+      ),
+    );
+  }
+}

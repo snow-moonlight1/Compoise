@@ -770,7 +770,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.textContaining(store.t['testNotificationSent']!),
+        find.textContaining(store.t['testNotificationSentPlain']!),
         findsNothing,
       );
       expect(service.pendingJobs, isEmpty);
@@ -788,7 +788,7 @@ void main() {
       await tapKey(tester, const ValueKey('test-android-notif-btn'));
 
       expect(
-        find.textContaining(store.t['testNotificationSent']!),
+        find.textContaining(store.t['testNotificationSentPlain']!),
         findsOneWidget,
       );
       expect(service.scheduled.keys, contains(_id('test-win-notif')));
@@ -799,7 +799,9 @@ void main() {
     testWidgets('permission check shows unknown instead of a false grant', (
       tester,
     ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      // Windows no longer offers the check (it cannot answer); a phone that
+      // returns unknown must still say so rather than claim a grant.
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final service = InMemoryReminderService(
         permission: ReminderPermissionStatus.unknown,
       );
