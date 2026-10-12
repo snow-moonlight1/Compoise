@@ -665,7 +665,22 @@ class _MatrixHomeState extends State<MatrixHome> {
             child: Container(
               height: 40,
               alignment: Alignment.center,
-              decoration: on && !skin.plain
+              decoration: on && skin.neu != null
+                  // The light/dark pair is lopsided against a light track:
+                  // the left tab looked blurred next to the right one. One
+                  // downward shadow reads the same at both ends.
+                  ? BoxDecoration(
+                      color: skin.neu!.canvas,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: skin.neu!.darkShadow.withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    )
+                  : on && !skin.plain
                   ? skin.surface(
                       BoxDecoration(
                         color: theme.colorScheme.primaryContainer,

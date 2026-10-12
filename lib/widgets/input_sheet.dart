@@ -7,6 +7,7 @@ import '../models.dart';
 import '../planned_policy.dart';
 import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
+import '../theme.dart';
 import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
 import 'task_edit_draft.dart';
@@ -160,7 +161,7 @@ class _InputSheetState extends State<InputSheet> {
             Expanded(
               child: _modeChip(
                 key: const ValueKey('batch-mode'),
-                label: t['batchIndependent']!,
+                label: t['batchModeShort']!,
                 selected: _batch,
                 onTap: _busy || _pendingManualSave
                     ? null
@@ -189,6 +190,7 @@ class _InputSheetState extends State<InputSheet> {
             t['stepsOneTask']!,
             style: Theme.of(context).textTheme.labelMedium,
           ),
+          const SizedBox(height: 8),
           TaskStepsComposer(
             key: _stepsKey,
             t: t,
@@ -203,16 +205,21 @@ class _InputSheetState extends State<InputSheet> {
             t[_batch ? 'batchIndependentHint' : 'aiInputHint']!,
             style: Theme.of(context).textTheme.labelMedium,
           ),
+          const SizedBox(height: 8),
           TextField(
             key: const ValueKey('task-input'),
             controller: _controller,
             focusNode: _inputFocus,
             onChanged: (_) => setState(() {}),
             readOnly: _busy || _pendingManualSave,
-            maxLines: 5,
-            minLines: 3,
+            maxLines: 4,
+            minLines: 2,
             autofocus: !widget.embedded,
             decoration: InputDecoration(
+              // Comic: the text sat too close to the 2dp outline.
+              contentPadding: ComicOutline.maybeOf(context) == null
+                  ? null
+                  : const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               hintText:
                   t[_mode == InputModePref.brainDump
                       ? 'inputPlaceholderAI'

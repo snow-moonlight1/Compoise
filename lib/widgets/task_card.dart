@@ -26,8 +26,13 @@ Widget _taskSurface({
       final face = selected
           ? NeuInset(skin: neu, child: child)
           : NeuRaised(skin: neu, child: child);
+      // Side room keeps the shadow unclipped; top and bottom are tighter so
+      // cards sit about 10dp apart instead of 32.
       return Padding(
-        padding: const EdgeInsets.all(NeumorphicSkin.shadowMargin),
+        padding: const EdgeInsets.symmetric(
+          horizontal: NeumorphicSkin.shadowMargin,
+          vertical: 5,
+        ),
         child: face,
       );
     }
@@ -41,23 +46,31 @@ Widget _taskSurface({
       child: child,
     );
   }
+  // Comic: no heavy box around every task. Rows are separated by a thin line
+  // and inset 12dp, so the quadrant's own edge stays visible. A selected row
+  // keeps an outlined, tinted box.
   return Padding(
-    padding: const EdgeInsets.fromLTRB(4, 3, 4, 3),
-    child: Material(
-      color: selected
-          ? Color.alphaBlend(
-              comic.primary.withValues(alpha: 0.16),
-              comic.field,
-            )
-          : comic.field,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(ComicOutline.radius),
-        side: BorderSide(
-          color: selected ? comic.primary : comic.edge,
-          width: selected ? 3 : 2,
-        ),
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        border: selected
+            ? null
+            : Border(
+                bottom: BorderSide(color: comic.edge.withValues(alpha: 0.35)),
+              ),
       ),
-      child: child,
+      child: Material(
+        color: selected
+            ? Color.alphaBlend(comic.primary.withValues(alpha: 0.16), comic.field)
+            : Colors.transparent,
+        shape: selected
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(ComicOutline.radius),
+                side: BorderSide(color: comic.primary, width: 2),
+              )
+            : null,
+        child: child,
+      ),
     ),
   );
 }

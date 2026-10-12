@@ -165,3 +165,12 @@ chips, buttons, snackbars, date picker were already themed globally.
 Dark mode uses each skin's dark palette; tests render day, selected block,
 editor, expanded pool and week in 3 skins × light/dark at 400 and 360 wide.
 Not verified: real-device look of the shadows/outlines.
+
+### Round 11b – device feedback on the two skins
+
+- Neumorphic title field in the schedule dialog: the theme's 26dp top band (for a floating label) pushed the placeholder up. Neumorphic now shows the title as a hint with equal top/bottom padding and centred text.
+- Neumorphic pool cards are separate raised cards (home shadow pair) with 16dp side / 5dp top-bottom room, so nothing is clipped and cards sit ~10dp apart. Comic pool cards keep their outline with 12dp side / 3dp gap room. The pool's "Add" button no longer uses the theme's 16dp shadow gutter (it squeezed the label): same quiet-button-on-`NeuPressable` pattern as the home bar.
+- Add panel: mode chip reads "Batch add / 批量新建 / 一括追加" (new key `batchModeShort`; the long text stays on the submit button), 8dp between hint and field, multi-line box 2–4 lines, comic text inset 16dp.
+- Tasks｜Schedule switch, neumorphic: the selected tab uses one downward shadow instead of the light/dark pair, so both ends look the same.
+- Home task rows: neumorphic card gap 32dp → 10dp. Comic rows lose the per-task thick box: 12dp side inset and a thin separator; a selected row keeps an outlined tint.
+- Not verified on a device: the visual feel of all of the above.

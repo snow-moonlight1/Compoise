@@ -755,16 +755,51 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
             ),
           ),
           if (widget.writable)
-            TextButton.icon(
-              key: const ValueKey('schedule-add'),
-              focusNode: focusAdd ? widget.addFocus : null,
-              onPressed: widget.addEnabled ? widget.onAdd : null,
-              icon: const Icon(Icons.add),
-              label: Text(widget.t['schedulePoolAdd']!),
-            )
+            _addButton(focusAdd)
           else
             const SizedBox(width: 48),
         ],
+      ),
+    );
+  }
+
+  /// Neumorphic: the theme's button face carries a 16dp shadow gutter on every
+  /// side, which squeezed "Add" inside the header and hid half of it. Use the
+  /// home page's quiet-button-on-NeuPressable pattern with a small gutter.
+  Widget _addButton(bool focusAdd) {
+    final button = TextButton.icon(
+      key: const ValueKey('schedule-add'),
+      focusNode: focusAdd ? widget.addFocus : null,
+      onPressed: widget.addEnabled ? widget.onAdd : null,
+      icon: const Icon(Icons.add),
+      label: Text(widget.t['schedulePoolAdd']!),
+    );
+    final neu = NeumorphicSkin.maybeOf(context);
+    if (neu == null) return button;
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: NeuPressable(
+        skin: neu,
+        radius: 14,
+        child: TextButton.icon(
+          key: const ValueKey('schedule-add'),
+          focusNode: focusAdd ? widget.addFocus : null,
+          onPressed: widget.addEnabled ? widget.onAdd : null,
+          icon: Icon(Icons.add, color: Theme.of(context).colorScheme.primary),
+          label: Text(
+            widget.t['schedulePoolAdd']!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          style: ButtonStyle(
+            backgroundBuilder: (context, states, child) =>
+                child ?? const SizedBox.shrink(),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(48, 40)),
+          ),
+        ),
       ),
     );
   }
@@ -830,7 +865,8 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   }
 
   /// Plain: an outline only while pointed out. Comic: always outlined.
-  /// Neumorphic: a sunk slab. The pointed-out card keeps the accent outline.
+  /// Neumorphic: its own raised slab (home page shadow pair). The pointed-out
+  /// card keeps an accent outline in every skin.
   BoxDecoration _cardDecoration(ThemeData theme, bool highlighted) {
     final skin = PlannerSkin.of(context);
     final base = BoxDecoration(
@@ -841,9 +877,18 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       ),
     );
     if (skin.plain) return base;
+    if (skin.neu != null) {
+      return BoxDecoration(
+        color: skin.neu!.canvas,
+        borderRadius: BorderRadius.circular(NeumorphicSkin.radius),
+        border: highlighted
+            ? Border.all(color: theme.colorScheme.primary, width: 3)
+            : null,
+        boxShadow: skin.neu!.raisedShadows,
+      );
+    }
     final skinned = skin.surface(
       base.copyWith(color: theme.colorScheme.surfaceContainerHighest),
-      raised: false,
       selected: highlighted,
     );
     return highlighted
@@ -851,6 +896,19 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
             border: Border.all(color: theme.colorScheme.primary, width: 3),
           )
         : skinned;
+  }
+
+  /// Room around a card so its edge or shadow is never clipped by the list,
+  /// and neighbouring cards stay apart. Default skin: none.
+  EdgeInsets _cardGap() {
+    final skin = PlannerSkin.of(context);
+    if (skin.neu != null) {
+      return const EdgeInsets.symmetric(horizontal: 16, vertical: 5);
+    }
+    if (skin.comic != null) {
+      return const EdgeInsets.symmetric(horizontal: 12, vertical: 3);
+    }
+    return EdgeInsets.zero;
   }
 
   Widget _card(ThemeData theme, Task task) {
@@ -865,7 +923,8 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     final color = Color(
       quadrantColors[task.quadrant] ?? quadrantColors[qEliminate]!,
     );
-    final body = DecoratedBox(
+    final gap = _cardGap();
+    final card = DecoratedBox(
       key: highlighted ? _highlightKey : null,
       decoration: _cardDecoration(theme, highlighted),
       child: ConstrainedBox(
@@ -924,6 +983,9 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
         ),
       ),
     );
+    final body = gap == EdgeInsets.zero
+        ? card
+        : Padding(padding: gap, child: card);
     if (!widget.writable) return body;
     return LongPressDraggable<String>(
       key: ValueKey('schedule-pool-${task.id}'),

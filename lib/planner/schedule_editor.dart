@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../schedule_item.dart';
 import '../schedule_time.dart';
+import '../theme.dart';
 import '../ui/platform_ui_policy.dart';
 import 'planner_labels.dart';
 import 'schedule_edit_session.dart';
@@ -222,6 +223,7 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final neu = NeumorphicSkin.maybeOf(context) != null;
     final isEvent = s.kind == ScheduleItemKind.event;
     final taskTitle = s.store.tasks
         .where((task) => task.id == s.taskId)
@@ -249,9 +251,18 @@ class _ScheduleEditorState extends State<ScheduleEditor> {
                 initialValue: s.title,
                 enabled: !_busy,
                 textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  labelText: t['scheduleEditorTitle'],
-                ),
+                // Neumorphic reserves a label band above the text, which pushed
+                // the placeholder up. Its title shows as a centred hint.
+                textAlignVertical: neu ? TextAlignVertical.center : null,
+                decoration: neu
+                    ? InputDecoration(
+                        hintText: t['scheduleEditorTitle'],
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 18,
+                        ),
+                      )
+                    : InputDecoration(labelText: t['scheduleEditorTitle']),
                 onChanged: (value) => _touch(() => s.title = value),
               )
             else if (taskTitle != null)
