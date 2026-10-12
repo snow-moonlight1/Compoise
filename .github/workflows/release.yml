@@ -151,7 +151,8 @@ jobs:
         if: matrix.arch == 'arm64'
         shell: bash
         run: |
-          git clone --depth 1 -b 3.32.8 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          git clone --filter=blob:none -b stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          git -C "$RUNNER_TEMP/flutter" checkout -q 3.32.8
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
       - name: Require the pinned Flutter revision
