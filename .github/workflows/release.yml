@@ -139,10 +139,20 @@ jobs:
         run: scripts/ci/build_ncnn.sh ${{ matrix.ncnn }} "$(cygpath -m '${{ runner.temp }}/ncnn')"
 
       - uses: subosito/flutter-action@v2
+        if: matrix.arch == 'x64'
         with:
           flutter-version: '3.32.8'
           channel: stable
           cache: true
+
+      # No arm64 Windows SDK archive exists for the pinned version, so clone the
+      # same tag and let the tool bootstrap its arm64 Dart SDK.
+      - name: Install Flutter 3.32.8 from git (arm64)
+        if: matrix.arch == 'arm64'
+        shell: bash
+        run: |
+          git clone --depth 1 -b 3.32.8 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
       - name: Require the pinned Flutter revision
         shell: bash
@@ -361,10 +371,11 @@ jobs:
           for src in "${!names[@]}"; do
             abi="${names[$src]}"
             if [ "$abi" = universal ]; then libs="armeabi-v7a arm64-v8a x86_64"; else libs="$abi"; fi
+            listing="$(unzip -l "$src")"
             for l in $libs; do
-              unzip -l "$src" | grep -q "lib/$l/libcompoise_ocr.so" || { echo "$src lacks lib/$l/libcompoise_ocr.so"; exit 1; }
+              grep -q "lib/$l/libcompoise_ocr.so" <<<"$listing" || { echo "$src lacks lib/$l/libcompoise_ocr.so"; exit 1; }
             done
-            if unzip -l "$src" | grep -Eqi 'ppocr|\.ncnn\.(param|bin)'; then echo "$src bundles OCR models"; exit 1; fi
+            if grep -Eqi 'ppocr|\.ncnn\.(param|bin)' <<<"$listing"; then echo "$src bundles OCR models"; exit 1; fi
             "$apksigner" verify "$src"
             if [ "$MODE" = release ]; then
               got="$("$apksigner" verify --print-certs "$src" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr 'A-F' 'a-f')"
