@@ -120,9 +120,10 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         if (wp17OcrEnabled) {
-            ndk { abiFilters.addAll(if (wp17I8Abi != null) listOf(wp17I8Abi) else listOf("x86_64", "arm64-v8a")) }
             externalNativeBuild {
                 cmake {
+                    // CMake-only filter: compatible with flutter --split-per-abi.
+                    abiFilters(*(if (wp17I8Abi != null) arrayOf(wp17I8Abi) else arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")))
                     arguments.addAll(listOf(
                         "-DWP17_NCNN_ROOT=${file(wp17NcnnRoot!!).absolutePath.replace('\\', '/')}",
                         "-DWP17_STB_DIR=${file(wp17StbDir!!).absolutePath.replace('\\', '/')}",

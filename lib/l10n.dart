@@ -178,6 +178,12 @@ const Map<Language, Map<String, String>> _dicts = {
     'screenshotImportTitle': 'Import screenshots',
     'screenshotImportHint':
         'Experimental local OCR. Select up to 10 static PNGs (16 MiB each, 48 MiB total). Review every task before saving. Android uses private temporary copies that are deleted during this flow. Model distribution and platform validation remain pending.',
+    'ocrModelDownloadPrompt':
+        'Screenshot recognition needs a one-time download of the local OCR model (about {mb} MB). After that it works offline.',
+    'ocrModelDownloadAction': 'Download (about 11 MB)',
+    'ocrModelDownloading': 'Downloading model…',
+    'ocrModelDownloadFailed':
+        'Model download failed. Check your network and try again.',
     'screenshotImportChecking': 'Checking local OCR components…',
     'screenshotImportProgress': 'Processing screenshots: {done}/{total}',
     'screenshotImportChoose': 'Choose PNG screenshots',
@@ -1064,6 +1070,12 @@ const Map<Language, Map<String, String>> _dicts = {
     'screenshotImportTitle': '导入截图',
     'screenshotImportHint':
         '本地 OCR 实验功能。最多选择 10 张静态 PNG（每张 16 MiB、整批 48 MiB）。保存前逐项校对。Android 使用本流程私有临时副本并及时删除。模型分发与平台验收仍待完成。',
+    'ocrModelDownloadPrompt':
+        '首次使用截图识别需要下载本地识别模型（约 {mb} MB），下载后可离线使用。',
+    'ocrModelDownloadAction': '下载模型（约 11 MB）',
+    'ocrModelDownloading': '正在下载模型…',
+    'ocrModelDownloadFailed':
+        '模型下载失败，请检查网络后重试。',
     'screenshotImportChecking': '正在检查本地 OCR 组件…',
     'screenshotImportProgress': '正在处理截图：{done}/{total}',
     'screenshotImportChoose': '选择 PNG 截图',
@@ -1849,6 +1861,12 @@ const Map<Language, Map<String, String>> _dicts = {
     'screenshotImportTitle': 'スクリーンショットを取り込む',
     'screenshotImportHint':
         'ローカル OCR の実験機能です。静止 PNG を最大10枚（各16 MiB、合計48 MiB）選び、保存前に全項目を確認してください。Android の専用一時コピーは処理中に削除します。モデル配布とプラットフォーム検証は未完了です。',
+    'ocrModelDownloadPrompt':
+        'スクリーンショット認識には、ローカル OCR モデルの初回ダウンロード（約 {mb} MB）が必要です。以後はオフラインで使えます。',
+    'ocrModelDownloadAction': 'ダウンロード（約 11 MB）',
+    'ocrModelDownloading': 'モデルをダウンロード中…',
+    'ocrModelDownloadFailed':
+        'モデルのダウンロードに失敗しました。ネットワークを確認して再試行してください。',
     'screenshotImportChecking': 'ローカル OCR の構成を確認中…',
     'screenshotImportProgress': '画像を処理中：{done}/{total}',
     'screenshotImportChoose': 'PNG を選ぶ',

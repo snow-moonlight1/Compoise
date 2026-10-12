@@ -166,7 +166,7 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         final store = await storeFor(language);
 
-        final backend = FakeBackend()..problem = 'ModelsMissing';
+        final backend = FakeBackend()..problem = 'NativeMissing';
         await tester.pumpWidget(
           app(
             store,
@@ -177,7 +177,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(
-          find.text(dictOf(language)['screenshotImportModelsMissing']!),
+          find.text(dictOf(language)['screenshotImportNativeMissing']!),
           findsOneWidget,
         );
         final choose = find.byKey(const ValueKey('screenshot-choose'));
@@ -196,6 +196,51 @@ void main() {
       },
     );
   }
+
+  testWidgets('missing models offer a verified download, then recheck', (
+    tester,
+  ) async {
+    final store = await storeFor(Language.en);
+    final backend = FakeBackend()..problem = 'ModelsMissing';
+    var calls = 0;
+    var fail = true;
+    Future<void> fakeDownload({
+      void Function(double progress)? onProgress,
+    }) async {
+      calls++;
+      onProgress?.call(0.5);
+      if (fail) throw Exception('offline');
+      backend.problem = null;
+    }
+
+    await tester.pumpWidget(
+      app(
+        store,
+        ScreenshotImportPage(backend: backend, downloadModels: fakeDownload),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final choose = find.byKey(const ValueKey('screenshot-choose'));
+    expect(tester.widget<FilledButton>(choose).onPressed, isNull);
+    expect(find.byKey(const ValueKey('screenshot-retry')), findsNothing);
+    final download = find.byKey(const ValueKey('ocr-model-download'));
+    await tester.ensureVisible(download);
+    await tester.tap(download);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('ocr-model-download-failed')),
+      findsOneWidget,
+    );
+    fail = false;
+    await tester.tap(download);
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    expect(tester.widget<FilledButton>(choose).onPressed, isNotNull);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    store.dispose();
+  });
 
   testWidgets(
     'cancel pending capture and unmount suppress late result and writes',

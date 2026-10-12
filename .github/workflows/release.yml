@@ -1,81 +1,323 @@
 name: Release Build & Publish
 
+# Tag v* builds every platform and creates a DRAFT GitHub Release (never
+# published automatically). Test tags vX.Y.Z-ci.N skip the pubspec match and
+# create a draft prerelease. workflow_dispatch builds one platform and only
+# uploads workflow artifacts; it never creates a release.
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # Windows candidate only; no signing secrets or publishing
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        required: true
+        default: windows
+        type: choice
+        options: [windows, linux, android, all]
 
-# OS26 least privilege: the workflow may only read by default. The publish job
-# is the single place that asks for contents:write.
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.ref }}-${{ inputs.platform || 'tag' }}
   cancel-in-progress: false
 
 jobs:
   preflight:
-    name: Verify release tag and pubspec version
+    name: Version, analyze and tests
     runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.v.outputs.label }}
+      numeric: ${{ steps.v.outputs.numeric }}
+      formal: ${{ steps.v.outputs.formal }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      windows: ${{ steps.p.outputs.windows }}
+      windows_arm64: ${{ steps.p.outputs.windows_arm64 }}
+      linux: ${{ steps.p.outputs.linux }}
+      android: ${{ steps.p.outputs.android }}
+      win_matrix: ${{ steps.p.outputs.win_matrix }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Run candidate validator regressions
-        run: python -m unittest discover -s scripts/tests -p "test_release_candidate.py" -v
-
-      - name: Run Windows candidate audit regressions
-        run: python -m unittest discover -s scripts/tests -p "test_wp28_r2_candidate_audit.py" -v
-
-      - name: Verify tag against pubspec.yaml
-        shell: pwsh
+      - name: Resolve version and release mode
+        id: v
+        shell: bash
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          RELEASE_EVENT: ${{ github.event_name }}
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.ref_name }}
+          RUN: ${{ github.run_number }}
         run: |
-          if ($env:RELEASE_EVENT -eq 'push') {
-            ./scripts/build_release.ps1 -Platform All -ExpectedTag $env:RELEASE_TAG -ValidateOnly
-          } else {
-            Write-Host 'Manual run: no tag to compare, validating pubspec.yaml only.'
-            ./scripts/build_release.ps1 -Platform All -ValidateOnly
-          }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Write-Host 'Release version, build number and tag are aligned; no artifact was written by this job.'
-          Write-Host 'The plan covers Android and Windows. Android signing is reported here and enforced by build-android.'
+          set -euo pipefail
+          line=$(grep '^version:' pubspec.yaml | head -n1)
+          if [[ ! "$line" =~ ^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)[[:space:]]*$ ]]; then
+            echo "pubspec.yaml must declare version X.Y.Z+N"; exit 1
+          fi
+          version="${BASH_REMATCH[1]}"; build="${BASH_REMATCH[2]}"
+          formal=false; prerelease=false
+          if [ "$EVENT" = push ]; then
+            if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ci\.[0-9]+$ ]]; then
+              label="${TAG#v}"; prerelease=true
+              echo "CI test tag: draft prerelease, pubspec match skipped."
+            elif [ "$TAG" = "v$version" ] || [ "$TAG" = "v$version+$build" ]; then
+              label="$version"; formal=true
+            else
+              echo "Tag $TAG does not match pubspec.yaml version $version+$build"; exit 1
+            fi
+          else
+            label="$version-dev.$RUN"
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "numeric=$version" >> "$GITHUB_OUTPUT"
+          echo "formal=$formal" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "Release label: $label (formal=$formal)"
 
-  build-android:
-    name: Build Android Release APK
-    if: github.event_name == 'push'
-    needs: preflight
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Select platforms
+        id: p
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          for p in windows windows_arm64 linux android; do
+            want=false
+            if [ "$EVENT" = push ] || [ "$PLATFORM" = all ] || [ "${PLATFORM//-/_}" = "$p" ]; then want=true; fi
+            # Windows ARM64 is not built: Flutter 3.32.8 ships no arm64 Windows
+            # SDK and does not recognise Visual Studio 2026 on windows-11-arm
+            # (falls back to "Visual Studio 16 2019" and x64 engine artifacts).
+            [ "$p" = windows_arm64 ] && want=false
+            echo "$p=$want" >> "$GITHUB_OUTPUT"
+            declare "want_$p=$want"
+          done
+          items=()
+          [ "$want_windows" = true ] && items+=('{"arch":"x64","runner":"windows-2022","ncnn":"windows-x64"}')
+          [ "$want_windows_arm64" = true ] && items+=('{"arch":"arm64","runner":"windows-11-arm","ncnn":"windows-arm64"}')
+          json=$(IFS=,; echo "{\"include\":[${items[*]}]}")
+          echo "win_matrix=$json" >> "$GITHUB_OUTPUT"
+          echo "Windows matrix: $json"
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.8'
-          channel: 'stable'
+          channel: stable
           cache: true
 
-      - name: Require the OS24 Flutter revision
+      - name: Require the pinned Flutter revision
+        run: flutter --version --machine | node scripts/verify_flutter_version.js
+
+      - name: Analyze and test
+        if: github.event_name == 'push'
+        run: |
+          flutter pub get
+          flutter analyze --no-pub
+          flutter test --no-pub
+
+      - name: Release script regressions
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+
+  build-windows:
+    name: Windows ${{ matrix.arch }}
+    needs: preflight
+    if: needs.preflight.outputs.windows == 'true' || needs.preflight.outputs.windows_arm64 == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.preflight.outputs.win_matrix) }}
+    runs-on: ${{ matrix.runner }}
+    # ARM64 is best effort: a failure there is reported but does not block x64.
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache ncnn
+        id: ncnn
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ncnn
+          key: ncnn-${{ matrix.ncnn }}-${{ hashFiles('third_party/ncnn_pin.txt', 'scripts/ci/build_ncnn.sh') }}
+
+      - name: Build ncnn
+        if: steps.ncnn.outputs.cache-hit != 'true'
+        shell: bash
+        run: scripts/ci/build_ncnn.sh ${{ matrix.ncnn }} "$(cygpath -m '${{ runner.temp }}/ncnn')"
+
+      - uses: subosito/flutter-action@v2
+        if: matrix.arch == 'x64'
+        with:
+          flutter-version: '3.32.8'
+          channel: stable
+          cache: true
+
+      # No arm64 Windows SDK archive exists for the pinned version, so clone the
+      # same tag and let the tool bootstrap its arm64 Dart SDK.
+      - name: Install Flutter 3.32.8 from git (arm64)
+        if: matrix.arch == 'arm64'
+        shell: bash
+        run: |
+          git clone --filter=blob:none -b stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          git -C "$RUNNER_TEMP/flutter" checkout -q -B stable 3.32.8
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Require the pinned Flutter revision
+        shell: bash
+        run: flutter --version --machine | node scripts/verify_flutter_version.js
+
+      - name: Build Windows release with the OCR runtime
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version --machine | node scripts/verify_flutter_version.js
+          root="$(cygpath -m '${{ runner.temp }}/ncnn')"
+          export WP17_OCR_NCNN_DIR="$root/install/lib/cmake/ncnn"
+          export WP17_OCR_STB_DIR="$root/third_party"
+          flutter config --enable-windows-desktop
+          flutter pub get
+          flutter build windows --release --no-pub
+          bundle="build/windows/${{ matrix.arch }}/runner/Release"
+          for f in compoise.exe compoise_ocr.dll flutter_windows.dll data/app.so; do
+            test -f "$bundle/$f" || { echo "Missing $bundle/$f"; exit 1; }
+          done
+          if ls "$bundle" | grep -Ei '\.(param|bin)$|ppocr'; then echo "OCR models must not be bundled"; exit 1; fi
+          echo "BUNDLE=$bundle" >> "$GITHUB_ENV"
 
-      - name: Require release signing credentials
-        shell: bash
+      - name: Package portable ZIP and NSIS installer
+        shell: pwsh
         env:
+          LABEL: ${{ needs.preflight.outputs.label }}
+          NUMERIC: ${{ needs.preflight.outputs.numeric }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $zip = "dist/compoise-$env:LABEL-windows-$env:ARCH-portable.zip"
+          Compress-Archive -Path "$env:BUNDLE/*" -DestinationPath $zip
+          $nsis = (Get-Command makensis -ErrorAction SilentlyContinue).Source
+          if (-not $nsis) { $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe" }
+          if (-not (Test-Path $nsis)) { choco install nsis -y --no-progress; $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe" }
+          $src = (Resolve-Path $env:BUNDLE).Path
+          $out = Join-Path (Resolve-Path dist).Path "compoise-$env:LABEL-windows-$env:ARCH-setup.exe"
+          & $nsis /V2 "/DVERSION=$env:NUMERIC" "/DSRC_DIR=$src" "/DOUT_FILE=$out" "/DARCH=$env:ARCH" windows/installer/compoise.nsi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  build-linux:
+    name: Linux x64 (DEB, RPM, AppImage)
+    needs: preflight
+    if: needs.preflight.outputs.linux == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build and packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev \
+            libsecret-1-dev libayatana-appindicator3-dev rpm ruby ruby-dev imagemagick
+          sudo gem install --no-document fpm
+          sudo curl -fsSL -o /usr/local/bin/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          sudo chmod +x /usr/local/bin/appimagetool
+
+      - name: Cache ncnn
+        id: ncnn
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ncnn
+          key: ncnn-linux-x64-${{ hashFiles('third_party/ncnn_pin.txt', 'scripts/ci/build_ncnn.sh') }}
+
+      - name: Build ncnn
+        if: steps.ncnn.outputs.cache-hit != 'true'
+        run: scripts/ci/build_ncnn.sh linux-x64 "${{ runner.temp }}/ncnn"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: stable
+          cache: true
+
+      - name: Require the pinned Flutter revision
+        run: flutter --version --machine | node scripts/verify_flutter_version.js
+
+      - name: Build Linux release with the OCR runtime
+        env:
+          WP17_OCR_NCNN_DIR: ${{ runner.temp }}/ncnn/install/lib/cmake/ncnn
+          WP17_OCR_STB_DIR: ${{ runner.temp }}/ncnn/third_party
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+          flutter build linux --release --no-pub
+          test -f build/linux/x64/release/bundle/lib/libcompoise_ocr.so
+
+      - name: Package DEB, RPM and AppImage
+        run: scripts/ci/package_linux.sh build/linux/x64/release/bundle "${{ needs.preflight.outputs.label }}" dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: dist/*
+          if-no-files-found: error
+
+  build-android:
+    name: Android (split APKs + universal)
+    needs: preflight
+    if: needs.preflight.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache ncnn
+        id: ncnn
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/ncnn
+          key: ncnn-android-3abi-${{ hashFiles('third_party/ncnn_pin.txt', 'scripts/ci/build_ncnn.sh') }}
+
+      - name: Build ncnn for armeabi-v7a, arm64-v8a, x86_64
+        if: steps.ncnn.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            scripts/ci/build_ncnn.sh "android-$abi" "${{ runner.temp }}/ncnn"
+          done
+
+      # Save right away so a later packaging failure does not discard ncnn.
+      - name: Save ncnn cache
+        if: steps.ncnn.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ncnn
+          key: ${{ steps.ncnn.outputs.cache-primary-key }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: stable
+          cache: true
+
+      - name: Require the pinned Flutter revision
+        run: flutter --version --machine | node scripts/verify_flutter_version.js
+
+      - name: Accept Android SDK licenses
+        run: |
+          set +o pipefail
+          yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+
+      - name: Configure signing
+        id: sign
+        env:
+          FORMAL: ${{ needs.preflight.outputs.formal }}
+          EVENT: ${{ github.event_name }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -83,14 +325,18 @@ jobs:
           ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS ANDROID_RELEASE_CERT_SHA256; do
-            if [ -z "${!name:-}" ]; then
-              echo "Formal release builds must provide ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_RELEASE_CERT_SHA256."
-              echo "Refusing to publish a debug-signed APK."
-              exit 1
-            fi
+          missing=""
+          for n in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS ANDROID_RELEASE_CERT_SHA256; do
+            [ -n "${!n:-}" ] || missing="$missing $n"
           done
-          mkdir -p android/app
+          if [ -n "$missing" ]; then
+            if [ "$EVENT" = push ]; then
+              echo "Tag builds require release signing secrets:$missing. Refusing a debug-signed APK."; exit 1
+            fi
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
+            echo "::warning::Release signing secrets missing; this manual build is DEBUG-SIGNED and not for distribution."
+            exit 0
+          fi
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
           chmod 600 android/app/release.jks
           {
@@ -100,257 +346,132 @@ jobs:
             echo "storeFile=release.jks"
           } > android/key.properties
           chmod 600 android/key.properties
+          echo "mode=release" >> "$GITHUB_OUTPUT"
           echo "Release keystore configured from repository secrets. Values are not printed."
 
-      - name: Accept Android SDK licenses
-        shell: bash
-        run: |
-          if command -v sdkmanager >/dev/null 2>&1; then
-            sdkmanager="$(command -v sdkmanager)"
-          else
-            sdkmanager="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/cmdline-tools/latest/bin/sdkmanager"
-          fi
-          test -x "$sdkmanager"
-          set +o pipefail
-          yes | "$sdkmanager" --licenses
-
-      - name: Install dependencies & verify
-        run: |
-          flutter pub get
-          flutter analyze --no-pub
-          flutter test --no-pub
-
-      - name: Extract App Version
-        id: version
-        shell: bash
+      - name: Build APKs with the OCR runtime
+        env:
+          REQUIRE_RELEASE_SIGNING: ${{ steps.sign.outputs.mode == 'release' && 'true' || 'false' }}
         run: |
           set -euo pipefail
-          LINE=$(grep '^version:' pubspec.yaml | head -n 1 || true)
-          VERSION=$(printf '%s' "$LINE" | sed -E 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+).*/\1/')
-          BUILD=$(printf '%s' "$LINE" | sed -E 's/^version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\+([0-9]+).*/\1/')
-          if [ -z "$VERSION" ] || [ -z "$BUILD" ]; then
-            echo "pubspec.yaml must declare version X.Y.Z+N before a release can be staged."
-            exit 1
-          fi
-          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "BUILD=$BUILD" >> "$GITHUB_OUTPUT"
+          flutter pub get
+          {
+            echo   # local.properties may lack a trailing newline
+            echo "wp17OcrNcnnRoot=${{ runner.temp }}/ncnn"
+            echo "wp17OcrStbDir=${{ runner.temp }}/ncnn/third_party"
+          } >> android/local.properties
+          test "$(grep -c '^wp17Ocr' android/local.properties)" = 2
+          targets=android-arm,android-arm64,android-x64
+          flutter build apk --release --no-pub --split-per-abi --target-platform "$targets"
+          mkdir -p apk-split && cp build/app/outputs/flutter-apk/app-*-release.apk apk-split/
+          flutter build apk --release --no-pub --target-platform "$targets"
 
-      - name: Build and validate Android Release APK
-        shell: pwsh
+      - name: Verify signatures and package
         env:
-          REQUIRE_RELEASE_SIGNING: 'true'
-          RELEASE_TAG: ${{ github.ref_name }}
+          MODE: ${{ steps.sign.outputs.mode }}
+          LABEL: ${{ needs.preflight.outputs.label }}
           ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
-          # Shared local gate requires apksigner, aapt2 and the pinned certificate.
-          # Refusing to publish a debug-signed APK. Missing proof is fatal.
-          ./scripts/build_release.ps1 -Platform Android -ExpectedTag $env:RELEASE_TAG
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          set -euo pipefail
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          suffix=""; [ "$MODE" = debug ] && suffix="-DEBUG-SIGNED"
+          mkdir -p dist
+          declare -A names=(
+            [apk-split/app-armeabi-v7a-release.apk]=armeabi-v7a
+            [apk-split/app-arm64-v8a-release.apk]=arm64-v8a
+            [build/app/outputs/flutter-apk/app-release.apk]=universal
+          )
+          want="$(printf '%s' "${ANDROID_RELEASE_CERT_SHA256:-}" | tr -d ':[:space:]' | tr 'A-F' 'a-f')"
+          for src in "${!names[@]}"; do
+            abi="${names[$src]}"
+            if [ "$abi" = universal ]; then libs="armeabi-v7a arm64-v8a x86_64"; else libs="$abi"; fi
+            listing="$(unzip -l "$src")"
+            for l in $libs; do
+              grep -q "lib/$l/libcompoise_ocr.so" <<<"$listing" || { echo "$src lacks lib/$l/libcompoise_ocr.so"; exit 1; }
+            done
+            if grep -Eqi 'ppocr|\.ncnn\.(param|bin)' <<<"$listing"; then echo "$src bundles OCR models"; exit 1; fi
+            "$apksigner" verify "$src"
+            if [ "$MODE" = release ]; then
+              got="$("$apksigner" verify --print-certs "$src" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr 'A-F' 'a-f')"
+              [ -n "$want" ] && [ "$got" = "$want" ] || { echo "$src is not signed with the pinned release certificate"; exit 1; }
+            fi
+            cp "$src" "dist/compoise-$LABEL-android-$abi$suffix.apk"
+          done
+          ls -l dist
 
       - name: Remove release signing material
         if: always()
-        shell: bash
-        run: |
-          rm -f android/key.properties android/app/release.jks
-          echo "Temporary signing material removed from the runner workspace."
+        run: rm -f android/key.properties android/app/release.jks
 
-      - name: Upload Android APK artifact and hash-bound signing proof
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: android-release-apk
-          path: release_dist/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}/*
+          name: android
+          path: dist/*
           if-no-files-found: error
 
-  build-windows:
-    name: Build Windows Portable Release
-    needs: preflight
-    runs-on: windows-2022
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.8'
-          channel: 'stable'
-          cache: true
-
-      - name: Check pinned Flutter SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          flutter --version --machine | node scripts/verify_flutter_version.js
-
-      - name: Enable Windows desktop
-        run: flutter config --enable-windows-desktop
-
-      - name: Install dependencies & verify
-        run: |
-          flutter pub get
-          flutter analyze --no-pub
-          flutter test --no-pub
-
-      - name: Extract App Version
-        id: version
-        shell: pwsh
-        run: |
-          $line = (Get-Content pubspec.yaml | Where-Object { $_ -match '^version:' } | Select-Object -First 1)
-          if ($line -notmatch '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$') {
-            Write-Error 'pubspec.yaml must declare version X.Y.Z+N before a release can be staged.'
-            exit 1
-          }
-          "VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "BUILD=$($Matches[2])" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Build and validate Windows portable candidate
-        shell: pwsh
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          RELEASE_EVENT: ${{ github.event_name }}
-        run: |
-          $tag = "v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}"
-          if ($env:RELEASE_EVENT -eq 'push') { $tag = $env:RELEASE_TAG }
-          # Shared identity gate checks appDataDir=Compoise/Compoise.
-          ./scripts/build_release.ps1 -Platform Windows -ExpectedTag $tag
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Upload Windows Portable artifact and hash-bound proof
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-portable-zip
-          path: release_dist/compoise-v${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD }}/*
-          if-no-files-found: error
-
-  build-linux:
-    name: Validate Linux desktop release build
-    if: github.event_name == 'push'
-    needs: preflight
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Linux desktop dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev libayatana-appindicator3-dev
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.8'
-          channel: 'stable'
-          cache: true
-
-      - name: Require the OS24 Flutter revision
-        shell: bash
-        run: |
-          set -euo pipefail
-          flutter --version --machine | node scripts/verify_flutter_version.js
-
-      - name: Enable Linux desktop
-        run: flutter config --enable-linux-desktop
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Linux release bundle
-        run: flutter build linux --release --no-pub
-
-      - name: Verify the Linux preview bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          BUNDLE=build/linux/x64/release/bundle
-          test -x "$BUNDLE/compoise" || { echo "Missing Linux executable: $BUNDLE/compoise"; exit 1; }
-          test -f "$BUNDLE/data/app.so" || { echo "Missing $BUNDLE/data/app.so"; exit 1; }
-          test -d "$BUNDLE/data/flutter_assets" || { echo "Missing $BUNDLE/data/flutter_assets"; exit 1; }
-          du -sh "$BUNDLE"
-          echo 'Linux stays a preview: this job proves the pinned toolchain still compiles the release bundle.'
-          echo 'No Linux installer, archive or checksum is published, and the app is not started headless here.'
-
-  publish-release:
-    name: Publish GitHub Release draft
-    needs: [preflight, build-android, build-windows, build-linux]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+  publish:
+    name: Create draft GitHub Release
+    needs: [preflight, build-windows, build-linux, build-android]
+    if: always() && github.event_name == 'push' && needs.build-linux.result == 'success' && needs.build-android.result == 'success' && needs.build-windows.result != 'cancelled'
     runs-on: ubuntu-latest
-    # The only job that may write to the repository.
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Download build outputs
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: build_outputs
-          merge-multiple: false
+          path: artifacts
 
-      - name: Assemble the release artifact set with the shared validator
-        shell: pwsh
+      - name: Collect files and checksums
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
-        run: |
-          # No recursive globs or silent overwrite of stale/duplicate artifacts.
-          # This fails without the Android signing proof bound to APK and commit.
-          $commit = (git rev-parse HEAD).Trim()
-          python scripts/release_candidate.py assemble --directory release_artifacts --inputs build_outputs --platform All --tag $env:RELEASE_TAG --commit $commit --android-cert-sha256 $env:ANDROID_RELEASE_CERT_SHA256
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Write the release notes with the real platform state
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          signer=$(python -c 'import json; print(json.load(open("release_artifacts/ANDROID_PROOF.json"))["evidence"]["apkSignatureCertSha256"])')
-          cat > release_artifacts/RELEASE_NOTES.md <<EOF
-          Draft prepared by the Compoise release workflow. Review it before publishing.
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls release | grep -q 'windows-x64-portable.zip' || { echo "Windows x64 is required"; exit 1; }
+          ls release | grep -q 'windows-x64-setup.exe' || { echo "Windows x64 installer is required"; exit 1; }
+          if ls release | grep -q DEBUG-SIGNED; then echo "Refusing to publish a debug-signed APK."; exit 1; fi
+          {
+            echo "tag=$TAG"
+            echo "commit=$GITHUB_SHA"
+            echo "flutter=3.32.8"
+            echo "license=GPL-3.0-only"
+            echo "windowsCodeSigning=Not code-signed"
+            echo "androidSigning=release key, certificate SHA-256 pinned"
+            echo "appDataDir=%APPDATA%\\Compoise\\Compoise"
+            echo "ocr=native runtime bundled; models downloaded on demand and SHA-256 verified"
+          } > release/RELEASE_METADATA.txt
+          (cd release && sha256sum * > SHA256SUMS.txt)
+          cat release/SHA256SUMS.txt
 
-          Tag ${RELEASE_TAG}. The commit, toolchain and certificate are recorded in RELEASE_METADATA.txt.
-
-          | Platform | Delivered as | Signing state |
-          |---|---|---|
-          | Android | compoise-vX.Y.Z+N-android.apk | Signed with the repository release keystore; certificate SHA-256 $signer. A debug-signed APK or a certificate that does not match the pinned fingerprint fails the build. |
-          | Windows | compoise-vX.Y.Z+N-windows-portable.zip | Not code-signed: no Authenticode certificate is configured, so SmartScreen may warn. Extract the ZIP to any folder and run compoise.exe. |
-          | Linux | no artifact | Preview. CI compiles the release bundle with the pinned toolchain to prove it still builds; there is no installer, no signature and no package channel. |
-
-          - License: GPL-3.0-only. See LICENSE and assets/licenses/THIRD_PARTY_NOTICES.txt.
-          - SHA256SUMS.txt covers both binaries, platform proofs, RELEASE_MANIFEST.txt, RELEASE_METADATA.txt and these notes. Check it with: sha256sum -c SHA256SUMS.txt
-          - Tasks stay on the device. Export a v3 JSON backup from Settings before upgrading. Backup files do not transfer local credential state; old Windows credentials require reconfiguration. Install, in-place upgrade, backup round-trip and clean-start checks are listed in docs/RELEASE_VALIDATION.md; they are run against the merged product build, not this draft.
-          EOF
-          cat release_artifacts/RELEASE_NOTES.md
-
-      - name: Seal and verify notes, manifest, metadata, proofs and SHA256SUMS
-        shell: pwsh
+      - name: Write release notes
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          ANDROID_RELEASE_CERT_SHA256: ${{ secrets.ANDROID_RELEASE_CERT_SHA256 }}
+          TAG: ${{ github.ref_name }}
         run: |
-          # One shared schema: commit is a full SHA; toolchain is pinned.
-          # windowsCodeSigning=unsigned; linuxDesktop=preview only; license=GPL-3.0-only
-          $commit = (git rev-parse HEAD).Trim()
-          $gate = @('--directory', 'release_artifacts', '--platform', 'All', '--tag', $env:RELEASE_TAG, '--commit', $commit, '--android-cert-sha256', $env:ANDROID_RELEASE_CERT_SHA256)
-          python scripts/release_candidate.py seal @gate
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/release_candidate.py verify @gate
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ls release | grep -q windows-arm64-setup.exe; then ARM64='`*-windows-arm64-portable.zip`, `*-windows-arm64-setup.exe`'; else ARM64='not provided in this release (the pinned Flutter version cannot build Windows ARM64)'; fi
+          cat > notes.md <<NOTES
+          Draft created by the release workflow for ${TAG}. Review before publishing.
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release_artifacts/SHA256SUMS.txt
-            release_artifacts/RELEASE_METADATA.txt
-            release_artifacts/RELEASE_MANIFEST.txt
-            release_artifacts/RELEASE_NOTES.md
-            release_artifacts/*_PROOF.json
-            release_artifacts/*.apk
-            release_artifacts/*.zip
-          body_path: release_artifacts/RELEASE_NOTES.md
-          generate_release_notes: true
-          draft: true
-          prerelease: false
+          | Platform | Files | Notes |
+          |---|---|---|
+          | Windows x64 | \`*-windows-x64-portable.zip\`, \`*-windows-x64-setup.exe\` | Not code-signed yet; SmartScreen may warn (More info → Run anyway). |
+          | Windows ARM64 | ${ARM64} | Best effort. |
+          | Linux x64 | \`.deb\`, \`.rpm\`, \`.AppImage\` | Needs GTK 3, libsecret, Ayatana AppIndicator; CJK fonts recommended; keyring optional. |
+          | Android | \`armeabi-v7a\`, \`arm64-v8a\`, \`universal\` (adds x86_64) APK | Signed with the release key; certificate checked against the pinned SHA-256. |
+
+          Screenshot import (local OCR): the native runtime is included; the PP-OCRv5 model (~11 MB, Apache-2.0) is downloaded on first use and verified by SHA-256.
+
+          Verify downloads with \`sha256sum -c SHA256SUMS.txt\`. License: GPL-3.0-only.
+          NOTES
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
+        run: |
+          flags=(--draft --title "Compoise ${TAG}" --notes-file notes.md)
+          [ "$PRERELEASE" = true ] && flags+=(--prerelease)
+          gh release create "$TAG" "${flags[@]}" release/*
