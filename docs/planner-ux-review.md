@@ -196,3 +196,15 @@ Already right on desktop and left alone: add-task panel is a dialog; scrollbars 
 
 Suggestions (not done): multi-column settings on very wide windows; Shift+wheel to change day; a desktop-specific home layout review.
 Not verified on a real Windows machine: feel of hover, drag, shortcuts and the toast.
+
+## Linux 桌面实机运行（Round 14）
+
+在 Linux（X11，1400×950 窗口）上 `flutter build linux` 后实机操作，发现并处理：
+
+- 侧栏任务池的象限标签按四等分宽度排布，「Important · Urgent」被整体缩成很小的字，且彩色圆点压在文字上 → 标签宽度按文字所需分配（多余空间均分，不够才等比缩小），圆点槽位不随缩放，下划线跟随实际标签中心；侧栏宽 340→400。
+- 侧栏里仍显示「左右滑动切换象限」提示（桌面无此手势）→ 侧栏模式不显示。
+- 日程引导第 1/2/4/6 页写的是触屏操作（底部任务池、长按、双指）→ 桌面使用鼠标/键盘版文案（中英日）。
+- 引导对话框按 Esc 无反应 → Esc 等同「跳过」。
+- 切到日程页、关闭引导后键盘快捷键（←/→/T/D/W）不生效，必须先点一下页面 → 日程页激活、引导关闭、在页面内按下鼠标时把焦点收回快捷键节点（正在输入时不抢焦点）。
+- 设置里「准时提醒与保活指南（Android 电池优化）」在 Linux/macOS 也显示 → 桌面隐藏（Windows 仍是自己的托盘指南）。
+- 测试通知成功提示在非 Windows 平台写着「请查看 Windows 通知中心」→ 非 Windows 使用通用文案「请查看系统通知」。

@@ -117,6 +117,7 @@ class _PlannerScreenState extends State<PlannerScreen>
   final _hover = ValueNotifier<PlannerHover?>(null);
   final _itemPointer = PlannerDragPointer();
   final _addFocus = FocusNode();
+  final _keysFocus = FocusNode(debugLabel: 'schedule-keys');
   final _stackKey = GlobalKey();
   final _viewportKey = GlobalKey();
   final _dropKeys = <String, GlobalKey>{};
@@ -190,6 +191,9 @@ class _PlannerScreenState extends State<PlannerScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.active) _reclaimKeys();
+    });
     _pool.addListener(_poolMoved);
     _motion = AnimationController(
       vsync: this,
@@ -220,6 +224,8 @@ class _PlannerScreenState extends State<PlannerScreen>
   @override
   void didUpdateWidget(PlannerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Coming back to the tab: the keyboard shortcuts work straight away.
+    if (widget.active && !oldWidget.active) _reclaimKeys();
     if (oldWidget.timeZoneController != widget.timeZoneController) {
       (oldWidget.timeZoneController ?? _ownedZone)?.removeListener(
         _onZoneChanged,
@@ -249,6 +255,7 @@ class _PlannerScreenState extends State<PlannerScreen>
     _hover.dispose();
     _itemPointer.dispose();
     _addFocus.dispose();
+    _keysFocus.dispose();
     super.dispose();
   }
 
@@ -486,6 +493,17 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (!mounted) return;
     final t = dictOf((widget.store ?? context.read<Store>()).settings.language);
     await showPlannerGuide(context, t);
+    _reclaimKeys();
+  }
+
+  /// Desktop shortcuts only fire while focus sits inside the planner. A dialog
+  /// closing, the tab switch or a click on the tab bar leaves it elsewhere, so
+  /// pull it back unless the user is typing in a field.
+  void _reclaimKeys() {
+    if (!mounted || !PlatformUiPolicy.of(context).isDesktop) return;
+    final current = FocusManager.instance.primaryFocus?.context?.widget;
+    if (current is EditableText) return;
+    if (!_keysFocus.hasFocus) _keysFocus.requestFocus();
   }
 
   Future<void> _addPoolTask(Store store, int quadrant) async {
@@ -903,8 +921,12 @@ class _PlannerScreenState extends State<PlannerScreen>
       },
       child: Focus(
         key: const ValueKey('schedule-keys'),
+        focusNode: _keysFocus,
         autofocus: true,
-        child: child,
+        child: Listener(
+          onPointerDown: (_) => _reclaimKeys(),
+          child: child,
+        ),
       ),
     );
   }
@@ -1901,7 +1923,7 @@ Future<void> openPlannerScreen(
 
 /// Round "today" button, bottom right; grows in unless motion is reduced.
 /// Width of the side task pool on a wide desktop window.
-const double plannerDockWidth = 340;
+const double plannerDockWidth = 400;
 
 class _TodayButton extends StatefulWidget {
   const _TodayButton({

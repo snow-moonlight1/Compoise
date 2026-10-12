@@ -770,7 +770,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.textContaining(store.t['testNotificationSent']!),
+        find.textContaining(store.t['testNotificationSentPlain']!),
         findsNothing,
       );
       expect(service.pendingJobs, isEmpty);
@@ -788,7 +788,7 @@ void main() {
       await tapKey(tester, const ValueKey('test-android-notif-btn'));
 
       expect(
-        find.textContaining(store.t['testNotificationSent']!),
+        find.textContaining(store.t['testNotificationSentPlain']!),
         findsOneWidget,
       );
       expect(service.scheduled.keys, contains(_id('test-win-notif')));

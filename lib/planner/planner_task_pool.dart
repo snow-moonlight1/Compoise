@@ -394,7 +394,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   ) {
     final result = <_PoolSpot>[];
     var x = 16.0;
-    final cell = width / allQuadrants.length;
+    final cells = _cells(theme, width);
     for (var i = 0; i < allQuadrants.length; i++) {
       final q = allQuadrants[i];
       final count = '${_of(q).length}';
@@ -403,9 +403,12 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
         widget.t['scheduleQuadrant$q']!,
         _tabStyle(theme),
       );
-      final content = _dotSlot + labelW + 4 + countW;
-      final f = math.min(1.0, (cell - 8) / content);
-      final left = i * cell + (cell - content * f) / 2;
+      final cell = cells[i];
+      // Only the label and count shrink; the dot keeps its slot, so it never
+      // runs into the text.
+      final text = labelW + 4 + countW;
+      final f = math.min(1.0, math.max(0.0, cell.width - 8 - _dotSlot) / text);
+      final left = cell.left + (cell.width - _dotSlot - text * f) / 2;
       result.add(
         _PoolSpot(
           quadrant: q,
@@ -416,7 +419,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
           foldCount: Offset(x + _dotSlot, _foldDotsY),
           openDot: Offset(left, headerH + tabsH / 2),
           openCount: Offset(
-            left + (_dotSlot + labelW + 4) * f,
+            left + _dotSlot + (labelW + 4) * f,
             headerH + tabsH / 2,
           ),
         ),
@@ -424,6 +427,28 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       x += _dotSlot + countW + 10;
     }
     return result;
+  }
+
+  /// Tab cells sized by their own text: a long label ("Important · Urgent")
+  /// gets the room a short one ("Other") does not need, so text keeps its size
+  /// where the row can hold it. Spare width is shared evenly; a row too narrow
+  /// for everything shrinks each cell in proportion.
+  List<({double left, double width})> _cells(ThemeData theme, double width) {
+    final needs = [
+      for (final q in allQuadrants)
+        _dotSlot +
+            _textWidth(widget.t['scheduleQuadrant$q']!, _tabStyle(theme)) +
+            4 +
+            _textWidth('${_of(q).length}', _countStyle(theme)) +
+            8,
+    ];
+    final total = needs.fold<double>(0, (a, b) => a + b);
+    final spare = (width - total) / needs.length;
+    final widths = [
+      for (final n in needs) spare >= 0 ? n + spare : n * width / total,
+    ];
+    var left = 0.0;
+    return [for (final w in widths) (left: (left += w) - w, width: w)];
   }
 
   static const _dotSlot = 12.0;
@@ -585,7 +610,8 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
           ),
         ),
         SizedBox(height: tabsH, child: _tabs(theme, width, spots)),
-        if (_showTabHint)
+        // Swiping pages is a touch habit; the side panel uses its tabs.
+        if (_showTabHint && !widget.docked)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: Row(
@@ -630,12 +656,16 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   }
 
   Widget _tabs(ThemeData theme, double width, List<_PoolSpot> spots) {
+    final cells = _cells(theme, width);
     return Stack(
       children: [
         Row(
           children: [
-            for (final quadrant in allQuadrants)
-              Expanded(child: _tab(theme, quadrant, spots)),
+            for (var i = 0; i < allQuadrants.length; i++)
+              SizedBox(
+                width: cells[i].width,
+                child: _tab(theme, allQuadrants[i], spots),
+              ),
           ],
         ),
         // The underline follows the page while it is being swiped.
@@ -655,11 +685,17 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
                 Color(quadrantColors[allQuadrants[page.ceil().clamp(0, 3)]]!),
                 page - page.floor(),
               )!;
-              return Align(
-                alignment: Alignment(-1 + 2 * page / 3, 0),
-                child: FractionallySizedBox(
-                  widthFactor: 0.25,
-                  child: Center(
+              final a = cells[page.floor().clamp(0, 3)];
+              final b = cells[page.ceil().clamp(0, 3)];
+              final t = page - page.floor();
+              final centre =
+                  (a.left + a.width / 2) * (1 - t) + (b.left + b.width / 2) * t;
+              return Stack(
+                children: [
+                  Positioned(
+                    left: centre - 18,
+                    top: 0,
+                    bottom: 0,
                     child: Container(
                       width: 36,
                       height: 3,
@@ -669,7 +705,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
                       ),
                     ),
                   ),
-                ),
+                ],
               );
             },
           ),
@@ -695,28 +731,36 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
         selected: selected,
         button: true,
         child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Room for the shared dot and count drawn above.
-                  const SizedBox(width: _dotSlot),
-                  Text(
-                    widget.t['scheduleQuadrant$quadrant']!,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: _tabStyle(theme)?.copyWith(
-                      color: selected
-                          ? color
-                          : theme.colorScheme.onSurfaceVariant,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Room for the shared dot and count drawn above; the dot slot
+                // never shrinks, only the text does.
+                const SizedBox(width: _dotSlot),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.t['scheduleQuadrant$quadrant']!,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: _tabStyle(theme)?.copyWith(
+                            color: selected
+                                ? color
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        SizedBox(width: 4 + spot.countW),
+                      ],
                     ),
                   ),
-                  SizedBox(width: 4 + spot.countW),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

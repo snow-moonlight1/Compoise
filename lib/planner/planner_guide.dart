@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../ui/platform_ui_policy.dart';
 
 import 'planner_guide_flag.dart';
 
@@ -21,7 +24,14 @@ Future<void> showPlannerGuide(
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => _PlannerGuide(t: t),
+    // Esc does what Skip does (keyboard users on desktop).
+    builder: (dialogContext) => CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            Navigator.pop(dialogContext),
+      },
+      child: Focus(autofocus: true, child: _PlannerGuide(t: t)),
+    ),
   );
   if (markSeen) await PlannerGuideFlags.mark(PlannerGuideFlags.guideKey);
 }
@@ -50,6 +60,8 @@ class _PlannerGuideState extends State<_PlannerGuide> {
     final theme = Theme.of(context);
     final last = _index == _icons.length - 1;
     final reduce = MediaQuery.disableAnimationsOf(context);
+    // Mouse and keyboard wording where it differs from touch.
+    final desktop = PlatformUiPolicy.of(context).isDesktop;
     return Dialog(
       key: const ValueKey('schedule-guide'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -86,7 +98,10 @@ class _PlannerGuideState extends State<_PlannerGuide> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                t['scheduleGuide${i + 1}Body']!,
+                                (desktop
+                                        ? t['scheduleGuide${i + 1}BodyDesktop']
+                                        : null) ??
+                                    t['scheduleGuide${i + 1}Body']!,
                                 style: theme.textTheme.bodyLarge,
                                 textAlign: TextAlign.center,
                               ),
