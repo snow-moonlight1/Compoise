@@ -68,7 +68,7 @@ void main() {
 
   test('release workflow stages one platform set and discloses signing', () {
     expect(release.contains('concurrency:'), isTrue);
-    expect(release.contains('group: release-\${{ github.ref }}'), isTrue);
+    expect(release.contains('group: release-\${{ github.ref }}-'), isTrue);
     expect('needs: preflight'.allMatches(release).length, 3);
     expect(
       release.contains(
