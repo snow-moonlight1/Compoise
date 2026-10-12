@@ -242,6 +242,13 @@ Future<HomeMoreAction?> showHomeMore(BuildContext context) {
     context: context,
     builder: (ctx) => Dialog(
       insetPadding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
+      // Comic / neumorphic dialogs are rounded (comic with an ink outline);
+      // clip the square panel to that shape so no corner pokes out.
+      clipBehavior:
+          ComicOutline.maybeOf(context) != null ||
+              NeumorphicSkin.maybeOf(context) != null
+          ? Clip.antiAlias
+          : Clip.none,
       alignment: Alignment.topRight,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -191,6 +192,7 @@ class _PlannerScreenState extends State<PlannerScreen>
   @override
   void initState() {
     super.initState();
+    _loadDockWidth();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.active) _reclaimKeys();
     });
@@ -923,10 +925,7 @@ class _PlannerScreenState extends State<PlannerScreen>
         key: const ValueKey('schedule-keys'),
         focusNode: _keysFocus,
         autofocus: true,
-        child: Listener(
-          onPointerDown: (_) => _reclaimKeys(),
-          child: child,
-        ),
+        child: Listener(onPointerDown: (_) => _reclaimKeys(), child: child),
       ),
     );
   }
@@ -1030,6 +1029,46 @@ class _PlannerScreenState extends State<PlannerScreen>
 
   /// Whether the last layout put the pool in a side panel.
   bool _docked = false;
+
+  /// Side pool width the user dragged to (desktop); null until they do.
+  double? _dockWidth;
+  double _dockNow = plannerDockWidth;
+  static const _dockPrefKey = 'compoise-planner-dock-width';
+
+  static double _clampDock(double width, double window) => width.clamp(
+    plannerDockMinWidth,
+    math.max(plannerDockMinWidth, math.min(plannerDockMaxWidth, window / 2)),
+  );
+
+  Future<void> _loadDockWidth() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getDouble(_dockPrefKey);
+      if (saved != null && mounted) setState(() => _dockWidth = saved);
+    } catch (_) {}
+  }
+
+  Future<void> _saveDockWidth() async {
+    final width = _dockWidth;
+    if (width == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_dockPrefKey, width);
+    } catch (_) {}
+  }
+
+  /// The side pool's left edge: drag it to resize, left-right cursor on hover.
+  Widget _dockHandle(double window) => MouseRegion(
+    key: const ValueKey('schedule-pool-resize'),
+    cursor: SystemMouseCursors.resizeLeftRight,
+    child: GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: (details) => setState(
+        () => _dockWidth = _clampDock(_dockNow - details.delta.dx, window),
+      ),
+      onHorizontalDragEnd: (_) => _saveDockWidth(),
+    ),
+  );
 
   Widget _buildData(StoreSnapshot data, {Store? liveStore}) {
     final t = dictOf(data.settings.language);
@@ -1167,6 +1206,11 @@ class _PlannerScreenState extends State<PlannerScreen>
               _poolMin = poolMin;
               final docked = desktop && constraints.maxWidth >= 900;
               _docked = docked;
+              _dockNow = _clampDock(
+                _dockWidth ?? plannerDockWidth,
+                constraints.maxWidth,
+              );
+              final dockW = _dockNow;
               final bottomPad = docked ? 0.0 : poolMin * constraints.maxHeight;
               final Widget content =
                   // Taps on empty content fold an opened pool. A plain
@@ -1489,17 +1533,25 @@ class _PlannerScreenState extends State<PlannerScreen>
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Expanded(child: content),
-                        SizedBox(width: plannerDockWidth, child: pool),
+                        SizedBox(width: dockW, child: pool),
                       ],
                     )
                   else ...[
                     content,
                     pool,
                   ],
+                  if (docked)
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: dockW - 4,
+                      width: 8,
+                      child: _dockHandle(constraints.maxWidth),
+                    ),
                   if (selectedEntry != null && !_editorOpen)
                     Positioned(
                       left: 12,
-                      right: docked ? plannerDockWidth + 12 : 12,
+                      right: docked ? dockW + 12 : 12,
                       bottom: bottomPad + 8,
                       child: Center(
                         child: ConstrainedBox(
@@ -1568,7 +1620,7 @@ class _PlannerScreenState extends State<PlannerScreen>
     if (box == null || !box.attached || !box.hasSize) return false;
     final local = box.globalToLocal(global);
     if (_docked) {
-      return local.dx >= box.size.width - plannerDockWidth &&
+      return local.dx >= box.size.width - _dockNow &&
           local.dx <= box.size.width &&
           local.dy >= 0 &&
           local.dy <= box.size.height;
@@ -1924,6 +1976,8 @@ Future<void> openPlannerScreen(
 /// Round "today" button, bottom right; grows in unless motion is reduced.
 /// Width of the side task pool on a wide desktop window.
 const double plannerDockWidth = 400;
+const double plannerDockMinWidth = 280;
+const double plannerDockMaxWidth = 560;
 
 class _TodayButton extends StatefulWidget {
   const _TodayButton({

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'planner_day_timeline.dart' show plannerPageMargin;
+import 'planner_skin.dart';
 import 'planner_view.dart';
 
 /// One-row planner chrome. Zone and board filter live in the menu.
@@ -59,6 +60,7 @@ class PlannerToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final skin = PlannerSkin.of(context);
     final previousTip =
         t[view == PlannerView.day
             ? 'schedulePreviousDay'
@@ -78,8 +80,7 @@ class PlannerToolbar extends StatelessWidget {
           builder: (context, constraints) {
             // Arrows only where there is room; on a phone a sideways swipe on
             // the day, the date strip and the date picker move around.
-            final arrows =
-                constraints.maxWidth >= 480 || onToday != null;
+            final arrows = constraints.maxWidth >= 480 || onToday != null;
             final shrink = scale > 1.3 || constraints.maxWidth < 360;
             final row = Row(
               mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
@@ -173,27 +174,27 @@ class PlannerToolbar extends StatelessWidget {
                       icon: Icons.chevron_right,
                     ),
                 ]),
-                if (onToday != null)
-                  _fit(
-                    shrink,
-                    TextButton(
-                      key: const ValueKey('schedule-today-button'),
-                      onPressed: todayInView ? null : onToday,
-                      child: Text(t['today']!, maxLines: 1),
-                    ),
+                // Desktop: a plain child, not Flexible, so the date group's
+                // Expanded pushes Today and Day | Week to the right edge.
+                if (onToday != null) ...[
+                  _todayButton(),
+                  const SizedBox(width: 6),
+                ],
+                if (skin.plain) ...[
+                  _chip(
+                    const ValueKey('schedule-mode-day'),
+                    t['scheduleDayShort']!,
+                    view == PlannerView.day,
+                    () => onView(PlannerView.day),
                   ),
-                _chip(
-                  const ValueKey('schedule-mode-day'),
-                  t['scheduleDayShort']!,
-                  view == PlannerView.day,
-                  () => onView(PlannerView.day),
-                ),
-                _chip(
-                  const ValueKey('schedule-mode-week'),
-                  t['scheduleWeekShort']!,
-                  view == PlannerView.week,
-                  () => onView(PlannerView.week),
-                ),
+                  _chip(
+                    const ValueKey('schedule-mode-week'),
+                    t['scheduleWeekShort']!,
+                    view == PlannerView.week,
+                    () => onView(PlannerView.week),
+                  ),
+                ] else
+                  _segments(theme, skin),
                 const SizedBox(width: plannerPageMargin - 8),
               ],
             );
@@ -207,6 +208,99 @@ class PlannerToolbar extends StatelessWidget {
                 : row;
           },
         ),
+      ),
+    );
+  }
+
+  Widget _todayButton() {
+    final button = TextButton(
+      key: const ValueKey('schedule-today-button'),
+      onPressed: todayInView ? null : onToday,
+      child: Text(t['today']!, maxLines: 1),
+    );
+    // The skins' TextButton theme already raises it (neumorphic) or
+    // outlines it (comic); a second surface would double the shadow.
+    return button;
+  }
+
+  /// Day | Week as one segmented control in the comic and neumorphic skins,
+  /// built like the Tasks | Schedule switch: a groove (or outlined track) with
+  /// the selected half raised. The default skin keeps its chips.
+  Widget _segments(ThemeData theme, PlannerSkin skin) {
+    Widget segment(Key key, String label, PlannerView value) {
+      final on = view == value;
+      final ink = on
+          ? theme.colorScheme.onPrimaryContainer
+          : theme.colorScheme.onSurfaceVariant;
+      final radius = BorderRadius.circular(8);
+      return Semantics(
+        button: true,
+        selected: on,
+        child: InkWell(
+          key: key,
+          borderRadius: radius,
+          onTap: () => onView(value),
+          child: Container(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: !on
+                ? BoxDecoration(borderRadius: radius)
+                : skin.neu != null
+                ? BoxDecoration(
+                    color: skin.neu!.canvas,
+                    borderRadius: radius,
+                    boxShadow: [
+                      BoxShadow(
+                        color: skin.neu!.darkShadow.withValues(alpha: 0.6),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  )
+                : skin.surface(
+                    BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: radius,
+                    ),
+                  ),
+            child: Text(
+              label,
+              maxLines: 1,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                color: ink,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      key: const ValueKey('schedule-mode-segments'),
+      padding: const EdgeInsets.all(3),
+      decoration: skin.surface(
+        BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        raised: false,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          segment(
+            const ValueKey('schedule-mode-day'),
+            t['scheduleDayShort']!,
+            PlannerView.day,
+          ),
+          segment(
+            const ValueKey('schedule-mode-week'),
+            t['scheduleWeekShort']!,
+            PlannerView.week,
+          ),
+        ],
       ),
     );
   }
