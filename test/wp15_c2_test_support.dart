@@ -47,6 +47,9 @@ Future<void> c2Pump(
   bool provide = false,
   bool dark = false,
   String skin = 'default',
+  // Phone by default: these suites describe the touch layout. Desktop-only
+  // behaviour (side pool, keys, mouse) passes TargetPlatform.windows.
+  TargetPlatform platform = TargetPlatform.android,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -59,7 +62,7 @@ Future<void> c2Pump(
     theme: _skinned(
       ThemeData(
         useMaterial3: true,
-        platform: TargetPlatform.windows,
+        platform: platform,
         brightness: dark ? Brightness.dark : Brightness.light,
       ),
       skin,

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -211,7 +212,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         top: false,
         child: ListView(
           key: const ValueKey('settings-list'),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          // Wide desktop window: a readable ~720dp column in the middle; the
+          // scrollbar stays at the window edge. Phones keep 16dp sides.
+          padding: EdgeInsets.fromLTRB(
+            _side(context),
+            8,
+            _side(context),
+            32,
+          ),
           children: [
             _sectionTitle(
               theme,
@@ -989,6 +997,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   bool _sendingTest = false;
+
+  static double _side(BuildContext context) =>
+      math.max(16.0, (MediaQuery.sizeOf(context).width - 720) / 2);
 
   bool get _canQueryPermission =>
       defaultTargetPlatform == TargetPlatform.android ||

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -39,6 +40,7 @@ class PlannerBlock extends StatefulWidget {
     required this.scrollOffset,
     required this.onDragGlobal,
     required this.drag,
+    this.onContextMenu,
     this.compact = false,
     this.dayStart,
     this.dayEnd,
@@ -61,6 +63,9 @@ class PlannerBlock extends StatefulWidget {
   final double Function() scrollOffset;
   final ValueChanged<Offset> onDragGlobal;
   final PlannerDragBuilder drag;
+
+  /// Right click (desktop): edit / delete menu at the pointer.
+  final ValueChanged<Offset>? onContextMenu;
   final bool compact;
 
   /// The day's window; a drag never carries the block outside it.
@@ -118,6 +123,26 @@ class _PlannerBlockState extends State<PlannerBlock> {
       _ => (_startAt, _endAt),
     };
   }
+
+  double _pressY = 0;
+  bool _hovered = false;
+
+  /// Desktop: pointer cursor and a light tint under the mouse.
+  Widget _hoverable(ThemeData theme, Widget card) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: _hovered
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.06)
+            : const Color(0x00000000),
+      ),
+      child: card,
+    ),
+  );
 
   void _begin(ScheduleEditMode mode) {
     _scrollAtStart = widget.scrollOffset();
@@ -200,12 +225,35 @@ class _PlannerBlockState extends State<PlannerBlock> {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: widget.onTap,
+            onSecondaryTapUp: widget.onContextMenu == null
+                ? null
+                : (d) => widget.onContextMenu!(d.globalPosition),
             onLongPressStart: (_) => _begin(ScheduleEditMode.move),
             onLongPressMoveUpdate: (d) =>
                 _update(d.offsetFromOrigin.dy, d.globalPosition),
             onLongPressEnd: (_) => _end(),
             onLongPressCancel: _cancel,
-            child: Opacity(opacity: _mode == null ? 1 : 0.55, child: card),
+            child: desktop
+                // Desktop mouse: press and drag moves at once, no long press.
+                // Mouse only, so a touch screen still scrolls the timeline.
+                ? GestureDetector(
+                    supportedDevices: const {PointerDeviceKind.mouse},
+                    onVerticalDragStart: (d) {
+                      _pressY = d.globalPosition.dy;
+                      _begin(ScheduleEditMode.move);
+                    },
+                    onVerticalDragUpdate: (d) => _update(
+                      d.globalPosition.dy - _pressY,
+                      d.globalPosition,
+                    ),
+                    onVerticalDragEnd: (_) => _end(),
+                    onVerticalDragCancel: _cancel,
+                    child: Opacity(
+                      opacity: _mode == null ? 1 : 0.55,
+                      child: _hoverable(theme, card),
+                    ),
+                  )
+                : Opacity(opacity: _mode == null ? 1 : 0.55, child: card),
           ),
         ),
         if (desktop || selected) ...[

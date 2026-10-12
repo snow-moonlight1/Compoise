@@ -53,6 +53,47 @@ Future<void> showTaskDetailSheet(
   String? highlightSubtaskId,
   ValueChanged<bool>? onDirtyChanged,
   Future<void> Function(String taskId)? onScheduleTime,
+}) {
+  // Desktop: a centred, width-capped dialog instead of a phone sheet.
+  if (PlatformUiPolicy.of(context).isDesktop) {
+    final size = MediaQuery.sizeOf(context);
+    return showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        key: const ValueKey('task-detail-dialog'),
+        insetPadding: const EdgeInsets.all(24),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 560,
+            maxHeight: size.height * 0.85,
+          ),
+          child: TaskDetailPanel(
+            key: ValueKey('task-detail-${task.id}'),
+            task: task,
+            highlightSubtaskId: highlightSubtaskId,
+            onDirtyChanged: onDirtyChanged,
+            onScheduleTime: onScheduleTime,
+          ),
+        ),
+      ),
+    );
+  }
+  return _showTaskDetailBottomSheet(
+    context,
+    task,
+    highlightSubtaskId: highlightSubtaskId,
+    onDirtyChanged: onDirtyChanged,
+    onScheduleTime: onScheduleTime,
+  );
+}
+
+Future<void> _showTaskDetailBottomSheet(
+  BuildContext context,
+  Task task, {
+  String? highlightSubtaskId,
+  ValueChanged<bool>? onDirtyChanged,
+  Future<void> Function(String taskId)? onScheduleTime,
 }) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,

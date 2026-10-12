@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../schedule_time.dart';
 import '../theme.dart';
+import '../ui/platform_ui_policy.dart';
 import '../widgets/schedule_layout.dart';
 import 'planner_drag_feedback.dart';
 import 'planner_guide_flag.dart';
@@ -41,6 +42,7 @@ class PlannerTaskPool extends StatefulWidget {
     this.addEnabled = true,
     this.highlightTaskId,
     this.highlightToken = 0,
+    this.docked = false,
   });
 
   final DraggableScrollableController controller;
@@ -68,6 +70,9 @@ class PlannerTaskPool extends StatefulWidget {
 
   /// Bumps when the same task should be revealed again.
   final int highlightToken;
+
+  /// Wide desktop window: a fixed side panel, always open, no sheet.
+  final bool docked;
 
   @override
   State<PlannerTaskPool> createState() => _PlannerTaskPoolState();
@@ -113,6 +118,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
 
   @override
   void dispose() {
+    _dockAnchor.dispose();
     _pages.dispose();
     _pointer.dispose();
     for (final c in _scrolls.values) {
@@ -185,10 +191,60 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     if (_quadrant != quadrant) setState(() => _quadrant = quadrant);
   }
 
+  final ScrollController _dockAnchor = ScrollController();
+
+  /// Side panel: the opened layout at full height, with a left edge.
+  Widget _docked(ThemeData theme, NeumorphicSkin? skin) {
+    final comic = ComicOutline.maybeOf(context);
+    return Material(
+      key: const ValueKey('schedule-pool-docked'),
+      color: skin?.canvas ?? theme.colorScheme.surface,
+      shape: Border(
+        left: BorderSide(
+          color: comic?.edge ?? theme.colorScheme.outlineVariant,
+          width: comic == null ? 1 : 2,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = math.max(
+            1.0,
+            MediaQuery.textScalerOf(context).scale(14) / 14,
+          );
+          final width = constraints.maxWidth;
+          final headerH = math.max(56.0, 28 * scale + 28);
+          final tabsH = 44 * scale;
+          final spots = _spots(theme, width, headerH, tabsH, scale);
+          return Stack(
+            children: [
+              _opened(
+                theme,
+                _dockAnchor,
+                width,
+                headerH,
+                tabsH,
+                spots,
+                focusAdd: true,
+              ),
+              IgnorePointer(
+                child: Stack(
+                  children: [
+                    for (final spot in spots) ..._spotWidgets(theme, spot, 1),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final skin = NeumorphicSkin.maybeOf(context);
+    if (widget.docked) return _docked(theme, skin);
     // A fresh list every build makes the sheet treat snaps as changed and
     // spring shut, which cancels a tap or a highlight that was opening it.
     if (_snaps == null || _snapMin != widget.minSize) {
@@ -673,6 +729,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
       widget.controller.size <= widget.minSize + 0.02;
 
   void _toggle() {
+    if (widget.docked) return;
     if (_isCollapsed || !widget.controller.isAttached) {
       _expand(plannerPoolOpenSize);
     } else {
@@ -681,6 +738,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   }
 
   void _expand(double size) {
+    if (widget.docked) return;
     if (!widget.controller.isAttached) {
       if (_expandRetry) return;
       _expandRetry = true;
@@ -694,6 +752,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   }
 
   void _animate(double size) {
+    if (widget.docked) return;
     if (_reduceMotion) {
       widget.controller.jumpTo(size);
       return;
@@ -706,6 +765,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   }
 
   void _dragSheet(double? delta) {
+    if (widget.docked) return;
     if (delta == null || !widget.controller.isAttached) return;
     final height = widget.controller.pixelsToSize(delta);
     widget.controller.jumpTo(
@@ -718,6 +778,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
 
   /// Settles on the nearest of the four heights, nudged by the fling.
   void _settle(double velocity) {
+    if (widget.docked) return;
     if (!widget.controller.isAttached) return;
     final snaps = _snaps!;
     final nudge = velocity.abs() > 300 ? (velocity < 0 ? 0.12 : -0.12) : 0.0;
@@ -911,6 +972,27 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     return EdgeInsets.zero;
   }
 
+  String? _hoverId;
+
+  /// Desktop: pointer cursor and a light tint under the mouse.
+  Widget _hoverable(ThemeData theme, Widget child, String id) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    onEnter: (_) => setState(() => _hoverId = id),
+    onExit: (_) {
+      if (_hoverId == id) setState(() => _hoverId = null);
+    },
+    child: DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: _hoverId == id
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.06)
+            : const Color(0x00000000),
+      ),
+      child: child,
+    ),
+  );
+
   Widget _card(ThemeData theme, Task task) {
     final local = task.deadline == null
         ? null
@@ -987,43 +1069,64 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
         ? card
         : Padding(padding: gap, child: card);
     if (!widget.writable) return body;
-    return LongPressDraggable<String>(
-      key: ValueKey('schedule-pool-${task.id}'),
-      data: task.id,
-      dragAnchorStrategy: _pointer.anchor,
-      feedback: PlannerDragFeedback(
-        pointer: _pointer,
-        size: const Size(220, 56),
-        child: Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              task.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+    // Desktop: press and drag right away. Touch: long press first.
+    final direct = PlatformUiPolicy.of(context).isDesktop;
+    final feedback = PlannerDragFeedback(
+      pointer: _pointer,
+      size: const Size(220, 56),
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(task.title, maxLines: 2, overflow: TextOverflow.ellipsis),
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.35, child: body),
-      onDragStarted: () {
-        _clearFocus();
-        widget.onDragStarted(task);
-      },
-      onDragUpdate: (details) {
-        _pointer.update(details.globalPosition);
-        widget.onDragUpdate(task, details.globalPosition);
-      },
-      onDragEnd: (details) => widget.onDragEnd(task, details),
-      child: widget.onOpenTask == null
-          ? body
-          : GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => widget.onOpenTask!(task),
-              child: body,
-            ),
+    );
+    void started() {
+      _clearFocus();
+      widget.onDragStarted(task);
+    }
+
+    void moved(DragUpdateDetails details) {
+      _pointer.update(details.globalPosition);
+      widget.onDragUpdate(task, details.globalPosition);
+    }
+
+    void ended(DraggableDetails details) => widget.onDragEnd(task, details);
+    final ghost = Opacity(opacity: 0.35, child: body);
+    Widget tappable = widget.onOpenTask == null
+        ? body
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => widget.onOpenTask!(task),
+            child: body,
+          );
+    if (direct) tappable = _hoverable(theme, tappable, task.id);
+    final key = ValueKey('schedule-pool-${task.id}');
+    // Touch: long press first. Desktop mouse: press and drag right away.
+    final touch = LongPressDraggable<String>(
+      key: direct ? null : key,
+      data: task.id,
+      dragAnchorStrategy: _pointer.anchor,
+      feedback: feedback,
+      childWhenDragging: ghost,
+      onDragStarted: started,
+      onDragUpdate: moved,
+      onDragEnd: ended,
+      child: tappable,
+    );
+    if (!direct) return touch;
+    return PlannerMouseDraggable<String>(
+      key: key,
+      data: task.id,
+      dragAnchorStrategy: _pointer.anchor,
+      feedback: feedback,
+      childWhenDragging: ghost,
+      onDragStarted: started,
+      onDragUpdate: moved,
+      onDragEnd: ended,
+      child: touch,
     );
   }
 }

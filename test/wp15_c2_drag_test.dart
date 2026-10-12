@@ -151,7 +151,7 @@ void main() {
     tester,
   ) async {
     final store = await c2Store(items: [c1Items().first]);
-    await c2Pump(tester, store);
+    await c2Pump(tester, store, platform: TargetPlatform.windows);
     await tester.ensureVisible(c2Key(block));
     await tester.pumpAndSettle();
     for (final mode in ['resizeStart', 'resizeEnd']) {

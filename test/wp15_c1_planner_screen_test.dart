@@ -170,7 +170,8 @@ void main() {
       await _tap(tester, _key('schedule-previous'));
       await _tap(tester, _key('schedule-mode-day'));
       expect(_key('schedule-day-2026-10-01'), findsOneWidget);
-      await _tap(tester, _key('schedule-today'));
+      // Desktop: "Today" sits in the toolbar; the round 今 button is phone-only.
+      await _tap(tester, _key('schedule-today-button'));
       expect(_key('schedule-day-2026-09-30'), findsOneWidget);
       await _tap(tester, _key('schedule-previous'));
       expect(_key('schedule-day-2026-09-29'), findsOneWidget);

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// Keeps a dragged preview just up-left of the finger (its lower right corner a few dp past it)
@@ -66,4 +67,29 @@ class PlannerDragFeedback extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Desktop: a drag that starts as soon as the mouse moves, without the long
+/// press touch needs. Mouse only, so a finger on the same widget still
+/// scrolls; wrap it around the touch [LongPressDraggable].
+class PlannerMouseDraggable<T extends Object> extends Draggable<T> {
+  const PlannerMouseDraggable({
+    super.key,
+    required super.child,
+    required super.feedback,
+    super.data,
+    super.childWhenDragging,
+    super.dragAnchorStrategy,
+    super.onDragStarted,
+    super.onDragUpdate,
+    super.onDragEnd,
+    super.maxSimultaneousDrags,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer(
+    GestureMultiDragStartCallback onStart,
+  ) => ImmediateMultiDragGestureRecognizer(
+    supportedDevices: const {PointerDeviceKind.mouse},
+  )..onStart = onStart;
 }

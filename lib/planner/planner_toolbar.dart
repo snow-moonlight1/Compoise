@@ -27,6 +27,8 @@ class PlannerToolbar extends StatelessWidget {
     this.onZone,
     this.onBack,
     this.onGuide,
+    this.onToday,
+    this.todayInView = true,
   });
 
   final Map<String, String> t;
@@ -48,6 +50,11 @@ class PlannerToolbar extends StatelessWidget {
   /// Back to the task board; null when the page is not pushed over it.
   final VoidCallback? onBack;
   final VoidCallback? onGuide;
+
+  /// Desktop only: a "Today" button in the bar (phones use the round 今
+  /// button). Null hides it; disabled while today is already in view.
+  final VoidCallback? onToday;
+  final bool todayInView;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +78,8 @@ class PlannerToolbar extends StatelessWidget {
           builder: (context, constraints) {
             // Arrows only where there is room; on a phone a sideways swipe on
             // the day, the date strip and the date picker move around.
-            final arrows = constraints.maxWidth >= 480;
+            final arrows =
+                constraints.maxWidth >= 480 || onToday != null;
             final shrink = scale > 1.3 || constraints.maxWidth < 360;
             final row = Row(
               mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
@@ -165,6 +173,15 @@ class PlannerToolbar extends StatelessWidget {
                       icon: Icons.chevron_right,
                     ),
                 ]),
+                if (onToday != null)
+                  _fit(
+                    shrink,
+                    TextButton(
+                      key: const ValueKey('schedule-today-button'),
+                      onPressed: todayInView ? null : onToday,
+                      child: Text(t['today']!, maxLines: 1),
+                    ),
+                  ),
                 _chip(
                   const ValueKey('schedule-mode-day'),
                   t['scheduleDayShort']!,

@@ -111,7 +111,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ? t['onboardingStep2DescAndroid']!
         : t['onboardingStep2Desc']!;
 
-    return Scaffold(
+    return _limitWidth(
+      theme,
+      Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: CallbackShortcuts(
@@ -278,8 +280,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
       ),
+    ),
     );
   }
+
+  /// On a wide desktop window the tutorial stays a readable column (about
+  /// 680dp) in the middle instead of stretching edge to edge. Phones are
+  /// narrower than the cap, so nothing changes there.
+  Widget _limitWidth(ThemeData theme, Widget page) => ColoredBox(
+    color: theme.colorScheme.surface,
+    child: Center(
+      child: ConstrainedBox(
+        key: const ValueKey('onboarding-width'),
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: page,
+      ),
+    ),
+  );
 
   Widget _buildSlide(
     BuildContext context, {

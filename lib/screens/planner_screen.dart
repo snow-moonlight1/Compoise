@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
@@ -376,7 +378,11 @@ class _PlannerScreenState extends State<PlannerScreen>
   void _fail(String message) {
     if (!mounted || _editorOpen) return;
     final height = MediaQuery.sizeOf(context).height;
-    final sheet = _pool.isAttached ? _pool.pixels : _poolMin * height;
+    final sheet = _docked
+        ? 0.0
+        : _pool.isAttached
+        ? _pool.pixels
+        : _poolMin * height;
     final bar = _selectedId == null ? 0.0 : 64.0;
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
@@ -648,12 +654,16 @@ class _PlannerScreenState extends State<PlannerScreen>
   }
 
   /// New event from the pool's "+": opens the plain form with a free hour.
-  Future<void> _create(Store store, ScheduleCivilDate date) async {
+  Future<void> _create(
+    Store store,
+    ScheduleCivilDate date, {
+    ScheduleWallTime? at,
+  }) async {
     if (_editorOpen || store.hasStartupRecovery || !store.ready) return;
     setState(() => _editorOpen = true);
     try {
       final day = _paintedDay;
-      final start = day == null ? null : _freeStart(day);
+      final start = at ?? (day == null ? null : _freeStart(day));
       final session = ScheduleEditSession.create(
         store,
         ScheduleItemKind.event,
@@ -715,14 +725,14 @@ class _PlannerScreenState extends State<PlannerScreen>
     Widget child, {
     Key? key,
     Size? size,
-  }) => LongPressDraggable<ScheduleDragPayload>(
-    key: key,
-    data: ScheduleDragPayload(item, store.scheduleRevision(item.id), mode),
-    maxSimultaneousDrags: _editorOpen ? 0 : 1,
-    dragAnchorStrategy: _itemPointer.anchor,
-    onDragUpdate: (details) => _itemPointer.update(details.globalPosition),
+  }) {
+    final data = ScheduleDragPayload(
+      item,
+      store.scheduleRevision(item.id),
+      mode,
+    );
     // Same look and size as the label; the original stays behind, faded.
-    feedback: PlannerDragFeedback(
+    final feedback = PlannerDragFeedback(
       pointer: _itemPointer,
       size: size ?? const Size(160, 40),
       child: Material(
@@ -733,10 +743,34 @@ class _PlannerScreenState extends State<PlannerScreen>
           child: child,
         ),
       ),
-    ),
-    childWhenDragging: Opacity(opacity: 0.38, child: child),
-    child: child,
-  );
+    );
+    final ghost = Opacity(opacity: 0.38, child: child);
+    void moved(DragUpdateDetails details) =>
+        _itemPointer.update(details.globalPosition);
+    final desktop = PlatformUiPolicy.of(context).isDesktop;
+    final touch = LongPressDraggable<ScheduleDragPayload>(
+      key: desktop ? null : key,
+      data: data,
+      maxSimultaneousDrags: _editorOpen ? 0 : 1,
+      dragAnchorStrategy: _itemPointer.anchor,
+      onDragUpdate: moved,
+      feedback: feedback,
+      childWhenDragging: ghost,
+      child: child,
+    );
+    if (!desktop) return touch;
+    // Desktop mouse: press and drag right away.
+    return PlannerMouseDraggable<ScheduleDragPayload>(
+      key: key,
+      data: data,
+      maxSimultaneousDrags: _editorOpen ? 0 : 1,
+      dragAnchorStrategy: _itemPointer.anchor,
+      onDragUpdate: moved,
+      feedback: feedback,
+      childWhenDragging: ghost,
+      child: touch,
+    );
+  }
 
   Future<void> _pickDate(Map<String, String> t) async {
     final picked = await showDatePicker(
@@ -819,7 +853,59 @@ class _PlannerScreenState extends State<PlannerScreen>
           widget.onLeave?.call();
         }
       },
-      child: inner,
+      child: PlatformUiPolicy.of(context).isDesktop && widget.active
+          ? _keys(inner)
+          : inner,
+    );
+  }
+
+  Store? get _liveStore =>
+      widget.snapshot != null ? null : widget.store ?? context.read<Store>();
+
+  /// Desktop keyboard: arrows move a day/week, T today, D/W switch view,
+  /// Delete removes the selected item (after the usual confirmation), Esc
+  /// clears the selection, Ctrl+N creates an item.
+  Widget _keys(Widget child) {
+    void delete() {
+      final store = _liveStore;
+      final id = _selectedId;
+      if (store == null || id == null || _editorOpen) return;
+      final item = store.scheduleItems.where((i) => i.id == id).firstOrNull;
+      if (item != null) _deleteItem(store, item);
+    }
+
+    void create() {
+      final store = _liveStore;
+      if (store != null) _create(store, _date);
+    }
+
+    void guarded(VoidCallback action) {
+      if (_editorOpen) return;
+      action();
+    }
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+            guarded(() => _navigate(-1)),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+            guarded(() => _navigate(1)),
+        const SingleActivator(LogicalKeyboardKey.keyT): () => guarded(_goToday),
+        const SingleActivator(LogicalKeyboardKey.keyD): () =>
+            guarded(() => _setView(PlannerView.day)),
+        const SingleActivator(LogicalKeyboardKey.keyW): () =>
+            guarded(() => _setView(PlannerView.week)),
+        const SingleActivator(LogicalKeyboardKey.delete): delete,
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_selectedId != null) _deselect();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): create,
+      },
+      child: Focus(
+        key: const ValueKey('schedule-keys'),
+        autofocus: true,
+        child: child,
+      ),
     );
   }
 
@@ -840,6 +926,88 @@ class _PlannerScreenState extends State<PlannerScreen>
       },
     );
   }
+
+  Offset? _lastClick;
+  Duration _lastClickAt = Duration.zero;
+
+  /// Desktop: a mouse double click on an empty part of the day timeline
+  /// creates an item at that quarter hour. Touch never does this, and a plain
+  /// listener keeps every other gesture as it was.
+  Widget _doubleClickCreate(Store? store, double scale, Widget child) {
+    if (store == null) return child;
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) {
+        if (e.kind != PointerDeviceKind.mouse ||
+            e.buttons != kPrimaryMouseButton) {
+          return;
+        }
+        final last = _lastClick;
+        final quick =
+            last != null &&
+            e.timeStamp - _lastClickAt < const Duration(milliseconds: 400) &&
+            (e.position - last).distance < 8;
+        _lastClick = quick ? null : e.position;
+        _lastClickAt = e.timeStamp;
+        if (quick) _createAt(store, e.position, scale);
+      },
+      child: child,
+    );
+  }
+
+  void _createAt(Store store, Offset global, double scale) {
+    final day = _paintedDay;
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (day == null || box == null || !box.hasSize || _editorOpen) return;
+    final local = box.globalToLocal(global);
+    // Left of the hour labels is not the grid.
+    if (local.dx < plannerPageMargin + 44 * scale) return;
+    final y = (_vertical.hasClients ? _vertical.offset : 0) + local.dy;
+    if (y < 0 || y >= day.axisHeight) return;
+    final onBlock = day.placements.any(
+      (p) => y >= p.top && y <= p.top + p.height,
+    );
+    if (onBlock) return;
+    _create(store, _date, at: _wallAt(day, y));
+  }
+
+  /// Right click on a block: edit or delete.
+  Future<void> _blockMenu(Store store, ScheduleItem item, Offset at) async {
+    final t = store.t;
+    _selectItem(item.id);
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        at & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          key: const ValueKey('schedule-menu-edit'),
+          value: 'edit',
+          child: Text(t['scheduleEditorEdit']!),
+        ),
+        PopupMenuItem(
+          key: const ValueKey('schedule-menu-delete'),
+          value: 'delete',
+          child: Text(t['scheduleEditorDelete']!),
+        ),
+      ],
+    );
+    if (!mounted) return;
+    if (choice == 'edit') _editItem(store, item);
+    if (choice == 'delete') _deleteItem(store, item);
+  }
+
+  /// Day: jump to today; week: to this week. The view mode stays.
+  void _goToday() {
+    final today = _today();
+    _present(date: today, x: _isAfter(today, _date) ? 0.22 : -0.22);
+  }
+
+  /// Whether the last layout put the pool in a side panel.
+  bool _docked = false;
 
   Widget _buildData(StoreSnapshot data, {Store? liveStore}) {
     final t = dictOf(data.settings.language);
@@ -891,6 +1059,7 @@ class _PlannerScreenState extends State<PlannerScreen>
         if (item.taskId != null) item.taskId!,
     };
     final tasks = plannerPoolTasks(data.tasks, boardId: boardId);
+    final desktop = PlatformUiPolicy.of(context).isDesktop;
     final todayFab = _view == PlannerView.day
         ? !_sameDate(_today(), _date)
         : !week.any((d) => _sameDate(d, _today()));
@@ -943,6 +1112,9 @@ class _PlannerScreenState extends State<PlannerScreen>
           if (store == null) return;
           _applyChange(store, item, mode, minutes);
         },
+        onContextMenu: liveStore == null
+            ? null
+            : (at) => _blockMenu(liveStore, item, at),
         scrollOffset: () => _vertical.hasClients ? _vertical.offset : 0.0,
         onDragGlobal: _autoScrollFromGlobal,
         drag: (mode, child, {key, size}) {
@@ -971,9 +1143,10 @@ class _PlannerScreenState extends State<PlannerScreen>
                   .clamp(0.08, 0.2)
                   .toDouble();
               _poolMin = poolMin;
-              return Stack(
-                key: _stackKey,
-                children: [
+              final docked = desktop && constraints.maxWidth >= 900;
+              _docked = docked;
+              final bottomPad = docked ? 0.0 : poolMin * constraints.maxHeight;
+              final Widget content =
                   // Taps on empty content fold an opened pool. A plain
                   // listener: it never joins the gesture arena, so blocks,
                   // handles, swipes and drags behave exactly as before.
@@ -1039,6 +1212,8 @@ class _PlannerScreenState extends State<PlannerScreen>
                               : null,
                           onGuide: () =>
                               showPlannerGuide(context, t, markSeen: false),
+                          onToday: desktop ? _goToday : null,
+                          todayInView: !todayFab,
                         ),
                         if (liveStore == null)
                           Padding(
@@ -1136,45 +1311,52 @@ class _PlannerScreenState extends State<PlannerScreen>
                                         child: _view == PlannerView.day
                                             ? PlannerDaySwipe(
                                                 onSwipe: _shift,
-                                                child: PlannerDayTimeline(
-                                                  day: _paintedDay!,
-                                                  scale: scale,
-                                                  vertical: _vertical,
-                                                  nowLabel: t['scheduleNow']!,
-                                                  hover: _hover,
-                                                  now:
-                                                      widget.now?.call() ??
-                                                      DateTime.now(),
-                                                  selectedId: _selectedId,
-                                                  emptyLabel:
-                                                      entries.isEmpty ||
-                                                          _paintedDay!
-                                                              .placements
-                                                              .isEmpty
-                                                      ? t['scheduleEmptyHint']
-                                                      : null,
-                                                  onGridTap: (_) => _deselect(),
-                                                  onPoolMove:
-                                                      _setHoverFromContent,
-                                                  onPoolAccept:
-                                                      liveStore == null
-                                                      ? null
-                                                      : (taskId, dy) {
-                                                          final day =
-                                                              _paintedDay;
-                                                          if (day == null) return;
-                                                          _hover.value = null;
-                                                          _placeTask(
-                                                            liveStore,
-                                                            taskId,
-                                                            _wallAt(day, dy),
-                                                          );
-                                                        },
-                                                  block: (placement) =>
-                                                      blockFor(
-                                                        _paintedDay!,
-                                                        placement,
-                                                      ),
+                                                child: _doubleClickCreate(
+                                                  desktop ? liveStore : null,
+                                                  scale,
+                                                  PlannerDayTimeline(
+                                                    day: _paintedDay!,
+                                                    scale: scale,
+                                                    vertical: _vertical,
+                                                    nowLabel: t['scheduleNow']!,
+                                                    hover: _hover,
+                                                    now:
+                                                        widget.now?.call() ??
+                                                        DateTime.now(),
+                                                    selectedId: _selectedId,
+                                                    emptyLabel:
+                                                        entries.isEmpty ||
+                                                            _paintedDay!
+                                                                .placements
+                                                                .isEmpty
+                                                        ? t['scheduleEmptyHint']
+                                                        : null,
+                                                    onGridTap: (_) =>
+                                                        _deselect(),
+                                                    onPoolMove:
+                                                        _setHoverFromContent,
+                                                    onPoolAccept:
+                                                        liveStore == null
+                                                        ? null
+                                                        : (taskId, dy) {
+                                                            final day =
+                                                                _paintedDay;
+                                                            if (day == null) {
+                                                              return;
+                                                            }
+                                                            _hover.value = null;
+                                                            _placeTask(
+                                                              liveStore,
+                                                              taskId,
+                                                              _wallAt(day, dy),
+                                                            );
+                                                          },
+                                                    block: (placement) =>
+                                                        blockFor(
+                                                          _paintedDay!,
+                                                          placement,
+                                                        ),
+                                                  ),
                                                 ),
                                               )
                                             : GestureDetector(
@@ -1194,9 +1376,7 @@ class _PlannerScreenState extends State<PlannerScreen>
                                                   ),
                                                   onWeek: (direction) =>
                                                       _shift(direction * 7),
-                                                  bottomInset:
-                                                      poolMin *
-                                                      constraints.maxHeight,
+                                                  bottomInset: bottomPad,
                                                   dropKey: _dropKey,
                                                   onScheduleDrop:
                                                       liveStore == null
@@ -1220,69 +1400,85 @@ class _PlannerScreenState extends State<PlannerScreen>
                         ),
                       ],
                     ),
-                  ),
-                  PlannerTaskPool(
-                    controller: _pool,
-                    minSize: poolMin,
-                    tasks: tasks,
-                    scheduledIds: scheduledIds,
-                    t: t,
-                    zone: zone,
-                    writable: liveStore != null,
-                    addFocus: _addFocus,
-                    addEnabled: !_editorOpen,
-                    boardLabel: boardId != null && data.boards.length > 1
-                        ? filterName
-                        : null,
-                    onBoard: () => _pickBoard(data, t),
-                    onAddToQuadrant: liveStore == null
-                        ? null
-                        : (quadrant) => _addPoolTask(liveStore, quadrant),
-                    highlightTaskId: _highlightTaskId,
-                    highlightToken: _highlightToken,
-                    onOpenTask: liveStore == null
-                        ? null
-                        : (task) => showTaskEditSheet(
-                            context,
-                            task,
-                            onScheduleTime: (taskId) =>
-                                _revealTask(liveStore, taskId),
-                          ),
-                    onAdd: liveStore == null
-                        ? () {}
-                        : () => _create(liveStore, _date),
-                    onDragStarted: (_) {
-                      if (_selectedId != null) {
-                        setState(() => _selectedId = null);
-                      }
-                      if (_pool.isAttached) _foldPool();
-                    },
-                    onDragUpdate: (_, global) {
-                      _poolPointer = global;
-                      _autoScrollFromGlobal(global);
-                    },
-                    onDragEnd: (task, details) {
-                      final store = liveStore;
-                      final point = _poolPointer ?? details.offset;
-                      final hover = _hover.value;
-                      _poolPointer = null;
-                      _hover.value = null;
-                      if (store == null || details.wasAccepted) return;
-                      if (_overSheet(point)) return;
-                      if (_view == PlannerView.day && hover != null) {
-                        final day = _paintedDay;
-                        if (day == null) return;
-                        _placeTask(store, task.id, _wallAt(day, hover.top + 1));
-                        return;
-                      }
-                      _finishPoolDrop(store, task, point, hover);
-                    },
-                  ),
+                  );
+              final Widget pool = PlannerTaskPool(
+                docked: docked,
+                controller: _pool,
+                minSize: poolMin,
+                tasks: tasks,
+                scheduledIds: scheduledIds,
+                t: t,
+                zone: zone,
+                writable: liveStore != null,
+                addFocus: _addFocus,
+                addEnabled: !_editorOpen,
+                boardLabel: boardId != null && data.boards.length > 1
+                    ? filterName
+                    : null,
+                onBoard: () => _pickBoard(data, t),
+                onAddToQuadrant: liveStore == null
+                    ? null
+                    : (quadrant) => _addPoolTask(liveStore, quadrant),
+                highlightTaskId: _highlightTaskId,
+                highlightToken: _highlightToken,
+                onOpenTask: liveStore == null
+                    ? null
+                    : (task) => showTaskEditSheet(
+                        context,
+                        task,
+                        onScheduleTime: (taskId) =>
+                            _revealTask(liveStore, taskId),
+                      ),
+                onAdd: liveStore == null
+                    ? () {}
+                    : () => _create(liveStore, _date),
+                onDragStarted: (_) {
+                  if (_selectedId != null) {
+                    setState(() => _selectedId = null);
+                  }
+                  if (_pool.isAttached) _foldPool();
+                },
+                onDragUpdate: (_, global) {
+                  _poolPointer = global;
+                  _autoScrollFromGlobal(global);
+                },
+                onDragEnd: (task, details) {
+                  final store = liveStore;
+                  final point = _poolPointer ?? details.offset;
+                  final hover = _hover.value;
+                  _poolPointer = null;
+                  _hover.value = null;
+                  if (store == null || details.wasAccepted) return;
+                  if (_overSheet(point)) return;
+                  if (_view == PlannerView.day && hover != null) {
+                    final day = _paintedDay;
+                    if (day == null) return;
+                    _placeTask(store, task.id, _wallAt(day, hover.top + 1));
+                    return;
+                  }
+                  _finishPoolDrop(store, task, point, hover);
+                },
+              );
+              return Stack(
+                key: _stackKey,
+                children: [
+                  if (docked)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: content),
+                        SizedBox(width: plannerDockWidth, child: pool),
+                      ],
+                    )
+                  else ...[
+                    content,
+                    pool,
+                  ],
                   if (selectedEntry != null && !_editorOpen)
                     Positioned(
                       left: 12,
-                      right: 12,
-                      bottom: poolMin * constraints.maxHeight + 8,
+                      right: docked ? plannerDockWidth + 12 : 12,
+                      bottom: bottomPad + 8,
                       child: Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 520),
@@ -1300,23 +1496,18 @@ class _PlannerScreenState extends State<PlannerScreen>
                         ),
                       ),
                     ),
-                  if (todayFab && selectedEntry == null && !_poolOpen)
+                  if (!desktop &&
+                      todayFab &&
+                      selectedEntry == null &&
+                      !_poolOpen)
                     Positioned(
                       right: 22,
-                      bottom: poolMin * constraints.maxHeight + 22,
+                      bottom: bottomPad + 22,
                       child: _TodayButton(
                         key: const ValueKey('schedule-today'),
                         label: t['scheduleTodayShort']!,
                         tooltip: t['scheduleBackToday']!,
-                        onPressed: () {
-                          final today = _today();
-                          // Day: jump to today; week: to this week. The view
-                          // mode stays.
-                          _present(
-                            date: today,
-                            x: _isAfter(today, _date) ? 0.22 : -0.22,
-                          );
-                        },
+                        onPressed: _goToday,
                       ),
                     ),
                 ],
@@ -1354,6 +1545,12 @@ class _PlannerScreenState extends State<PlannerScreen>
     final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.attached || !box.hasSize) return false;
     final local = box.globalToLocal(global);
+    if (_docked) {
+      return local.dx >= box.size.width - plannerDockWidth &&
+          local.dx <= box.size.width &&
+          local.dy >= 0 &&
+          local.dy <= box.size.height;
+    }
     final sheet = _pool.isAttached ? _pool.pixels : _poolMin * box.size.height;
     return local.dy >= box.size.height - sheet &&
         local.dy <= box.size.height &&
@@ -1703,6 +1900,9 @@ Future<void> openPlannerScreen(
 );
 
 /// Round "today" button, bottom right; grows in unless motion is reduced.
+/// Width of the side task pool on a wide desktop window.
+const double plannerDockWidth = 340;
+
 class _TodayButton extends StatefulWidget {
   const _TodayButton({
     super.key,
