@@ -87,7 +87,7 @@ void main() {
 
   test('blank or absent environment falls back to application support', () async {
     final support = Directory('${directory.path}/support')..createSync();
-    final expected = '${support.path}/wp17r2-assets';
+    final expected = '${support.path}/ocr-models/v1';
 
     for (final environment in [<String, String>{}, {'WP17_OCR_ASSETS': '  '}]) {
       expect(

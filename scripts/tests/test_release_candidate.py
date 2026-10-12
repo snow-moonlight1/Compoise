@@ -192,7 +192,7 @@ class CandidateTests(unittest.TestCase):
         self.rejected_seal()
 
     def test_ocr_and_unsafe_zip_residue(self):
-        for name in ('compoise_ocr.dll', 'ncnn/PP_OCRv5_mobile_det.ncnn.bin', 'licenses/PaddleOCR-LICENSE.txt', 'licenses/APACHE-2.0.txt', 'licenses/PP-OCRv5_mobile_rec.MODEL_CARD.md', '../escape.txt', '/escape.txt', 'C:/escape.txt', 'compoise.exe'):
+        for name in ('ncnn/PP_OCRv5_mobile_det.ncnn.bin', 'licenses/PaddleOCR-LICENSE.txt', 'licenses/APACHE-2.0.txt', 'licenses/PP-OCRv5_mobile_rec.MODEL_CARD.md', '../escape.txt', '/escape.txt', 'C:/escape.txt', 'compoise.exe'):
             with self.subTest(name=name):
                 self.make_platform('Windows')
                 with zipfile.ZipFile(self.directory / gate.artifact_name(self.ctx, 'Windows'), 'a') as archive:

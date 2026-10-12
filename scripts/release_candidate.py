@@ -16,7 +16,7 @@ FACTS = {
     "windowsCodeSigning": "unsigned (Authenticode is not configured)",
     "linuxDesktop": "preview only; no artifact published",
     "license": "GPL-3.0-only",
-    "ocr": "disabled; no OCR runtime, models or licence bundle",
+    "ocr": "native runtime bundled; models downloaded on demand and SHA-256 verified",
     "dataCompatibility": "backup v3; export before upgrade; local credential state is not in backups; old Windows credentials require reconfiguration",
 }
 
@@ -69,7 +69,7 @@ def zip_inventory(path):
             require(name.casefold() not in seen, f"Duplicate ZIP path: {name}")
             seen.add(name.casefold())
             require((entry.external_attr >> 16) & 0o170000 != 0o120000, f"ZIP symlink: {name}")
-            require(not re.search(r"(?i)(ocr|ncnn|ppocr|paddle|model_card)|\.(onnx|param|pdmodel|pdiparams)$|(^|/)models(/|$)", name), f"Default candidate contains OCR residue: {name}")
+            require(not re.search(r"(?i)(ppocr|paddle|model_card)|\.(onnx|param|pdmodel|pdiparams)$|(^|/)(models|ncnn)(/|$)", name), f"Candidate must not bundle OCR models: {name}")
             if "licenses" in parts and not entry.is_dir():
                 require(name in ("data/flutter_assets/assets/licenses/MaterialIcons_LICENSE.txt", "data/flutter_assets/assets/licenses/THIRD_PARTY_NOTICES.txt"), f"Default candidate contains an unexpected licence bundle: {name}")
             if entry.is_dir():

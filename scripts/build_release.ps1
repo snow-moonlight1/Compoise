@@ -78,8 +78,9 @@ param (
 )
 
 $ErrorActionPreference = 'Stop'
-# Default candidates must never inherit opt-in OCR or diagnostic harness builds.
-foreach ($gate in @('WP17_OCR_NCNN_DIR', 'WP17_OCR_NCNN_ROOT', 'WP17_OCR_STB_DIR', 'WP15_D3_DEVICE_BUILD')) {
+# Release candidates must never inherit diagnostic harness builds. The OCR
+# native runtime is allowed; OCR models are downloaded on demand, never bundled.
+foreach ($gate in @('WP15_D3_DEVICE_BUILD', 'WP17_OCR_MODELS_DIR')) {
     if ([Environment]::GetEnvironmentVariable($gate)) { throw "Default release rejects active opt-in gate: $gate" }
 }
 

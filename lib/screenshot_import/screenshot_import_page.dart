@@ -6,12 +6,17 @@ import 'package:provider/provider.dart';
 import '../import_preview/draft_model.dart';
 import '../import_preview/draft_preview.dart';
 import '../storage.dart';
+import '../ocr/ocr_model_download.dart';
 import 'screenshot_backend.dart';
 import 'screenshot_submission.dart';
 
 class ScreenshotImportPage extends StatefulWidget {
-  const ScreenshotImportPage({super.key, this.backend});
+  const ScreenshotImportPage({super.key, this.backend, this.downloadModels});
   final ScreenshotBackend? backend;
+
+  /// Test seam; defaults to [OcrModels.download].
+  final Future<void> Function({void Function(double progress)? onProgress})?
+  downloadModels;
   @override
   State<ScreenshotImportPage> createState() => _ScreenshotImportPageState();
 }
@@ -23,6 +28,8 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
   ScreenshotSubmission? _submission;
   String? _problem;
   bool _checking = true, _processing = false, _saving = false;
+  bool _downloading = false, _downloadFailed = false;
+  double _downloadProgress = 0;
   int _done = 0, _total = 0;
 
   @override
@@ -47,6 +54,34 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
         _checking = false;
         _problem = problem == null ? null : 'screenshotImport$problem';
       });
+    }
+  }
+
+  bool get _needsModels => _problem == 'screenshotImportModelsMissing';
+
+  Future<void> _downloadModels() async {
+    if (_downloading) return;
+    setState(() {
+      _downloading = true;
+      _downloadFailed = false;
+      _downloadProgress = 0;
+    });
+    try {
+      await (widget.downloadModels ?? OcrModels.download)(
+        onProgress: (value) {
+          if (mounted) setState(() => _downloadProgress = value);
+        },
+      );
+      if (!mounted) return;
+      setState(() => _downloading = false);
+      await _check();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _downloading = false;
+          _downloadFailed = true;
+        });
+      }
     }
   }
 
@@ -182,7 +217,40 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
                                     .replaceAll('{total}', '$_total'),
                         ),
                       ],
-                      if (_problem != null)
+                      if (_needsModels) ...[
+                        Text(
+                          t['ocrModelDownloadPrompt']!.replaceAll(
+                            '{mb}',
+                            '${OcrModels.approxMegabytes}',
+                          ),
+                          key: const ValueKey('screenshot-problem'),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_downloading) ...[
+                          LinearProgressIndicator(value: _downloadProgress),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${t['ocrModelDownloading']!} '
+                            '${(_downloadProgress * 100).round()}%',
+                          ),
+                        ] else ...[
+                          if (_downloadFailed)
+                            Text(
+                              t['ocrModelDownloadFailed']!,
+                              key: const ValueKey('ocr-model-download-failed'),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            key: const ValueKey('ocr-model-download'),
+                            onPressed: _downloadModels,
+                            icon: const Icon(Icons.download_outlined),
+                            label: Text(t['ocrModelDownloadAction']!),
+                          ),
+                        ],
+                      ] else if (_problem != null)
                         Text(
                           t[_problem] ?? t['screenshotImportReadFailed']!,
                           key: const ValueKey('screenshot-problem'),
@@ -196,7 +264,7 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
                         icon: const Icon(Icons.add_photo_alternate_outlined),
                         label: Text(t['screenshotImportChoose']!),
                       ),
-                      if (_problem != null)
+                      if (_problem != null && !_needsModels)
                         TextButton(
                           key: const ValueKey('screenshot-retry'),
                           onPressed: _checking || _processing ? null : _check,

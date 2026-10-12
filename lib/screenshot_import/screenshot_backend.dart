@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../ocr/ocr_assets.dart';
+import '../ocr/ocr_model_download.dart';
 import '../ocr/ocr_runtime.dart';
 import 'screenshot_capture.dart';
 import 'screenshot_saf.dart';
@@ -48,7 +49,7 @@ Future<String> resolveOcrAssetsRoot({
   final bundled = await bundledDirectory();
   if (bundled != null && bundled.isNotEmpty) return bundled;
   final support = await (supportDirectory ?? getApplicationSupportDirectory)();
-  return '${support.path}/wp17r2-assets';
+  return '${support.path}/ocr-models/${OcrModels.version}';
 }
 
 Map<String, String> _platformEnvironment() => Platform.environment;

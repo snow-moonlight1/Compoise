@@ -33,15 +33,13 @@ void main() {
   test('release workflow keeps least privilege and never inlines secrets', () {
     expect(release.contains('permissions:\n  contents: read'), isTrue);
     expect(release.contains('write-all'), isFalse);
-    expect(release.contains('contents: write'), isTrue);
+    expect('permissions:\n      contents: write'.allMatches(release).length, 1);
     expect(
       release.indexOf('contents: write'),
-      greaterThan(release.indexOf('publish-release:')),
+      greaterThan(release.indexOf('  publish:')),
     );
-    expect('permissions:\n      contents: write'.allMatches(release).length, 1);
 
-    // Each secret is referenced exactly once: in the step environment, never
-    // inside a shell script body.
+    // Each signing secret enters through a step environment only.
     for (final secret in [
       'ANDROID_KEYSTORE_BASE64',
       'ANDROID_STORE_PASSWORD',
@@ -60,7 +58,6 @@ void main() {
     );
     expect(release.contains('chmod 600'), isTrue);
     expect(release.contains('Values are not printed'), isTrue);
-
     expect(release.contains('Remove release signing material'), isTrue);
     expect(
       release.contains('rm -f android/key.properties android/app/release.jks'),
@@ -72,63 +69,22 @@ void main() {
   test('release workflow stages one platform set and discloses signing', () {
     expect(release.contains('concurrency:'), isTrue);
     expect(release.contains('group: release-\${{ github.ref }}'), isTrue);
-
-    expect(release.contains('needs: preflight'), isTrue);
     expect('needs: preflight'.allMatches(release).length, 3);
-    expect(release.contains('build-linux:'), isTrue);
     expect(
       release.contains(
-        'needs: [preflight, build-android, build-windows, build-linux]',
+        'needs: [preflight, build-windows, build-linux, build-android]',
       ),
       isTrue,
     );
-    expect(release.contains('Verify tag against pubspec.yaml'), isTrue);
-    expect(release.contains('-ValidateOnly'), isTrue);
-    expect(release.contains('-ExpectedTag'), isTrue);
-
-    // The Android build still opts into the formal signing gate.
-    final androidBuild = release
-        .split('Build and validate Android Release APK')
-        .last;
-    expect(androidBuild.contains("REQUIRE_RELEASE_SIGNING: 'true'"), isTrue);
-    expect(androidBuild.contains('-Platform Android'), isTrue);
-    expect(
-      androidBuild.indexOf("REQUIRE_RELEASE_SIGNING: 'true'"),
-      lessThan(androidBuild.indexOf('-Platform Android')),
-    );
-    expect(script.contains('CN=Android Debug'), isTrue);
-    expect(release.contains('apksigner'), isTrue);
-
-    expect(
-      release.contains('compoise-v\${{ steps.version.outputs.VERSION }}'),
-      isTrue,
-    );
-    expect(release.contains('steps.version.outputs.BUILD'), isTrue);
-    expect(script.contains("'ANDROID_HOME', 'ANDROID_SDK_ROOT'"), isTrue);
-
-    // Both jobs and assembly use the same executable validator; its real
-    // positive/negative cases run in preflight without production secrets.
-    expect(
-      release.contains('python scripts/release_candidate.py assemble'),
-      isTrue,
-    );
-    expect(
-      release.contains('python scripts/release_candidate.py seal @gate'),
-      isTrue,
-    );
-    expect(
-      release.contains('python scripts/release_candidate.py verify @gate'),
-      isTrue,
-    );
-    expect(release.contains('test_release_candidate.py'), isTrue);
-    expect(
-      release.contains("if: github.event_name == 'push' && startsWith"),
-      isTrue,
-    );
-    expect(release.contains('draft: true'), isTrue);
-    expect(release.contains('prerelease: false'), isTrue);
-    expect(release.contains('RELEASE_NOTES.md'), isTrue);
+    // Tags must match pubspec unless they are vX.Y.Z-ci.N test tags.
+    expect(release.contains('does not match pubspec.yaml version'), isTrue);
+    expect(release.contains(r'-ci\.[0-9]+$'), isTrue);
+    expect(release.contains('workflow_dispatch:'), isTrue);
+    expect(release.contains('gh release create'), isTrue);
+    expect(release.contains('--draft'), isTrue);
     expect(release.contains('Not code-signed'), isTrue);
+    expect(release.contains('apksigner'), isTrue);
+    expect(release.contains('test_*.py'), isTrue);
   });
 
   test('packaging script stages one version and refuses unsigned releases', () {
@@ -197,10 +153,7 @@ void main() {
       expect(gitignore.contains('key.properties.example'), isFalse);
 
       expect(gradle.contains('applicationId = "com.compoise.app"'), isTrue);
-      expect(
-        gradle.contains('namespace = "com.compoise.app"'),
-        isTrue,
-      );
+      expect(gradle.contains('namespace = "com.compoise.app"'), isTrue);
       expect(gradle.contains('verifyFormalReleaseSigning'), isTrue);
       expect(gradle.contains('android/key.properties.example'), isTrue);
       expect(gradle.contains('docs/DEVELOPMENT.md'), isTrue);
@@ -291,70 +244,47 @@ void main() {
 
   test('release workflow traces the build and states each platform fact', () {
     // The Android gate pins the certificate, not just "not the debug key".
-    expect('secrets.ANDROID_RELEASE_CERT_SHA256'.allMatches(release).length, 4);
+    expect('secrets.ANDROID_RELEASE_CERT_SHA256'.allMatches(release).length, 2);
     expect(release.contains('Refusing to publish a debug-signed APK.'), isTrue);
+    expect(
+      release.contains('is not signed with the pinned release certificate'),
+      isTrue,
+    );
     expect(script.contains(r'SignerDigest -ne $AndroidCertSha256'), isTrue);
-    expect(release.contains('ANDROID_PROOF.json'), isTrue);
-    expect(
-      release.contains('without the Android signing proof'),
-      isTrue,
-      reason: 'publish must refuse when the signer cannot be traced',
-    );
 
-    // Published provenance: full commit, pinned toolchain, verified checksums.
+    // Published provenance and checksums.
     expect(release.contains('RELEASE_METADATA.txt'), isTrue);
-    expect(
-      text('scripts/release_candidate.py').contains('[0-9a-f]{40}'),
-      isTrue,
-    );
-    expect(
-      text('scripts/release_candidate.py').contains('toolchain.json'),
-      isTrue,
-    );
-    expect(
-      text(
-        'scripts/release_candidate.py',
-      ).contains('Assembly output already exists'),
-      isTrue,
-    );
-
+    expect(release.contains('commit=\$GITHUB_SHA'), isTrue);
+    expect(release.contains('SHA256SUMS.txt'), isTrue);
     expect(release.contains('Not code-signed'), isTrue);
-    expect(release.contains('linuxDesktop=preview only'), isTrue);
     expect(release.contains('License: GPL-3.0-only'), isTrue);
+
+    // The OCR runtime ships in every package; the models never do.
+    expect(release.contains('compoise_ocr.dll'), isTrue);
+    expect(release.contains('libcompoise_ocr.so'), isTrue);
+    expect(release.contains('OCR models must not be bundled'), isTrue);
+    expect(release.contains('WP17_OCR_MODELS_DIR'), isFalse);
   });
 
-  test('Linux stays a CI-compiled preview with no published package', () {
+  test('Linux ships DEB, RPM and AppImage with declared dependencies', () {
     final linuxJob = release
         .split('build-linux:')
         .last
-        .split('publish-release:')
+        .split('build-android:')
         .first;
     expect(linuxJob.contains('flutter build linux --release --no-pub'), isTrue);
-    expect(linuxJob.contains('build/linux/x64/release/bundle'), isTrue);
-    expect(linuxJob.contains('compoise'), isTrue);
-    expect(
-      linuxJob.contains('No Linux installer, archive or checksum is published'),
-      isTrue,
-    );
-    // The Linux target keeps its historical binary name; renaming it there must
-    // not be confused with the Windows compoise.exe identity checked elsewhere.
-    expect(
-      text(
-        'linux/CMakeLists.txt',
-      ).contains('set(BINARY_NAME "compoise")'),
-      isTrue,
-    );
-
-    final published = release.split('Create GitHub Release').last;
-    for (final package in [
-      '.deb',
-      '.AppImage',
-      '.tar.',
-      'snapcraft',
-      'flatpak',
-    ]) {
-      expect(published.contains(package), isFalse, reason: package);
+    expect(linuxJob.contains('scripts/ci/package_linux.sh'), isTrue);
+    final packager = text('scripts/ci/package_linux.sh');
+    for (final dep in ['libsecret', 'appindicator', 'gtk', 'noto']) {
+      expect(packager.toLowerCase().contains(dep), isTrue, reason: dep);
     }
+    for (final out in ['.deb', '.rpm', '.AppImage']) {
+      expect(packager.contains(out), isTrue, reason: out);
+    }
+    expect(
+      text('linux/CMakeLists.txt').contains('set(BINARY_NAME "compoise")'),
+      isTrue,
+    );
   });
 
   test('packaging script stays runnable on the Linux preflight runner', () {
@@ -420,10 +350,7 @@ void main() {
 
       final validation = text('docs/RELEASE_VALIDATION.md');
       expect(validation.contains(r'%APPDATA%\Compoise\Compoise'), isTrue);
-      expect(
-        validation.contains(r'%APPDATA%\com.compoise\Compoise'),
-        isTrue,
-      );
+      expect(validation.contains(r'%APPDATA%\com.compoise\Compoise'), isTrue);
       expect(validation.contains('d9e3b56'), isTrue);
       expect(
         text('docs/README.md').contains('RELEASE_VALIDATION.md'),

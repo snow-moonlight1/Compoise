@@ -101,14 +101,18 @@ void main() {
     );
     expect(gradle.contains('assembleRelease'), isTrue);
     expect(gradle.contains('bundleRelease'), isTrue);
-    expect(release.contains("REQUIRE_RELEASE_SIGNING: 'true'"), isTrue);
-    final releaseBuild = release
-        .split('Build and validate Android Release APK')
-        .last;
-    expect(releaseBuild.contains('-Platform Android'), isTrue);
+    // Tag builds refuse missing secrets; release-mode builds opt into the
+    // gradle gate before the APKs are built.
     expect(
-      releaseBuild.indexOf("REQUIRE_RELEASE_SIGNING: 'true'"),
-      lessThan(releaseBuild.indexOf('-Platform Android')),
+      release.contains(
+        "REQUIRE_RELEASE_SIGNING: \${{ steps.sign.outputs.mode == 'release' && 'true' || 'false' }}",
+      ),
+      isTrue,
+    );
+    expect(release.contains('Refusing a debug-signed APK.'), isTrue);
+    expect(
+      release.indexOf('Configure signing'),
+      lessThan(release.indexOf('Build APKs with the OCR runtime')),
     );
   });
 
