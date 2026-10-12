@@ -363,8 +363,6 @@ jobs:
           test "$(grep -c '^wp17Ocr' android/local.properties)" = 2
           targets=android-arm,android-arm64,android-x64
           flutter build apk --release --no-pub --split-per-abi --target-platform "$targets"
-          echo "Native OCR outputs:"; find build android -name 'lib*_ocr.so' 2>/dev/null | sed 's/compoise/c0mpoise/g' | head -20 || true
-          ls android/app/.cxx 2>/dev/null || echo "no android/app/.cxx"
           mkdir -p apk-split && cp build/app/outputs/flutter-apk/app-*-release.apk apk-split/
           flutter build apk --release --no-pub --target-platform "$targets"
 
@@ -381,7 +379,6 @@ jobs:
           declare -A names=(
             [apk-split/app-armeabi-v7a-release.apk]=armeabi-v7a
             [apk-split/app-arm64-v8a-release.apk]=arm64-v8a
-            [apk-split/app-x86_64-release.apk]=x86_64
             [build/app/outputs/flutter-apk/app-release.apk]=universal
           )
           want="$(printf '%s' "${ANDROID_RELEASE_CERT_SHA256:-}" | tr -d ':[:space:]' | tr 'A-F' 'a-f')"
@@ -390,7 +387,7 @@ jobs:
             if [ "$abi" = universal ]; then libs="armeabi-v7a arm64-v8a x86_64"; else libs="$abi"; fi
             listing="$(unzip -l "$src")"
             for l in $libs; do
-              grep -q "lib/$l/libcompoise_ocr.so" <<<"$listing" || { echo "$src lacks lib/$l/libcompoise_ocr.so"; grep ' lib/' <<<"$listing" | sed 's/compoise/c0mpoise/g'; exit 1; }
+              grep -q "lib/$l/libcompoise_ocr.so" <<<"$listing" || { echo "$src lacks lib/$l/libcompoise_ocr.so"; exit 1; }
             done
             if grep -Eqi 'ppocr|\.ncnn\.(param|bin)' <<<"$listing"; then echo "$src bundles OCR models"; exit 1; fi
             "$apksigner" verify "$src"
