@@ -347,6 +347,7 @@ jobs:
             echo "wp17OcrNcnnRoot=${{ runner.temp }}/ncnn"
             echo "wp17OcrStbDir=${{ runner.temp }}/ncnn/third_party"
           } >> android/local.properties
+          grep -c '^wp17Ocr' android/local.properties
           targets=android-arm,android-arm64,android-x64
           flutter build apk --release --no-pub --split-per-abi --target-platform "$targets"
           mkdir -p apk-split && cp build/app/outputs/flutter-apk/app-*-release.apk apk-split/
@@ -374,7 +375,7 @@ jobs:
             if [ "$abi" = universal ]; then libs="armeabi-v7a arm64-v8a x86_64"; else libs="$abi"; fi
             listing="$(unzip -l "$src")"
             for l in $libs; do
-              grep -q "lib/$l/libcompoise_ocr.so" <<<"$listing" || { echo "$src lacks lib/$l/libcompoise_ocr.so"; exit 1; }
+              grep -q "lib/$l/libcompoise_ocr.so" <<<"$listing" || { echo "$src lacks lib/$l/libcompoise_ocr.so"; grep ' lib/' <<<"$listing" | sed 's/compoise/c0mpoise/g'; exit 1; }
             done
             if grep -Eqi 'ppocr|\.ncnn\.(param|bin)' <<<"$listing"; then echo "$src bundles OCR models"; exit 1; fi
             "$apksigner" verify "$src"
