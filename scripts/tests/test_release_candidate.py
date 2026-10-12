@@ -234,10 +234,9 @@ class ReleaseBuildGateTests(unittest.TestCase):
         shell = shutil.which('pwsh') or shutil.which('powershell')
         if shell is None:
             self.skipTest('PowerShell is required for the release build preflight')
-        gates = (
-            'WP17_OCR_NCNN_DIR', 'WP17_OCR_NCNN_ROOT', 'WP17_OCR_STB_DIR',
-            'WP15_D3_DEVICE_BUILD',
-        )
+        # The OCR runtime (ncnn/stb) is part of the release; bundling models
+        # and device-diagnostic builds stay rejected.
+        gates = ('WP17_OCR_MODELS_DIR', 'WP15_D3_DEVICE_BUILD')
         for active in gates:
             with self.subTest(gate=active):
                 environment = dict(os.environ)
