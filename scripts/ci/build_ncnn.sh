@@ -46,7 +46,11 @@ case "$target" in
     arch=x64; [ "$target" = windows-arm64 ] && arch=ARM64
     prefix="$out/install"
     # OpenMP off: no VCOMP140.DLL runtime dependency in the shipped DLL.
-    cmake -S "$src" -B "$work/b" -G "Visual Studio 17 2022" -A "$arch" "${common[@]}" \
+    # Let CMake pick the installed Visual Studio (2022 on windows-2022; the
+    # windows-11-arm image may ship a newer one).
+    vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+    [ -x "$vswhere" ] && "$vswhere" -latest -products '*' -property displayName || true
+    cmake -S "$src" -B "$work/b" -A "$arch" "${common[@]}" \
       -DCMAKE_INSTALL_PREFIX="$prefix" -DNCNN_OPENMP=OFF ;;
   android-*)
     abi="${target#android-}"
