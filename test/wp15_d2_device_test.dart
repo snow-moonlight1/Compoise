@@ -298,7 +298,7 @@ void main() {
     if (Platform.isAndroid) {
       expect(
         support.path,
-        contains('com.matrixflow.app.wp15d2'),
+        contains('com.compoise.app.wp15d2'),
         reason: 'Refusing to access the normal application database',
       );
       expect(

@@ -1,4 +1,4 @@
-package com.matrixflow.matrixflow_native
+package com.compoise.app
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

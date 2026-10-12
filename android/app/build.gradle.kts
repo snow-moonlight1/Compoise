@@ -99,7 +99,7 @@ check(!(wp17I8Unsigned && (wp15D2Device || wp17Validation))) {
 }
 
 android {
-    namespace = "com.matrixflow.matrixflow_native"
+    namespace = "com.compoise.app"
     compileSdk = 36 // flutter_secure_storage 10.3.4 compiles against API 36.
     ndkVersion = "28.0.12433566"
 
@@ -114,7 +114,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.matrixflow.app"
+        applicationId = "com.compoise.app"
         minSdk = 23 // flutter_secure_storage 10.x requires Android 6.0+.
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

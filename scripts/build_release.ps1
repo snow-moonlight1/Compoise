@@ -478,7 +478,7 @@ if ($BuildsAndroid) {
     if ($LASTEXITCODE -ne 0) { throw 'aapt2 failed; APK identity cannot be verified.' }
     $PackageMatch = [regex]::Match($Badging, "package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'")
     if (-not $PackageMatch.Success) { throw 'APK package identity could not be parsed.' }
-    if ($PackageMatch.Groups[1].Value -ne $ApplicationId -or $ApplicationId -ne 'com.matrixflow.app' -or
+    if ($PackageMatch.Groups[1].Value -ne $ApplicationId -or $ApplicationId -ne 'com.compoise.app' -or
         $PackageMatch.Groups[2].Value -ne "$BuildNumber" -or $PackageMatch.Groups[3].Value -ne $AppVersion) {
         throw 'APK package/versionCode/versionName disagrees with the source.'
     }

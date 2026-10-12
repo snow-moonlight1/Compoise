@@ -196,9 +196,9 @@ void main() {
       expect(gitignore.contains('*.jks'), isTrue);
       expect(gitignore.contains('key.properties.example'), isFalse);
 
-      expect(gradle.contains('applicationId = "com.matrixflow.app"'), isTrue);
+      expect(gradle.contains('applicationId = "com.compoise.app"'), isTrue);
       expect(
-        gradle.contains('namespace = "com.matrixflow.matrixflow_native"'),
+        gradle.contains('namespace = "com.compoise.app"'),
         isTrue,
       );
       expect(gradle.contains('verifyFormalReleaseSigning'), isTrue);

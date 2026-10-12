@@ -1,4 +1,4 @@
-package com.matrixflow.matrixflow_native
+package com.compoise.app
 
 import android.content.BroadcastReceiver
 import android.content.Context

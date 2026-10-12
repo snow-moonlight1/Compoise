@@ -147,7 +147,7 @@ WP28-U1 已集成启动升级适配：在提醒和 Store 打开前检查两处�
 
 ### 2. 安装
 
-- Android：`adb install -r <apk>` 前后 `adb shell dumpsys package com.matrixflow.app | grep -E 'versionName|versionCode|signatures'`，确认 versionCode 与 `pubspec.yaml` 的 build 号一致、签名为发布证书；`adb shell pm list packages -f com.matrixflow.app` 确认安装身份仍是 `com.matrixflow.app`（包名变更会另起数据沙箱，见 [Android 应用身份](ANDROID_PACKAGE_MIGRATION.md)）。
+- Android：`adb install -r <apk>` 前后 `adb shell dumpsys package com.compoise.app | grep -E 'versionName|versionCode|signatures'`，确认 versionCode 与 `pubspec.yaml` 的 build 号一致、签名为发布证书；`adb shell pm list packages -f com.compoise.app` 确认安装身份是 `com.compoise.app`（再改包名会另起数据沙箱，见 [Android 应用身份](ANDROID_PACKAGE_MIGRATION.md)）。
 - Windows：校验 `SHA256SUMS.txt` 后解压到不含中文与只读限制的路径，启动、退出、再启动各一次。
 - 首启后 `git`-无关的界面截图仅用合成任务，正式发布截图须来自最终合并提交。
 

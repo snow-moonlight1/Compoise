@@ -41,7 +41,7 @@ try {
         $apk = "$repo/build/app/outputs/flutter-apk/app-debug.apk"
         $aapt = (Get-ChildItem -LiteralPath "$Sdk/build-tools" -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName + '/aapt.exe'
         $facts = & $aapt dump badging $apk
-        $expected = if ($Normal) { 'com.matrixflow.app' } else { 'com.matrixflow.app.wp17i6' }
+        $expected = if ($Normal) { 'com.compoise.app' } else { 'com.compoise.app.wp17i6' }
         if (($facts | Select-String '^package:').Line -notmatch "name='$([Regex]::Escape($expected))'") {
             throw 'APK identity check failed; refuse installation'
         }

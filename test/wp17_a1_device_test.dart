@@ -522,7 +522,7 @@ String _reviewState(Iterable<dynamic> tasks) => jsonEncode([
 
 void _assertIsolation(Directory support) {
   expect(Platform.isAndroid, isTrue);
-  expect(support.path, contains('/com.matrixflow.app.wp17i6/'));
+  expect(support.path, contains('/com.compoise.app.wp17i6/'));
 }
 
 Future<void> _nativeChecks(
@@ -580,7 +580,7 @@ Future<void> _finishProcess(
     'passed': passed,
     'phase': _phase,
     'pid': pid,
-    'identity': 'com.matrixflow.app.wp17i6',
+    'identity': 'com.compoise.app.wp17i6',
     'data_root': _support.path,
     'exit_intent': passed ? 0 : 1,
     'failures': binding.failureMethodsDetails.map((f) => f.details).toList(),

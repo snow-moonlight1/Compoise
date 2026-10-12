@@ -29,7 +29,7 @@ $exitCode = 2
 $process = $null
 $originalZone = $null
 $originalAutoZone = $null
-$package = 'com.matrixflow.app.wp15d2'
+$package = 'com.compoise.app.wp15d2'
 $logRoot = Join-Path $root 'build/wp15-d2'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $log = Join-Path $logRoot 'android-drive.log'
@@ -91,7 +91,7 @@ try {
         $Aapt = (Get-ChildItem (Join-Path $sdkRoot 'build-tools') -Recurse -Filter aapt.exe | Sort-Object FullName -Descending | Select-Object -First 1).FullName
     }
     $badging = & $Aapt dump badging $apk
-    if ($LASTEXITCODE -ne 0 -or -not ($badging -match "^package: name='com.matrixflow.app.wp15d2'")) {
+    if ($LASTEXITCODE -ne 0 -or -not ($badging -match "^package: name='com.compoise.app.wp15d2'")) {
         throw 'Refusing installation: APK does not have the isolated WP15-D2 identity.'
     }
     $result.apkIdentityVerified = $true

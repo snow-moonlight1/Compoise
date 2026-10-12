@@ -223,7 +223,7 @@ void main() {
       await tester.runAsync(() async {
         final support = await getApplicationSupportDirectory();
         if (Platform.isAndroid) {
-          expect(support.path, contains('com.matrixflow.app.wp17i6'));
+          expect(support.path, contains('com.compoise.app.wp17i6'));
         } else {
           expect(
             Platform.environment['XDG_DATA_HOME'],
