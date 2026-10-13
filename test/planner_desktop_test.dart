@@ -15,7 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'foundation_regression_test.dart' as fixture;
 import 'helpers.dart';
-import 'wp15_c2_test_support.dart';
+import 'planner_test_support.dart';
 
 class _Counting extends InMemoryReminderService {
   _Counting() : super(permission: ReminderPermissionStatus.unknown);

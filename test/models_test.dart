@@ -254,7 +254,7 @@ void main() {
     });
   });
 
-  group('WP06-N resolveDeviceLanguage & AppSettings language resolution', () {
+  group('resolveDeviceLanguage & AppSettings language resolution', () {
     test('resolves zh variants to Language.zh', () {
       expect(resolveDeviceLanguage([const Locale('zh')]), Language.zh);
       expect(resolveDeviceLanguage([const Locale('zh', 'CN')]), Language.zh);
@@ -361,7 +361,7 @@ void main() {
     });
   });
 
-  group('WP08-V-N ViewMode', () {
+  group('ViewMode', () {
     test('default viewMode is grid', () {
       final s = AppSettings();
       expect(s.viewMode, ViewMode.grid);
@@ -386,7 +386,7 @@ void main() {
     });
   });
 
-  group('WP08-T-N FontSize and FontFamily', () {
+  group('FontSize and FontFamily', () {
     test('default fontSize is standard and fontFamily is system', () {
       final s = AppSettings();
       expect(s.fontSize, FontSizePref.standard);

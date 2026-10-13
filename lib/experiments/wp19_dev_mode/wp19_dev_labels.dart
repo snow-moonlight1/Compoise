@@ -3,7 +3,7 @@
 /// Deliberately Chinese-only and local to the experiment: the product keeps
 /// en/zh/ja in lib/l10n.dart, and a throwaway lens should not push keys into a
 /// shared file. Promoting dev mode would need three-language copy — that cost
-/// is recorded in docs/WP19_R_NOTES.md instead of being paid here.
+/// is accepted for this experiment.
 library;
 
 class Wp19Labels {

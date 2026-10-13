@@ -22,7 +22,7 @@ Widget wrapApp(Store store, Widget home) {
 }
 
 void main() {
-  testWidgets('WP26-A-N: showShortcutsHelpDialog displays all key bindings', (
+  testWidgets('showShortcutsHelpDialog displays all key bindings', (
     tester,
   ) async {
     final (store, _) = await makeStore();
@@ -60,7 +60,7 @@ void main() {
   });
 
   testWidgets(
-    'WP26-A-N: text editing in TextField takes priority and does not trigger global shortcuts',
+    'text editing in TextField takes priority and does not trigger global shortcuts',
     (tester) async {
       final (store, _) = await makeStore(
         boards: [Board(id: 'b1', name: 'Main Board', createdAt: 1000)],

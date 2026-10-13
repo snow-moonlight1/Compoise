@@ -46,7 +46,7 @@ def verify_assets(assets):
 
 def worker(args):
     paths, dimensions = inputs()
-    reference = json.loads((REPO / "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json")
+    reference = json.loads((REPO / "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json")
                            .read_text(encoding="utf-8"))["images"]
     expected = {Path(row["path"].replace("\\", "/")).name: row for row in reference}
     records, outputs = [], {}

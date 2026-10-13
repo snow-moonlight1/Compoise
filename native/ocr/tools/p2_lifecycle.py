@@ -33,9 +33,9 @@ def main():
     verified = verify_assets(args.assets)
     args.out.mkdir(parents=True, exist_ok=False)
     lib, baseline = bind(args.library), bind(args.baseline_library)
-    reference = json.loads((REPO / "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json")
+    reference = json.loads((REPO / "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json")
                            .read_text(encoding="utf-8"))["images"]
-    paths = [REPO / "docs/evidence/wp17r2/samples/images" / Path(row["path"].replace("\\", "/")).name
+    paths = [REPO / "test/fixtures/ocr-evaluation/samples/images" / Path(row["path"].replace("\\", "/")).name
              for row in reference]
     expected = {}
     session = baseline.mf_ocr_create(os.fsencode(args.assets), 4)

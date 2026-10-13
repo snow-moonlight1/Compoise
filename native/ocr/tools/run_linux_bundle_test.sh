@@ -45,7 +45,7 @@ set +e
 xvfb-run -a flutter test --no-pub -d linux --dart-define=WP17_I4_EVIDENCE="$REPO" \
   --dart-define=WP17_I4_BUNDLE=true \
   --dart-define=WP17_OCR_TEST_LIBRARY="$BUNDLE_LIB" \
-  test/wp17_i4_bundle_ocr_test.dart 2>&1 | tee "$LOG" | tail -30
+  test/ocr_bundle_test.dart 2>&1 | tee "$LOG" | tail -30
 status=${PIPESTATUS[0]}
 set -e
 

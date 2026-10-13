@@ -255,7 +255,7 @@ void main() {
     service.close();
   });
 
-  group('WP01-N: dynamic model discovery and provider adaptation', () {
+  group('dynamic model discovery and provider adaptation', () {
     test('fetchModels parses data[].id, dedupes, trims and handles empty/null', () async {
       int requestCount = 0;
       final service = AIService(

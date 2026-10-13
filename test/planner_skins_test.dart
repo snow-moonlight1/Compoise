@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:compoise/planner/planner_skin.dart';
 
-import 'wp15_c2_test_support.dart';
+import 'planner_test_support.dart';
 
 BoxDecoration? _decorationOf(WidgetTester tester, Finder inside) {
   final boxes = find.descendant(

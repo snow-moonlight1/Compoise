@@ -2,7 +2,7 @@
 // pipeline is derived from the measured WP17-R2 core. This single source is
 // compiled for Windows, Linux and Android; the C ABI below is the Dart boundary.
 //
-// Deliberate simplifications, recorded in docs/WP17_OCR_EVALUATION.md:
+// Deliberate simplifications, recorded in docs/ocr.md:
 //   * Detection post-processing is the standard DB "unclip" for *axis-aligned*
 //     boxes.  The reference ncnn example (examples/ppocrv5.cpp) expands boxes
 //     heuristically instead and marks that as a known accuracy loss; we do not

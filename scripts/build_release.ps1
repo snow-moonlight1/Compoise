@@ -23,7 +23,7 @@
     Platforms: this script stages Android and Windows artifacts only. The Linux
     desktop build is a preview; CI compiles it to prove the release toolchain
     still works, and no Linux installer or archive is published. See
-    docs/RELEASE_VALIDATION.md.
+    docs/release-process.md.
 .PARAMETER Platform
     Build target: 'All' (default), 'Android' or 'Windows'.
 .PARAMETER OutputDir
@@ -542,7 +542,7 @@ if ($BuildsWindows) {
     # path_provider_windows builds the application-support directory out of
     # CompanyName and ProductName, so this pair decides which task library the
     # build opens. Changing either value moves the library: see
-    # docs/RELEASE_VALIDATION.md before doing it.
+    # docs/release-process.md before doing it.
     $WindowsProof += "productName=$($ExeInfo.ProductName)"
     $WindowsProof += "companyName=$($ExeInfo.CompanyName)"
     $WindowsProof += 'appDataDir=%APPDATA%\Compoise\Compoise'

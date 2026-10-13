@@ -60,7 +60,7 @@ def main():
             return json.loads(ctypes.string_at(pointer).decode("utf-8"))
         finally:
             lib.mf_ocr_free(pointer)
-    reference = json.loads((REPO / "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
+    reference = json.loads((REPO / "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
     batches, first, max_delta, line_count = [], {}, 0, 0
     started = time.perf_counter()
     for session_index in range(args.recreate + 1):
@@ -71,7 +71,7 @@ def main():
                 before = time.perf_counter()
                 for image in reference:
                     name = image["path"].replace("\\", "/").split("/")[-1]
-                    result = recognize(session, REPO / "docs/evidence/wp17r2/samples/images" / name)
+                    result = recognize(session, REPO / "test/fixtures/ocr-evaluation/samples/images" / name)
                     assert result["error"] == "", (name, result["error"])
                     assert (result["width"], result["height"]) == (image["width"], image["height"])
                     assert len(result["lines"]) == len(image["lines"]), name

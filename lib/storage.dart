@@ -2353,7 +2353,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   /// key and its encoded value, which nothing read: `_snapshotValues()` re-derives
   /// every persisted key when the queued commit runs, so encoding here only made
   /// the caller pay for a whole-library `jsonEncode` that was then discarded
-  /// (RF09 C1, docs/RF09_SERIALIZATION_NOTES.md).
+  /// (see docs/local-storage.md).
   void _markDirty() {
     if (!ready || _disposed || hasStartupRecovery || credentialError != null) {
       return;

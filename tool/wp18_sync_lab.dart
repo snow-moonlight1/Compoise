@@ -448,7 +448,7 @@ SyncSnapshot _readSnapshot(String? path, String label) {
   }
   // A plain backup carries no device identity, so the tool labels it by role
   // and gives every record the same clock. That is the honest limit of reading
-  // hand-made files: see the presenceOnly notes in docs/WP18_R_NOTES.md.
+  // hand-made files; presenceOnly fields are compared by presence only.
   return SyncSnapshot.fromV3(
     payload: map,
     device: DeviceIdentity(

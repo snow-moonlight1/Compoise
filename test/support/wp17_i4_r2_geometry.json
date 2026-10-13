@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "source": "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json",
+ "source": "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json",
  "sourceSha256": "d630850aa3be6fdd280a2f873fb4e980dd9ce648d60063a3595f115c25ed5494",
  "note": "text is compared against the baseline file on the host; this fixture carries geometry only",
  "images": [

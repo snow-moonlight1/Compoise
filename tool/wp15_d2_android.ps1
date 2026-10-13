@@ -71,7 +71,7 @@ try {
     }
     # Verify the compiled APK identity before allowing Flutter to install it.
     $buildLog = Join-Path $logRoot 'android-isolated-build.log'
-    $buildCommand = '""{0}" build apk --debug --no-pub -t test/wp15_d2_device_test.dart --dart-define=WP15_D2_DEVICE=true --dart-define=WP15_D2_EXPECTED_ZONE=Asia/Shanghai --dart-define=WP15_D2_CHANGED_ZONE=Asia/Tokyo --dart-define=WP15_D2_COMMIT={1} > "{2}" 2>&1"' -f $Flutter,$revision,$buildLog
+    $buildCommand = '""{0}" build apk --debug --no-pub -t test/planner_device_test.dart --dart-define=WP15_D2_DEVICE=true --dart-define=WP15_D2_EXPECTED_ZONE=Asia/Shanghai --dart-define=WP15_D2_CHANGED_ZONE=Asia/Tokyo --dart-define=WP15_D2_COMMIT={1} > "{2}" 2>&1"' -f $Flutter,$revision,$buildLog
     $buildStart = [System.Diagnostics.ProcessStartInfo]::new('cmd.exe', "/d /s /c $buildCommand")
     $buildStart.WorkingDirectory = $root
     $buildStart.UseShellExecute = $false
@@ -98,7 +98,7 @@ try {
     # Only the dedicated applicationId is stopped/cleared. Normal packages are
     # never installed over, cleared, read, launched, or restored by this runner.
     & $Adb -s $Device shell am force-stop $package 2>&1 | Out-Null
-    $command = '""{0}" drive --no-pub --use-application-binary="{4}" -d "{1}" --driver=test/wp15_d2_device_driver.dart --target=test/wp15_d2_device_test.dart --dart-define=WP15_D2_DEVICE=true --dart-define=WP15_D2_EXPECTED_ZONE=Asia/Shanghai --dart-define=WP15_D2_CHANGED_ZONE=Asia/Tokyo --dart-define=WP15_D2_COMMIT={2}{5} > "{3}" 2>&1"' -f $Flutter,$Device,$revision,$log,$apk,$renderingFlag
+    $command = '""{0}" drive --no-pub --use-application-binary="{4}" -d "{1}" --driver=test/planner_device_driver.dart --target=test/planner_device_test.dart --dart-define=WP15_D2_DEVICE=true --dart-define=WP15_D2_EXPECTED_ZONE=Asia/Shanghai --dart-define=WP15_D2_CHANGED_ZONE=Asia/Tokyo --dart-define=WP15_D2_COMMIT={2}{5} > "{3}" 2>&1"' -f $Flutter,$Device,$revision,$log,$apk,$renderingFlag
     $start = [System.Diagnostics.ProcessStartInfo]::new('cmd.exe', "/d /s /c $command")
     $start.WorkingDirectory = $root
     $start.UseShellExecute = $false

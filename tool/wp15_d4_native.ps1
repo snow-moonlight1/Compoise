@@ -59,7 +59,7 @@ try {
     if ($LASTEXITCODE -ne 0 -or $version.frameworkVersion -ne $taskPin.verified.flutterVersion -or $version.frameworkRevision -ne $taskPin.verified.revision -or $version.engineRevision -ne $taskPin.verified.engineRevision -or $version.dartSdkVersion -ne $taskPin.verified.dartVersion) { throw 'Pinned Flutter/Dart toolchain required.' }
     $env:WP15_D3_DEVICE_BUILD = '1'
     $buildLog = Join-Path $logs 'device-build.log'
-    $command = '""{0}" build windows --debug --no-pub -t test/wp15_d3_device_test.dart --dart-define=WP15_D3_DEVICE=true --dart-define=WP15_D3_COMMIT={1} > "{2}" 2>&1"' -f $Flutter,$revision,$buildLog
+    $command = '""{0}" build windows --debug --no-pub -t test/planner_zone_device_test.dart --dart-define=WP15_D3_DEVICE=true --dart-define=WP15_D3_COMMIT={1} > "{2}" 2>&1"' -f $Flutter,$revision,$buildLog
     $start = [Diagnostics.ProcessStartInfo]::new('cmd.exe', "/d /s /c $command")
     $start.WorkingDirectory=$workspace; $start.UseShellExecute=$false; $start.CreateNoWindow=$true
     $driver=[Diagnostics.Process]::Start($start)
@@ -72,7 +72,7 @@ try {
     $config=Get-Content -LiteralPath 'windows/flutter/ephemeral/generated_config.cmake' -Raw
     $project=Get-Content -LiteralPath 'build/windows/x64/runner/compoise.vcxproj' -Raw
     $define=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('WP15_D3_DEVICE=true'))
-    if (-not $config.Contains($define) -or -not $config.Contains('FLUTTER_TARGET=test/wp15_d3_device_test.dart') -or -not $project.Contains('WP15_D3_DEVICE')) { throw 'Refusing a binary without both D3 build gates and exact target.' }
+    if (-not $config.Contains($define) -or -not $config.Contains('FLUTTER_TARGET=test/planner_zone_device_test.dart') -or -not $project.Contains('WP15_D3_DEVICE')) { throw 'Refusing a binary without both D3 build gates and exact target.' }
     $identity=[Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
     if ($identity.CompanyName -ne 'Compoise' -or $identity.ProductName -ne 'Compoise') { throw 'Unexpected executable identity.' }
     $result.kernelSha256=(Get-FileHash -LiteralPath 'build/windows/x64/runner/Debug/data/flutter_assets/kernel_blob.bin' -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -96,7 +96,7 @@ try {
     $env:VM_SERVICE_URL=$url; $env:WP15_D3_EXPECTED_PID=[string]$native.Id; $env:WP15_D3_EXPECTED_COMMIT=$revision
     $dart=Join-Path (Split-Path $Flutter) 'dart.bat'
     $driverLog=Join-Path $logs 'driver.log'
-    $command='""{0}" test/wp15_d3_device_driver.dart > "{1}" 2>&1"' -f $dart,$driverLog
+    $command='""{0}" test/planner_zone_device_driver.dart > "{1}" 2>&1"' -f $dart,$driverLog
     $start=[Diagnostics.ProcessStartInfo]::new('cmd.exe', "/d /s /c $command")
     $start.WorkingDirectory=$workspace; $start.UseShellExecute=$false; $start.CreateNoWindow=$true
     $driver=[Diagnostics.Process]::Start($start)

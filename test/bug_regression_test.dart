@@ -321,7 +321,7 @@ void main() {
   });
 
   test(
-    'WP07-N: query completed tasks directly, unaffected by hideCompleted, scope filtering by board or all boards',
+    'query completed tasks directly, unaffected by hideCompleted, scope filtering by board or all boards',
     () async {
       final (store, _) = await makeStore(
         boards: [
@@ -397,7 +397,7 @@ void main() {
   );
 
   test(
-    'WP07-N: restore completed task cascades to subtasks and prevents autoCompleteParent from immediately re-marking complete',
+    'restore completed task cascades to subtasks and prevents autoCompleteParent from immediately re-marking complete',
     () async {
       final (store, _) = await makeStore(
         settings: AppSettings(autoCompleteParent: true, hideCompleted: true),
@@ -460,7 +460,7 @@ void main() {
   );
 
   test(
-    'WP07-N: deleting a task in completed view does not leak to other boards',
+    'deleting a task in completed view does not leak to other boards',
     () async {
       final (store, _) = await makeStore(
         boards: [

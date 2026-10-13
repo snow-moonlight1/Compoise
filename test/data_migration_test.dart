@@ -22,7 +22,7 @@ void main() {
     v2FixtureJson = jsonDecode(v2File.readAsStringSync()) as Map<String, dynamic>;
   });
 
-  group('WP11-N: DataMigrator unit tests', () {
+  group('DataMigrator unit tests', () {
     test('migrates v1 fixture to v3 with safe defaults', () {
       final result = DataMigrator.migratePayload(v1FixtureJson);
 
@@ -166,7 +166,7 @@ void main() {
     });
   });
 
-  group('WP11-N: Store integration, atomicity & backward compatibility', () {
+  group('Store integration, atomicity & backward compatibility', () {
     test('store.importData successfully imports v1 payload and upgrades in memory', () async {
       final (store, _) = await makeStore(
         boards: [Board(id: 'init-b', name: 'Initial', createdAt: 1)],

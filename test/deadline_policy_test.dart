@@ -395,7 +395,7 @@ void main() {
     );
   });
 
-  group('WP22-C-N Widget tests', () {
+  group('Widget tests', () {
     const boardId = 'b-ui-test';
 
     testWidgets('TaskDetailPanel shows manual urgency banner and restores auto', (

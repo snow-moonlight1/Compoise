@@ -14,7 +14,7 @@ try {
     if($LASTEXITCODE -ne 0 -or $version.frameworkVersion -ne '3.32.8') { throw 'Flutter 3.32.8 required.' }
     foreach($case in @('native_only','dart_only')) {
         $env:WP15_D3_DEVICE_BUILD=$null
-        $arguments=@('build','windows','--debug','--no-pub','-t','test/wp15_d3_device_test.dart')
+        $arguments=@('build','windows','--debug','--no-pub','-t','test/planner_zone_device_test.dart')
         switch($case) {
             'native_only' { $env:WP15_D3_DEVICE_BUILD='1'; $expected='WP15_D3_DEVICE_BUILD=1 requires WP15_D3_DEVICE=true' }
             'dart_only' { $arguments+='--dart-define=WP15_D3_DEVICE=true'; $expected='WP15_D3_DEVICE=true requires WP15_D3_DEVICE_BUILD=1' }

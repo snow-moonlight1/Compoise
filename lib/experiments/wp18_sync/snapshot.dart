@@ -1,7 +1,7 @@
 /// Snapshot and identity model for the WP18-R offline sync experiment.
 ///
 /// Nothing here is a product contract. The `library` part of a snapshot is an
-/// ordinary v3 backup payload (docs/BACKUP_FORMAT.md); the envelope around it
+/// ordinary backup payload (docs/backup-format.md); the envelope around it
 /// is an experiment-only sidecar that carries the two things a hand-made backup
 /// cannot express: which device produced the snapshot, and which records were
 /// deleted rather than merely absent. An envelope is never a valid import file

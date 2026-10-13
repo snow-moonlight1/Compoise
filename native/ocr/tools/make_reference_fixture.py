@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the compact R2 geometry fixture used by the bundle OCR test.
 
-The full baseline (``docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json``)
+The full baseline (``test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json``)
 carries every recognized string and box. A device test cannot read a host file,
 and re-typing the strings into the repository would be a second, unverified
 copy. This tool keeps only the numbers the test compares - the line count and
@@ -21,7 +21,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent.parent.parent
-BASELINE = REPO / "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json"
+BASELINE = REPO / "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json"
 FIXTURE = REPO / "test/support/wp17_i4_r2_geometry.json"
 
 
@@ -48,7 +48,7 @@ def main() -> int:
 
     fixture = {
         "schema": 1,
-        "source": "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json",
+        "source": "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json",
         "sourceSha256": baseline_sha,
         "note": "text is compared against the baseline file on the host; this fixture carries geometry only",
         "images": images,

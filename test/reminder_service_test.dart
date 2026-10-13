@@ -223,7 +223,7 @@ void main() {
     });
   });
 
-  group('WP25-N-Windows Desktop Platform Integration', () {
+  group('Desktop Platform Integration', () {
     test('checkPermission and requestPermission on Windows report unknown', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       addTearDown(() {
@@ -231,7 +231,7 @@ void main() {
       });
 
       final service = FlutterLocalNotificationsReminderService();
-      // OS17: the plugin exposes no notification state on Windows, so the
+      // the plugin exposes no notification state on Windows, so the
       // service must not claim the reminders are granted.
       final status = await service.checkPermission();
       expect(status, equals(ReminderPermissionStatus.unknown));

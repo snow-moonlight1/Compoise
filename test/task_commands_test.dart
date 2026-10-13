@@ -7,7 +7,7 @@ import 'package:compoise/storage.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('WP24-N task_commands unit tests & invalidation contract', () {
+  group('task_commands unit tests & invalidation contract', () {
     late Store store;
 
     setUp(() async {

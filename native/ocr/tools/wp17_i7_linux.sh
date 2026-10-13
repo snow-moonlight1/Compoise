@@ -28,7 +28,7 @@ case "${1:-disabled}" in
     : "${WP17_I7_DEPLOY:?verified official deployment required}"
     : "${WP17_OCR_STB_DIR:?verified stb directory required}"
     export WP17_OCR_NCNN_DIR="$WP17_NCNN_INSTALL/lib/cmake/ncnn"
-    flutter build linux --debug --no-pub --target=test/wp17_i7_device_test.dart \
+    flutter build linux --debug --no-pub --target=test/ocr_download_device_test.dart \
       --dart-define=WP17_I7_DEVICE=true \
       --dart-define=INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=false \
       > "$root/logs/build-device.log" 2>&1

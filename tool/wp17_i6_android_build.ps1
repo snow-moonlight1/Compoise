@@ -29,7 +29,7 @@ try {
     $name = if ($Normal) { 'normal' } elseif ($DeviceTest) { 'device' } else { 'isolated' }
     if ($DeviceTest) {
         if ($Normal) { throw 'Device test must use the isolated identity' }
-        $arguments += @('--target=test/wp17_i6_device_test.dart','--dart-define=WP17_I6_DEVICE=true')
+        $arguments += @('--target=test/ocr_model_device_test.dart','--dart-define=WP17_I6_DEVICE=true')
     }
     # Windows PowerShell 5 treats ordinary native stderr warnings as errors.
     # The process exit code is authoritative; retain both streams in the log.

@@ -35,7 +35,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Require the OS24 Flutter revision
+      - name: Require the pinned Flutter revision
         shell: bash
         run: |
           set -euo pipefail
@@ -94,7 +94,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Require the OS24 Flutter revision
+      - name: Require the pinned Flutter revision
         shell: bash
         run: |
           set -euo pipefail
@@ -139,7 +139,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Require the OS24 Flutter revision
+      - name: Require the pinned Flutter revision
         shell: bash
         run: |
           set -euo pipefail
@@ -171,7 +171,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Require the OS24 Flutter revision
+      - name: Require the pinned Flutter revision
         shell: bash
         run: |
           set -euo pipefail
@@ -204,7 +204,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Require the OS24 Flutter revision
+      - name: Require the pinned Flutter revision
         shell: bash
         run: |
           set -euo pipefail

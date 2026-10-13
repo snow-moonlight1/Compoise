@@ -83,7 +83,7 @@ def generate(out, fonts):
 
 
 def score(out, library, assets, flutter, baseline=None):
-    sys.path.insert(0, str(REPO / "docs/evidence/wp17r2/tools"))
+    sys.path.insert(0, str(REPO / "test/fixtures/ocr-evaluation/tools"))
     from score_text import aggregate, score_image
     from wp17r2lib import norm_text, levenshtein
     labels = json.loads((out / "labels.json").read_text(encoding="utf-8"))

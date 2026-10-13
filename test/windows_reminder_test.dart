@@ -34,14 +34,14 @@ void main() {
     ReminderService.resetForTest();
   });
 
-  group('WP25-N-Windows: FlutterLocalNotificationsReminderService on Windows', () {
+  group('FlutterLocalNotificationsReminderService on Windows', () {
     test('Windows platform permission checks and active timer scheduling', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       try {
         final service = FlutterLocalNotificationsReminderService();
         service.setInitializedForTest(true);
 
-        // OS17: the plugin cannot query Windows notification settings, so the
+        // the plugin cannot query Windows notification settings, so the
         // service reports unknown rather than claiming the reminders work.
         expect(await service.checkPermission(), equals(ReminderPermissionStatus.unknown));
         expect(
@@ -94,7 +94,7 @@ void main() {
     });
   });
 
-  group('WP25-N-Windows: Notification tap & tray restore deep-linking in MatrixHome', () {
+  group('Notification tap & tray restore deep-linking in MatrixHome', () {
     testWidgets('notification click restores window from tray, switches board, and opens task detail', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       DesktopShellService.debugIsDesktopOverride = true;
@@ -207,7 +207,7 @@ void main() {
     });
   });
 
-  group('WP25-N-Windows: SettingsScreen Windows Notification Guide and Test Button', () {
+  group('SettingsScreen Windows Notification Guide and Test Button', () {
     testWidgets('displays Windows guide tile, dialog with 3 sections, test button, and permission check', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       DesktopShellService.debugIsDesktopOverride = true;
@@ -216,7 +216,7 @@ void main() {
         tester.view.devicePixelRatio = 1.0;
 
         final (store, _) = await makeStore();
-        // OS17: Windows cannot report a notification state, so the fake platform
+        // Windows cannot report a notification state, so the fake platform
         // answers unknown and the settings dialog must say so.
         final inMemoryReminder = InMemoryReminderService(
           permission: ReminderPermissionStatus.unknown,
@@ -266,7 +266,7 @@ void main() {
 
         // Test notification scheduled in service
         expect(inMemoryReminder.scheduled.length, equals(1));
-        // OS17 appends the real permission state to the honest result text.
+        // appends the real permission state to the honest result text.
         expect(
           find.textContaining(store.t['testNotificationSent']!),
           findsOneWidget,
