@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'planner_test_support.dart';
+import 'support/field_center_probe.dart';
 
 ThemeData _theme(String skin) {
   final base = ThemeData(useMaterial3: true);
@@ -149,24 +150,17 @@ void main() {
     await c2Tap(tester, c2Key('schedule-item-2026-09-30-x'));
     await c2Tap(tester, c2Key('schedule-detail-edit'));
     final field = c2Key('schedule-editor-title');
-    final input = tester.widget<TextField>(
+    expect(
       find.descendant(of: field, matching: find.byType(TextField)),
+      findsOneWidget,
     );
-    expect(input.textAlignVertical, TextAlignVertical.center);
-    final padding = input.decoration!.contentPadding! as EdgeInsets;
-    expect(padding.top, padding.bottom);
+    expect(offCenterFields(tester), isEmpty);
     await tester.enterText(
       find.descendant(of: field, matching: find.byType(TextField)),
       '',
     );
     await tester.pump();
-    final hint = find.descendant(of: field, matching: find.byType(Text));
-    if (hint.evaluate().isNotEmpty) {
-      expect(
-        tester.getCenter(hint.first).dy,
-        closeTo(tester.getCenter(field).dy, 4),
-      );
-    }
+    expect(offCenterFields(tester), isEmpty);
     await c2Finish(tester, store);
   });
 

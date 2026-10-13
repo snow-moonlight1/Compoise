@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 import 'helpers.dart';
 import 'support/settings_panels.dart';
 import 'support/text_clip_probe.dart';
+import 'support/field_center_probe.dart';
 
 enum _Skin { plain, comic, neu }
 
@@ -107,18 +108,7 @@ void main() {
     await openSettingsPanel(tester, 'settings-assistant-row');
 
     final field = tester.getRect(find.byKey(const ValueKey('api-key-input')));
-    final hint = tester.getRect(
-      find.descendant(
-        of: find.byKey(const ValueKey('api-key-input')),
-        matching: find.text('sk-...'),
-      ),
-    );
-    // NeuInputBorder leaves a 16px band for the floating label.
-    final wellTop = field.top + 16;
-    expect(
-      (hint.top - wellTop - (field.bottom - hint.bottom)).abs(),
-      lessThanOrEqualTo(1),
-    );
+    expect(offCenterFields(tester), isEmpty);
 
     // The tip under the fields lines up with them.
     final tip = find.ancestor(

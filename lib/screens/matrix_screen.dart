@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../ui/danger_button_style.dart';
 import '../widgets/reminder_failure_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -1166,9 +1167,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                 child: Text(t['cancel']!),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
+                style: dangerButtonStyle(context),
                 onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text(t['confirm']!),
               ),
@@ -1215,9 +1214,7 @@ class _MatrixHomeState extends State<MatrixHome> {
               ),
               FilledButton(
                 key: const ValueKey('clear-board-confirm-btn'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
+                style: dangerButtonStyle(context),
                 onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text(t['clear']!),
               ),

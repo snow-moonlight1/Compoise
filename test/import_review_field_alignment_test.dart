@@ -7,6 +7,8 @@ import 'package:compoise/import_preview/draft_preview.dart';
 import 'package:compoise/models.dart';
 import 'package:compoise/theme.dart';
 
+import 'support/field_center_probe.dart';
+
 void main() {
   testWidgets('neumorphic: review page values sit in the middle of the well', (
     tester,
@@ -64,29 +66,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    void centered(Finder field, Finder value) {
-      final box = tester.getRect(field);
-      final text = tester.getRect(value.first);
-      // NeuInputBorder leaves a 16px band above the well for the label.
-      final wellTop = box.top + 16;
-      final above = text.top - wellTop;
-      final below = wellTop + 48 - text.bottom;
-      expect(above, greaterThanOrEqualTo(10), reason: '$value');
-      expect((above - below).abs(), lessThanOrEqualTo(1), reason: '$value');
-    }
-
-
-    centered(find.byKey(const ValueKey('import-board')), find.text('My Tasks'));
-    final task = batch.images.single.tasks.single;
-    final title = find.byKey(ValueKey('title-${task.id}'));
-    centered(
-      title,
-      find.descendant(of: title, matching: find.byType(EditableText)),
-    );
-    final parent = find.byKey(ValueKey('parent-${task.id}'));
-    centered(
-      parent,
-      find.descendant(of: parent, matching: find.text('No parent')),
-    );
+    final fields = measureFields(tester);
+    expect(fields.length, greaterThanOrEqualTo(4));
+    expect(offCenterFields(tester), isEmpty);
   });
 }

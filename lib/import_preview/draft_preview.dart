@@ -2,12 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../l10n.dart';
 import '../models.dart' show Language;
-import '../theme.dart'
-    show
-        neuDropdownDecoration,
-        neuDropdownPadding,
-        neuLabelledAlign,
-        neuLabelledDecoration;
 import 'draft_model.dart';
 
 /// Caller owns [batch] and ephemeral thumbnails. The preview never saves them.
@@ -128,12 +122,7 @@ class _DraftPreviewState extends State<DraftPreview> {
                   DropdownButtonFormField<String>(
                     key: const ValueKey('import-board'),
                     isExpanded: true,
-                    decoration: neuDropdownDecoration(
-                      context,
-                      InputDecoration(labelText: t('importBoard')),
-                      hasValue: hasBoard,
-                    ),
-                    padding: neuDropdownPadding(context, hasValue: hasBoard),
+                    decoration: InputDecoration(labelText: t('importBoard')),
                     value: hasBoard ? batch.boardId : null,
                     items: [
                       for (final board in widget.boards)
@@ -153,15 +142,7 @@ class _DraftPreviewState extends State<DraftPreview> {
                   DropdownButtonFormField<int>(
                     key: const ValueKey('import-quadrant'),
                     isExpanded: true,
-                    decoration: neuDropdownDecoration(
-                      context,
-                      InputDecoration(labelText: t('importQuadrant')),
-                      hasValue: batch.quadrant != null,
-                    ),
-                    padding: neuDropdownPadding(
-                      context,
-                      hasValue: batch.quadrant != null,
-                    ),
+                    decoration: InputDecoration(labelText: t('importQuadrant')),
                     value: batch.quadrant,
                     items: [
                       for (var q = 1; q <= 4; q++)
@@ -350,15 +331,11 @@ class _DraftPreviewState extends State<DraftPreview> {
                   () => TextEditingController(text: task.title),
                 ),
                 maxLines: null,
-                textAlignVertical: neuLabelledAlign(context),
-                decoration: neuLabelledDecoration(
-                  context,
-                  InputDecoration(
-                    labelText: t('importTaskTitle'),
-                    errorText: !task.excluded && !task.hasValidTitle
-                        ? t('importEmptyTitle')
-                        : null,
-                  ),
+                decoration: InputDecoration(
+                  labelText: t('importTaskTitle'),
+                  errorText: !task.excluded && !task.hasValidTitle
+                      ? t('importEmptyTitle')
+                      : null,
                 ),
                 onChanged: _submitting
                     ? null
@@ -382,12 +359,7 @@ class _DraftPreviewState extends State<DraftPreview> {
               DropdownButtonFormField<String>(
                 key: ValueKey('parent-${task.id}'),
                 isExpanded: true,
-                decoration: neuDropdownDecoration(
-                  context,
-                  InputDecoration(labelText: t('importParent')),
-                  hasValue: true,
-                ),
-                padding: neuDropdownPadding(context, hasValue: true),
+                decoration: InputDecoration(labelText: t('importParent')),
                 value:
                     previous.any((candidate) => candidate.id == task.parentId)
                     ? task.parentId
@@ -417,13 +389,9 @@ class _DraftPreviewState extends State<DraftPreview> {
                 TextFormField(
                   key: ValueKey('due-${task.id}'),
                   initialValue: task.dueText,
-                  textAlignVertical: neuLabelledAlign(context),
-                  decoration: neuLabelledDecoration(
-                    context,
-                    InputDecoration(
-                      labelText: t('importDateText'),
-                      helperText: t('importDateHint'),
-                    ),
+                  decoration: InputDecoration(
+                    labelText: t('importDateText'),
+                    helperText: t('importDateHint'),
                   ),
                   onChanged: _submitting
                       ? null

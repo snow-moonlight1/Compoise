@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../ui/danger_button_style.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -389,9 +390,7 @@ class SettingsBackupFlow {
           child: Text(t['cancel']!),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+          style: dangerButtonStyle(context),
           onPressed: plan.conflicts > 0
               ? null
               : () => Navigator.pop(dialogContext, 'keep'),

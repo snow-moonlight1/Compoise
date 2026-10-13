@@ -842,10 +842,10 @@ ThemeData applyNeumorphic(ThemeData theme) {
       filled: true,
       fillColor: neu.canvas,
       isDense: false,
-      // Top padding clears the floating label and the 16px flat band in
-      // NeuInputBorder, so the value starts inside the well. Text fields
-      // use TextAlignVertical.top, which places the glyphs at this inset.
-      contentPadding: const EdgeInsets.fromLTRB(16, 26, 16, 14),
+      // Symmetric: the decorator centers the value on the whole field, and
+      // NeuInputBorder keeps its well centered on the field too, so every
+      // field (labelled or not, text or dropdown) is centered by itself.
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       hintStyle: TextStyle(color: neu.ink.withValues(alpha: 0.5)),
       labelStyle: TextStyle(color: neu.ink.withValues(alpha: 0.8)),
       border: border,
@@ -1000,6 +1000,9 @@ class NeuInsetPainter extends CustomPainter {
       oldDelegate.skin != skin || oldDelegate.radius != radius;
 }
 
+/// Flat band above (and below) a neumorphic well while its label floats.
+const double neuLabelBand = 10;
+
 /// Rounded field whose border is the inset pair, painted over a same-color fill.
 class NeuInputBorder extends InputBorder {
   const NeuInputBorder({required this.skin, this.radius = NeumorphicSkin.radius})
@@ -1042,21 +1045,23 @@ class NeuInputBorder extends InputBorder {
     double gapPercentage = 0.0,
     TextDirection? textDirection,
   }) {
-    // A floating label is centered on the top edge (about 9px of a 16sp
-    // label hangs into the field). Leave a flat band so those glyphs sit
-    // above the inset lip, matching the 26px top content padding.
-    final band = gapExtent > 0 ? 16.0 : 0.0;
-    final height = rect.height - band;
-    if (height < 8 || rect.width < 8) {
-      paintNeuInset(canvas, rect, skin, radius);
-      return;
-    }
-    paintNeuInset(
-      canvas,
-      Rect.fromLTWH(rect.left, rect.top + band, rect.width, height),
-      skin,
-      radius,
-    );
+    final well = wellRect(rect, labelFloats: gapExtent > 0);
+    paintNeuInset(canvas, well, skin, radius);
+  }
+
+  /// The painted inset well inside the field [rect].
+  ///
+  /// A floating label is centered on the top edge (about 6px of it hangs
+  /// into the field). A flat [neuLabelBand] is left above the well so those
+  /// glyphs sit above the inset lip, and the same band below it so the well
+  /// stays centered on the field, where InputDecorator centers the value.
+  /// Labelled and unlabelled fields both center by themselves; no field
+  /// needs its own padding or alignment.
+  Rect wellRect(Rect rect, {required bool labelFloats}) {
+    final band = labelFloats ? neuLabelBand : 0.0;
+    final height = rect.height - band * 2;
+    if (height < 8 || rect.width < 8) return rect;
+    return Rect.fromLTWH(rect.left, rect.top + band, rect.width, height);
   }
 
   @override
@@ -1209,40 +1214,3 @@ Widget neuSlab(
   );
 }
 
-/// Neumorphic labelled fields: [NeuInputBorder] drops the well 16px below the
-/// field top to leave room for the floating label, but the decorator centers
-/// the value on the whole field, so it sits against the top of the well.
-/// These helpers center a floating-label value inside the well. Outside the
-/// neumorphic skin they return their input unchanged.
-const _neuLabelledPadding = EdgeInsets.fromLTRB(16, 28, 16, 12);
-
-/// For a labelled [TextField]; pair with [neuLabelledAlign].
-InputDecoration neuLabelledDecoration(
-  BuildContext context,
-  InputDecoration decoration,
-) => NeumorphicSkin.maybeOf(context) == null
-    ? decoration
-    : decoration.copyWith(contentPadding: _neuLabelledPadding);
-
-TextAlignVertical? neuLabelledAlign(BuildContext context) =>
-    NeumorphicSkin.maybeOf(context) == null ? null : TextAlignVertical.bottom;
-
-/// For a [DropdownButtonFormField] with a value (its label floats). The
-/// decorator ignores padding when centering, so the selected item is pushed
-/// down by the label band with [neuDropdownPadding] instead.
-InputDecoration neuDropdownDecoration(
-  BuildContext context,
-  InputDecoration decoration, {
-  required bool hasValue,
-}) => NeumorphicSkin.maybeOf(context) == null || !hasValue
-    ? decoration
-    : decoration.copyWith(
-        contentPadding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      );
-
-EdgeInsetsGeometry? neuDropdownPadding(
-  BuildContext context, {
-  required bool hasValue,
-}) => NeumorphicSkin.maybeOf(context) == null || !hasValue
-    ? null
-    : const EdgeInsets.only(top: 16);
