@@ -57,11 +57,11 @@ def memory(pid):
 
 
 def inputs():
-    labels = json.loads((REPO / "docs/evidence/wp17r2/samples/labels.json").read_text(encoding="utf-8"))
+    labels = json.loads((REPO / "test/fixtures/ocr-evaluation/samples/labels.json").read_text(encoding="utf-8"))
     # Separate legal ten-image stress batch including real byte duplicates.
     # The historical R2 ten-image batch is covered by native capture regression.
     ids = json.loads((Path(__file__).parent / "q1_cases.json").read_text())["batch"]
-    paths = [REPO / "docs/evidence/wp17r2/samples/images" / (name + ".png") for name in ids]
+    paths = [REPO / "test/fixtures/ocr-evaluation/samples/images" / (name + ".png") for name in ids]
     dims = [struct.unpack(">II", path.read_bytes()[16:24]) for path in paths]
     sizes = [path.stat().st_size for path in paths]
     assert len(paths) == 10 and sum(w * h for w, h in dims) <= 24 * 1024 * 1024
@@ -100,7 +100,7 @@ def worker(args):
     lib = bind(args.library)
     event("library")
     paths, dimensions = inputs()
-    reference = json.loads((REPO / "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
+    reference = json.loads((REPO / "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
     expected = {Path(row["path"].replace("\\", "/")).name: row for row in reference}
     session = None
     first = {}

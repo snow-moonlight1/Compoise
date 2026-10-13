@@ -311,7 +311,7 @@ def main():
     if root.name != "wp17i6-private": raise RuntimeError("Use the dedicated external wp17i6-private root")
     fixtures = root / "fixtures"
     fixtures.mkdir(exist_ok=True)
-    samples = args.repo / "docs/evidence/wp17r2/samples/images"
+    samples = args.repo / "test/fixtures/ocr-evaluation/samples/images"
     for target, source in (("01-zh.png", "zh_light_base.png"), ("02-en.png", "en_light_base.png"),
                            ("03-ja.png", "ja_light_base.png"), ("04-zh-duplicate.png", "zh_light_base.png")):
         shutil.copyfile(samples / source, fixtures / target)
@@ -322,8 +322,8 @@ def main():
     report = root / "logs" / ("flow-" + label + ".json")
     env = dict(os.environ, WP17_I6_REPORT=str(report), WP17_I6_FIXTURES=str(fixtures))
     env["WP17_I6_FILE_ENTRY"] = str(args.file_entry).lower()
-    command = [args.flutter, "drive", "--no-pub", "--no-build", "--driver=test/wp17_i6_device_driver.dart",
-               "--target=test/wp17_i6_device_test.dart", "--dart-define=WP17_I6_DEVICE=true", "-d",
+    command = [args.flutter, "drive", "--no-pub", "--no-build", "--driver=test/ocr_model_device_driver.dart",
+               "--target=test/ocr_model_device_test.dart", "--dart-define=WP17_I6_DEVICE=true", "-d",
                args.serial if args.platform == "android" else "linux", "--use-application-binary=" + str(args.application)]
     if os.name == "nt" and args.flutter.endswith(".bat"):
         command = ["cmd.exe", "/d", "/c"] + command

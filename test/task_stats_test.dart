@@ -21,7 +21,7 @@ Widget wrapApp(Store store, Widget home) {
 }
 
 void main() {
-  group('WP27-A-N: TaskStats unit calculation', () {
+  group('TaskStats unit calculation', () {
     test('empty tasks list returns 0% completion rate without false 100%', () {
       final stats = computeTaskStats(tasks: []);
       expect(stats.totalTasks, 0);
@@ -186,7 +186,7 @@ void main() {
   });
 
   group(
-    'WP27-B-N: Completion history, daily distribution, and completedAt lifecycle',
+    'Completion history, daily distribution, and completedAt lifecycle',
     () {
       test(
         'computeCompletionHistoryStats accurately aggregates daily buckets and counts',
@@ -413,7 +413,7 @@ void main() {
         },
       );
 
-      testWidgets('UX01: CompletedScreen retains timestamps without trends', (
+      testWidgets('CompletedScreen retains timestamps without trends', (
         tester,
       ) async {
         final now = DateTime.now();

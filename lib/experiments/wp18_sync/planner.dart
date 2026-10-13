@@ -983,7 +983,7 @@ class ConflictPlanner {
 
   /// A deletion that would leave a surviving task, subtask or schedule behind is
   /// withheld. The backup contract commits a task together with its records
-  /// (docs/DATA_COMPATIBILITY.md), so half of that batch must not be applied.
+  /// (docs/local-storage.md), so half of that batch must not be applied.
   void _dependentsPass() {
     final survivors = <String>{...local.records.keys};
     for (final entry in _decisions.entries) {

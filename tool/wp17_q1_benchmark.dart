@@ -135,7 +135,7 @@ Future<void> main() async {
             as Map;
     final files = [
       for (final id in specs['batch'] as List)
-        picked(File('$root/docs/evidence/wp17r2/samples/images/$id.png')),
+        picked(File('$root/test/fixtures/ocr-evaluation/samples/images/$id.png')),
     ];
     if (files.length != 10) throw StateError('expected ten inputs');
     final capture = newCapture();

@@ -25,7 +25,7 @@ Widget wrapApp(Store store, Widget home) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('WP09-N: Onboarding & Tutorial Help Panel', () {
+  group('Onboarding & Tutorial Help Panel', () {
     testWidgets('fresh launch automatically presents OnboardingScreen and can be completed', (tester) async {
       final (store, _) = await makeStore(hasSeenOnboarding: false);
       expect(store.hasSeenOnboarding, isFalse);

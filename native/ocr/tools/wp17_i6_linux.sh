@@ -47,7 +47,7 @@ case "$mode" in
     python3 native/ocr/tools/stage_official_bundle.py --deploy "$WP17_I6_DEPLOY" --out "$WP17_I6_ROOT/packaged-assets"
     arguments=(build linux --no-pub)
     if [ "$mode" = device ]; then
-      arguments+=(--debug --target=test/wp17_i6_device_test.dart --dart-define=WP17_I6_DEVICE=true)
+      arguments+=(--debug --target=test/ocr_model_device_test.dart --dart-define=WP17_I6_DEVICE=true)
       configuration=debug
     else
       arguments+=(--release)

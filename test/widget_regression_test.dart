@@ -218,7 +218,7 @@ Future<void> toggleShowCompleted(WidgetTester tester) async {
   }
 }
 
-/// UX06: completed titles draw per-line segments with a painter instead of
+/// completed titles draw per-line segments with a painter instead of
 /// [TextDecoration.lineThrough], so assertions read the painter progress.
 double strikeProgressOf(WidgetTester tester, String taskId) {
   final paint = tester.widget<CustomPaint>(
@@ -697,7 +697,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('WP10 selection moves tasks and cancel preserves selection', (
+  testWidgets('selection moves tasks and cancel preserves selection', (
     tester,
   ) async {
     viewport(tester, const Size(320, 700));
@@ -829,7 +829,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
-      // UX06: the line is drawn per visible line, not by Text.decoration.
+      // the line is drawn per visible line, not by Text.decoration.
       expect(strikeProgressOf(tester, task.id), 1.0);
       expect(
         find.descendant(
@@ -907,7 +907,7 @@ void main() {
     store.addTasks([task]);
     await tester.pumpWidget(pumpTaskCard(store, task));
     await tester.pumpAndSettle();
-    // UX06: one drawn segment per visible line instead of one decoration.
+    // one drawn segment per visible line instead of one decoration.
     expect(strikeProgressOf(tester, task.id), 1.0);
     expect(strikeLineCountOf(tester, task.id), 3);
     expect(
@@ -1133,7 +1133,7 @@ void main() {
   );
 
   testWidgets(
-    'WP03-N: central cross dividers, no white task cards, and bottom safe area add button',
+    'central cross dividers, no white task cards, and bottom safe area add button',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1143,7 +1143,7 @@ void main() {
       await tester.pumpWidget(app(store, const MatrixHome()));
       await tester.pumpAndSettle();
 
-      // UX07: the cross is painted by the transition layout, not Divider widgets.
+      // the cross is painted by the transition layout, not Divider widgets.
       expect(find.byKey(const ValueKey('matrix-divider-v')), findsOneWidget);
       expect(find.byKey(const ValueKey('matrix-divider-h')), findsOneWidget);
 
@@ -1162,7 +1162,7 @@ void main() {
   );
 
   testWidgets(
-    'WP03-N: multi-select toolbar offers Edit button for single selection and opens editor',
+    'multi-select toolbar offers Edit button for single selection and opens editor',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1196,7 +1196,7 @@ void main() {
   );
 
   testWidgets(
-    'WP03-N: tap checkbox completes without opening editor; subtask has no vertical line',
+    'tap checkbox completes without opening editor; subtask has no vertical line',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1244,7 +1244,7 @@ void main() {
   );
 
   testWidgets(
-    'WP04-N: title multiline Enter newline, Ctrl+Enter saves, handles 1/5/20 lines without overflow',
+    'title multiline Enter newline, Ctrl+Enter saves, handles 1/5/20 lines without overflow',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1292,7 +1292,7 @@ void main() {
   );
 
   testWidgets(
-    'WP04-N: subtasks edit, add, delete, and cascade with autoCompleteParent',
+    'subtasks edit, add, delete, and cascade with autoCompleteParent',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1354,7 +1354,7 @@ void main() {
   );
 
   testWidgets(
-    'WP04-N: barrier dismiss with clean vs dirty draft, internal blank tap only unfocuses',
+    'barrier dismiss with clean vs dirty draft, internal blank tap only unfocuses',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1406,7 +1406,7 @@ void main() {
   );
 
   testWidgets(
-    'WP04-N: wide screen sidebar renders side-by-side and does not cover matrix',
+    'wide screen sidebar renders side-by-side and does not cover matrix',
     (tester) async {
       viewport(tester, const Size(1000, 700));
       final store = await setup(tester);
@@ -1433,7 +1433,7 @@ void main() {
   );
 
   testWidgets(
-    'WP04-N: task deletion and deleted task cannot be resurrected on save',
+    'task deletion and deleted task cannot be resurrected on save',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1463,7 +1463,7 @@ void main() {
   );
 
   testWidgets(
-    'WP04-N: manual input with empty lines creates exact number of tasks (regression MF23)',
+    'manual input with empty lines creates exact number of tasks (regression MF23)',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1492,7 +1492,7 @@ void main() {
   );
 
   testWidgets(
-    'WP23-N: tap quadrant header enters focus view with full width main list and 3 collapsed bottom cards',
+    'tap quadrant header enters focus view with full width main list and 3 collapsed bottom cards',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1528,7 +1528,7 @@ void main() {
   );
 
   testWidgets(
-    'WP23-N: switch between collapsed cards and exit focus via back button or header tap',
+    'switch between collapsed cards and exit focus via back button or header tap',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1579,7 +1579,7 @@ void main() {
   );
 
   testWidgets(
-    'WP23-N: task completion, details edit, hide completed and empty count in focus view',
+    'task completion, details edit, hide completed and empty count in focus view',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1624,7 +1624,7 @@ void main() {
     },
   );
 
-  testWidgets('WP23-N: board switching exits focus view and cleans cache', (
+  testWidgets('board switching exits focus view and cleans cache', (
     tester,
   ) async {
     viewport(tester, const Size(390, 844));
@@ -1655,7 +1655,7 @@ void main() {
   });
 
   testWidgets(
-    'WP12-S-N: tap search icon opens SearchScreen with current board default, filter chips and empty query list',
+    'tap search icon opens SearchScreen with current board default, filter chips and empty query list',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1707,7 +1707,7 @@ void main() {
   );
 
   testWidgets(
-    'WP12-S-N: search by keyword matches parent and subtask, subtask shows breadcrumb and opens detail with highlight',
+    'search by keyword matches parent and subtask, subtask shows breadcrumb and opens detail with highlight',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1754,7 +1754,7 @@ void main() {
   );
 
   testWidgets(
-    'WP12-S-N: combined filters (quadrant, status, date) and live edit/completion/deletion reflection',
+    'combined filters (quadrant, status, date) and live edit/completion/deletion reflection',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1825,7 +1825,7 @@ void main() {
   );
 
   testWidgets(
-    'WP12-S-N: switch to allBoards, exit preserves original board, "Go to Board" explicitly switches board',
+    'switch to allBoards, exit preserves original board, "Go to Board"explicitly switches board',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -1889,7 +1889,7 @@ void main() {
   );
 
   testWidgets(
-    'WP22-A-N: manual input with quick dates (Today/Tomorrow), custom date, and clearing date',
+    'manual input with quick dates (Today/Tomorrow), custom date, and clearing date',
     (tester) async {
       final store = await setup(tester);
       await tester.pumpWidget(
@@ -1968,7 +1968,7 @@ void main() {
   );
 
   testWidgets(
-    'WP22-A-N: AI input with deadline sets parent deadline, subtasks do NOT inherit, and clears on success',
+    'AI input with deadline sets parent deadline, subtasks do NOT inherit, and clears on success',
     (tester) async {
       final ai = ControlledAI();
       final store = await setup(tester, ai: ai);
@@ -2036,7 +2036,7 @@ void main() {
   );
 
   testWidgets(
-    'WP22-A-N: AI error or cancel retains input draft and selected date',
+    'AI error or cancel retains input draft and selected date',
     (tester) async {
       final ai = ControlledAI();
       final store = await setup(tester, ai: ai);
@@ -2087,7 +2087,7 @@ void main() {
   );
 
   testWidgets(
-    'WP22-B-N: subtask deadline set, edited, cleared, and dirty draft tracking',
+    'subtask deadline set, edited, cleared, and dirty draft tracking',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -2187,7 +2187,7 @@ void main() {
   );
 
   testWidgets(
-    'WP22-B-N: parent and subtask deadlines are independent, subtask deadline can be later than parent with advisory warning',
+    'parent and subtask deadlines are independent, subtask deadline can be later than parent with advisory warning',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -2259,7 +2259,7 @@ void main() {
   );
 
   testWidgets(
-    'WP22-B-N: task_card displays subtask deadline badge on matrix screen and completes independently',
+    'task_card displays subtask deadline badge on matrix screen and completes independently',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -2312,7 +2312,7 @@ void main() {
   );
 
   testWidgets(
-    'WP05-N: cross-quadrant move prepends to target quadrant, preserves relative order, and does not alter createdAt',
+    'cross-quadrant move prepends to target quadrant, preserves relative order, and does not alter createdAt',
     (tester) async {
       viewport(tester, const Size(800, 600));
       final store = await setup(tester);
@@ -2401,7 +2401,7 @@ void main() {
   );
 
   testWidgets(
-    'WP05-N: TaskDetailPanel quadrant change prepends task to target quadrant',
+    'TaskDetailPanel quadrant change prepends task to target quadrant',
     (tester) async {
       viewport(tester, const Size(800, 900));
       final store = await setup(tester);
@@ -2448,7 +2448,7 @@ void main() {
   );
 
   testWidgets(
-    'WP05-N: secondary click Move Menu moves task to target quadrant and prepends',
+    'secondary click Move Menu moves task to target quadrant and prepends',
     (tester) async {
       viewport(tester, const Size(800, 600));
       final store = await setup(tester);
@@ -2502,7 +2502,7 @@ void main() {
   );
 
   testWidgets(
-    'WP05-N: drag and drop scrolls scrolled target quadrant to top and prepends task',
+    'drag and drop scrolls scrolled target quadrant to top and prepends task',
     (tester) async {
       viewport(tester, const Size(600, 700));
       final store = await setup(tester);
@@ -2556,7 +2556,7 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: fresh launch with Chinese device locale initializes Language.zh, localized board and quadrant names',
+    'fresh launch with Chinese device locale initializes Language.zh, localized board and quadrant names',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(
@@ -2579,7 +2579,7 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: fresh launch with Japanese device locale initializes Language.ja and localized board',
+    'fresh launch with Japanese device locale initializes Language.ja and localized board',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(
@@ -2601,7 +2601,7 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: fresh launch with unsupported device locale falls back to Language.en',
+    'fresh launch with unsupported device locale falls back to Language.en',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(
@@ -2623,7 +2623,7 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: existing saved settings with explicit en on Chinese device is preserved and not overwritten',
+    'existing saved settings with explicit en on Chinese device is preserved and not overwritten',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(
@@ -2651,7 +2651,7 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: manual language switch and subsequent launch keeps user choice across reboots',
+    'manual language switch and subsequent launch keeps user choice across reboots',
     (tester) async {
       viewport(tester, const Size(390, 844));
       // First boot on zh device
@@ -2682,7 +2682,7 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: import data with overwrite respects imported language and does not get overwritten',
+    'import data with overwrite respects imported language and does not get overwritten',
     (tester) async {
       final store = await setup(
         tester,
@@ -2716,7 +2716,7 @@ void main() {
   );
 
   testWidgets(
-    'WP06-N: CompoiseApp widget entry point respects injected deviceLocales',
+    'CompoiseApp widget entry point respects injected deviceLocales',
     (tester) async {
       viewport(tester, const Size(390, 844));
       SharedPreferences.setMockInitialValues({
@@ -2736,7 +2736,7 @@ void main() {
   );
 
   testWidgets(
-    'WP02-N: clear board menu item is disabled on empty board, enabled when tasks exist',
+    'clear board menu item is disabled on empty board, enabled when tasks exist',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -2784,7 +2784,7 @@ void main() {
   );
 
   testWidgets(
-    'WP02-N: cancel clear board keeps all tasks intact (including hidden and completed)',
+    'cancel clear board keeps all tasks intact (including hidden and completed)',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -2832,7 +2832,7 @@ void main() {
   );
 
   testWidgets(
-    'WP02-N: confirm clear board deletes all 4 quadrants, completed/hidden tasks, resets selection/focus, keeps other boards',
+    'confirm clear board deletes all 4 quadrants, completed/hidden tasks, resets selection/focus, keeps other boards',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -2917,7 +2917,7 @@ void main() {
   );
 
   testWidgets(
-    'WP02-N: in-flight AI submission does not resurrect tasks on cleared board',
+    'in-flight AI submission does not resurrect tasks on cleared board',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final ai = ControlledAI();
@@ -2980,7 +2980,7 @@ void main() {
   );
 
   testWidgets(
-    'WP01-N: provider switching clears API key, updates defaults, and toggles thinking option',
+    'provider switching clears API key, updates defaults, and toggles thinking option',
     (tester) async {
       final ai = ControlledAI();
       final store = await setup(tester, ai: ai);
@@ -3048,7 +3048,7 @@ void main() {
   );
 
   testWidgets(
-    'WP01-N: entering API key triggers model discovery on submit, populates dropdown and allows manual override',
+    'entering API key triggers model discovery on submit, populates dropdown and allows manual override',
     (tester) async {
       final ai = ControlledAI();
       final discoveryCompleter = Completer<List<String>>();
@@ -3123,7 +3123,7 @@ void main() {
   );
 
   testWidgets(
-    'WP07-N: header completed-btn opens CompletedScreen, displays empty state, and switches scope between current board and all boards',
+    'header completed-btn opens CompletedScreen, displays empty state, and switches scope between current board and all boards',
     (tester) async {
       tester.view.physicalSize = const Size(1000, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -3187,7 +3187,7 @@ void main() {
   );
 
   testWidgets(
-    'WP07-N: CompletedScreen unchecking or tapping restore button restores task to original quadrant and shows SnackBar',
+    'CompletedScreen unchecking or tapping restore button restores task to original quadrant and shows SnackBar',
     (tester) async {
       tester.view.physicalSize = const Size(1000, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -3245,7 +3245,7 @@ void main() {
   );
 
   testWidgets(
-    'WP08-V-N: toggle view mode between grid and list via header button',
+    'toggle view mode between grid and list via header button',
     (tester) async {
       viewport(tester, const Size(400, 800));
       final store = await setup(tester);
@@ -3306,7 +3306,7 @@ void main() {
   );
 
   testWidgets(
-    'WP08-V-N: list view task completion, quadrant focus transition, and settings viewMode choice',
+    'list view task completion, quadrant focus transition, and settings viewMode choice',
     (tester) async {
       viewport(tester, const Size(400, 800));
       final store = await setup(tester);
@@ -3359,7 +3359,7 @@ void main() {
   );
 
   testWidgets(
-    'WP08-T-N: SettingsScreen font size and font family controls, preview, and reset defaults',
+    'SettingsScreen font size and font family controls, preview, and reset defaults',
     (tester) async {
       viewport(tester, const Size(400, 900));
       final store = await setup(tester);
@@ -3421,7 +3421,7 @@ void main() {
   );
 
   testWidgets(
-    'WP08-T-N: CombinedTextScaler respects both system scaling and app font scale without disabling TextScaler',
+    'CombinedTextScaler respects both system scaling and app font scale without disabling TextScaler',
     (tester) async {
       final baseScaler = TextScaler.linear(1.3);
       final smallCombined = CombinedTextScaler(
@@ -3464,7 +3464,7 @@ void main() {
   );
 
   testWidgets(
-    'WP24-N: horizontal swipe right completes task, shows SnackBar with Undo action, tapping Undo restores task',
+    'horizontal swipe right completes task, shows SnackBar with Undo action, tapping Undo restores task',
     (tester) async {
       viewport(tester, const Size(800, 600));
       final store = await setup(tester);
@@ -3500,7 +3500,7 @@ void main() {
   );
 
   testWidgets(
-    'WP24-N: horizontal swipe left deletes task, shows SnackBar with Undo action, tapping Undo restores task',
+    'horizontal swipe left deletes task, shows SnackBar with Undo action, tapping Undo restores task',
     (tester) async {
       viewport(tester, const Size(800, 600));
       final store = await setup(tester);
@@ -3545,7 +3545,7 @@ void main() {
     },
   );
 
-  testWidgets('WP24-N: multi-select mode disables swipe dismissible', (
+  testWidgets('multi-select mode disables swipe dismissible', (
     tester,
   ) async {
     viewport(tester, const Size(800, 600));
@@ -3576,7 +3576,7 @@ void main() {
   });
 
   testWidgets(
-    'WP24-N: context menu offers complete, delete, and undo operations',
+    'context menu offers complete, delete, and undo operations',
     (tester) async {
       viewport(tester, const Size(800, 600));
       final store = await setup(tester);
@@ -3639,7 +3639,7 @@ void main() {
   );
 
   testWidgets(
-    'WP13-A-N: parent and subtask notes editing, saving, display, and discard draft protection',
+    'parent and subtask notes editing, saving, display, and discard draft protection',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -3781,7 +3781,7 @@ void main() {
     },
   );
 
-  testWidgets('WP13-A-N: SearchScreen finds parent and subtask by notes', (
+  testWidgets('SearchScreen finds parent and subtask by notes', (
     tester,
   ) async {
     viewport(tester, const Size(390, 844));
@@ -3832,7 +3832,7 @@ void main() {
   });
 
   testWidgets(
-    'WP25-N-Android: reminder picker in TaskDetailPanel sets reminder, displays quick chips, and saves to store',
+    'reminder picker in TaskDetailPanel sets reminder, displays quick chips, and saves to store',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -3895,7 +3895,7 @@ void main() {
   );
 
   testWidgets(
-    'WP25-N-Android: SettingsScreen displays Reminder Reliability Guide and checks permission status',
+    'SettingsScreen displays Reminder Reliability Guide and checks permission status',
     (tester) async {
       viewport(tester, const Size(800, 1200));
       final store = await setup(tester);
@@ -3955,7 +3955,7 @@ void main() {
   );
 
   testWidgets(
-    'WP25-N-Android: reminder indicator icon rendered on TaskCard when task has reminderAt',
+    'reminder indicator icon rendered on TaskCard when task has reminderAt',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -3976,7 +3976,7 @@ void main() {
   );
 
   testWidgets(
-    'WP25-N-Windows: SettingsScreen on Windows displays Windows notification guide and triggers test notification',
+    'SettingsScreen on Windows displays Windows notification guide and triggers test notification',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       DesktopShellService.debugIsDesktopOverride = true;

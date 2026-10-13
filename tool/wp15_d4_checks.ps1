@@ -16,7 +16,7 @@ $taskVersion = (& $Flutter --version --machine | Out-String) | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $taskVersion.frameworkRevision -ne $taskPin.verified.revision -or $taskVersion.dartSdkVersion -ne $taskPin.verified.dartVersion -or $taskVersion.engineRevision -ne $taskPin.verified.engineRevision) { throw 'Pinned SDK mismatch.' }
 $taskLog = Join-Path $taskRoot "$Stage.log"
 $taskArgs = switch ($Stage) {
-    'baseline' { @('test','--no-pub','--concurrency=1','--reporter','expanded','test/wp15_d4_accessibility_test.dart') }
+    'baseline' { @('test','--no-pub','--concurrency=1','--reporter','expanded','test/planner_accessibility_test.dart') }
     'targeted' { @('test','--no-pub','--concurrency=1','--reporter','expanded') + @(Get-ChildItem test/wp15_d4_*_test.dart,test/wp15_c1_*_test.dart,test/wp15_c2_*_test.dart,test/wp15_d1_*_test.dart,test/wp15_d2_*_test.dart,test/wp15_d3_*_test.dart | ForEach-Object { $_.FullName }) }
     'analyze' { @('analyze','--no-pub') }
     'full' { @('test','--no-pub','--concurrency=1','--reporter','expanded') }

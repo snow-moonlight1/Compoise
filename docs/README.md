@@ -1,24 +1,21 @@
-# 文档导航
+# 文档目录
 
-项目功能和快速运行方式见仓库 [README](../README.md)。从当前任务进入一份文档即可；各页只描述自己的范围，代码中的模型与门禁是最终实现依据。
+项目介绍、下载和快速构建见仓库首页的 [README](../README.md)。参与开发前请先读[贡献指南](../CONTRIBUTING.md)。
 
-| 我想做什么 | 从这里开始 |
-|---|---|
-| 看工作包状态与后续计划 | [工作包状态](ROADMAP.md) |
-| 改进任务输入、子任务与详情层级 | [任务交互方案（WP13）](TASK_INTERACTION.md) |
-| 理解今天待办与计划日 | [WP14 计划日契约](WP14_NOTES.md) |
-| 设计 Planner / Schedule | [WP15 日程契约](WP15_CONTRACT.md)；键盘/焦点/语义与验收边界见 [D4 记录](WP15_D4_NOTES.md) |
-| 做多张待办截图的识别与导入 | [WP17 截图导入方案](WP17_SCREENSHOT_IMPORT.md)；可选包装见 [I8](WP17_I8_NOTES.md)，质量评分见 [Q3](WP17_Q3_NOTES.md) |
-| 搭建环境、运行、测试或构建 | [开发指南](DEVELOPMENT.md) |
-| 准备安装包、升级与发行渠道验证 | [发行验证清单](RELEASE_VALIDATION.md)；候选规则见 [R1](WP28_R1_NOTES.md)，原生升级 CI 见 [R3](WP28_R3_NOTES.md) |
-| 找模块与平台边界 | [架构说明](ARCHITECTURE.md) |
-| 理解 JSON 文件、导入和多卷恢复 | [备份格式](BACKUP_FORMAT.md) |
-| 修改本地保存或数据模型 | [本地数据与兼容性](DATA_COMPATIBILITY.md) |
-| 配置或修改 AI 请求 | [AI 服务商配置](AI_PROVIDER_PRESETS.md) |
-| 查看先不做、但不放弃的四个方向 | [网盘同步](WP18_R_NOTES.md)、[开发模式](WP19_R_NOTES.md)、[托管 AI](WP29_R_NOTES.md)、[漫画描边](UIEXP1_NOTES.md) |
-| 修改提醒 | [提醒设计](REMINDERS_DESIGN.md) |
-| 检查数据与隐私行为 | [隐私说明 / Privacy Notice](PRIVACY_POLICY.md) |
-| 处理 Android 安装身份与升级 | [Android 应用身份](ANDROID_PACKAGE_MIGRATION.md) |
-| 准备商店文案 | [商店介绍草稿](STORE_LISTING.md) |
+| 文档 | 内容 |
+| --- | --- |
+| [架构说明](architecture.md) | 代码怎么分层，各模块和平台服务的边界 |
+| [开发指南](development.md) | 环境搭建、检查与测试、各平台构建、OCR 原生库、Android 签名 |
+| [设计规范](design-guidelines.md) | 交互、文案、提示、主题和桌面/手机差异的约定 |
+| [任务与日程](tasks-and-schedule.md) | 任务、子项、计划日、截止日期、今天待办和日程的数据规则 |
+| [截图识别导入](ocr.md) | OCR 流程、识别规则、模型下载和隐私边界 |
+| [备份格式](backup-format.md) | JSON 备份的结构、导入检查和多卷恢复 |
+| [本地存储](local-storage.md) | 设备内的数据保存、启动恢复和修改数据模型的步骤 |
+| [AI 服务商](ai-providers.md) | 预设、自定义端点、连接测试和请求行为 |
+| [提醒](reminders.md) | 提醒调度和各平台的限制 |
+| [发布流程](release-process.md) | 版本号、打标签、CI 打包、草稿测试和发布 |
+| [隐私说明](privacy-policy.md) | 应用如何处理数据（中英双语） |
+| [商店介绍](store-listing.md) | 应用商店文案草稿 |
+| [路线图](roadmap.md) | 已知限制和以后的方向 |
 
-贡献流程见 [贡献指南](../.github/CONTRIBUTING.md)。
+代码是最终依据。文档和代码不一致时，请以代码为准，并顺手修正文档。

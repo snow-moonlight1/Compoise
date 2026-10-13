@@ -14,7 +14,7 @@ void main() {
     DesktopShellService.instance.resetForTest();
   });
 
-  group('WP26-B-N-Windows: DesktopShellService', () {
+  group('DesktopShellService', () {
     test('non-desktop platforms safely no-op without crashes or exceptions', () async {
       DesktopShellService.debugIsDesktopOverride = false;
       final service = DesktopShellService.instance;
@@ -77,7 +77,7 @@ void main() {
     });
   });
 
-  group('WP26-B-N-Windows: Settings serialization & UI', () {
+  group('Settings serialization & UI', () {
     test('AppSettings serializes and deserializes closeToTray and globalShortcut', () {
       final defaultSettings = AppSettings();
       expect(defaultSettings.closeToTray, isFalse);

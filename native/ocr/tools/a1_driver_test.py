@@ -167,7 +167,7 @@ class Arm64DriverTest(unittest.TestCase):
                 a1.parse_smoke(raw, ["zh_light_base"], 0, [None])
 
     def test_smoke_r2_comparison_accepts_original_and_rejects_changed_text(self):
-        reference = json.loads((a1.REPO / "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
+        reference = json.loads((a1.REPO / "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
         image = deepcopy(next(item for item in reference if "zh_light_base.png" in item["path"]))
         summary = {"summary": {"images": 1, "succeeded": 1}}
         raw = json.dumps(image) + "\n" + json.dumps(summary) + "\nA1_RC=0\n"

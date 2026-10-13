@@ -111,8 +111,8 @@ PY
 set +e
 # timeout owns the child process group, including the app/Xvfb on interruption.
 setsid timeout --kill-after=10s 900s xvfb-run -a -s '-screen 0 1280x900x24' \
-  "$flutter" drive --no-pub -d linux --driver=test/wp15_d2_device_driver.dart \
-  --target=test/wp15_d2_device_test.dart --dart-define=WP15_D2_DEVICE=true \
+  "$flutter" drive --no-pub -d linux --driver=test/planner_device_driver.dart \
+  --target=test/planner_device_test.dart --dart-define=WP15_D2_DEVICE=true \
   "--dart-define=WP15_D2_EXPECTED_ZONE=$expected" \
   "--dart-define=WP15_D2_COMMIT=$revision" > "$log" 2>&1 &
 owned_pid=$!

@@ -6,7 +6,7 @@ import 'package:compoise/recovery_text.dart';
 import 'package:compoise/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'rf02_import_commit_race_test.dart' as fixture;
+import 'import_commit_race_test.dart' as fixture;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

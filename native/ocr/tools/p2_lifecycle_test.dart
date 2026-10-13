@@ -13,7 +13,7 @@ void main() {
   final assets = Platform.environment['P2_OCR_ASSETS'];
   final enabled = library != null && assets != null;
   final sample = File(
-    '${Directory.current.path}/docs/evidence/wp17r2/samples/images/zh_light_base.png',
+    '${Directory.current.path}/test/fixtures/ocr-evaluation/samples/images/zh_light_base.png',
   );
   PlatformFile picked(File file) => PlatformFile(
     name: file.uri.pathSegments.last,

@@ -110,7 +110,7 @@ def main() -> int:
         raise RuntimeError("Only the script's private Xvfb display is allowed")
     fixtures = directory / "fixtures"
     fixtures.mkdir()
-    samples = repo / "docs/evidence/wp17r2/samples/images"
+    samples = repo / "test/fixtures/ocr-evaluation/samples/images"
     for target, source in (("01-zh.png", "zh_light_base.png"), ("02-en.png", "en_light_base.png"),
                            ("03-ja.png", "ja_light_base.png"), ("04-zh-duplicate.png", "zh_light_base.png")):
         shutil.copyfile(samples / source, fixtures / target)

@@ -1,0 +1,51 @@
+name: 问题报告 / Bug report
+description: 应用出现错误或表现与预期不符 / Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请勿附上 API 密钥、真实备份或个人数据；截图请用虚构任务。安全问题请按 SECURITY.md 私下报告。
+        Please don't attach API keys, real backups or personal data. Use made-up tasks in screenshots. Report security issues privately (see SECURITY.md).
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台 / Platform
+      options: [Android, Windows, Linux]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本和系统版本 / App and OS version
+      placeholder: "1.0.0, Android 14 / Windows 11 / Ubuntu 24.04"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果 / Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果 / Actual
+      description: 可以附截图 / Screenshots welcome
+    validations:
+      required: true
+  - type: dropdown
+    id: theme
+    attributes:
+      label: 外观风格 / Style
+      options: [默认 / Default, 漫画描边 / Comic outline, 拟态 / Neumorphic]

@@ -259,7 +259,7 @@ def parse_smoke(raw: str, names: list[str], expected_exit: int, expected_errors:
     summary = values[-1]["summary"]
     if summary.get("images") != len(names) or summary.get("succeeded") != expected_errors.count(None):
         raise ValueError("Native success/error count differs")
-    reference = json.loads((REPO / "docs/evidence/wp17r2/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
+    reference = json.loads((REPO / "test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json").read_text(encoding="utf-8"))["images"]
     golden = {Path(image["path"].replace("\\", "/")).stem: image for image in reference}
     for name, actual, error in zip(names, values, expected_errors):
         if error is not None:
@@ -281,7 +281,7 @@ def parse_smoke(raw: str, names: list[str], expected_exit: int, expected_errors:
 def fixtures(root: Path) -> dict:
     output = root / "fixtures"
     output.mkdir(exist_ok=True)
-    images = REPO / "docs/evidence/wp17r2/samples/images"
+    images = REPO / "test/fixtures/ocr-evaluation/samples/images"
     for i, language in enumerate(["zh", "en", "ja"] * 3):
         shutil.copyfile(images / (language + "_light_base.png"), output / FIXTURE_NAMES[i])
     (output / FIXTURE_NAMES[-1]).write_bytes(b"not a png")
@@ -389,7 +389,7 @@ def build(args, command: Commands):
     mirror = root / "repo"
     if sha(mirror / "pubspec.lock") != sha(REPO / "pubspec.lock"):
         raise ValueError("Private mirror lock differs")
-    shutil.copyfile(REPO / "test/wp17_a1_device_test.dart", mirror / "test/wp17_a1_device_test.dart")
+    shutil.copyfile(REPO / "test/screenshot_device_test.dart", mirror / "test/screenshot_device_test.dart")
     properties = mirror / "android/local.properties"
     old = properties.read_bytes() if properties.exists() else None
     try:
@@ -399,7 +399,7 @@ def build(args, command: Commands):
             "wp17OcrNcnnRoot=" + assets.as_posix(), "wp17OcrStbDir=" + (assets / "third_party").as_posix()
         ]) + "\n", encoding="utf-8")
         command.run([flutter / "bin/flutter.bat", "build", "apk", "--debug", "--no-pub",
-                     "--target-platform=android-arm64", "--target=test/wp17_a1_device_test.dart",
+                     "--target-platform=android-arm64", "--target=test/screenshot_device_test.dart",
                      "--dart-define=WP17_A1_DEVICE=true"], cwd=mirror, timeout=1800, log="build-probe")
         apk = mirror / "build/app/outputs/flutter-apk/app-debug.apk"
         aapt = sorted((sdk / "build-tools").glob("*/aapt.exe"))[-1]

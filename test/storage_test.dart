@@ -135,7 +135,7 @@ void main() {
     expect(byId['t4']!.quadrant, qPlan); // completed tasks never move
   });
 
-  test('WP02-N: clearBoard removes all tasks on target board across all quadrants and preserves other boards', () async {
+  test('clearBoard removes all tasks on target board across all quadrants and preserves other boards', () async {
     final (store, _) = await makeStore(
       boards: [
         Board(id: 'b1', name: 'Board 1', createdAt: 1),

@@ -244,7 +244,7 @@ tasks.register("verifyFormalReleaseSigning") {
                     "Refusing to publish a debug-signed APK. " +
                 "Provide android/key.properties (template: android/key.properties.example) " +
                     "or the ANDROID_KEYSTORE_PATH, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD and " +
-                    "ANDROID_STORE_PASSWORD environment variables. See docs/DEVELOPMENT.md.",
+                    "ANDROID_STORE_PASSWORD environment variables. See docs/development.md.",
             )
         }
     }

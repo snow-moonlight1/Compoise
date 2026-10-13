@@ -7,7 +7,7 @@ import 'package:compoise/widgets/schedule_layout.dart';
 import 'package:compoise/screens/planner_screen.dart';
 import 'package:compoise/save_protocol.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'wp15_c2_test_support.dart';
+import 'planner_test_support.dart';
 
 /// At most one floating layer is ever up: a dialog, the selection bar, or the
 /// opened task pool. Never two of them, and never a toast.

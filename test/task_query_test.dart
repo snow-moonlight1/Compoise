@@ -446,7 +446,7 @@ void main() {
       expect(stopwatch.elapsedMilliseconds, lessThan(200));
     });
 
-    test('WP13-A-N: keyword search matches parent and subtask notesMarkdown', () {
+    test('keyword search matches parent and subtask notesMarkdown', () {
       final t1 = Task(
         id: 't-note-parent',
         boardId: 'b-a',
@@ -540,7 +540,7 @@ void main() {
       expect(resZhSub.single.matchedSubtask!.id, 's-zh-sub');
     });
 
-    test('WP13-A-N: keyword search strictly does NOT match reasoning', () {
+    test('keyword search strictly does NOT match reasoning', () {
       final tWithReasoning = Task(
         id: 't-reasoning',
         boardId: 'b-a',
