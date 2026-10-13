@@ -350,8 +350,8 @@ class ConnectionRequestSession {
     if (request.identity != tryModelDiscoveryIdentity(store.aiConfig)) {
       return false;
     }
-    return
-        request.model == null || store.aiConfig.model.trim() == request.model;
+    return request.model == null ||
+        store.aiConfig.model.trim() == request.model;
   }
 
   bool _isLive(Store store, _ConnectionRequest request) =>
@@ -366,17 +366,12 @@ class ConnectionRequestSession {
   }
 }
 
-/// The three-step connection report: endpoint and credential, model discovery,
-/// and an explicitly confirmed generation call. Each result belongs to the
-/// identity it started with, so editing the config mid-flight retires it.
+/// One "Test connection" button and a one-line result. The result belongs
+/// to the config it started with, so editing the config mid-flight retires it.
 class TestConnectionButton extends StatefulWidget {
   final Map<String, String> t;
   final Store store;
-  const TestConnectionButton({
-    super.key,
-    required this.t,
-    required this.store,
-  });
+  const TestConnectionButton({super.key, required this.t, required this.store});
 
   @override
   State<TestConnectionButton> createState() => _TestConnectionButtonState();
@@ -412,132 +407,76 @@ class _TestConnectionButtonState extends State<TestConnectionButton> {
   Widget build(BuildContext context) {
     final t = widget.t;
     final theme = Theme.of(context);
-    final probe = _session.probe;
-    final request = _session.request;
+    final result = _session.generationResult;
     final busy = _session.isBusy;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _statusLine(
-          theme,
-          key: const ValueKey('connection-endpoint-status'),
-          label: t['connectionEndpointLabel']!,
-          step: probe?.endpointAuth,
-          idle: t['aiCheckSkipped']!,
+        OutlinedButton.icon(
+          key: const ValueKey('test-connection-btn'),
+          onPressed: busy ? null : _run,
+          icon: busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.wifi_tethering, size: 18),
+          label: Text(busy ? t['processing']! : t['testConnection']!),
         ),
-        _statusLine(
-          theme,
-          key: const ValueKey('connection-discovery-status'),
-          label: t['connectionDiscoveryLabel']!,
-          step: probe?.modelDiscovery,
-          idle: t['aiCheckSkipped']!,
-        ),
-        _statusLine(
-          theme,
-          key: const ValueKey('connection-generation-status'),
-          label: t['connectionGenerationLabel']!,
-          step: _session.generationResult,
-          idle: t['aiGenerationNotRun']!,
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              key: const ValueKey('test-connection-btn'),
-              onPressed: busy ? null : _runProbe,
-              icon:
-                  request == ConnectionRequestKind.probe
-                      ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.wifi_tethering, size: 18),
-              label: Text(
-                request == ConnectionRequestKind.probe
-                    ? t['processing']!
-                    : t['testConnection']!,
-              ),
+        if (result != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            connectionResultText(result, t),
+            key: const ValueKey('connection-result'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: connectionSucceeded(result)
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.error,
             ),
-            OutlinedButton.icon(
-              key: const ValueKey('test-generation-btn'),
-              onPressed: busy ? null : _confirmGeneration,
-              icon:
-                  request == ConnectionRequestKind.generation
-                      ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.play_circle_outline, size: 18),
-              label: Text(
-                request == ConnectionRequestKind.generation
-                    ? t['processing']!
-                    : t['testGeneration']!,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          t['testGenerationBilling']!,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
-        ),
+        ],
       ],
     );
   }
 
-  Widget _statusLine(
-    ThemeData theme, {
-    required Key key,
-    required String label,
-    required AiProbeStep? step,
-    required String idle,
-  }) {
-    final text = step == null ? idle : _stepLabel(step);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text('$label: $text', key: key, style: theme.textTheme.labelSmall),
-    );
-  }
+  /// One tap checks the key, the network and the chosen model together by
+  /// sending one very short request.
+  Future<void> _run() => _session.runGeneration(widget.store);
+}
 
-  String _stepLabel(AiProbeStep step) {
-    final known = widget.t[step.code] ?? widget.t['testFail']!;
-    if (step.status == null) return known;
-    return '$known (${step.status})';
-  }
+/// A reply that held only reasoning still proves the key, network and model.
+bool connectionSucceeded(AiProbeStep step) =>
+    step.ok ||
+    step.code == 'aiGenerationPartial' ||
+    step.code == 'aiGenerationThinkingOnly';
 
-  Future<void> _runProbe() => _session.runProbe(widget.store);
-
-  Future<void> _confirmGeneration() async {
-    if (_session.isBusy) return;
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            key: const ValueKey('generation-billing-dialog'),
-            content: Text(widget.t['testGenerationConfirm']!),
-            actions: [
-              TextButton(
-                key: const ValueKey('generation-billing-cancel'),
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(widget.t['cancel']!),
-              ),
-              TextButton(
-                key: const ValueKey('generation-billing-confirm'),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(widget.t['testGenerationConfirmAction']!),
-              ),
-            ],
-          ),
-    );
-    // Only an explicit yes starts a call that can be billed, and it starts
-    // against the config as it is once the dialog closes.
-    if (accepted != true || !mounted) return;
-    await _session.runGeneration(widget.store);
+/// One short, plain sentence for the connection test result.
+String connectionResultText(AiProbeStep step, Map<String, String> t) {
+  if (connectionSucceeded(step)) return t['testOk']!;
+  final status = step.status;
+  switch (step.code) {
+    case 'aiUnauthorized':
+      return t['aiUnauthorized']!;
+    case 'aiNetworkError':
+    case 'requestTimeout':
+      return t['connFailNetwork']!;
+    case 'aiMissingModel':
+      return t['aiMissingModel']!;
+    case 'aiInvalidUrl':
+    case 'aiMissingConfig':
+      return t[step.code] ?? t['connFailAddress']!;
+    case 'aiInvalidResponse':
+      return t['connFailAddress']!;
+    case 'aiGenerationEmpty':
+      return t['aiGenerationEmpty']!;
+    case 'aiHttpError':
+      if (status == 402 || status == 429) return t['connFailQuota']!;
+      if (status == 400 || status == 404 || status == 422) {
+        return t['connFailModel']!;
+      }
+      if (status != null && status >= 500) return t['connFailServer']!;
+      return t['aiHttpError']!;
   }
+  return t[step.code] ?? t['testFail']!;
 }

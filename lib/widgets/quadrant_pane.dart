@@ -219,10 +219,16 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                   )
                 : null,
           ),
-          child: Column(
+          child: LayoutBuilder(
+            builder: (context, box) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              InkWell(
+              // A very short pane (large text in a narrow split) clips the
+              // header instead of overflowing the column.
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: box.maxHeight),
+                child: ClipRect(
+              child: InkWell(
                 key: ValueKey('quadrant-header-$q'),
                 onTap: widget.onQuadrantTap,
                 child: Padding(
@@ -242,7 +248,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                         child: OrphanSqueeze(
                           child: Text(
                             t[titleKey]!,
-                            maxLines: 2,
+                            // Long English titles at 360dp with 1.3x
+                            // system text need a third line.
+                            maxLines: 3,
                             overflow: TextOverflow.visible,
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
@@ -275,6 +283,8 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                       ],
                     ],
                   ),
+                ),
+              ),
                 ),
               ),
               Expanded(
@@ -328,6 +338,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                         ),
               ),
             ],
+          ),
           ),
         );
       },

@@ -1558,15 +1558,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           );
           if (NeumorphicSkin.maybeOf(context) != null) {
-            return neuSlab(
-              context,
-              inset: true,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+            // No side gutter: the tip lines up with the fields above.
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: neuSlab(
+                context,
+                inset: true,
+                gutter: 0,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: tip,
                 ),
-                child: tip,
               ),
             );
           }
@@ -1831,7 +1836,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   TextAlignVertical? get _fieldAlign =>
-      NeumorphicSkin.maybeOf(context) == null ? null : TextAlignVertical.top;
+      // Bottom keeps the value 12px above the well floor; the 28px top pad
+      // minus the 16px label band leaves the same gap above it.
+      NeumorphicSkin.maybeOf(context) == null ? null : TextAlignVertical.bottom;
 
   InputDecoration _inputDecoration({
     String? labelText,
@@ -1849,7 +1856,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Nudge it down so it sits on the same line as the value.
       suffixIcon: suffixIcon == null || !neu || menu
           ? suffixIcon
-          : Padding(padding: const EdgeInsets.only(top: 12), child: suffixIcon),
+          : Padding(padding: const EdgeInsets.only(top: 16), child: suffixIcon),
       filled: menu && neu ? false : null,
       border: menu && neu ? none : null,
       enabledBorder: menu && neu ? none : null,
@@ -1857,9 +1864,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       errorBorder: menu && neu ? none : null,
       focusedErrorBorder: menu && neu ? none : null,
       disabledBorder: menu && neu ? none : null,
-      contentPadding: menu && neu
+      // The well starts 16px below the field top (label band), so 28/12
+      // centers the value and the hint inside the well.
+      contentPadding: !neu
+          ? null
+          : menu
           ? const EdgeInsets.symmetric(horizontal: 16, vertical: 16)
-          : null,
+          : const EdgeInsets.fromLTRB(16, 28, 16, 12),
     );
   }
 

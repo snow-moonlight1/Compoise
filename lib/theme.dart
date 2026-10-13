@@ -711,6 +711,10 @@ ButtonStyle _neuActionStyle({
     ),
     foregroundBuilder: _squeezeButtonLabel,
     backgroundBuilder: (context, states, child) {
+      // The text selection toolbar (copy / paste) reuses TextButton inside a
+      // fixed 44px strip. The gutter and slab padding would take 36px of it
+      // and clip the label, so those buttons stay flat on the toolbar.
+      if (_inSelectionToolbar(context)) return child ?? const SizedBox();
       final pressed = states.contains(WidgetState.pressed);
       return Padding(
         padding: EdgeInsets.all(gutter),
@@ -724,6 +728,11 @@ ButtonStyle _neuActionStyle({
     },
   );
 }
+
+bool _inSelectionToolbar(BuildContext context) =>
+    context.findAncestorWidgetOfExactType<TextSelectionToolbar>() != null ||
+    context.findAncestorWidgetOfExactType<DesktopTextSelectionToolbar>() !=
+        null;
 
 ThemeData applyNeumorphic(ThemeData theme) {
   final accent = theme.colorScheme.primary;

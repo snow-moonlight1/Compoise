@@ -500,6 +500,7 @@ void main() {
       final store = await _openUiStore(tester, gated.service);
       await _pumpSettings(tester, store);
       final connection = find.byKey(const ValueKey('test-connection-btn'));
+      final result = find.byKey(const ValueKey('connection-result'));
       await _reveal(tester, connection);
 
       final t = store.t;
@@ -507,16 +508,14 @@ void main() {
       await tester.pump();
       expect(_onPressed(connection, tester), isNull);
       expect(_buttonLabel(connection, tester), t['processing']!);
-      gated.answer(0, _models());
-      await _flush(tester);
+      await _reply(tester, gated, 0, _pong());
       expect(_onPressed(connection, tester), isNotNull);
-      expect(_status(tester, 'connection-endpoint-status'), isNotNull);
+      expect(tester.widget<Text>(result).data, t['testOk']);
 
       // Re-test, then change the key while that reply is still on its way.
       await tester.tap(connection);
       await tester.pump();
       expect(_onPressed(connection, tester), isNull);
-      expect(_buttonLabel(connection, tester), t['processing']!);
       await tester.enterText(
         find.byKey(const ValueKey('api-key-input')),
         _otherSecret,
@@ -527,52 +526,11 @@ void main() {
       expect(_onPressed(connection, tester), isNotNull);
       expect(_buttonLabel(connection, tester), t['testConnection']!);
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(
-        _status(tester, 'connection-endpoint-status'),
-        isNot(contains('200')),
-      );
+      expect(result, findsNothing);
       await _reply(tester, gated, 1, _unauthorized());
       expect(_onPressed(connection, tester), isNotNull);
-      // The abandoned answer is not shown as the current endpoint's result.
-      expect(
-        _status(tester, 'connection-endpoint-status'),
-        isNot(contains('401')),
-      );
-      await _close(tester);
-    });
-
-    testWidgets('changing the endpoint mid-generation frees the panel', (
-      tester,
-    ) async {
-      final gated = _Gated();
-      final store = await _openUiStore(tester, gated.service);
-      await _pumpSettings(tester, store);
-      final generation = find.byKey(const ValueKey('test-generation-btn'));
-      await _reveal(tester, generation);
-
-      await tester.tap(generation);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('generation-billing-confirm')),
-      );
-      await tester.pump();
-      expect(_onPressed(generation, tester), isNull);
-
-      await tester.enterText(
-        find.byKey(const ValueKey('api-key-input')),
-        _otherSecret,
-      );
-      await tester.pump();
-      expect(_onPressed(generation, tester), isNotNull);
-      expect(
-        _onPressed(find.byKey(const ValueKey('test-connection-btn')), tester),
-        isNotNull,
-      );
-      await _reply(tester, gated, 0, _pong());
-      expect(
-        _status(tester, 'connection-generation-status'),
-        contains(store.t['aiGenerationNotRun']!),
-      );
+      // The abandoned answer is not shown as the current key's result.
+      expect(result, findsNothing);
       await _close(tester);
     });
 
@@ -594,35 +552,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('dismissing the billing dialog never generates', (
+    testWidgets('one tap sends one short request and says so plainly', (
       tester,
     ) async {
       final gated = _Gated();
       final store = await _openUiStore(tester, gated.service);
       await _pumpSettings(tester, store);
-      final generation = find.byKey(const ValueKey('test-generation-btn'));
-      await _reveal(tester, generation);
+      final connection = find.byKey(const ValueKey('test-connection-btn'));
+      await _reveal(tester, connection);
+      expect(find.byKey(const ValueKey('test-generation-btn')), findsNothing);
+      expect(find.text(store.t['testGenerationBilling']!), findsNothing);
 
-      await tester.tap(generation);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('generation-billing-dialog')),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const ValueKey('generation-billing-cancel')));
-      await tester.pumpAndSettle();
-      expect(gated.requests, isEmpty);
-      expect(_onPressed(generation, tester), isNotNull);
-
-      await tester.tap(generation);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('generation-billing-confirm')),
-      );
+      await tester.tap(connection);
       await _reply(tester, gated, 0, _pong());
       expect(
-        _status(tester, 'connection-generation-status'),
-        contains(store.t['aiGenerationOk']!),
+        tester
+            .widget<Text>(find.byKey(const ValueKey('connection-result')))
+            .data,
+        store.t['testOk'],
       );
       expect(gated.requests, ['POST /chat/completions']);
       await _close(tester);
@@ -675,5 +622,3 @@ String _buttonLabel(Finder button, WidgetTester tester) => tester
     .widget<Text>(find.descendant(of: button, matching: find.byType(Text)))
     .data!;
 
-String _status(WidgetTester tester, String key) =>
-    tester.widget<Text>(find.byKey(ValueKey(key))).data!;
