@@ -450,20 +450,81 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          if ls release | grep -q windows-arm64-setup.exe; then ARM64='`*-windows-arm64-portable.zip`, `*-windows-arm64-setup.exe`'; else ARM64='not provided in this release (the pinned Flutter version cannot build Windows ARM64)'; fi
+          set -euo pipefail
+          setup=$(ls release/compoise-*-windows-x64-setup.exe | head -1)
+          VER=$(basename "$setup")
+          VER=${VER#compoise-}
+          VER=${VER%-windows-x64-setup.exe}
+          [ -n "$VER" ] || { echo "Could not resolve version label from Windows setup artifact"; exit 1; }
+          if ls release | grep -q 'windows-arm64-setup.exe'; then
+            WIN_ARM64_ZH="另有 ARM64：\`compoise-${VER}-windows-arm64-setup.exe\` / \`…-portable.zip\`。"
+            WIN_ARM64_EN="Also includes ARM64: \`compoise-${VER}-windows-arm64-setup.exe\` / \`…-portable.zip\`."
+          else
+            WIN_ARM64_ZH="本版本暂无 Windows ARM64。"
+            WIN_ARM64_EN="Windows ARM64 is not included in this release."
+          fi
           cat > notes.md <<NOTES
-          Draft created by the release workflow for ${TAG}. Review before publishing.
+          ## 方寸 · Compoise ${TAG}
 
-          | Platform | Files | Notes |
-          |---|---|---|
-          | Windows x64 | \`*-windows-x64-portable.zip\`, \`*-windows-x64-setup.exe\` | Not code-signed yet; SmartScreen may warn (More info → Run anyway). |
-          | Windows ARM64 | ${ARM64} | Best effort. |
-          | Linux x64 | \`.deb\`, \`.rpm\`, \`.AppImage\` | Needs GTK 3, libsecret, Ayatana AppIndicator; CJK fonts recommended; keyring optional. |
-          | Android | \`armeabi-v7a\`, \`arm64-v8a\`, \`universal\` (adds x86_64) APK | Signed with the release key; certificate checked against the pinned SHA-256. |
+          方寸（Compoise）是一款本地优先的任务管理应用：以艾森豪威尔四象限理清轻重缓急，并支持日程安排。面向 Android 与 Windows，另提供 Linux 桌面预览版。
 
-          Screenshot import (local OCR): the native runtime is included; the PP-OCRv5 model (~11 MB, Apache-2.0) is downloaded on first use and verified by SHA-256.
+          ### 主要功能
 
-          Verify downloads with \`sha256sum -c SHA256SUMS.txt\`. License: GPL-3.0-only.
+          - **四象限任务**：按重要/紧急整理，支持多任务板、子项、截止日期与提醒
+          - **日程页**：日/周视图，把任务拖到时间线安排时间
+          - **截图本地识别**：从截图识别文字并导入为任务；识别在本机完成，首次使用需下载约 11 MB 模型
+          - **可选 AI（自备密钥）**：分类、分组与拆解；普通待办可离线使用
+          - **手动备份**：通过 JSON 导入/导出
+
+          ### 下载指引
+
+          | 平台 | 下载哪个文件 |
+          |---|---|
+          | **Windows** | 安装版：\`compoise-${VER}-windows-x64-setup.exe\`；便携版：\`compoise-${VER}-windows-x64-portable.zip\`（解压后运行 \`compoise.exe\`）。${WIN_ARM64_ZH} |
+          | **Android** | 一般手机选 \`…-android-arm64-v8a.apk\`；较旧 32 位手机选 \`…-android-armeabi-v7a.apk\`；不确定或模拟器/Chromebook 选 \`…-android-universal.apk\`。 |
+          | **Linux x64** | Ubuntu / Debian：\`…-linux-amd64.deb\`；Fedora / openSUSE：\`…-linux-x86_64.rpm\`；其他发行版：\`…-linux-x86_64.AppImage\`。\`.deb\` 用 Debian 惯用的 \`amd64\` 命名，\`.rpm\` / AppImage 用 \`x86_64\`，都是 64 位 x86。 |
+
+          **Windows 未签名说明**：目前安装包未做代码签名。若出现「Windows 已保护你的电脑」，请确认文件来自本 Releases 页面后，点击 **更多信息 → 仍要运行**。
+
+          **校验**：下载同目录的 \`SHA256SUMS.txt\`，在解压/安装前执行：
+
+          \`\`\`sh
+          sha256sum -c SHA256SUMS.txt
+          \`\`\`
+
+          许可证：GPL-3.0-only。
+
+          ---
+
+          ## Compoise ${TAG}
+
+          Compoise is a local-first task manager built around the Eisenhower matrix, with a planner/schedule view. Supported on Android and Windows, with a Linux desktop preview.
+
+          ### Highlights
+
+          - **Eisenhower matrix**: organize by importance/urgency; boards, sub-items, due dates, and reminders
+          - **Planner**: day/week views; drag tasks onto the timeline
+          - **Screenshot import (on-device OCR)**: turn screenshot text into tasks locally; first use downloads an ~11 MB model
+          - **Optional AI (bring your own key)**: classify, group, and break down tasks; everyday todos work offline
+          - **Manual backup**: import/export via JSON
+
+          ### Which file to download
+
+          | Platform | File |
+          |---|---|
+          | **Windows** | Installer: \`compoise-${VER}-windows-x64-setup.exe\`; portable: \`compoise-${VER}-windows-x64-portable.zip\` (run \`compoise.exe\` after unzip). ${WIN_ARM64_EN} |
+          | **Android** | Most phones: \`…-android-arm64-v8a.apk\`; older 32-bit devices: \`…-android-armeabi-v7a.apk\`; unsure / emulator / Chromebook: \`…-android-universal.apk\`. |
+          | **Linux x64** | Ubuntu/Debian: \`…-linux-amd64.deb\`; Fedora/openSUSE: \`…-linux-x86_64.rpm\`; other distros: \`…-linux-x86_64.AppImage\`. The \`.deb\` uses the Debian \`amd64\` name; \`.rpm\` / AppImage use \`x86_64\`—both are 64-bit x86. |
+
+          **Unsigned Windows builds**: packages are not code-signed yet. If SmartScreen shows “Windows protected your PC”, confirm the file is from this Releases page, then choose **More info → Run anyway**.
+
+          **Verify**:
+
+          \`\`\`sh
+          sha256sum -c SHA256SUMS.txt
+          \`\`\`
+
+          License: GPL-3.0-only.
           NOTES
 
       - name: Create draft release
