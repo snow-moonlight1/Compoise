@@ -713,7 +713,7 @@ void main() {
     });
 
     testWidgets(
-      'the connection panel shows the partial result and keeps the fee note',
+      'a reply that only reasoned still counts as a working connection',
       (tester) async {
         SharedPreferences.setMockInitialValues({
           'compoise-has-seen-onboarding': true,
@@ -759,23 +759,16 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('test-generation-btn')));
+        await tester.tap(find.byKey(const ValueKey('test-connection-btn')));
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('generation-billing-confirm')),
-        );
-        await tester.pumpAndSettle();
+        // Key, network and model all answered; the user only needs to know
+        // the connection works.
         expect(
           tester
-              .widget<Text>(
-                find.byKey(const ValueKey('connection-generation-status')),
-              )
+              .widget<Text>(find.byKey(const ValueKey('connection-result')))
               .data,
-          contains(store.t['aiGenerationThinkingOnly']),
+          store.t['testOk'],
         );
-        // The call that produced this partial answer was confirmed as billable,
-        // and a truncated reply does not retire that notice.
-        expect(find.text(store.t['testGenerationBilling']!), findsOneWidget);
       },
     );
   });

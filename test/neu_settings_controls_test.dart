@@ -107,7 +107,7 @@ void main() {
     expect(refresh.left, greaterThan(apiBox.left));
 
     final field = tester.widget<TextField>(apiKey);
-    expect(field.textAlignVertical, TextAlignVertical.top);
+    expect(field.textAlignVertical, TextAlignVertical.bottom);
     final decorator = tester.widget<InputDecorator>(
       find.descendant(of: apiKey, matching: find.byType(InputDecorator)),
     );
@@ -115,7 +115,7 @@ void main() {
       theme.inputDecorationTheme,
     );
     expect(resolved.enabledBorder, isA<NeuInputBorder>());
-    expect(resolved.contentPadding!.resolve(TextDirection.ltr).top, 26);
+    expect(resolved.contentPadding!.resolve(TextDirection.ltr).top, 28);
 
     final label = tester.getRect(find.text(store.t['customApiKey']!));
     final hint = tester.getRect(find.text('sk-...'));

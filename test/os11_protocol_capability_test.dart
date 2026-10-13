@@ -629,7 +629,7 @@ void main() {
   );
 
   testWidgets(
-    'startup and blur do not generate; generation waits for confirmation',
+    'startup and blur do not generate; only the test button does',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(900, 2400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -685,50 +685,13 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('test-connection-btn')));
       await tester.pumpAndSettle();
-      expect(calls.where((call) => call == 'POST'), isEmpty);
-      expect(
-        tester
-            .widget<Text>(
-              find.byKey(const ValueKey('connection-discovery-status')),
-            )
-            .data,
-        contains(store.t['aiDiscoveryOk']),
-      );
-      expect(
-        tester
-            .widget<Text>(
-              find.byKey(const ValueKey('connection-generation-status')),
-            )
-            .data,
-        contains(store.t['aiGenerationNotRun']),
-      );
-
-      await tester.tap(find.byKey(const ValueKey('test-generation-btn')));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('generation-billing-dialog')),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const ValueKey('generation-billing-cancel')));
-      await tester.pumpAndSettle();
-      expect(calls.where((call) => call == 'POST'), isEmpty);
-
-      await tester.tap(find.byKey(const ValueKey('test-generation-btn')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('generation-billing-confirm')),
-      );
-      await tester.pumpAndSettle();
       expect(calls.where((call) => call == 'POST'), ['POST']);
       expect(
         tester
-            .widget<Text>(
-              find.byKey(const ValueKey('connection-generation-status')),
-            )
+            .widget<Text>(find.byKey(const ValueKey('connection-result')))
             .data,
-        contains(store.t['aiGenerationOk']),
+        store.t['testOk'],
       );
-      expect(find.text(store.t['testOk']!), findsNothing);
     },
   );
 
@@ -756,13 +719,11 @@ void main() {
     );
     await tester.pump();
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('test-generation-btn')),
+      find.byKey(const ValueKey('test-connection-btn')),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.byKey(const ValueKey('test-generation-btn')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('generation-billing-confirm')));
+    await tester.tap(find.byKey(const ValueKey('test-connection-btn')));
     await tester.pump();
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('api-key-input')),
@@ -787,13 +748,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<Text>(
-            find.byKey(const ValueKey('connection-generation-status')),
-          )
-          .data,
-      contains(store.t['aiGenerationNotRun']),
-    );
+    expect(find.byKey(const ValueKey('connection-result')), findsNothing);
   });
 }

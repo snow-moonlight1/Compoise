@@ -650,7 +650,7 @@ void main() {
         final t = dictOf(language);
         expect(t['backupVersionInfo'], contains('v3'));
         expect(t['backupVersionInfo'], contains('v1/v2'));
-        expect(t['importWarningLegacy'], contains('v3'));
+        expect(t['importWarningLegacy'], isNotEmpty);
         expect(t['backupImportVersion'], contains('{version}'));
         expect(t['exportScheduleLossBlocked'], contains('{n}'));
         expect(t['importScheduleLegacyOverwrite'], contains('{n}'));

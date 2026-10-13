@@ -77,11 +77,11 @@ void main() {
       }
     });
 
-    test('AI copy names the endpoint the task text is sent to', () {
+    test('AI copy names the provider the task text is sent to', () {
       const marker = {
-        Language.en: 'endpoint',
-        Language.zh: '端点',
-        Language.ja: 'エンドポイント',
+        Language.en: 'AI provider you chose',
+        Language.zh: '你选的 AI 服务商',
+        Language.ja: '選んだ AI サービス',
       };
       for (final lang in languages) {
         final dict = dictOf(lang);
