@@ -9,17 +9,30 @@ Future<void> showBatchDecomposeSheet(
   BuildContext context,
   List<Task> tasks, {
   bool autoStart = false,
+  void Function(List<String> subtaskTitles)? onSubtasks,
 }) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  builder: (_) => _DecomposeSheet(tasks: tasks, autoStart: autoStart),
+  builder: (_) => _DecomposeSheet(
+    tasks: tasks,
+    autoStart: autoStart,
+    onSubtasks: onSubtasks,
+  ),
 );
 
 class _DecomposeSheet extends StatefulWidget {
   final List<Task> tasks;
   final bool autoStart;
-  const _DecomposeSheet({required this.tasks, required this.autoStart});
+
+  /// When set (one task being edited in an open sheet), the generated
+  /// subtask titles go to the caller's unsaved draft instead of the Store.
+  final void Function(List<String> subtaskTitles)? onSubtasks;
+  const _DecomposeSheet({
+    required this.tasks,
+    required this.autoStart,
+    this.onSubtasks,
+  });
   @override
   State<_DecomposeSheet> createState() => _DecomposeSheetState();
 }
@@ -124,8 +137,10 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
   Future<void> _run() async {
     if (_busy || _closed) return;
     final store = context.read<Store>();
-    final picked =
-        store.tasks
+    final onSubtasks = widget.onSubtasks;
+    final picked = onSubtasks != null
+        ? widget.tasks
+        : store.tasks
             .where(
               (task) =>
                   _selected.contains(task.id) &&
@@ -157,6 +172,15 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
         )) {
           throw const AIException('aiInvalidResponse');
         }
+      }
+      if (onSubtasks != null) {
+        onSubtasks(
+          results
+              .firstWhere((r) => r.originalTitle == picked.first.title)
+              .subtasks,
+        );
+        Navigator.pop(context);
+        return;
       }
       for (final task in picked) {
         final current = store.tasks.where((t) => t.id == task.id).firstOrNull;

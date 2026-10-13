@@ -78,7 +78,8 @@ class PlannerTaskPool extends StatefulWidget {
   State<PlannerTaskPool> createState() => _PlannerTaskPoolState();
 }
 
-class _PlannerTaskPoolState extends State<PlannerTaskPool> {
+class _PlannerTaskPoolState extends State<PlannerTaskPool>
+    with TickerProviderStateMixin {
   final _pages = PageController();
   final _scrolls = {for (final q in allQuadrants) q: ScrollController()};
   int _quadrant = qDo;
@@ -105,6 +106,25 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
   @override
   void didUpdateWidget(PlannerTaskPool oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // The bar height is fixed in pixels, so its fraction changes with the
+    // page height (keyboard up or down). The sheet keeps its fraction once
+    // it has moved, which would leave a folded pool part-raised at the old
+    // fraction, so a folded pool follows the new bar size.
+    if (widget.minSize != oldWidget.minSize && !widget.docked) {
+      final controller = widget.controller;
+      final wasFolded =
+          controller.isAttached && controller.size <= oldWidget.minSize + 0.02;
+      if (wasFolded) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              controller.isAttached &&
+              controller.size > widget.minSize &&
+              controller.size <= oldWidget.minSize + 0.02) {
+            controller.jumpTo(widget.minSize);
+          }
+        });
+      }
+    }
     final id = widget.highlightTaskId;
     if (id == null) _focusId = null;
     if (id != null &&
@@ -118,6 +138,7 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
 
   @override
   void dispose() {
+    _stopSheetMotion();
     _dockAnchor.dispose();
     _pages.dispose();
     _pointer.dispose();
@@ -161,8 +182,12 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     if (task == null) return;
     setState(() => _focusId = taskId);
     _select(task.quadrant);
-    // Never taller than the usual opened height.
-    if (_isCollapsed) _expand(plannerPoolOpenSize);
+    // Up to the usual opened height, never taller. Anything lower than that
+    // (folded, or part-raised) would hide the task being pointed out.
+    if (!widget.controller.isAttached ||
+        widget.controller.size < plannerPoolOpenSize - 0.01) {
+      _expand(plannerPoolOpenSize);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final list = _scrolls[task!.quadrant];
       if (list != null && list.hasClients) list.jumpTo(0);
@@ -795,22 +820,48 @@ class _PlannerTaskPoolState extends State<PlannerTaskPool> {
     _animate(math.max(size, widget.minSize));
   }
 
+  AnimationController? _sheetMotion;
+
+  void _stopSheetMotion() {
+    _sheetMotion?.dispose();
+    _sheetMotion = null;
+  }
+
+  /// Moves the sheet with this pool's own ticker, one jump per frame.
+  ///
+  /// DraggableScrollableController.animateTo runs on the sheet's inner scroll
+  /// position and is dropped without a trace whenever that position is
+  /// rebuilt. That happens on any app theme rebuild (every Store change, such
+  /// as saving the edit draft on the way here, makes a new ThemeData), so
+  /// the pool stopped at its bar while the task was already highlighted.
   void _animate(double size) {
     if (widget.docked) return;
+    final controller = widget.controller;
+    _stopSheetMotion();
     if (_reduceMotion) {
-      widget.controller.jumpTo(size);
+      controller.jumpTo(size);
       return;
     }
-    widget.controller.animateTo(
-      size,
+    final from = controller.size;
+    final motion = AnimationController(
+      vsync: this,
       duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
     );
+    _sheetMotion = motion;
+    motion.addListener(() {
+      if (!controller.isAttached) return;
+      final t = Curves.easeOutCubic.transform(motion.value);
+      controller.jumpTo(from + (size - from) * t);
+    });
+    motion.forward().whenComplete(() {
+      if (identical(_sheetMotion, motion)) _stopSheetMotion();
+    });
   }
 
   void _dragSheet(double? delta) {
     if (widget.docked) return;
     if (delta == null || !widget.controller.isAttached) return;
+    _stopSheetMotion();
     final height = widget.controller.pixelsToSize(delta);
     widget.controller.jumpTo(
       (widget.controller.size - height).clamp(

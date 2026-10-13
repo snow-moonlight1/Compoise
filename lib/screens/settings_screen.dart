@@ -1248,7 +1248,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       const SizedBox(height: 12),
       TextField(
         key: const ValueKey('api-key-input'),
-        textAlignVertical: _fieldAlign,
         autocorrect: false,
         enableSuggestions: false,
         decoration: _inputDecoration(
@@ -1377,7 +1376,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ] else ...[
         TextField(
           key: const ValueKey('model-input'),
-          textAlignVertical: _fieldAlign,
           decoration: _inputDecoration(
             labelText: t['customModel'],
             hintText: preset.defaultModel.isNotEmpty
@@ -1468,7 +1466,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 12),
         TextField(
           key: const ValueKey('base-url-input'),
-          textAlignVertical: _fieldAlign,
           autocorrect: false,
           keyboardType: TextInputType.url,
           decoration: _inputDecoration(
@@ -1508,7 +1505,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
               TextField(
                 key: const ValueKey('base-url-input'),
-                textAlignVertical: _fieldAlign,
                 autocorrect: false,
                 keyboardType: TextInputType.url,
                 decoration: _inputDecoration(
@@ -1835,11 +1831,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  TextAlignVertical? get _fieldAlign =>
-      // Bottom keeps the value 12px above the well floor; the 28px top pad
-      // minus the 16px label band leaves the same gap above it.
-      NeumorphicSkin.maybeOf(context) == null ? null : TextAlignVertical.bottom;
-
   InputDecoration _inputDecoration({
     String? labelText,
     String? hintText,
@@ -1852,11 +1843,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       labelText: labelText,
       hintText: hintText,
       floatingLabelBehavior: FloatingLabelBehavior.always,
-      // The icon is centered on the whole field, including the label band.
-      // Nudge it down so it sits on the same line as the value.
-      suffixIcon: suffixIcon == null || !neu || menu
-          ? suffixIcon
-          : Padding(padding: const EdgeInsets.only(top: 16), child: suffixIcon),
+      suffixIcon: suffixIcon,
       filled: menu && neu ? false : null,
       border: menu && neu ? none : null,
       enabledBorder: menu && neu ? none : null,
@@ -1864,13 +1851,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       errorBorder: menu && neu ? none : null,
       focusedErrorBorder: menu && neu ? none : null,
       disabledBorder: menu && neu ? none : null,
-      // The well starts 16px below the field top (label band), so 28/12
-      // centers the value and the hint inside the well.
-      contentPadding: !neu
-          ? null
-          : menu
+      contentPadding: menu && neu
           ? const EdgeInsets.symmetric(horizontal: 16, vertical: 16)
-          : const EdgeInsets.fromLTRB(16, 28, 16, 12),
+          : null,
     );
   }
 

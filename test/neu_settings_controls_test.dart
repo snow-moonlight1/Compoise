@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import 'helpers.dart';
 import 'support/settings_panels.dart';
+import 'support/field_center_probe.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -106,8 +107,6 @@ void main() {
     expect(refresh.right, lessThanOrEqualTo(apiBox.right + 1));
     expect(refresh.left, greaterThan(apiBox.left));
 
-    final field = tester.widget<TextField>(apiKey);
-    expect(field.textAlignVertical, TextAlignVertical.bottom);
     final decorator = tester.widget<InputDecorator>(
       find.descendant(of: apiKey, matching: find.byType(InputDecorator)),
     );
@@ -115,7 +114,8 @@ void main() {
       theme.inputDecorationTheme,
     );
     expect(resolved.enabledBorder, isA<NeuInputBorder>());
-    expect(resolved.contentPadding!.resolve(TextDirection.ltr).top, 28);
+    // Value and hint centered in the well (geometry, not a padding value).
+    expect(offCenterFields(tester), isEmpty);
 
     final label = tester.getRect(find.text(store.t['customApiKey']!));
     final hint = tester.getRect(find.text('sk-...'));

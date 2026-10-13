@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'danger_button_style.dart';
 import '../models.dart';
 import '../services/desktop_exit_coordinator.dart';
 
@@ -93,9 +94,7 @@ Future<DesktopExitSaveChoice> showDesktopExitSaveProblem(
         ),
         FilledButton(
           key: const ValueKey('exit-without-saving'),
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(dialogContext).colorScheme.error,
-          ),
+          style: dangerButtonStyle(dialogContext),
           onPressed: () => Navigator.pop(
             dialogContext,
             DesktopExitSaveChoice.exitWithoutSaving,

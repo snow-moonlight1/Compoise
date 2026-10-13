@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/danger_button_style.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -398,9 +399,7 @@ class _TaskListViewState extends State<TaskListView> {
             child: Text(t['cancel']!),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: dangerButtonStyle(context),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(t['confirm']!),
           ),

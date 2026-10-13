@@ -1,4 +1,5 @@
 import 'reminder_failure_banner.dart';
+import '../ui/danger_button_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -31,9 +32,7 @@ Future<bool> confirmDiscardDraft(BuildContext context) async {
           child: Text(t['keepEditing'] ?? 'Keep Editing'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(ctx).colorScheme.error,
-          ),
+          style: dangerButtonStyle(ctx),
           onPressed: () => Navigator.pop(ctx, true),
           child: Text(t['discard'] ?? 'Discard'),
         ),
@@ -123,11 +122,7 @@ Future<void> showTaskEditSheet(
   BuildContext context,
   Task task, {
   Future<void> Function(String taskId)? onScheduleTime,
-}) => showTaskDetailSheet(
-  context,
-  task,
-  onScheduleTime: onScheduleTime,
-);
+}) => showTaskDetailSheet(context, task, onScheduleTime: onScheduleTime);
 
 /// Which task a page shows in its detail editor, whether that editor holds an
 /// unsaved draft, and what it takes to switch away or leave. Pages keep their
@@ -514,9 +509,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
             child: Text(t['cancel']!),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: dangerButtonStyle(context),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(t['confirm']!),
           ),
@@ -584,6 +577,14 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     );
     if (mounted && value != null) _draft.notesController.text = value;
     Future<void>.delayed(const Duration(milliseconds: 350), controller.dispose);
+  }
+
+  void _addGeneratedSubtasks(List<String> titles) {
+    if (!mounted) return;
+    _draft.subtasks.addAll(
+      titles.map((title) => SubTask(id: newId(), title: title)),
+    );
+    _onDraftChanged();
   }
 
   void _addSubtask() {
@@ -1082,7 +1083,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                               children: [
                                 for (final q in allQuadrants)
                                   ChoiceChip(
-          showCheckmark: false,
+                                    showCheckmark: false,
                                     label: Text(t['q$q']!),
                                     selected: _draft.quadrant == q,
                                     onSelected: (_) {
@@ -1201,9 +1202,17 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                                   ),
                                   label: Text(t['decomposeTask'] ?? 'AI'),
                                   onPressed: () {
-                                    showBatchDecomposeSheet(context, [
-                                      widget.task,
-                                    ], autoStart: true);
+                                    final draftTask =
+                                        Task.fromJson(widget.task.toJson())
+                                          ..title = _draft.title.isEmpty
+                                              ? widget.task.title
+                                              : _draft.title;
+                                    showBatchDecomposeSheet(
+                                      context,
+                                      [draftTask],
+                                      autoStart: true,
+                                      onSubtasks: _addGeneratedSubtasks,
+                                    );
                                   },
                                 ),
                               ],
