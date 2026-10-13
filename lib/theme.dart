@@ -1208,3 +1208,41 @@ Widget neuSlab(
     ),
   );
 }
+
+/// Neumorphic labelled fields: [NeuInputBorder] drops the well 16px below the
+/// field top to leave room for the floating label, but the decorator centers
+/// the value on the whole field, so it sits against the top of the well.
+/// These helpers center a floating-label value inside the well. Outside the
+/// neumorphic skin they return their input unchanged.
+const _neuLabelledPadding = EdgeInsets.fromLTRB(16, 28, 16, 12);
+
+/// For a labelled [TextField]; pair with [neuLabelledAlign].
+InputDecoration neuLabelledDecoration(
+  BuildContext context,
+  InputDecoration decoration,
+) => NeumorphicSkin.maybeOf(context) == null
+    ? decoration
+    : decoration.copyWith(contentPadding: _neuLabelledPadding);
+
+TextAlignVertical? neuLabelledAlign(BuildContext context) =>
+    NeumorphicSkin.maybeOf(context) == null ? null : TextAlignVertical.bottom;
+
+/// For a [DropdownButtonFormField] with a value (its label floats). The
+/// decorator ignores padding when centering, so the selected item is pushed
+/// down by the label band with [neuDropdownPadding] instead.
+InputDecoration neuDropdownDecoration(
+  BuildContext context,
+  InputDecoration decoration, {
+  required bool hasValue,
+}) => NeumorphicSkin.maybeOf(context) == null || !hasValue
+    ? decoration
+    : decoration.copyWith(
+        contentPadding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      );
+
+EdgeInsetsGeometry? neuDropdownPadding(
+  BuildContext context, {
+  required bool hasValue,
+}) => NeumorphicSkin.maybeOf(context) == null || !hasValue
+    ? null
+    : const EdgeInsets.only(top: 16);

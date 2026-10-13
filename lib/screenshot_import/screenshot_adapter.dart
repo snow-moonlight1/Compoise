@@ -98,6 +98,7 @@ final class ScreenshotDraftAdapter {
     final dropped = <Map<String, dynamic>>[];
     final notes = <String>[];
     final used = <int>{};
+    final plainRows = <int, List<int>>{};
     final sortedMarks = List<GutterMark>.of(marks)
       ..sort((a, b) => a.box[1].compareTo(b.box[1]));
     for (final (r, group) in groups.indexed) {
@@ -117,14 +118,21 @@ final class ScreenshotDraftAdapter {
             i,
       ];
       final minX = members.map((i) => lines[i].box[0]).reduce(math.min);
+      final text = members.map((i) => lines[i].text).join();
+      // The top band holds the status bar and the app's title bar. Only
+      // status bar text (time, battery, signal) is skipped as such; other
+      // top lines are headings, which a plain list can still turn into tasks.
+      final topEdge = y < .22 * w;
+      final statusBar = topEdge && _statusBarText(text);
       final legacy = <int>[
         for (final i in candidates)
           if (sortedMarks[i].sizedByWidthFraction) i,
       ];
-      // Chrome and the historical width band stay on the old path. A rescued
-      // square becomes a checkbox only when its shorter side matches the
-      // line's character height and it sits at the start of that line.
-      final rescued = y < .22 * w
+      // The top edge and the historical width band stay on the old path.
+      // A rescued square becomes a checkbox only when its shorter side
+      // matches the line's character height and it sits at the start of
+      // that line.
+      final rescued = topEdge
           ? <int>[]
           : <int>[
               for (final i in candidates)
@@ -137,7 +145,7 @@ final class ScreenshotDraftAdapter {
       final mark = markIndex == null ? null : sortedMarks[markIndex];
       final uncertain =
           mark == null &&
-          y >= .22 * w &&
+          !topEdge &&
           minX <= .5 * w &&
           candidates.any(
             (i) =>
@@ -145,15 +153,16 @@ final class ScreenshotDraftAdapter {
                 _ambiguousRescue(sortedMarks[i], lines, members),
           );
       // A chrome row must not consume a mark needed by the next real row.
-      if (markIndex != null && y >= .22 * w) used.add(markIndex);
-      final kind = y < .22 * w
+      if (markIndex != null && !topEdge) used.add(markIndex);
+      final kind = statusBar
           ? 'chrome'
+          : topEdge
+          ? 'section'
           : mark != null || uncertain
           ? 'task'
           : minX > .5 * w
           ? 'meta'
           : 'section';
-      final text = members.map((i) => lines[i].text).join();
       rows.add({
         'index': r,
         'kind': kind,
@@ -170,6 +179,7 @@ final class ScreenshotDraftAdapter {
       });
       if (kind != 'task') {
         dropped.add({'row': r, 'kind': kind, 'text': text});
+        if (kind == 'section') plainRows[r] = List<int>.of(members);
         continue;
       }
       final textMembers = members
@@ -265,6 +275,27 @@ final class ScreenshotDraftAdapter {
         '$blankOutside blank recognition box(es) were outside the image; no task was created',
       );
     }
+    // A plain list (no checkboxes anywhere) is still a to-do list: its
+    // left-aligned lines become tasks, included by default.
+    if (tasks.isEmpty && marks.isEmpty) {
+      for (final entry in plainRows.entries) {
+        final text =
+            (dropped.firstWhere((item) => item['row'] == entry.key))['text']
+                as String;
+        if (RegExp(r'^\s*[√✓✔☑☐□■]').hasMatch(text)) continue;
+        dropped.removeWhere((item) => item['row'] == entry.key);
+        rows[entry.key]['kind'] = 'task';
+        tasks.add(
+          _uncertainTask(
+            row: entry.key,
+            lines: lines,
+            members: entry.value,
+            textMembers: entry.value,
+            width: w,
+          )..['needs_confirmation'] = <String>['no checkbox; plain list line'],
+        );
+      }
+    }
     if (tasks.isEmpty) {
       notes.add('No task rows detected; review excluded candidates.');
     }
@@ -291,6 +322,20 @@ final class _Row {
 }
 
 double _center(List<double> b) => b[1] + b[3] / 2;
+
+final _statusBarWords = RegExp(
+  r'(VoLTE|LTE|[2345]G\+?|HD|Wi-?Fi|NFC|AM|PM|上午|下午|中国移动|中国联通|中国电信)',
+  caseSensitive: false,
+);
+
+/// Status bar text: a clock, battery percentage, carrier or signal labels,
+/// and symbols. Anything with ordinary words is real content.
+bool _statusBarText(String text) {
+  final rest = _usable(text).replaceAll(_statusBarWords, '');
+  if (!RegExp(r'\d').hasMatch(_usable(text)) && rest.isNotEmpty) return false;
+  return !RegExp(r'[\p{L}]', unicode: true).hasMatch(rest);
+}
+
 String _usable(String text) => text.replaceAll(
   RegExp(
     r'[\s\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]',

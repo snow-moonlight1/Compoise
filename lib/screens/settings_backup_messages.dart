@@ -15,7 +15,6 @@ String backupImportResultNotice(Map<String, String> t, ImportPlan plan) =>
 String backupImportVersionDescription(Map<String, String> t, ImportPlan plan) {
   final version = _sourceVersion(plan);
   return [
-    t['backupImportVersion']!.replaceAll('{version}', '$version'),
     t[version == 3 ? 'backupImportV3' : 'backupImportLegacy']!,
     if (version < 3 &&
         plan.mode == 'overwrite' &&

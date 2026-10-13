@@ -461,10 +461,12 @@ String connectionResultText(AiProbeStep step, Map<String, String> t) {
     case 'aiNetworkError':
     case 'requestTimeout':
       return t['connFailNetwork']!;
+    // The user is already on Settings: say what to fill in, not where.
     case 'aiMissingModel':
-      return t['aiMissingModel']!;
-    case 'aiInvalidUrl':
+      return t['connFailNoModel']!;
     case 'aiMissingConfig':
+      return t['connFailNoConfig']!;
+    case 'aiInvalidUrl':
       return t[step.code] ?? t['connFailAddress']!;
     case 'aiInvalidResponse':
       return t['connFailAddress']!;

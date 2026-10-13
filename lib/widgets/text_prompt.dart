@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme.dart' show neuLabelledAlign, neuLabelledDecoration;
+
 /// The route owns its controller through the closing animation.
 Future<String?> askText(
   BuildContext context, {
@@ -57,7 +59,11 @@ class _TextPromptState extends State<_TextPrompt> {
         controller: _controller,
         autofocus: true,
         maxLines: 1,
-        decoration: InputDecoration(labelText: widget.label),
+        textAlignVertical: neuLabelledAlign(context),
+        decoration: neuLabelledDecoration(
+          context,
+          InputDecoration(labelText: widget.label),
+        ),
         onSubmitted: (text) => Navigator.pop(context, text),
       ),
       actions: [
