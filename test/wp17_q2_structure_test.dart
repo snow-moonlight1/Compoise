@@ -278,11 +278,17 @@ void main() {
           height: 800,
         ),
       );
-      expect(noisyWire['tasks'], isEmpty);
+      // No checkbox anywhere: a plain list. Its lines become tasks without
+      // an invented checkbox; the right-hand date stays extra info.
+      final noisyTasks = noisyWire['tasks'] as List;
+      expect(noisyTasks.map((task) => task['title']), [
+        '正文没有复选框',
+        '图标和笔画都不是任务',
+      ]);
+      expect(noisyTasks.every((task) => task['checkbox_box'] == null), isTrue);
+      expect(noisyTasks.every((task) => task['checked'] == false), isTrue);
       expect((noisyWire['dropped'] as List).map((row) => row['kind']), [
-        'section',
         'meta',
-        'section',
       ]);
 
       final header = _blank(1080, 400, 248);

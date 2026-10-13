@@ -208,7 +208,8 @@ void main() {
         step('aiHttpError', status: 429): t['connFailQuota'],
         step('aiHttpError', status: 404): t['connFailModel'],
         step('aiHttpError', status: 503): t['connFailServer'],
-        step('aiMissingModel'): t['aiMissingModel'],
+        step('aiMissingModel'): t['connFailNoModel'],
+        step('aiMissingConfig'): t['connFailNoConfig'],
       };
       cases.forEach((s, expected) {
         final text = connectionResultText(s, t);

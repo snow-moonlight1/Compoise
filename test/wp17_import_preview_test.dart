@@ -1009,9 +1009,10 @@ void main() {
         ),
         findsWidgets,
       );
+      // Recognizer diagnostics without plain wording stay out of the UI.
       expect(
         find.text('${dict['importNeedsReview']}: indent uncertain'),
-        findsWidgets,
+        findsNothing,
       );
 
       expect(

@@ -212,9 +212,7 @@ void main() {
         final running = flow.importBackup(context, store, syncAiFields: () {});
         await _mode(tester, store, 'importModeOverwrite');
         expect(
-          find.textContaining(
-            store.t['backupImportVersion']!.replaceAll('{version}', '3'),
-          ),
+          find.textContaining(store.t['backupImportV3']!),
           findsOneWidget,
         );
         for (final entry in {
@@ -644,14 +642,24 @@ void main() {
   });
 
   test(
-    'three languages retain v3 compatibility and loss-count placeholders',
+    'three languages keep loss-count placeholders and no format numbers',
     () {
       for (final language in Language.values) {
         final t = dictOf(language);
-        expect(t['backupVersionInfo'], contains('v3'));
-        expect(t['backupVersionInfo'], contains('v1/v2'));
+        // Nothing has shipped before 1.0.0: user copy names no format
+        // versions.
+        for (final key in [
+          'backupVersionInfo',
+          'backupImportV3',
+          'backupImportLegacy',
+          'backupUnsupportedVersion',
+          'exportScheduleLossBlocked',
+          'importScheduleLegacyRestoredNone',
+        ]) {
+          expect(t[key], isNot(matches(RegExp(r'v[123]\b'))), reason: key);
+        }
         expect(t['importWarningLegacy'], isNotEmpty);
-        expect(t['backupImportVersion'], contains('{version}'));
+        expect(t.containsKey('backupImportVersion'), isFalse);
         expect(t['exportScheduleLossBlocked'], contains('{n}'));
         expect(t['importScheduleLegacyOverwrite'], contains('{n}'));
       }
