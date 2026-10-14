@@ -147,13 +147,19 @@ Future<Store> setup(
   return store;
 }
 
-Widget app(Store store, Widget home, {double scale = 1}) =>
+Widget app(
+  Store store,
+  Widget home, {
+  double scale = 1,
+  TargetPlatform? platform,
+}) =>
     ChangeNotifierProvider.value(
       value: store,
       child: MaterialApp(
         theme: buildTheme(
           Brightness.light,
           store.settings.themeColor,
+          platform: platform,
           fontFamilyPref: store.settings.fontFamily,
         ),
         locale: Locale(store.settings.language.name),
@@ -955,7 +961,7 @@ void main() {
   });
 
   testWidgets(
-    'complete then multi-select then hide stays completed; select-only does not complete',
+    'complete then select, exit and hide stays completed; select-only does not complete',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -993,18 +999,15 @@ void main() {
       expect(open.completed, isFalse);
       expect(find.textContaining('Multi-select · 1 selected'), findsOneWidget);
 
+      await tester.tap(find.byKey(const ValueKey('exit-selection-btn')));
+      await tester.pumpAndSettle();
       await toggleShowCompleted(tester);
       await tester.pumpAndSettle();
       expect(find.text('finish me'), findsNothing);
       expect(find.text('leave open'), findsOneWidget);
       expect(done.completed, isTrue);
       expect(open.completed, isFalse);
-      expect(find.textContaining('Multi-select · 1 selected'), findsOneWidget);
-
-      await tester.tap(find.byTooltip('Cancel'));
-      await tester.pumpAndSettle();
-      expect(open.completed, isFalse);
-      expect(done.completed, isTrue);
+      expect(find.textContaining('Multi-select'), findsNothing);
 
       await toggleShowCompleted(tester);
       await tester.pumpAndSettle();
@@ -1116,14 +1119,16 @@ void main() {
   );
 
   testWidgets(
-    'multi-select toolbar offers Edit button for single selection and opens editor',
+    'desktop multi-select toolbar keeps Edit for single selection and opens editor',
     (tester) async {
-      viewport(tester, const Size(390, 844));
+      viewport(tester, const Size(1200, 900));
       final store = await setup(tester);
       final taskA = store.newTask('first task');
       final taskB = store.newTask('second task', quadrant: qPlan);
       store.addTasks([taskA, taskB]);
-      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpWidget(
+        app(store, const MatrixHome(), platform: TargetPlatform.windows),
+      );
       await tester.pumpAndSettle();
 
       await enterSelectMode(tester);

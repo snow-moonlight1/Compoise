@@ -745,15 +745,28 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   // --- today list ---
 
-  /// The Today list: tasks bucketed by planned day and deadline across every
-  /// quadrant, on the active board or, with [allBoards], across all of them.
+  /// The Today list: tasks bucketed by today's schedule, plan and deadline
+  /// across every quadrant, on the active board or, with [allBoards], all boards.
   /// [settings.hideCompleted] does not apply — a completed task never enters a
   /// bucket — and reading this list never changes a quadrant.
-  List<TodayGroup> todayGroups({bool allBoards = false, DateTime? now}) =>
-      groupForToday(
-        tasks.where((task) => allBoards || task.boardId == activeBoardId),
-        now: now,
-      );
+  List<TodayGroup> todayGroups({bool allBoards = false, DateTime? now}) {
+    final ref = (now ?? DateTime.now()).toLocal();
+    final start = DateTime(ref.year, ref.month, ref.day).millisecondsSinceEpoch;
+    final end = DateTime(
+      ref.year,
+      ref.month,
+      ref.day + 1,
+    ).millisecondsSinceEpoch;
+    return groupForToday(
+      tasks.where((task) => allBoards || task.boardId == activeBoardId),
+      now: ref,
+      scheduledTaskIds: {
+        for (final item in scheduleItems)
+          if (item.taskId != null && item.startAt < end && item.endAt > start)
+            item.taskId!,
+      },
+    );
+  }
 
   /// Tasks completed today, under the same board scope as [todayGroups].
   int completedTodayCount({bool allBoards = false}) => tasks

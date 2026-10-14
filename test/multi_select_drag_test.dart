@@ -51,7 +51,15 @@ void main() {
           await tester.pumpWidget(_app(store, platform, skin));
           await tester.pumpAndSettle();
           await enterSelectMode(tester);
+          if (touch) {
+            expect(find.byKey(const ValueKey('more-btn')), findsNothing);
+          }
           await tester.tap(find.text('stack alpha'));
+          await tester.pumpAndSettle();
+          if (touch) {
+            expect(find.byTooltip(store.t['editTask']!), findsNothing);
+            expect(find.text(store.t['editTask']!), findsNothing);
+          }
           await tester.tap(find.text('stack beta'));
           await tester.pumpAndSettle();
           // The bar no longer offers move or group.
