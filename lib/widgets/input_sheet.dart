@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../ai_service.dart';
 import '../models.dart';
-import '../planned_policy.dart';
 import '../storage.dart';
 import '../ui/platform_ui_policy.dart';
 import '../theme.dart';
@@ -48,7 +47,6 @@ class _InputSheetState extends State<InputSheet> {
   bool _reportedDirty = false;
   String? _error;
   DateTime? _selectedDeadline;
-  DateTime? _selectedPlannedDate;
   int? _selectedReminderAt;
 
   Task _place(Task task) {
@@ -67,7 +65,6 @@ class _InputSheetState extends State<InputSheet> {
       _batch ||
       _mode != widget.initialMode ||
       _selectedDeadline != null ||
-      _selectedPlannedDate != null ||
       _selectedReminderAt != null;
 
   @override
@@ -262,15 +259,11 @@ class _InputSheetState extends State<InputSheet> {
           onPressed: _busy || _pendingManualSave ? null : _editTime,
           icon: const Icon(Icons.schedule),
           label: Text(
-            _selectedPlannedDate == null &&
-                    _selectedDeadline == null &&
-                    _selectedReminderAt == null
+            _selectedDeadline == null && _selectedReminderAt == null
                 ? t['timePanel']!
                 : [
-                    if (_selectedPlannedDate != null)
-                      '${t['plannedDate']}: ${formatCivilDate(_selectedPlannedDate!)}',
                     if (_selectedDeadline != null)
-                      '${t['deadline']}: ${formatCivilDate(_selectedDeadline!)}',
+                      '${t['deadline']}: ${formatCivilDateTime(_selectedDeadline!)}',
                     if (_selectedReminderAt != null)
                       '${t['reminder']}: ${formatCivilDateTimeMs(_selectedReminderAt!)}',
                   ].join(' · '),
@@ -383,8 +376,6 @@ class _InputSheetState extends State<InputSheet> {
       t: context.read<Store>().t,
       deadline: _selectedDeadline,
       reminderAt: _selectedReminderAt,
-      supportsPlannedDate: true,
-      plannedDate: _selectedPlannedDate,
     );
     if (!mounted) return;
     if (_mode == InputModePref.single && !_batch) {
@@ -396,7 +387,6 @@ class _InputSheetState extends State<InputSheet> {
     setState(() {
       _selectedDeadline = result.deadline;
       _selectedReminderAt = result.reminderAt;
-      _selectedPlannedDate = result.plannedDate;
     });
   }
 
@@ -440,8 +430,7 @@ class _InputSheetState extends State<InputSheet> {
               .where((s) => s.isNotEmpty)
               .toList());
 
-    final deadlineSnapshot = endOfCivilDayMs(_selectedDeadline);
-    final plannedSnapshot = plannedDayMs(_selectedPlannedDate);
+    final deadlineSnapshot = _selectedDeadline?.millisecondsSinceEpoch;
 
     if (_mode == InputModePref.single) {
       setState(() {
@@ -456,7 +445,6 @@ class _InputSheetState extends State<InputSheet> {
                 line,
                 quadrant: widget.quadrant ?? qDo,
                 deadline: deadlineSnapshot,
-                plannedDate: plannedSnapshot,
               )..reminderAt = _selectedReminderAt,
             ),
         ]);
@@ -467,7 +455,6 @@ class _InputSheetState extends State<InputSheet> {
               inputs.single,
               quadrant: widget.quadrant ?? qDo,
               deadline: deadlineSnapshot,
-              plannedDate: plannedSnapshot,
             )..reminderAt = _selectedReminderAt,
           ),
         ]);
@@ -483,7 +470,6 @@ class _InputSheetState extends State<InputSheet> {
                 title,
                 quadrant: widget.quadrant ?? qDo,
                 deadline: deadlineSnapshot,
-                plannedDate: plannedSnapshot,
               )
               ..reminderAt = _selectedReminderAt
               ..subtasks = [
@@ -553,7 +539,6 @@ class _InputSheetState extends State<InputSheet> {
               boardId: boardId,
               createdAt: DateTime.now().millisecondsSinceEpoch,
               deadline: deadlineSnapshot,
-              plannedDate: plannedSnapshot,
               reminderAt: _selectedReminderAt,
             ),
           ),
@@ -562,7 +547,6 @@ class _InputSheetState extends State<InputSheet> {
       _controller.clear();
       setState(() {
         _selectedDeadline = null;
-        _selectedPlannedDate = null;
         _selectedReminderAt = null;
       });
       final longTerm =
@@ -592,7 +576,6 @@ class _InputSheetState extends State<InputSheet> {
     setState(() {
       _parentTitleExplicit = false;
       _selectedDeadline = null;
-      _selectedPlannedDate = null;
       _selectedReminderAt = null;
       _error = null;
     });

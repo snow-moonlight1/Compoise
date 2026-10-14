@@ -24,6 +24,7 @@ import 'onboarding_screen.dart';
 import 'settings_backup_flow.dart';
 import 'settings_desktop.dart';
 import 'settings_model_request.dart';
+import 'android_reminder_setup_screen.dart';
 
 enum _SettingsPanel { assistant, font }
 
@@ -825,64 +826,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showReminderGuideDialog(BuildContext context, Map<String, String> t) {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.tips_and_updates_outlined, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                t['reminderGuideTitle'] ?? 'Ensure Punctual Reminders',
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                t['reminderGuideIntro'] ?? '',
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              _buildGuideItem(
-                context,
-                title: t['guideXiaomiTitle'] ?? 'Xiaomi / Redmi',
-                steps: t['guideXiaomiSteps'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildGuideItem(
-                context,
-                title: t['guideHuaweiTitle'] ?? 'Huawei / Honor',
-                steps: t['guideHuaweiSteps'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildGuideItem(
-                context,
-                title: t['guideOppoVivoTitle'] ?? 'OPPO / vivo / OnePlus',
-                steps: t['guideOppoVivoSteps'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildGuideItem(
-                context,
-                title: t['guideOtherTitle'] ?? 'Other Android ROMs',
-                steps: t['guideOtherSteps'] ?? '',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(t['confirm'] ?? 'OK'),
-          ),
-        ],
-      ),
-    );
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => const AndroidReminderSetupScreen()));
   }
 
   Widget _buildGuideItem(

@@ -127,14 +127,14 @@ void main() {
       expect(store.tasks.single.plannedDate, plan);
     });
 
-    test('a plan set in the evening is stored as that civil day', () async {
+    test('retired planned-date bytes are preserved when saving existing data', () async {
       final (store, _) = await makeStore(
         boards: [Board(id: 'b-1', name: 'Board', createdAt: 1000)],
         tasks: [_task()],
       );
       addTearDown(store.dispose);
 
-      store.setPlannedDay('t1', DateTime(2026, 3, 5, 21, 10));
+      store.updateTask(Task.fromJson(store.tasks.single.toJson())..plannedDate = plannedDayMs(DateTime(2026, 3, 5)));
       expect(store.tasks.single.plannedDate, plannedDayMs(DateTime(2026, 3, 5)));
       expect((await store.flush()).success, isTrue);
 

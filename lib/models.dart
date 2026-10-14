@@ -176,8 +176,8 @@ class Task {
   int createdAt;
   int? deadline;
 
-  /// Day the task is scheduled for, local civil midnight. Independent of
-  /// [deadline]: a plan never moves a quadrant nor makes a task urgent.
+  /// Retired planning-day value, retained only for existing backup round trips.
+  /// It is not used by task editing, scheduling or the Today query.
   int? plannedDate;
   List<SubTask> subtasks;
   String? reasoning;

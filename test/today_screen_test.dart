@@ -1,3 +1,4 @@
+import 'package:compoise/schedule_item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,10 +24,7 @@ Widget _wrap(Store store, Widget home) => ChangeNotifierProvider.value(
   ),
 );
 
-Future<Store> _seedStore({
-  bool planToday = true,
-  bool withStep = false,
-}) async {
+Future<Store> _seedStore({bool planToday = true, bool withStep = false}) async {
   final now = DateTime.now();
   final today = plannedDayMs(now)!;
   final endOfToday = DateTime(
@@ -47,9 +45,10 @@ Future<Store> _seedStore({
         id: 'carry',
         boardId: 'b-1',
         title: 'Carried over',
+        urgencyMode: UrgencyMode.manual,
         quadrant: qEliminate,
         createdAt: 1700000000000,
-        plannedDate: plannedDayMs(now.subtract(const Duration(days: 2))),
+        deadline: plannedDayMs(now.subtract(const Duration(days: 2))),
       ),
       Task(
         id: 'plan',
@@ -84,6 +83,27 @@ Future<Store> _seedStore({
       ),
     ],
   );
+  if (planToday) {
+    store.addScheduleItem(
+      ScheduleItem.timeBlock(
+        id: 'today-slot',
+        taskId: 'plan',
+        startAt: DateTime(
+          now.year,
+          now.month,
+          now.day,
+          9,
+        ).millisecondsSinceEpoch,
+        endAt: DateTime(
+          now.year,
+          now.month,
+          now.day,
+          10,
+        ).millisecondsSinceEpoch,
+        timeZoneId: 'Asia/Shanghai',
+      ),
+    );
+  }
   return store;
 }
 
@@ -119,13 +139,13 @@ void main() {
 
     expect(
       find.byKey(const ValueKey('today-section-carriedOver')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
-      find.byKey(const ValueKey('today-section-plannedToday')),
+      find.byKey(const ValueKey('today-section-scheduledToday')),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('today-section-dueNow')), findsNothing);
+    expect(find.byKey(const ValueKey('today-section-dueNow')), findsOneWidget);
     expect(find.byKey(const ValueKey('today-item-carry')), findsOneWidget);
     expect(find.byKey(const ValueKey('today-item-plan')), findsOneWidget);
     expect(find.byKey(const ValueKey('today-item-upcoming')), findsNothing);
@@ -138,20 +158,14 @@ void main() {
       ),
       findsOneWidget,
     );
-    // A plan and a deadline on the same task are two separate labels.
+    // The retired planned-day label is absent; exact deadlines remain visible.
     final row = find.byKey(const ValueKey('today-item-plan'));
     expect(
-      find.descendant(
-        of: row,
-        matching: find.textContaining('Planned:'),
-      ),
-      findsOneWidget,
+      find.descendant(of: row, matching: find.textContaining('Planned:')),
+      findsNothing,
     );
     expect(
-      find.descendant(
-        of: row,
-        matching: find.textContaining('Deadline:'),
-      ),
+      find.descendant(of: row, matching: find.textContaining('Deadline:')),
       findsOneWidget,
     );
     await _finish(tester, store);
@@ -220,74 +234,6 @@ void main() {
     await _finish(tester, store);
   });
 
-  testWidgets('the row menu plans an unscheduled task and clears it again', (
-    tester,
-  ) async {
-    final store = await _seedStore(planToday: false);
-    await _pumpToday(tester, store);
-
-    // Nothing is planned or due today on the active board except this row's own
-    // deadline, so the plan action is the one on offer.
-    expect(find.byKey(const ValueKey('today-item-plan')), findsOneWidget);
-    expect(_stored(store, 'plan').plannedDate, isNull);
-
-    await tester.tap(find.byKey(const ValueKey('today-menu-plan')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Plan for today'));
-    await tester.pumpAndSettle();
-
-    expect(_stored(store, 'plan').plannedDate, plannedDayMs(DateTime.now()));
-    expect(_stored(store, 'plan').deadline, isNotNull);
-    expect(_stored(store, 'plan').quadrant, qPlan);
-
-    await tester.tap(find.byKey(const ValueKey('today-menu-plan')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Clear plan'));
-    await tester.pumpAndSettle();
-
-    expect(_stored(store, 'plan').plannedDate, isNull);
-    await _finish(tester, store);
-  });
-
-  testWidgets('the time panel offers a plan for a task but not for a step', (
-    tester,
-  ) async {
-    final store = await _seedStore(withStep: true);
-    await _pumpToday(tester, store);
-
-    await tester.tap(find.byKey(const ValueKey('today-item-plan')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('planned-today')), findsOneWidget);
-    expect(find.byKey(const ValueKey('deadline-today')), findsOneWidget);
-    expect(find.text('The day you intend to work on it'), findsOneWidget);
-    expect(find.text('The latest it can slip to'), findsOneWidget);
-
-    // Choosing a plan must not rewrite the deadline that is already set.
-    await tester.tap(find.byKey(const ValueKey('planned-clear')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('time-confirm')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('save-task')));
-    await tester.pumpAndSettle();
-
-    expect(_stored(store, 'plan').plannedDate, isNull);
-    expect(_stored(store, 'plan').deadline, isNotNull);
-
-    // A step has no plan of its own: saving closed the panel, so reopen it.
-    await tester.tap(find.byKey(const ValueKey('today-item-plan')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('subtask-item-step-1')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('planned-today')), findsNothing);
-    expect(find.byKey(const ValueKey('deadline-today')), findsOneWidget);
-    await _finish(tester, store);
-  });
-
   testWidgets('the home More panel opens Today over the active board', (
     tester,
   ) async {
@@ -321,9 +267,9 @@ void main() {
     );
     await _pumpToday(tester, store);
 
-    expect(find.text('Nothing is planned for today'), findsOneWidget);
+    expect(find.text('Nothing for today'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('today-section-plannedToday')),
+      find.byKey(const ValueKey('today-section-scheduledToday')),
       findsNothing,
     );
     await _finish(tester, store);

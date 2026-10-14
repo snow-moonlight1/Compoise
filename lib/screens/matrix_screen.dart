@@ -31,6 +31,7 @@ import 'onboarding_screen.dart';
 import 'planner_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+import 'android_reminder_setup_screen.dart';
 import 'today_screen.dart';
 
 class MatrixHome extends StatefulWidget {
@@ -241,7 +242,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                   'Some Windows desktop features are unavailable. Open Settings to retry.');
       }());
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final store = context.read<Store>();
       if (store.corruptNotice != null) {
@@ -249,10 +250,11 @@ class _MatrixHomeState extends State<MatrixHome> {
         store.corruptNotice = null;
       }
       if (!store.hasSeenOnboarding) {
-        Navigator.of(
+        await Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
       }
+      if (mounted) await maybeShowAndroidReminderSetup(context);
     });
   }
 

@@ -1,3 +1,5 @@
+import 'package:compoise/screens/android_reminder_setup_screen.dart';
+import 'support/time_picker_flow.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -1868,7 +1870,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('input-time-btn')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('deadline-today')));
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 0, 23, 59));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
@@ -1898,7 +1900,7 @@ void main() {
       // Now test Tomorrow and clear button
       await tester.tap(find.byKey(const ValueKey('input-time-btn')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
 
@@ -1948,7 +1950,7 @@ void main() {
       // Select Tomorrow
       await tester.tap(find.byKey(const ValueKey('input-time-btn')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
@@ -2015,7 +2017,7 @@ void main() {
       // Select Today and enter draft
       await tester.tap(find.byKey(const ValueKey('input-time-btn')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('deadline-today')));
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 0, 23, 59));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
@@ -2071,11 +2073,11 @@ void main() {
       expect(find.byKey(const ValueKey('subtask-time-btn')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('deadline-today')), findsOneWidget);
+      expect(find.byKey(const ValueKey('deadline-custom')), findsOneWidget);
       expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
 
       // Select Today deadline and edit title
-      await tester.tap(find.byKey(const ValueKey('deadline-today')));
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 0, 23, 59));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
@@ -2179,7 +2181,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
@@ -3784,7 +3786,7 @@ void main() {
   });
 
   testWidgets(
-    'reminder picker in TaskDetailPanel sets reminder, displays quick chips, and saves to store',
+    'reminder picker in TaskDetailPanel sets an exact moment and saves to store',
     (tester) async {
       viewport(tester, const Size(390, 844));
       final store = await setup(tester);
@@ -3798,17 +3800,17 @@ void main() {
       await tester.tap(find.text('Task with reminder'));
       await tester.pumpAndSettle();
 
-      // Verify reminder button and quick chips are present
+      // Verify the reminder picker is reachable
       expect(find.byKey(const ValueKey('edit-time-btn')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
       await tester.pumpAndSettle();
       expect(
-        find.byKey(const ValueKey('reminder-quick-tomorrow-9')),
+        find.byKey(const ValueKey('reminder-quick-custom')),
         findsOneWidget,
       );
 
-      // Tap Tomorrow 09:00 quick chip
-      await tester.tap(find.byKey(const ValueKey('reminder-quick-tomorrow-9')));
+      // Choose tomorrow at 09:00 explicitly
+      await chooseTaskMoment(tester, 'reminder-quick-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 9));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
@@ -3869,8 +3871,10 @@ void main() {
       await tester.tap(guideTile);
       await tester.pumpAndSettle();
 
-      // Guide dialog is displayed with manufacturer sections
-      expect(find.byType(AlertDialog), findsOneWidget);
+      // Direct settings actions come first; manufacturer instructions remain expandable.
+      expect(find.byType(AndroidReminderSetupScreen), findsOneWidget);
+      await tester.tap(find.text(store.t['reminderSettingsHelp']!));
+      await tester.pumpAndSettle();
       expect(
         find.text(store.t['guideXiaomiTitle'] ?? 'Xiaomi / Redmi'),
         findsOneWidget,
@@ -3880,10 +3884,9 @@ void main() {
         findsOneWidget,
       );
 
-      // Close dialog
-      await tester.tap(find.text(store.t['confirm'] ?? 'OK'));
+      await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(AndroidReminderSetupScreen), findsNothing);
 
       // Tap check permissions button
       final permBtn = find.byKey(const ValueKey('check-permissions-btn'));

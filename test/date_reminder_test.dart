@@ -1,3 +1,4 @@
+import 'support/time_picker_flow.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:compoise/calendar_dates.dart';
@@ -432,7 +433,7 @@ void main() {
         expect(civilDate(dialog.initialDate!), isNot(DateTime(2190, 6, 15)));
         expect(dialog.initialDate!.isAfter(dialog.lastDate), isFalse);
         await _cancelPicker(tester);
-        await tester.tap(find.text('Cancel').last);
+        await tester.pageBack();
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('subtask-cancel-btn')));
         await tester.pumpAndSettle();
@@ -450,7 +451,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
+        await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
         await tester.pump();
         await tester.tap(find.byKey(const ValueKey('time-confirm')));
         await tester.pumpAndSettle();
@@ -467,7 +468,7 @@ void main() {
           contains(civilDate(saved)),
         );
         expect(saved.hour, 23);
-        expect(saved.second, 59);
+        expect(saved.second, 0);
         expect(
           store.tasks.single.subtasks.single.reminderAt,
           reminder.millisecondsSinceEpoch,
@@ -501,7 +502,7 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.byKey(const ValueKey('input-time-btn')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
+        await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
         await tester.pump();
         await tester.tap(find.byKey(const ValueKey('reminder-quick-custom')));
         await tester.pumpAndSettle();
@@ -521,7 +522,7 @@ void main() {
         );
         expect(saved.hour, 23);
         expect(saved.minute, 59);
-        expect(saved.second, 59);
+        expect(saved.second, 0);
         expect(store.tasks.single.reminderAt, isNull);
         await _finish(tester, store);
       },
@@ -558,7 +559,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('2190-06-15'), findsOneWidget);
+        await chooseTaskClock(tester, const TimeOfDay(hour: 16, minute: 25));
+        expect(find.text('2190-06-15 16:25'), findsOneWidget);
 
         await tester.tap(find.byKey(const ValueKey('reminder-quick-custom')));
         await tester.pumpAndSettle();
@@ -578,37 +580,13 @@ void main() {
         final saved = DateTime.fromMillisecondsSinceEpoch(
           store.tasks.single.deadline!,
         );
-        expect(saved, DateTime(2190, 6, 15, 23, 59, 59));
+        expect(saved, DateTime(2190, 6, 15, 16, 25));
         expect(store.tasks.single.reminderAt, isNull);
         await _finish(tester, store);
       },
     );
 
-    testWidgets(
-      'due-date shortcut stores an absolute reminder and leaves the deadline',
-      (tester) async {
-        final stored = DateTime(2190, 6, 15, 15, 30, 45);
-        final (store, task) = await _task(deadline: stored);
 
-        await _pumpPanel(tester, store, task);
-        await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('reminder-quick-due-date')),
-        );
-        await tester.tap(find.byKey(const ValueKey('reminder-quick-due-date')));
-        await tester.pump();
-        await tester.tap(find.byKey(const ValueKey('time-confirm')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('save-task')));
-        await tester.pumpAndSettle();
-        final saved = store.tasks.single;
-        final reminder = DateTime.fromMillisecondsSinceEpoch(saved.reminderAt!);
-        expect(saved.deadline, stored.millisecondsSinceEpoch);
-        expect(reminder, DateTime(2190, 6, 15, 9));
-        await _finish(tester, store);
-      },
-    );
   });
 }
 

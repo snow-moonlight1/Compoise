@@ -24,7 +24,7 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 | `lib/models.dart`、`lib/schedule_item.dart` | 任务、子项、任务板、日程、设置和 AI 配置等数据类型及序列化 |
 | `lib/storage.dart` | `Store`：加载、保存、事务、撤销和全部用户操作；页面不各自实现业务规则 |
 | `lib/task_commands.dart`、`task_query.dart`、`task_filter.dart`、`task_stats.dart` | 任务的修改、读取、筛选和统计 |
-| `lib/planned_policy.dart`、`lib/deadline_policy.dart`、`lib/calendar_dates.dart` | 计划日、截止日期和紧急性规则，见[任务与日程](tasks-and-schedule.md) |
+| `lib/planned_policy.dart`、`lib/deadline_policy.dart`、`lib/calendar_dates.dart` | 今天待办、截止时间和紧急性规则，见[任务与日程](tasks-and-schedule.md) |
 | `lib/planner/` | 日程页：日视图、周视图、任务池、日程编辑 |
 | `lib/screens/` | 页面：四象限首页、今天、已完成、搜索、设置、引导、启动恢复 |
 | `lib/widgets/` | 可复用组件：任务卡片、详情面板、输入面板等 |

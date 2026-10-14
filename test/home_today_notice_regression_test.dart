@@ -155,7 +155,7 @@ void main() {
           final row = find.byKey(ValueKey('today-item-${task.id}'));
           expect(row, findsOneWidget);
           expect(
-            find.byKey(const ValueKey('today-section-plannedToday')),
+            find.byKey(const ValueKey('today-section-scheduledToday')),
             findsOneWidget,
           );
           expect(findTextClips(tester), isEmpty);

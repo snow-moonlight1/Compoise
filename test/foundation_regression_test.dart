@@ -1,3 +1,4 @@
+import 'support/time_picker_flow.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -638,9 +639,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
     await tester.pumpAndSettle();
-    final quick = find.byKey(const ValueKey('reminder-quick-tomorrow-9'));
-    await tester.ensureVisible(quick);
-    await tester.tap(quick);
+    await chooseTaskMoment(tester, 'reminder-quick-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 9));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('time-confirm')));
     await tester.pumpAndSettle();

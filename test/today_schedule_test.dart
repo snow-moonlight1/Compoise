@@ -51,7 +51,7 @@ void main() {
       expect(listed(store), [task.id]);
       expect(
         store.todayGroups(now: today).single.section,
-        TodaySection.plannedToday,
+        TodaySection.scheduledToday,
       );
       expect(store.tasks.single.toJson(), before);
       store.deleteScheduleItem(
@@ -63,10 +63,7 @@ void main() {
         'b',
         expectedRevision: store.scheduleRevision('b'),
       );
-      expect(
-        store.todayGroups(now: today).single.section,
-        TodaySection.carriedOver,
-      );
+      expect(store.todayGroups(now: today), isEmpty);
     },
   );
 

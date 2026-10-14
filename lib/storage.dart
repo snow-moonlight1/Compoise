@@ -258,6 +258,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   Map<String, String> get t => dictOf(settings.language);
 
+  @visibleForTesting
+  final DateTime Function() deadlineClock;
+
   Timer? _deadlineTimer;
 
   final List<Locale>? initialDeviceLocales;
@@ -269,6 +272,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     CredentialStore? credentialStore,
     this.reminders,
     StorePersistence? persistence,
+    this.deadlineClock = DateTime.now,
   }) : ai = aiService ?? AIService(),
        credentialStore =
            credentialStore ??
@@ -745,7 +749,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   // --- today list ---
 
-  /// The Today list: tasks bucketed by today's schedule, plan and deadline
+  /// The Today list: tasks bucketed by today's schedule and deadline
   /// across every quadrant, on the active board or, with [allBoards], all boards.
   /// [settings.hideCompleted] does not apply — a completed task never enters a
   /// bucket — and reading this list never changes a quadrant.
@@ -1127,18 +1131,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (modeChanged && !quadrantChanged) _touchTask(taskId);
     _saveTasks();
     notifyListeners();
-  }
-
-  /// Plans [taskId] on the civil day of [day], or clears the plan when null.
-  /// Nothing else moves: the quadrant, the deadline and the urgency mode keep
-  /// their values, because a plan is not a commitment date.
-  void setPlannedDay(String taskId, DateTime? day) {
-    final i = tasks.indexWhere((t) => t.id == taskId);
-    if (i == -1) return;
-    final stored = tasks[i];
-    final next = plannedDayMs(day);
-    if (stored.plannedDate == next) return;
-    updateTask(Task.fromJson(stored.toJson())..plannedDate = next);
   }
 
   void appendSubtasks(String taskId, List<SubTask> subs) {
@@ -2202,7 +2194,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
   void _applyDeadlinePromotion({DateTime? now}) {
     if (tasks.isEmpty) return;
     final threshold = settings.urgencyThresholdDays;
-    final ref = now ?? DateTime.now();
+    final ref = now ?? deadlineClock();
     var changed = false;
     for (final task in tasks) {
       if (task.deadline == null || task.completed) continue;

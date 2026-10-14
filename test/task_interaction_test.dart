@@ -1,3 +1,4 @@
+import 'support/time_picker_flow.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -306,8 +307,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('deadline-tomorrow')));
-    await tester.tap(find.text(store.t['cancel']!).last);
+    await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
+    await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('save-task')));
     await tester.pumpAndSettle();
