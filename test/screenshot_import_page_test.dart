@@ -12,6 +12,7 @@ import 'package:compoise/screenshot_import/screenshot_backend.dart';
 import 'package:compoise/screenshot_import/screenshot_capture.dart';
 import 'package:compoise/screenshot_import/screenshot_import_page.dart';
 import 'package:compoise/storage.dart';
+import 'package:compoise/theme.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
@@ -52,10 +53,13 @@ Widget app(
   TargetPlatform platform = TargetPlatform.android,
   double keyboard = 0,
   double scale = 1,
+  ThemeData? theme,
+  NavigatorObserver? observer,
 }) => ChangeNotifierProvider.value(
   value: store,
   child: MaterialApp(
-    theme: ThemeData(platform: platform),
+    theme: theme ?? ThemeData(platform: platform),
+    navigatorObservers: [if (observer != null) observer],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
     builder: (context, child) => MediaQuery(
@@ -99,7 +103,138 @@ Future<Store> storeFor(Language language) async {
   return store;
 }
 
+class PopObserver extends NavigatorObserver {
+  int pops = 0;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pops++;
+  }
+}
+
 void main() {
+  for (final platform in [
+    TargetPlatform.android,
+    TargetPlatform.windows,
+    TargetPlatform.linux,
+  ]) {
+    for (final skin in ['default', 'comic', 'neumorphic']) {
+      for (final exit in ['app bar', 'system', 'cancel', 'submit']) {
+        testWidgets('$platform/$skin review $exit pops once; home stays usable', (
+          tester,
+        ) async {
+          final store = await storeFor(Language.en);
+          final batch = draft()..quadrant = 1;
+          batch.activeTasks.first.confirmed = true;
+          final backend = FakeBackend()
+            ..result = ScreenshotCaptureResult(batch: batch);
+          final observer = PopObserver();
+          await tester.pumpWidget(
+            app(
+              store,
+              Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ScreenshotImportPage(backend: backend),
+                      ),
+                    ),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+              observer: observer,
+              theme: buildTheme(
+                Brightness.light,
+                ThemeColor.purple,
+                comicOutline: skin == 'comic',
+                neumorphic: skin == 'neumorphic',
+              ).copyWith(platform: platform),
+            ),
+          );
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('screenshot-choose')));
+          await tester.pumpAndSettle();
+          switch (exit) {
+            case 'app bar':
+              await tester.tap(find.byType(BackButton));
+            case 'system':
+              await tester.binding.handlePopRoute();
+            case 'cancel':
+              final cancel = find.byKey(const ValueKey('import-cancel'));
+              await tester.ensureVisible(cancel);
+              // Two invocations before a frame must not pop the underlying home.
+              final action = tester.widget<OutlinedButton>(cancel).onPressed!;
+              action();
+              action();
+            case 'submit':
+              final submit = find.byKey(const ValueKey('import-submit'));
+              await tester.ensureVisible(submit);
+              await tester.tap(submit);
+          }
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(find.text('Open'), findsOneWidget);
+          expect(find.byType(ScreenshotImportPage), findsNothing);
+          expect(observer.pops, 1);
+          expect(backend.disposals, 1);
+          expect(store.tasks.length, exit == 'submit' ? 1 : 0);
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          expect(find.byType(ScreenshotImportPage), findsOneWidget);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+          store.dispose();
+        });
+      }
+    }
+  }
+
+  testWidgets('system back stops capture before the exit animation ends', (
+    tester,
+  ) async {
+    final store = await storeFor(Language.en);
+    final backend = FakeBackend()
+      ..pending = Completer<ScreenshotCaptureResult>();
+    await tester.pumpWidget(
+      app(
+        store,
+        Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ScreenshotImportPage(backend: backend),
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('screenshot-choose')));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    expect(backend.cancels, 1);
+    expect(backend.disposals, 0);
+    // Finish while the exiting State is still mounted.
+    backend.pending!.complete(ScreenshotCaptureResult(batch: draft()));
+    await tester.pump();
+    expect(find.byType(DraftPreview), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.text('Open'), findsOneWidget);
+    expect(backend.disposals, 1);
+    expect(store.tasks, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    store.dispose();
+  });
+
   for (final language in Language.values) {
     testWidgets(
       '$language More entry -> pick -> review -> single confirmed import',
