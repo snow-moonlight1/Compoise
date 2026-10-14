@@ -488,6 +488,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                                     isWide: wide,
                                     subtaskId: subtaskId,
                                   ),
+                              onMoveSelected: (q) => _moveSelectedTo(store, q),
                               fadeOutOnly:
                                   _listExitFading && _focusedQuadrant == null,
                               onFadeOutDone: () {
@@ -821,24 +822,6 @@ class _MatrixHomeState extends State<MatrixHome> {
                 onPressed: editSelected,
                 icon: const Icon(Icons.edit_outlined, size: 18),
                 label: Text(t['editTask']!),
-              ),
-            if (_selectedIds.length >= 2 && compact)
-              IconButton(
-                tooltip: t['groupSelected'],
-                icon: const Icon(Icons.group_work_outlined),
-                onPressed: () => _groupSelected(context, store),
-              ),
-            if (_selectedIds.length >= 2 && !compact)
-              FilledButton.tonal(
-                onPressed: () => _groupSelected(context, store),
-                child: Text('${t['groupSelected']} (${_selectedIds.length})'),
-              ),
-            if (_selectedIds.isNotEmpty)
-              IconButton(
-                key: const ValueKey('batch-move-btn'),
-                tooltip: t['moveSelected'],
-                icon: const Icon(Icons.drive_file_move_outline),
-                onPressed: () => _moveSelected(context, store),
               ),
             const SizedBox(width: 4),
             if (policy.isTouchLayout)
@@ -1221,63 +1204,14 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
   }
 
-  Future<void> _groupSelected(BuildContext context, Store store) async {
-    final ids = Set<String>.of(_selectedIds);
-    final boardId = store.activeBoardId;
-    final title = await _askText(
-      context,
-      store.t['groupTitlePlaceholder']!,
-      store.t['confirmGroup']!,
-    );
-    if (!mounted) return;
-    if (title != null &&
-        title.trim().isNotEmpty &&
-        boardId == store.activeBoardId &&
-        store.tasks.where((t) => ids.contains(t.id)).length >= 2) {
-      store.groupTasks(ids, title.trim());
-    }
-    setState(() {
-      _selecting = false;
-      _selectedIds.clear();
-    });
-  }
-
-  Future<void> _moveSelected(BuildContext context, Store store) async {
-    final ids = Set<String>.of(_selectedIds);
-    final boardId = store.activeBoardId;
-    final t = store.t;
-    final quadrant = await showDialog<int>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(t['moveSelected']!),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final q in allQuadrants)
-                  ListTile(
-                    key: ValueKey('batch-move-q$q'),
-                    title: Text(t['q$q']!),
-                    onTap: () => Navigator.pop(dialogContext, q),
-                  ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(t['cancel']!),
-              ),
-            ],
-          ),
-    );
-    if (!context.mounted || quadrant == null || boardId != store.activeBoardId) {
-      return;
-    }
-    final currentIds = store.visibleTasks
-        .where((task) => ids.contains(task.id) && _selectedIds.contains(task.id))
-        .map((task) => task.id);
-    final count = store.moveTasks(currentIds, quadrant);
-    if (count == 0) return;
+  /// Multi-select drag dropped on [quadrant]: move every selected task on
+  /// this board there and leave selection mode.
+  void _moveSelectedTo(Store store, int quadrant) {
+    final ids = store.visibleTasks
+        .where((task) => _selectedIds.contains(task.id))
+        .map((task) => task.id)
+        .toList();
+    store.moveTasks(ids, quadrant);
     setState(() {
       _selecting = false;
       _selectedIds.clear();

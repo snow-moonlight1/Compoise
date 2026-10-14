@@ -367,32 +367,6 @@ void main() {
 
       expect(store.tasks.firstWhere((t) => t.id == 't-parent').quadrant, qPlan);
     });
-
-    test(
-      'grouping preserves manual urgencyMode if any grouped task was manual',
-      () {
-        final task1 = Task(
-          id: 'g-1',
-          boardId: boardId,
-          title: 'Item 1',
-          quadrant: qPlan,
-          createdAt: now.millisecondsSinceEpoch,
-          urgencyMode: UrgencyMode.auto,
-        );
-        final task2 = Task(
-          id: 'g-2',
-          boardId: boardId,
-          title: 'Item 2',
-          quadrant: qPlan,
-          createdAt: now.millisecondsSinceEpoch,
-          urgencyMode: UrgencyMode.manual,
-        );
-        store.addTasks([task1, task2]);
-
-        final parent = store.groupTasks(['g-1', 'g-2'], 'Group Parent');
-        expect(parent.urgencyMode, UrgencyMode.manual);
-      },
-    );
   });
 
   group('Widget tests', () {

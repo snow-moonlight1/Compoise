@@ -44,7 +44,8 @@ internal class ScreenshotSafBridge(private val activity: Activity, channel: Meth
                 picker = result
                 activeRequest = request++
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    type = "image/png"
+                    type = "image/*"
+                    putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/png", "image/jpeg"))
                     addCategory(Intent.CATEGORY_OPENABLE)
                     putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

@@ -46,7 +46,11 @@ class QuadrantTransitionLayout extends StatefulWidget {
     this.onEditSubtask,
     this.fadeOutOnly = false,
     this.onFadeOutDone,
+    this.onMoveSelected,
   });
+
+  /// Multi-select: the selected stack was dropped on a quadrant.
+  final ValueChanged<int>? onMoveSelected;
 
   /// The quadrant currently focused, or null for the 2x2 matrix.
   final int? focusedQuadrant;
@@ -624,6 +628,7 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
                       },
                       onEdit: widget.onEdit,
                       onEditSubtask: widget.onEditSubtask,
+                      onMoveSelected: widget.onMoveSelected,
                     ),
                   ),
                 ),
@@ -652,7 +657,10 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
                         selecting: widget.selecting,
                         enabled: !animating,
                         onTap: () => widget.onFocusQuadrant(q),
-                        onDropTask: (task) => store.moveTask(task.id, q),
+                        selectedIds: widget.selectedIds,
+                        onDropTask: (task) => widget.selecting
+                            ? widget.onMoveSelected?.call(q)
+                            : store.moveTask(task.id, q),
                       ),
                     ),
                   ),
@@ -677,6 +685,7 @@ class _CollapsedQuadrantCard extends StatefulWidget {
   final bool enabled;
   final VoidCallback onTap;
   final ValueChanged<Task>? onDropTask;
+  final Set<String> selectedIds;
 
   const _CollapsedQuadrantCard({
     super.key,
@@ -688,6 +697,7 @@ class _CollapsedQuadrantCard extends StatefulWidget {
     required this.enabled,
     required this.onTap,
     this.onDropTask,
+    this.selectedIds = const {},
   });
 
   @override
@@ -706,7 +716,8 @@ class _CollapsedQuadrantCardState extends State<_CollapsedQuadrantCard> {
       onWillAcceptWithDetails:
           (details) =>
               widget.enabled &&
-              !widget.selecting &&
+              (!widget.selecting ||
+                  widget.selectedIds.contains(details.data.id)) &&
               details.data.boardId == store.activeBoardId,
       onMove: (_) {
         if (!_hovering) setState(() => _hovering = true);

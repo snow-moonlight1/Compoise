@@ -282,8 +282,10 @@ String _failureKey(String message) {
   if (message.contains('16 MiB')) return 'screenshotImportSafFileLimit';
   if (message.contains('48 MiB')) return 'screenshotImportSafBatchLimit';
   if (message.contains('24 Mi-pixel')) return 'screenshotImportSafPixelLimit';
-  if (message.contains('10 PNG')) return 'screenshotImportSafCountLimit';
-  if (message.contains('PNG') || message.contains('format')) {
+  if (message.contains('at most 10')) return 'screenshotImportSafCountLimit';
+  if (message.contains('PNG') ||
+      message.contains('JPEG') ||
+      message.contains('format')) {
     return 'screenshotImportSafPng';
   }
   return 'screenshotImportReadFailed';

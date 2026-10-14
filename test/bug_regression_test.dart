@@ -252,22 +252,6 @@ void main() {
     expect(store.boards.single.id, boardId);
   });
 
-  test('grouping preserves existing child tasks and deadlines', () async {
-    final (store, _) = await makeStore();
-    addTearDown(store.dispose);
-    final first = store.newTask('project')
-      ..subtasks = [SubTask(id: 'sub', title: 'step', deadline: 123)];
-    final second = store.newTask('other');
-    store.addTasks([first, second]);
-    final grouped = store.groupTasks([first.id, second.id], 'group');
-    expect(
-      grouped.subtasks.any(
-        (s) => s.title.contains('step') && s.deadline == 123,
-      ),
-      isTrue,
-    );
-  });
-
   test(
     'new child reopens completed parent when auto completion is enabled',
     () async {

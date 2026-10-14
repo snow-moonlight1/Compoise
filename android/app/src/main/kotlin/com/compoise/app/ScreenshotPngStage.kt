@@ -24,13 +24,16 @@ internal class ScreenshotPngStage(private val directory: File) {
         try { activeStream?.close() } catch (_: Exception) { }
     }
 
+    private val jpeg = HashSet<Int>()
+
     fun file(index: Int): File {
         if (index !in 0..9) throw ScreenshotLimit("SafCountLimit")
-        return File(directory, "image-$index.png")
+        return File(directory, if (index in jpeg) "image-$index.jpg" else "image-$index.png")
     }
 
     fun stage(index: Int, stream: InputStream): Long {
-        val output = file(index)
+        jpeg.remove(index)
+        var output = file(index)
         var localBytes = 0L
         activeStream = stream
         fun read(buffer: ByteArray, offset: Int, length: Int): Int {
@@ -55,15 +58,21 @@ internal class ScreenshotPngStage(private val directory: File) {
                     if (count < 0) throw ScreenshotLimit("SafPng")
                     offset += count
                 }
-                val signature = byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)
-                if (!header.copyOfRange(0, 8).contentEquals(signature)) throw ScreenshotLimit("SafPng")
-                val data = ByteBuffer.wrap(header)
-                if (data.getInt(8) != 13 || data.getInt(12) != 0x49484452) throw ScreenshotLimit("SafPng")
-                val width = data.getInt(16).toLong(); val height = data.getInt(20).toLong()
-                val area = width * height
-                if (width !in 1..4096 || height !in 1..8192 || area > 12L * 1024 * 1024 ||
-                    pixels + area > BATCH_PIXELS) throw ScreenshotLimit("SafPixelLimit")
-                pixels += area
+                val isJpeg = header[0] == 0xFF.toByte() && header[1] == 0xD8.toByte() && header[2] == 0xFF.toByte()
+                if (isJpeg) {
+                    // JPEG dimensions sit past the header; Dart checks them before decoding.
+                    jpeg.add(index); output = file(index)
+                } else {
+                    val signature = byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)
+                    if (!header.copyOfRange(0, 8).contentEquals(signature)) throw ScreenshotLimit("SafPng")
+                    val data = ByteBuffer.wrap(header)
+                    if (data.getInt(8) != 13 || data.getInt(12) != 0x49484452) throw ScreenshotLimit("SafPng")
+                    val width = data.getInt(16).toLong(); val height = data.getInt(20).toLong()
+                    val area = width * height
+                    if (width !in 1..4096 || height !in 1..8192 || area > 12L * 1024 * 1024 ||
+                        pixels + area > BATCH_PIXELS) throw ScreenshotLimit("SafPixelLimit")
+                    pixels += area
+                }
                 output.outputStream().use { sink ->
                     sink.write(header)
                     val buffer = ByteArray(32 * 1024)

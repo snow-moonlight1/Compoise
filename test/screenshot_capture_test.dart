@@ -34,7 +34,7 @@ void main() {
     'capture retains selection order and per-image failures, without leaking paths',
     () async {
       final broken = await write('broken.png', [1, 2, 3]);
-      final jpeg = await write('wrong.jpg', png());
+      final jpeg = await write('wrong.gif', png());
       final missingModel = await write('missing-model.png', png());
       final seen = <String>[];
       final capture = ScreenshotCapture.withRecognizer(
@@ -71,7 +71,7 @@ void main() {
         true,
         false,
       ]);
-      expect(batch.images[2].error, contains('only PNG'));
+      expect(batch.images[2].error, contains('only PNG and JPEG'));
       expect(batch.images[3].error, contains('model files are missing'));
       expect(batch.images[3].error, isNot(contains('private')));
       expect(seen, [first.path, missingModel.path, first.path]);

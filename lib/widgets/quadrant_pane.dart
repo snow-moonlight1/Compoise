@@ -12,6 +12,9 @@ import 'batch_decompose_sheet.dart';
 import 'task_detail_panel.dart';
 import 'task_card.dart';
 import 'task_exit.dart';
+import 'multi_drag_stack.dart';
+import '../planner/planner_drag_feedback.dart';
+import '../ui/platform_ui_policy.dart';
 
 /// One quadrant column: header (dot, title, count, clear) + drag target list.
 class QuadrantPane extends StatefulWidget {
@@ -29,6 +32,9 @@ class QuadrantPane extends StatefulWidget {
   final ScrollController? scrollController;
   final TaskRowLayout? rowLayout;
 
+  /// Multi-select: the selected stack was dropped on quadrant [q].
+  final ValueChanged<int>? onMoveSelected;
+
   const QuadrantPane({
     super.key,
     required this.quadrant,
@@ -44,6 +50,7 @@ class QuadrantPane extends StatefulWidget {
     this.isFocused = false,
     this.scrollController,
     this.rowLayout,
+    this.onMoveSelected,
   });
 
   @override
@@ -160,7 +167,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     return DragTarget<Task>(
       onWillAcceptWithDetails:
           (details) =>
-              !widget.selecting && details.data.boardId == store.activeBoardId,
+              (!widget.selecting ||
+                  widget.selectedIds.contains(details.data.id)) &&
+              details.data.boardId == store.activeBoardId,
       onMove: (_) {
         if (!_hovering) setState(() => _hovering = true);
       },
@@ -170,6 +179,12 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       onAcceptWithDetails: (details) {
         setState(() => _hovering = false);
         final task = details.data;
+        if (widget.selecting) {
+          HapticFeedback.mediumImpact();
+          widget.onMoveSelected?.call(q);
+          _scrollToTopIfNeeded();
+          return;
+        }
         if (task.quadrant != q) {
           HapticFeedback.mediumImpact();
           store.moveTask(task.id, q);
@@ -285,22 +300,12 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                           itemBuilder: (context, i) {
                             final entry = entries[i];
                             final task = entry.item;
-                            final draggable = LongPressDraggable<Task>(
-                              key: ValueKey(task.id),
-                              maxSimultaneousDrags:
-                                  widget.selecting || entry.exiting ? 0 : 1,
-                              data: task,
-                              hapticFeedbackOnStart: true,
-                              onDragStarted: () => HapticFeedback.lightImpact(),
-                              onDraggableCanceled:
-                                  (_, __) => HapticFeedback.selectionClick(),
-                              feedback: _dragFeedback(context, task),
-                              dragAnchorStrategy: pointerDragAnchorStrategy,
-                              childWhenDragging: Opacity(
-                                opacity: 0.35,
-                                child: _card(context, task, i),
-                              ),
-                              child: _card(context, task, i),
+                            final draggable = _draggable(
+                              context,
+                              store,
+                              task,
+                              i,
+                              exiting: entry.exiting,
                             );
                             return ExitingRow(
                               key: ValueKey('exit-${task.id}'),
@@ -315,6 +320,76 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           ),
         );
       },
+    );
+  }
+
+  /// One widget tree for every row, so selecting a card never remounts it.
+  /// Outside multi-select: long press drags the single card (as before).
+  /// Selected cards in multi-select drag together as one stack. Touch: long
+  /// press first. Desktop mouse: press and drag right away.
+  Widget _draggable(
+    BuildContext context,
+    Store store,
+    Task task,
+    int index, {
+    required bool exiting,
+  }) {
+    final multi =
+        widget.selecting && !exiting && widget.selectedIds.contains(task.id);
+    final card = _card(context, task, index);
+    final child = ValueListenableBuilder<bool>(
+      valueListenable: multiDragActive,
+      builder: (context, active, card) => AnimatedOpacity(
+        opacity: multi && active ? 0.35 : 1,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        child: card,
+      ),
+      child: card,
+    );
+    final Widget feedback = multi
+        ? MultiDragStack(
+            tasks: [
+              task,
+              ...store.visibleTasks.where(
+                (t) => t.id != task.id && widget.selectedIds.contains(t.id),
+              ),
+            ],
+            cardBuilder: _dragFeedback,
+          )
+        : _dragFeedback(context, task);
+    void started() {
+      HapticFeedback.lightImpact();
+      if (multi) multiDragActive.value = true;
+    }
+
+    void ended(DraggableDetails _) {
+      if (multi) multiDragActive.value = false;
+    }
+
+    final touch = LongPressDraggable<Task>(
+      key: ValueKey(task.id),
+      maxSimultaneousDrags: (widget.selecting && !multi) || exiting ? 0 : 1,
+      data: task,
+      hapticFeedbackOnStart: true,
+      onDragStarted: started,
+      onDragEnd: ended,
+      onDraggableCanceled: (_, __) => HapticFeedback.selectionClick(),
+      feedback: feedback,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      childWhenDragging: multi ? child : Opacity(opacity: 0.35, child: child),
+      child: child,
+    );
+    final desktop = !PlatformUiPolicy.of(context).isTouchLayout;
+    return PlannerMouseDraggable<Task>(
+      maxSimultaneousDrags: multi && desktop ? 1 : 0,
+      data: task,
+      onDragStarted: started,
+      onDragEnd: ended,
+      feedback: feedback,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      childWhenDragging: child,
+      child: touch,
     );
   }
 
