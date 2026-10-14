@@ -282,7 +282,7 @@ Future<void> main() async {
       expect(preview.batch.images.where((i) => i.failed).length, 1);
       expect(preview.batch.duplicates, isNotEmpty);
       expect(preview.batch.activeTasks.every((t) => !t.confirmed), isTrue);
-      expect(preview.batch.canSubmit, isFalse);
+      expect(preview.batch.canSubmit, isTrue);
       batches.add({
         'case': 'review-cancel',
         'images': 10,
@@ -346,16 +346,16 @@ Future<void> main() async {
       expect(batch.activeTasks.where((t) => t.parentId != null), isNotEmpty);
       expect(batch.activeTasks.where((t) => t.checked), isNotEmpty);
       expect(batch.activeTasks.where((t) => t.dueText != null), isNotEmpty);
-      expect(batch.canSubmit, isFalse);
+      expect(batch.canSubmit, isTrue);
       expect(
         tester
             .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
             .onPressed,
-        isNull,
+        isNotNull,
       );
       expect(store.tasks, isEmpty);
       await _cleanCache(tester);
-      // Skip the duplicate image explicitly. Its warning still requires an acknowledgement.
+      // The user may skip a duplicate image; the hint never blocks import.
       final seen = <String>{};
       for (final image in successful) {
         final signature = image.tasks.map((t) => t.title).join('|');
@@ -363,6 +363,7 @@ Future<void> main() async {
       }
       expect(seen, hasLength(3));
       final dateTask = batch.activeTasks.firstWhere((t) => t.dueText != null);
+      await _tap(tester, 'options-${dateTask.id}');
       await _tap(tester, 'keep-due-${dateTask.id}');
       final corrected = batch.activeTasks.first;
       final titleField = find.byKey(ValueKey('title-${corrected.id}'));
@@ -370,18 +371,11 @@ Future<void> main() async {
       await tester.enterText(titleField, '${corrected.title} 路 reviewed');
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
-      // Tap every confirmation; no draft or OCR result is injected or pre-confirmed.
-      for (final task in batch.activeTasks.toList()) {
-        await _tap(tester, 'confirm-${task.id}');
-      }
-      for (var i = 0; i < batch.duplicates.length; i++) {
-        await _tap(tester, 'duplicate-$i');
-      }
       await _tap(tester, 'import-board');
       await tester.tap(find.text('WP17-A1 destination').last);
       await tester.pumpAndSettle();
       await _tap(tester, 'import-quadrant');
-      await tester.tap(find.textContaining('Quadrant 1').last);
+      await tester.tap(find.textContaining('Urgent and Important').last);
       await tester.pumpAndSettle();
       expect(batch.canSubmit, isTrue);
       final expectedCount = batch.activeTasks.length;

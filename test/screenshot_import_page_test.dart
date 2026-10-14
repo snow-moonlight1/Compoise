@@ -268,16 +268,12 @@ void main() {
           findsOneWidget,
         );
         final button = find.byKey(const ValueKey('import-submit'));
-        expect(tester.widget<FilledButton>(button).onPressed, isNull);
+        expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
         await tester.tap(find.byKey(const ValueKey('import-quadrant')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.textContaining(dictOf(language)['q1Short']!).last,
         );
-        await tester.pumpAndSettle();
-        final checkbox = find.byKey(const ValueKey('confirm-root'));
-        await tester.ensureVisible(checkbox);
-        await tester.tap(checkbox);
         await tester.pumpAndSettle();
         await tester.ensureVisible(button);
         await tester.tap(button);
@@ -438,12 +434,7 @@ void main() {
     await tester.pumpAndSettle();
     final submit = find.byKey(const ValueKey('import-submit'));
     await tester.ensureVisible(submit);
-    await tester.tap(submit);
-    await tester.pumpAndSettle();
-    expect(
-      find.text(dictOf(Language.en)['importSubmitFailed']!),
-      findsOneWidget,
-    );
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
     expect(store.tasks, isEmpty);
     expect(find.byType(DraftPreview), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
@@ -474,13 +465,9 @@ void main() {
       await tester.ensureVisible(choose);
       await tester.tap(choose);
       await tester.pumpAndSettle();
-      final confirm = find.byKey(const ValueKey('confirm-root'));
-      await tester.ensureVisible(confirm);
-      await tester.tap(confirm);
-      await tester.pumpAndSettle();
       final submit = find.byKey(const ValueKey('import-submit'));
       await tester.ensureVisible(submit);
-      expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+      expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
       expect(tester.takeException(), isNull);
       expect(store.tasks, isEmpty);
       await tester.pumpWidget(const SizedBox());

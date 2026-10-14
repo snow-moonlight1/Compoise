@@ -4,7 +4,7 @@
 /// id and row. R2 `parent` (a row) becomes `parentId` within that image.
 /// `due` stays unparsed text. `needs_confirmation` is retained as review
 /// reasons. R2 `dropped` rows become excluded candidates that can be restored.
-/// R2 `duplicates` become batch acknowledgements, never automatic deletion.
+/// R2 `duplicates` become hints, never automatic deletion or import blockers.
 /// Editor-only fields (confirmed, excluded, destination, split/merge state)
 /// are intentionally absent from the R2 wire format and never persisted here.
 library;
@@ -311,17 +311,7 @@ class DraftBatch {
       quadrant! <= 4 &&
       activeTasks.isNotEmpty &&
       activeTasks.every(
-        (task) =>
-            task.confirmed &&
-            task.hasValidTitle &&
-            _parentIsEarlierActive(task),
-      ) &&
-      duplicates.every(
-        (hint) =>
-            hint.acknowledged ||
-            hint.imageIds.any(
-              (id) => images.firstWhere((image) => image.id == id).skipped,
-            ),
+        (task) => task.hasValidTitle && _parentIsEarlierActive(task),
       );
 
   void moveImage(int oldIndex, int newIndex) {

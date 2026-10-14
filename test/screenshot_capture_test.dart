@@ -88,7 +88,7 @@ void main() {
       for (final task in batch.activeTasks) {
         task.confirmed = true;
       }
-      expect(batch.canSubmit, isFalse);
+      expect(batch.canSubmit, isTrue);
       batch.duplicates.single.acknowledged = true;
       expect(batch.canSubmit, isTrue);
       expect(batch.snapshot().tasks, hasLength(4));
