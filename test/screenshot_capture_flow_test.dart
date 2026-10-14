@@ -258,7 +258,7 @@ void main() {
         },
         release: (i) async {},
       );
-      expect(result.error, contains('10 PNG'));
+      expect(result.error, contains('at most 10'));
       expect(reads, 0);
     },
   );

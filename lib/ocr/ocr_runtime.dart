@@ -97,7 +97,7 @@ final class OcrRuntime {
     return scheduled;
   }
 
-  /// At most 20 PNG paths are accepted in one batch. Each path gets a result,
+  /// At most 20 PNG/JPEG paths are accepted in one batch. Each path gets a result,
   /// including failures and images skipped after cancellation, in input order.
   Future<List<OcrImageResult>> recognizeFiles(
     List<String> imagePaths, {

@@ -17,9 +17,10 @@ First public release. 首个公开版本。
 - Today page that groups tasks by planned day, including the ones carried over.
 - Schedule page with day and week views, time blocks for tasks and standalone events, time-zone aware.
 - AI with your own API key: classify, group and break down tasks. Presets for DeepSeek, Volcengine and Alibaba Bailian, and custom endpoints using the OpenAI Compatible, OpenAI Responses or Anthropic Messages protocol. A single "Test connection" button.
-- Screenshot import: on-device OCR with ncnn and PP-OCRv5, and a review page before anything is saved. The native library ships in the packages; the models download on first use and are checked against SHA-256.
+- Screenshot import (PNG and JPG): on-device OCR with ncnn and PP-OCRv5, and a review page before anything is saved. The native library ships in the packages; the models download on first use and are checked against SHA-256.
 - JSON backup export and import, including multi-file backups for large libraries. The API key is left out unless you choose to include it.
 - Search, filters and a completed-tasks view.
+- Multi-select: drag the selected tasks together onto another quadrant (long press on phones, mouse drag on desktop).
 - 简体中文, English and 日本語; theme colors, font size, reduced motion, and optional comic outline and neumorphic styles.
 - Desktop: keyboard shortcuts, mouse drag and drop, context menus and a resizable task pool. Windows also gets a tray icon, a global hotkey and close to tray.
 - Release packages:

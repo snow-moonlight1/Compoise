@@ -447,7 +447,7 @@ void main() {
         final rejectedBatch = (await rejected.captureFiles([
           picked(file),
         ])).batch!;
-        expect(rejectedBatch.images.single.error, contains('Invalid PNG'));
+        expect(rejectedBatch.images.single.error, contains('Invalid image'));
         expect(rejectedBatch.activeTasks, isEmpty);
       } finally {
         await temp.delete(recursive: true);

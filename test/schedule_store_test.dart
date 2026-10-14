@@ -281,27 +281,6 @@ void main() {
   );
 
   test(
-    'grouping re-parents links; board move follows task without changing item',
-    () async {
-      final store = await seeded();
-      addTearDown(store.dispose);
-      store.addScheduleItem(block('block', 'a'));
-      store.addScheduleItem(linkedEvent('linked', 'b'));
-      final parent = store.groupTasks({'a', 'b'}, 'Group');
-      expect(store.scheduleItems.map((item) => item.taskId), [
-        parent.id,
-        parent.id,
-      ]);
-      expect(store.scheduleItems.map((item) => item.id), ['block', 'linked']);
-      final before = store.scheduleItems.first.toJson();
-      store.updateTask(Task.fromJson(parent.toJson())..boardId = otherBoard);
-      expect(store.tasks.single.boardId, otherBoard);
-      expect(store.scheduleItems.first.toJson(), before);
-      expect((await store.flush()).success, isTrue);
-    },
-  );
-
-  test(
     'clear paths and board deletion remove linked and independent records',
     () async {
       final store = await seeded();

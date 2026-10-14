@@ -1167,13 +1167,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       ..addAll(next);
   }
 
-  void _touchCommand() {
-    // Board-wide mutations bump every known task so stale undos cannot revive them.
-    for (final task in tasks) {
-      _touchTask(task.id);
-    }
-  }
-
   final Map<String, int> _boardEpoch = {};
 
   /// Returns the current mutation generation/epoch for the given board.
@@ -1498,99 +1491,6 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
         return true;
     }
-  }
-
-  Task groupTasks(Iterable<String> ids, String title) {
-    _touchCommand();
-    final selected = tasks
-        .where((t) => ids.contains(t.id) && t.boardId == activeBoardId)
-        .toList();
-    if (selected.length < 2 || title.trim().isEmpty) {
-      throw StateError('Select at least two tasks on the active board');
-    }
-    final selectedIds = selected.map((t) => t.id).toSet();
-    final deadlines = selected.map((t) => t.deadline).whereType<int>().toList()
-      ..sort();
-    final parent = Task(
-      id: newId(),
-      boardId: selected.first.boardId,
-      title: title,
-      quadrant: selected.first.quadrant,
-      completed: selected.every((t) => t.completed),
-      isLongTerm: selected.any((t) => t.isLongTerm),
-      deadline: deadlines.firstOrNull,
-      createdAt: _now(),
-      urgencyMode: selected.any((t) => t.urgencyMode == UrgencyMode.manual)
-          ? UrgencyMode.manual
-          : UrgencyMode.auto,
-      subtasks: [
-        for (final t in selected) ...[
-          SubTask(
-            id: newId(),
-            title: t.title,
-            completed: t.completed,
-            completedAt: t.completedAt,
-            deadline: t.deadline,
-            notesMarkdown: t.notesMarkdown,
-            reminderAt: t.reminderAt,
-          ),
-          for (final child in t.subtasks)
-            SubTask(
-              id: newId(),
-              title: '${t.title} / ${child.title}',
-              completed: child.completed,
-              completedAt: child.completedAt,
-              deadline: child.deadline,
-              notesMarkdown: child.notesMarkdown,
-              reminderAt: child.reminderAt,
-            ),
-        ],
-      ],
-    );
-    for (final t in selected) {
-      reminderService.cancelReminder(t.id);
-      for (final s in t.subtasks) {
-        reminderService.cancelReminder(t.id, subtaskId: s.id);
-      }
-    }
-    _tasks.removeWhere((t) => selectedIds.contains(t.id));
-    _tasks.insert(0, parent);
-    for (var i = 0; i < _scheduleItems.length; i++) {
-      final item = _scheduleItems[i];
-      if (!selectedIds.contains(item.taskId)) continue;
-      _scheduleItems[i] = ScheduleItem.fromJson({
-        ...item.toJson(),
-        'taskId': parent.id,
-      });
-      _touchSchedule(item.id);
-    }
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (!parent.completed &&
-        parent.reminderAt != null &&
-        parent.reminderAt! > now) {
-      reminderService.scheduleReminder(
-        boardId: parent.boardId,
-        taskId: parent.id,
-        title: parent.title,
-        body: parent.notesMarkdown,
-        triggerAtMs: parent.reminderAt!,
-      );
-    }
-    for (final s in parent.subtasks) {
-      if (!s.completed && s.reminderAt != null && s.reminderAt! > now) {
-        reminderService.scheduleReminder(
-          boardId: parent.boardId,
-          taskId: parent.id,
-          subtaskId: s.id,
-          title: s.title,
-          body: s.notesMarkdown,
-          triggerAtMs: s.reminderAt!,
-        );
-      }
-    }
-    _saveTasks();
-    notifyListeners();
-    return parent;
   }
 
   void createBoard(String name) {

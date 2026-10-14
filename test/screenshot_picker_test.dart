@@ -18,7 +18,7 @@ void main() {
         if (previous != null) FilePicker.platform = previous;
       });
       for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
-        final selected = await pickScreenshotPngFiles(platform: platform);
+        final selected = await pickScreenshotFiles(platform: platform);
         expect(selected!.map((file) => file.name), ['second.png', 'first.png']);
       }
       expect(picker.calls, 2);
@@ -70,7 +70,7 @@ class _Picker extends FilePicker {
   }) async {
     calls++;
     expect(type, FileType.custom);
-    expect(allowedExtensions, ['png']);
+    expect(allowedExtensions, ['png', 'jpg', 'jpeg']);
     expect(allowMultiple, isTrue);
     expect(withData, isFalse);
     expect(withReadStream, isFalse);

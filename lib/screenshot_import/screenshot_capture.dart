@@ -21,7 +21,7 @@ typedef ScreenshotRecognizer =
       OcrCancellationToken cancellation,
     );
 typedef ScreenshotMarkDecoder =
-    Future<List<GutterMark>> Function(Uint8List png, int width, int height);
+    Future<List<GutterMark>> Function(Uint8List image, int width, int height);
 
 /// Limits apply to each capture, including images whose OCR subsequently fails.
 /// Native OCR and Dart bitmap allocations are serialized across capture objects.
@@ -73,8 +73,8 @@ final class ScreenshotCapture {
     ScreenshotMarkDecoder? decodeMarks,
     Future<String?> Function()? modelAvailability,
   }) : _recognize = recognize,
-       _picker = picker ?? pickScreenshotPngFiles,
-       _decodeMarks = decodeMarks ?? _decodePngMarks,
+       _picker = picker ?? pickScreenshotFiles,
+       _decodeMarks = decodeMarks ?? _decodeImageMarks,
        _modelAvailability = modelAvailability;
 
   final ScreenshotRecognizer _recognize;
@@ -115,9 +115,7 @@ final class ScreenshotCapture {
   }) {
     if (count < 1 || count > ScreenshotLimits.maxImages) {
       return Future.value(
-        const ScreenshotCaptureResult(
-          error: 'Select at most 10 PNG screenshots.',
-        ),
+        const ScreenshotCaptureResult(error: 'Select at most 10 screenshots.'),
       );
     }
     return _start(
@@ -172,7 +170,7 @@ final class ScreenshotCapture {
       }
       if (files.length > ScreenshotLimits.maxImages) {
         return const ScreenshotCaptureResult(
-          error: 'Select at most 10 PNG screenshots.',
+          error: 'Select at most 10 screenshots.',
         );
       }
       final selected = List<PlatformFile>.of(files);
@@ -225,12 +223,10 @@ final class ScreenshotCapture {
           return const ScreenshotCaptureResult(cancelled: true);
         }
         final path = input.path;
-        if (!input.name.toLowerCase().endsWith('.png') ||
-            (path != null && !path.toLowerCase().endsWith('.png'))) {
+        if (!_supportedName(input.name) ||
+            (path != null && !_supportedName(path))) {
           images.add(
-            failure(
-              'Unsupported format: only PNG is accepted; no conversion is performed.',
-            ),
+            failure('Unsupported format: only PNG and JPEG are accepted.'),
           );
           continue;
         }
@@ -245,7 +241,7 @@ final class ScreenshotCapture {
           }
           if (stat.size <= 0 || stat.size > ScreenshotLimits.maxFileBytes) {
             throw const _CaptureFailure(
-              'PNG must be nonempty and at most 16 MiB.',
+              'Screenshot must be nonempty and at most 16 MiB.',
             );
           }
           if (bytesBudget + stat.size > ScreenshotLimits.maxBatchBytes) {
@@ -259,8 +255,16 @@ final class ScreenshotCapture {
           late int width;
           late int height;
           try {
-            final header = await handle.read(33);
-            final size = _pngDimensions(header);
+            // A growing or replaced source cannot trigger an unbounded read.
+            png = await handle.read(stat.size + 1);
+            if (png.length != stat.size) {
+              throw const _CaptureFailure(
+                'Screenshot changed while reading; select it again.',
+              );
+            }
+            final size = _isJpeg(png)
+                ? _jpegDimensions(png)
+                : _pngDimensions(png);
             width = size.$1;
             height = size.$2;
             if (pixelsBudget + width * height >
@@ -270,15 +274,7 @@ final class ScreenshotCapture {
               );
             }
             pixelsBudget += width * height;
-            await handle.setPosition(0);
-            // A growing or replaced source cannot trigger an unbounded read.
-            png = await handle.read(stat.size + 1);
-            if (png.length != stat.size) {
-              throw const _CaptureFailure(
-                'Screenshot changed while reading; select it again.',
-              );
-            }
-            _validatePngChunks(png);
+            if (!_isJpeg(png)) _validatePngChunks(png);
           } finally {
             await handle.close();
           }
@@ -324,7 +320,7 @@ final class ScreenshotCapture {
           }
           if (raw.width != width || raw.height != height) {
             throw const _CaptureFailure(
-              'OCR dimensions differ from the selected PNG; select it again.',
+              'OCR dimensions differ from the selected screenshot; select it again.',
             );
           }
           final wire = const ScreenshotDraftAdapter().adapt(
@@ -339,7 +335,7 @@ final class ScreenshotCapture {
         } on FileSystemException {
           images.add(failure('Screenshot file could not be read.'));
         } on FormatException {
-          images.add(failure('Invalid PNG, image evidence or OCR result.'));
+          images.add(failure('Invalid image, image evidence or OCR result.'));
         } catch (_) {
           // Neither native errors nor exceptions containing paths/text reach logs.
           images.add(
@@ -386,7 +382,7 @@ final class _CaptureFailure implements Exception {
 /// before returning to Dart (even withData=false). Do not invoke it until that
 /// privacy/resource gate is resolved. Other unvalidated mobile platforms also
 /// fail explicitly. A future approved picker can use the injected seam.
-Future<List<PlatformFile>?> pickScreenshotPngFiles({
+Future<List<PlatformFile>?> pickScreenshotFiles({
   TargetPlatform? platform,
 }) async {
   final target = platform ?? defaultTargetPlatform;
@@ -402,7 +398,7 @@ Future<List<PlatformFile>?> pickScreenshotPngFiles({
   }
   return (await FilePicker.platform.pickFiles(
     type: FileType.custom,
-    allowedExtensions: ['png'],
+    allowedExtensions: screenshotExtensions,
     allowMultiple: true,
     allowCompression: false,
     withData: false,
@@ -410,11 +406,77 @@ Future<List<PlatformFile>?> pickScreenshotPngFiles({
   ))?.files;
 }
 
+/// File extensions the pickers offer. Native OCR decodes PNG and JPEG.
+const screenshotExtensions = ['png', 'jpg', 'jpeg'];
+
+bool _supportedName(String name) {
+  final lower = name.toLowerCase();
+  return screenshotExtensions.any((ext) => lower.endsWith('.$ext'));
+}
+
+bool _isJpeg(Uint8List bytes) =>
+    bytes.length >= 3 &&
+    bytes[0] == 0xff &&
+    bytes[1] == 0xd8 &&
+    bytes[2] == 0xff;
+
+void _checkLimits(int w, int h) {
+  if (w <= 0 ||
+      h <= 0 ||
+      w > ScreenshotLimits.maxWidth ||
+      h > ScreenshotLimits.maxHeight ||
+      w * h > ScreenshotLimits.maxPixels) {
+    throw const _CaptureFailure(
+      'Image dimensions exceed 4096×8192 or 12 Mi-pixels.',
+    );
+  }
+}
+
+/// Reads width and height from the first SOF marker of a baseline,
+/// extended or progressive JPEG.
+(int, int) _jpegDimensions(Uint8List bytes) {
+  final data = ByteData.sublistView(bytes);
+  var offset = 2;
+  var segments = 0;
+  while (offset + 4 <= bytes.length && segments++ < 10000) {
+    if (bytes[offset] != 0xff) break;
+    final marker = bytes[offset + 1];
+    if (marker == 0xff) {
+      offset++;
+      continue;
+    }
+    if (marker == 0xd8 ||
+        marker == 0x01 ||
+        (marker >= 0xd0 && marker <= 0xd7)) {
+      offset += 2;
+      continue;
+    }
+    if (marker == 0xd9 || marker == 0xda) break;
+    final length = data.getUint16(offset + 2);
+    if (length < 2 || offset + 2 + length > bytes.length) break;
+    final isSof =
+        marker >= 0xc0 &&
+        marker <= 0xcf &&
+        marker != 0xc4 &&
+        marker != 0xc8 &&
+        marker != 0xcc;
+    if (isSof) {
+      if (length < 7) break;
+      final h = data.getUint16(offset + 5);
+      final w = data.getUint16(offset + 7);
+      _checkLimits(w, h);
+      return (w, h);
+    }
+    offset += 2 + length;
+  }
+  throw const _CaptureFailure('Invalid JPEG header.');
+}
+
 (int, int) _pngDimensions(Uint8List bytes) {
   const signature = [137, 80, 78, 71, 13, 10, 26, 10];
   if (bytes.length < 33 || !listEquals(bytes.sublist(0, 8), signature)) {
     throw const _CaptureFailure(
-      'Invalid PNG signature/header; other formats are unsupported.',
+      'Invalid image signature/header; only PNG and JPEG are supported.',
     );
   }
   final data = ByteData.sublistView(bytes);
@@ -423,15 +485,7 @@ Future<List<PlatformFile>?> pickScreenshotPngFiles({
   }
   final w = data.getUint32(16);
   final h = data.getUint32(20);
-  if (w <= 0 ||
-      h <= 0 ||
-      w > ScreenshotLimits.maxWidth ||
-      h > ScreenshotLimits.maxHeight ||
-      w * h > ScreenshotLimits.maxPixels) {
-    throw const _CaptureFailure(
-      'PNG dimensions exceed 4096×8192 or 12 Mi-pixels.',
-    );
-  }
+  _checkLimits(w, h);
   return (w, h);
 }
 
@@ -458,7 +512,7 @@ void _validatePngChunks(Uint8List png) {
   throw const _CaptureFailure('Invalid or excessively fragmented PNG.');
 }
 
-Future<List<GutterMark>> _decodePngMarks(
+Future<List<GutterMark>> _decodeImageMarks(
   Uint8List png,
   int width,
   int height,
@@ -470,6 +524,9 @@ Future<List<GutterMark>> _decodePngMarks(
     var disposed = false;
     try {
       if (frame.image.width != width || frame.image.height != height) {
+        // A JPEG with an EXIF rotation decodes rotated here but not in native
+        // OCR. Gutter marks are only hints, so skip them rather than fail.
+        if (_isJpeg(png)) return const [];
         throw const FormatException('bitmap size mismatch');
       }
       final pixels = await frame.image.toByteData(

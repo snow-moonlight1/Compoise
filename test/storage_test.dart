@@ -71,20 +71,6 @@ void main() {
     expect(() => store.importData({'boards': 'nope'}, 'merge'), throwsFormatException);
   });
 
-  test('groupTasks folds tasks into a parent with subtasks', () async {
-    final (store, _) = await makeStore(
-      boards: [Board(id: 'b1', name: 'B', createdAt: 1)],
-      tasks: [
-        Task(id: 't1', boardId: 'b1', title: 'milk', quadrant: qPlan, createdAt: 1),
-        Task(id: 't2', boardId: 'b1', title: 'eggs', quadrant: qPlan, createdAt: 2),
-      ],
-    );
-
-    final parent = store.groupTasks(['t1', 't2'], 'Shopping');
-    expect(store.tasks.map((task) => task.id), [parent.id]);
-    expect(parent.subtasks.map((s) => s.title), ['milk', 'eggs']);
-  });
-
   test('autoCompleteParent flips parent when all subtasks done', () async {
     final (store, _) = await makeStore(
       boards: [Board(id: 'b1', name: 'B', createdAt: 1)],

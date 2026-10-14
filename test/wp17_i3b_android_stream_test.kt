@@ -40,6 +40,12 @@ fun main() {
         check(small.file(0).readBytes().contentEquals(bytes))
         owned.remove(smallDir)
 
+        val jpegDir = owned.create(); val jpegStage = ScreenshotPngStage(jpegDir)
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte()) + ByteArray(500)
+        check(jpegStage.stage(0, ByteArrayInputStream(jpeg)) == jpeg.size.toLong())
+        check(jpegStage.file(0).name == "image-0.jpg" && jpegStage.file(0).readBytes().contentEquals(jpeg))
+        owned.remove(jpegDir)
+
         for (size in listOf(ScreenshotPngStage.FILE_BYTES, ScreenshotPngStage.FILE_BYTES + 1000000)) {
             val dir = owned.create(); val stage = ScreenshotPngStage(dir); val stream = SyntheticStream(size)
             fails("SafFileLimit") { stage.stage(0, stream) }

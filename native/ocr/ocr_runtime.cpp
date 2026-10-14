@@ -8,7 +8,7 @@
 //     heuristically instead and marks that as a known accuracy loss; we do not
 //     reproduce that shortcut.  Rotated text lines are out of scope here, which
 //     matches phone task screenshots.
-//   * No OpenCV.  PNG decoding is stb_image, connected components are a small
+//   * No OpenCV.  PNG/JPEG decoding is stb_image, connected components are a small
 //     union-find, cropping is a straight copy.  This keeps the exact same code
 //     path on all three targets and avoids shipping opencv-mobile.
 //   * Output order is the engine's own order. Task-draft assembly is separate.
@@ -31,6 +31,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
 #define STBI_NO_HDR
 #include "stb_image.h"
 
@@ -150,7 +151,7 @@ struct Bitmap
     std::unique_ptr<unsigned char, decltype(&stbi_image_free)> bgr{nullptr, stbi_image_free};
 };
 
-static bool load_png_bgr(const std::string& path, Bitmap& bm)
+static bool load_image_bgr(const std::string& path, Bitmap& bm)
 {
     int w = 0, h = 0, comp = 0;
     unsigned char* rgb = stbi_load(path.c_str(), &w, &h, &comp, 3);
@@ -648,15 +649,15 @@ extern "C" MF_OCR_EXPORT char* mf_ocr_run_file(void* opaque, const char* image_p
                 {
                     int w = 0, h = 0, components = 0;
                     if (!stbi_info(image_path, &w, &h, &components))
-                        result.error = "PNG header decode failed";
+                        result.error = "image header decode failed";
                     else if (w <= 0 || h <= 0 || w > 4096 || h > 8192 ||
                              static_cast<int64_t>(w) * h > 12 * 1024 * 1024)
                         result.error = "image dimensions exceed OCR limit";
                     else
                     {
                         Bitmap bitmap;
-                        if (!load_png_bgr(image_path, bitmap))
-                            result.error = "PNG decode failed";
+                        if (!load_image_bgr(image_path, bitmap))
+                            result.error = "image decode failed";
                         else
                         {
                             result.width = bitmap.w;

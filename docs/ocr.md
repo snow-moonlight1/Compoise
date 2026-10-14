@@ -4,7 +4,7 @@
 
 ## 流程
 
-1. **选择截图**：从首页“更多”进入。一次最多选 10 张静态 PNG。单张不超过 16 MiB、4096×8192 像素、1200 万像素，整批不超过 48 MiB。Android 通过系统文件选择器（SAF）读取；Windows 和 Linux 使用系统文件对话框，Linux 上需要 zenity 或 kdialog。
+1. **选择截图**：从首页“更多”进入。一次最多选 10 张静态 PNG 或 JPG 截图。单张不超过 16 MiB、4096×8192 像素、1200 万像素，整批不超过 48 MiB。Android 通过系统文件选择器（SAF）读取；Windows 和 Linux 使用系统文件对话框，Linux 上需要 zenity 或 kdialog。
 2. **准备模型**：第一次使用时下载识别模型，见下文“模型”。
 3. **识别**（`lib/ocr/ocr_runtime.dart`）：原生库 `compoise_ocr` 用 PP-OCRv5 mobile 模型检测和识别文字，返回每行的文字、位置和置信度。图片逐张处理，可以取消。
 4. **整理草稿**：

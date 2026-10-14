@@ -34,7 +34,8 @@ final class ScreenshotSaf {
       );
     }
     return PlatformFile(
-      name: 'image-$index.png',
+      // The staged file keeps the real type (image-N.png or image-N.jpg).
+      name: (reply['path'] as String).split('/').last,
       size: reply['bytes'] as int,
       path: reply['path'] as String,
     );

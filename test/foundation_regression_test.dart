@@ -388,21 +388,6 @@ void main() {
   );
 
   test(
-    'F14/R07 grouping must preserve existing completion timestamps',
-    () async {
-      final completed = sample('Done')
-        ..completed = true
-        ..completedAt = 12345;
-      final store = await seeded([completed, sample('Pending')]);
-      final grouped = store.groupTasks(['Done', 'Pending'], 'Group');
-      expect(
-        grouped.subtasks.firstWhere((s) => s.title == 'Done').completedAt,
-        12345,
-      );
-    },
-  );
-
-  test(
     'F14/R08 child completion history must not require completed parent',
     () {
       final now = DateTime.now();
