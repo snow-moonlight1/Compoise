@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../import_preview/draft_model.dart';
 import '../import_preview/draft_preview.dart';
 import '../storage.dart';
+import '../models.dart' show qDo;
 import '../ocr/ocr_model_download.dart';
 import 'screenshot_backend.dart';
 import 'screenshot_submission.dart';
@@ -155,7 +156,7 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
                 )
                 ..boardId =
                     source.boardId ?? context.read<Store>().activeBoardId
-                ..quadrant = source.quadrant;
+                ..quadrant = source.quadrant ?? qDo;
           _submission = ScreenshotSubmission(_batch!);
         }
       });

@@ -243,7 +243,7 @@ void main() {
     },
   );
 
-  for (final change in ['delete', 'unconfirm', 'edit', 'cancel', 'add']) {
+  for (final change in ['delete', 'exclude', 'edit', 'cancel', 'add']) {
     test('live $change while credential queue drains is revalidated', () async {
       final credentials = Credentials(), writer = Writer();
       final store = await open(credentials: credentials, writer: writer);
@@ -264,7 +264,7 @@ void main() {
           ? saving
           : expectLater(saving, throwsStateError);
       if (change == 'delete') store.deleteBoard(destination);
-      if (change == 'unconfirm') batch.activeTasks.first.confirmed = false;
+      if (change == 'exclude') batch.setExcluded(batch.activeTasks.first, true);
       if (change == 'edit') batch.activeTasks.first.title = 'edited';
       if (change == 'cancel') active.cancel();
       if (change == 'add') store.addTasks([store.newTask('Live addition')]);

@@ -66,6 +66,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const ValueKey('options-one:3')));
+    await tester.pumpAndSettle();
     final fields = measureFields(tester);
     expect(fields.length, greaterThanOrEqualTo(4));
     expect(offCenterFields(tester), isEmpty);

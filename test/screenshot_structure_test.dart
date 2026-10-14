@@ -162,7 +162,7 @@ void main() {
           ..boardId = 'board'
           ..quadrant = 1;
         expect(batch.activeTasks.every((task) => !task.confirmed), isTrue);
-        expect(batch.canSubmit, isFalse, reason: scene.id);
+        expect(batch.canSubmit, isTrue, reason: scene.id);
       }
       expect(seen, hasLength(30));
     },
@@ -346,7 +346,7 @@ void main() {
       ..boardId = 'board'
       ..quadrant = 1;
     expect(batch.activeTasks.single.confirmed, isFalse);
-    expect(batch.canSubmit, isFalse);
+    expect(batch.canSubmit, isTrue);
   });
 
   test('blank out-of-range boxes produce no task and real text still fails', () {

@@ -3,7 +3,7 @@ import '../models.dart';
 import '../storage.dart';
 
 /// One flow owns one mapping. Failed retries reuse both ids and timestamps.
-/// Only detached, explicitly confirmed ImportSubmission fields cross to Store.
+/// Only detached, selected ImportSubmission fields cross to Store.
 final class ScreenshotSubmission {
   ScreenshotSubmission(this.batch, {String Function()? idFactory})
     : _idFactory = idFactory ?? newId;

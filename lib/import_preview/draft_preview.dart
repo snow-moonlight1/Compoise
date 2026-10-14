@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../l10n.dart';
 import '../models.dart' show Language;
+import '../ui/platform_ui_policy.dart';
+import '../widgets/app_notice.dart';
 import 'draft_model.dart';
 
-/// Caller owns [batch] and ephemeral thumbnails. The preview never saves them.
-/// [onSubmit] receives a detached snapshot and is invoked at most once.
+/// Only the final detached selection is submitted. Editing never writes data.
 class DraftPreview extends StatefulWidget {
   final DraftBatch batch;
   final List<ImportBoardChoice> boards;
@@ -13,7 +14,6 @@ class DraftPreview extends StatefulWidget {
   final Language language;
   final Future<void> Function(ImportSubmission submission) onSubmit;
   final VoidCallback onCancel;
-
   const DraftPreview({
     super.key,
     required this.batch,
@@ -23,7 +23,6 @@ class DraftPreview extends StatefulWidget {
     this.thumbnails = const {},
     this.language = Language.zh,
   });
-
   @override
   State<DraftPreview> createState() => _DraftPreviewState();
 }
@@ -35,17 +34,13 @@ class ImportBoardChoice {
 }
 
 class _DraftPreviewState extends State<DraftPreview> {
-  final Map<String, TextEditingController> _titleControllers = {};
-  bool _submitting = false;
-  bool _cancelled = false;
-  bool _submitted = false;
-  String? _error;
-
+  final Map<String, TextEditingController> _titles = {};
+  final Set<String> _expanded = {};
+  bool _submitting = false, _cancelled = false, _submitted = false;
   String t(String key) => dictOf(widget.language)[key]!;
-
   @override
   void dispose() {
-    for (final controller in _titleControllers.values) {
+    for (final controller in _titles.values) {
       controller.dispose();
     }
     super.dispose();
@@ -57,162 +52,187 @@ class _DraftPreviewState extends State<DraftPreview> {
     widget.onCancel();
   }
 
+  bool get _hasBoard => widget.boards.any((b) => b.id == widget.batch.boardId);
   Future<void> _submit() async {
-    if (_submitting || _cancelled || _submitted || !widget.batch.canSubmit) {
+    if (_submitting ||
+        _cancelled ||
+        _submitted ||
+        !_hasBoard ||
+        !widget.batch.canSubmit) {
       return;
     }
     final submission = widget.batch.snapshot();
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
+    setState(() => _submitting = true);
     try {
       await widget.onSubmit(submission);
       _submitted = true;
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = t('importSubmitFailed');
-        });
+      if (mounted && !_cancelled) {
+        showAppNotice(context, t('importSubmitFailed'));
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-        });
-      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
+  Widget _bounded(Widget child) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 760),
+      child: child,
+    ),
+  );
   @override
-  Widget build(BuildContext context) {
-    final batch = widget.batch;
-    final theme = Theme.of(context);
-    final hasBoard = widget.boards.any((board) => board.id == batch.boardId);
-    return PopScope(
-      canPop: !_submitting,
-      onPopInvokedWithResult: (didPop, _) {
-        // The route has already popped. onCancel requests navigation, so it
-        // must only run for the explicit cancel button, never after a pop.
-        if (didPop) _cancelled = true;
-      },
-      child: SafeArea(
-        child: SingleChildScrollView(
-          key: const ValueKey('import-review-scroll'),
-          padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      t('importReviewTitle'),
-                      style: theme.textTheme.headlineSmall,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(t('importReviewHint')),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    key: const ValueKey('import-board'),
-                    isExpanded: true,
-                    decoration: InputDecoration(labelText: t('importBoard')),
-                    value: hasBoard ? batch.boardId : null,
-                    items: [
-                      for (final board in widget.boards)
-                        DropdownMenuItem(
-                          value: board.id,
-                          child: Text(
-                            board.name,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: _submitting
-                        ? null
-                        : (value) => setState(() => batch.boardId = value),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    key: const ValueKey('import-quadrant'),
-                    isExpanded: true,
-                    decoration: InputDecoration(labelText: t('importQuadrant')),
-                    value: batch.quadrant,
-                    items: [
-                      for (var q = 1; q <= 4; q++)
-                        DropdownMenuItem(
-                          value: q,
-                          child: Text(
-                            '${t('importQuadrant')} $q · ${t('q${q}Short')}',
-                          ),
-                        ),
-                    ],
-                    onChanged: _submitting
-                        ? null
-                        : (value) => setState(() => batch.quadrant = value),
-                  ),
-                  const SizedBox(height: 16),
-                  for (var i = 0; i < batch.images.length; i++) ...[
-                    _imageCard(batch.images[i], i),
-                    const SizedBox(height: 12),
-                  ],
-                  for (var i = 0; i < batch.duplicates.length; i++)
-                    _duplicateTile(batch.duplicates[i], i),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_submitting,
+    onPopInvokedWithResult: (didPop, _) {
+      // The route is already gone. Only the explicit button requests a pop.
+      if (didPop) _cancelled = true;
+    },
+    child: SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              key: const ValueKey('import-review-scroll'),
+              padding: const EdgeInsets.all(16),
+              child: _bounded(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Semantics(
+                      header: true,
                       child: Text(
-                        _error!,
-                        style: TextStyle(color: theme.colorScheme.error),
+                        t('importReviewTitle'),
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton(
-                        key: const ValueKey('import-cancel'),
-                        onPressed: _submitting ? null : _cancel,
-                        child: Text(t('cancel')),
-                      ),
-                      FilledButton(
-                        key: const ValueKey('import-submit'),
-                        onPressed:
-                            !_submitting &&
-                                !_cancelled &&
-                                !_submitted &&
-                                batch.canSubmit
-                            ? _submit
-                            : null,
-                        child: Text(
-                          _submitting ? t('processing') : t('importSubmit'),
-                        ),
-                      ),
+                    const SizedBox(height: 8),
+                    Text(t('importReviewHint')),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (PlatformUiPolicy.of(context).isDesktop &&
+                            constraints.maxWidth >= 600) {
+                          return Row(
+                            children: [
+                              Expanded(child: _boardField()),
+                              const SizedBox(width: 12),
+                              Expanded(child: _quadrantField()),
+                            ],
+                          );
+                        }
+                        return Column(
+                          children: [
+                            _boardField(),
+                            const SizedBox(height: 12),
+                            _quadrantField(),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    for (var i = 0; i < widget.batch.images.length; i++) ...[
+                      _imageCard(widget.batch.images[i], i),
+                      const SizedBox(height: 12),
                     ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _bounded(
+              Row(
+                children: [
+                  OutlinedButton(
+                    key: const ValueKey('import-cancel'),
+                    onPressed: _submitting ? null : _cancel,
+                    child: Text(t('cancel')),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      key: const ValueKey('import-submit'),
+                      onPressed:
+                          !_submitting &&
+                              !_cancelled &&
+                              !_submitted &&
+                              _hasBoard &&
+                              widget.batch.canSubmit
+                          ? _submit
+                          : null,
+                      child: Text(
+                        _submitting
+                            ? t('processing')
+                            : t('importSubmit').replaceAll(
+                                '{count}',
+                                '${widget.batch.activeTasks.length}',
+                              ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        ),
+        ],
       ),
-    );
-  }
-
+    ),
+  );
+  Widget _boardField() => DropdownButtonFormField<String>(
+    key: const ValueKey('import-board'),
+    isExpanded: true,
+    decoration: InputDecoration(labelText: t('importBoard')),
+    value: _hasBoard ? widget.batch.boardId : null,
+    items: [
+      for (final board in widget.boards)
+        DropdownMenuItem(
+          value: board.id,
+          child: Text(board.name, overflow: TextOverflow.ellipsis),
+        ),
+    ],
+    onChanged: _submitting
+        ? null
+        : (value) => setState(() => widget.batch.boardId = value),
+  );
+  Widget _quadrantField() => DropdownButtonFormField<int>(
+    key: const ValueKey('import-quadrant'),
+    isExpanded: true,
+    decoration: InputDecoration(labelText: t('importQuadrant')),
+    value: widget.batch.quadrant,
+    items: [
+      for (var q = 1; q <= 4; q++)
+        DropdownMenuItem(
+          value: q,
+          child: Text(t('q${q}Short'), overflow: TextOverflow.ellipsis),
+        ),
+    ],
+    onChanged: _submitting
+        ? null
+        : (value) => setState(() => widget.batch.quadrant = value),
+  );
+  bool _isOther(DraftTask task) =>
+      task.excluded &&
+      task.reviewReasons.any((reason) => reason.startsWith('dropped '));
+  bool _isDuplicate(DraftTask task) => widget.batch.duplicates.any(
+    (hint) =>
+        hint.imageIds.contains(task.imageId) &&
+        widget.batch.images.any(
+          (image) =>
+              image.id != task.imageId &&
+              hint.imageIds.contains(image.id) &&
+              image.tasks.any(
+                (other) => other.title.trim() == task.title.trim(),
+              ),
+        ),
+  );
   Widget _imageCard(DraftImage image, int index) {
-    final batch = widget.batch;
     final theme = Theme.of(context);
     final thumbnail = widget.thumbnails[image.id];
+    final others = image.tasks.where(_isOther).toList();
     return Card(
       key: ValueKey('image-${image.id}'),
       child: Padding(
@@ -224,33 +244,19 @@ class _DraftPreviewState extends State<DraftPreview> {
               children: [
                 if (thumbnail != null)
                   Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image(
-                        image: thumbnail,
-                        width: 48,
-                        height: 64,
-                        fit: BoxFit.cover,
-                        semanticLabel: '${t('importImage')} ${index + 1}',
-                      ),
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Image(
+                      image: thumbnail,
+                      width: 36,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      semanticLabel: '${t('importImage')} ${index + 1}',
                     ),
                   ),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${t('importImage')} ${index + 1}',
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      Text(
-                        image.failed
-                            ? t('importImageFailed')
-                            : '${image.tasks.where((task) => !task.excluded).length} ${t('importTasks')}',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
+                  child: Text(
+                    '${t('importImage')} ${index + 1}',
+                    style: theme.textTheme.titleMedium,
                   ),
                 ),
                 IconButton(
@@ -258,26 +264,30 @@ class _DraftPreviewState extends State<DraftPreview> {
                   tooltip: t('importMoveEarlier'),
                   onPressed: _submitting || index == 0
                       ? null
-                      : () => setState(() => batch.moveImage(index, index - 1)),
+                      : () => setState(
+                          () => widget.batch.moveImage(index, index - 1),
+                        ),
                   icon: const Icon(Icons.arrow_upward),
                 ),
                 IconButton(
                   key: ValueKey('image-down-${image.id}'),
                   tooltip: t('importMoveLater'),
-                  onPressed: _submitting || index == batch.images.length - 1
+                  onPressed:
+                      _submitting || index == widget.batch.images.length - 1
                       ? null
-                      : () => setState(() => batch.moveImage(index, index + 1)),
+                      : () => setState(
+                          () => widget.batch.moveImage(index, index + 1),
+                        ),
                   icon: const Icon(Icons.arrow_downward),
                 ),
               ],
             ),
-            if (image.failed) ...[
-              const SizedBox(height: 8),
+            if (image.failed)
               Text(
                 image.error!,
                 style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ] else ...[
+              )
+            else ...[
               SwitchListTile(
                 key: ValueKey('image-skip-${image.id}'),
                 contentPadding: EdgeInsets.zero,
@@ -285,20 +295,25 @@ class _DraftPreviewState extends State<DraftPreview> {
                 value: image.skipped,
                 onChanged: _submitting
                     ? null
-                    : (value) => setState(() {
-                        image.skipped = value;
-                        if (!value) {
-                          for (final task in image.tasks) {
-                            task.confirmed = false;
-                          }
-                        }
-                      }),
+                    : (value) => setState(() => image.skipped = value),
               ),
               if (!image.skipped) ...[
-                for (final note in image.notes)
-                  if (_noteText(note) case final text?)
-                    Text(text, style: theme.textTheme.bodySmall),
-                for (final task in image.tasks) _taskCard(image, task),
+                for (final task in image.tasks.where((task) => !_isOther(task)))
+                  _taskCard(image, task),
+                if (image.tasks.isEmpty) Text(t('importNoteNoRows')),
+                if (others.isNotEmpty)
+                  ExpansionTile(
+                    key: ValueKey('import-other-${image.id}'),
+                    tilePadding: EdgeInsets.zero,
+                    title: Text(
+                      t(
+                        'importOtherText',
+                      ).replaceAll('{count}', '${others.length}'),
+                    ),
+                    children: [
+                      for (final task in others) _taskCard(image, task),
+                    ],
+                  ),
               ],
             ],
           ],
@@ -308,221 +323,166 @@ class _DraftPreviewState extends State<DraftPreview> {
   }
 
   Widget _taskCard(DraftImage image, DraftTask task) {
-    final theme = Theme.of(context);
-    final previous = image.tasks
+    final preceding = image.tasks
         .take(image.tasks.indexOf(task))
         .where((candidate) => !candidate.excluded)
         .toList();
+    final parents = preceding.where((candidate) => candidate.parentId == null);
+    final expanded = _expanded.contains(task.id);
     return Padding(
       key: ValueKey('task-${task.id}'),
-      padding: const EdgeInsets.only(top: 10),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: EdgeInsets.only(top: 8, left: task.parentId == null ? 0 : 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              TextFormField(
-                key: ValueKey('title-${task.id}'),
-                controller: _titleControllers.putIfAbsent(
-                  task.id,
-                  () => TextEditingController(text: task.title),
-                ),
-                maxLines: null,
-                decoration: InputDecoration(
-                  labelText: t('importTaskTitle'),
-                  errorText: !task.excluded && !task.hasValidTitle
-                      ? t('importEmptyTitle')
-                      : null,
-                ),
-                onChanged: _submitting
-                    ? null
-                    : (value) => setState(() {
-                        task.title = value;
-                        task.confirmed = false;
-                      }),
-              ),
-              CheckboxListTile(
-                key: ValueKey('checked-${task.id}'),
-                contentPadding: EdgeInsets.zero,
-                value: task.checked,
-                title: Text(t('importCompleted')),
-                onChanged: _submitting
-                    ? null
-                    : (value) => setState(() {
-                        task.checked = value ?? false;
-                        task.confirmed = false;
-                      }),
-              ),
-              DropdownButtonFormField<String>(
-                key: ValueKey('parent-${task.id}'),
-                isExpanded: true,
-                decoration: InputDecoration(labelText: t('importParent')),
-                value:
-                    previous.any((candidate) => candidate.id == task.parentId)
-                    ? task.parentId
-                    : '',
-                items: [
-                  DropdownMenuItem(value: '', child: Text(t('importNoParent'))),
-                  for (final candidate in previous)
-                    DropdownMenuItem(
-                      value: candidate.id,
-                      child: Text(
-                        candidate.title,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
+              Checkbox(
+                key: ValueKey('exclude-${task.id}'),
+                semanticLabel: t(
+                  'importSelectTask',
+                ).replaceAll('{title}', task.title),
+                value: !task.excluded,
                 onChanged: _submitting
                     ? null
                     : (value) => setState(
-                        () => widget.batch.setParent(
-                          task,
-                          value == '' ? null : value,
-                        ),
+                        () => widget.batch.setExcluded(task, value != true),
                       ),
               ),
-              if (task.dueText != null) ...[
-                const SizedBox(height: 8),
-                TextFormField(
-                  key: ValueKey('due-${task.id}'),
-                  initialValue: task.dueText,
+              Expanded(
+                child: TextFormField(
+                  key: ValueKey('title-${task.id}'),
+                  controller: _titles.putIfAbsent(
+                    task.id,
+                    () => TextEditingController(text: task.title),
+                  ),
+                  maxLines: null,
+                  readOnly: _submitting,
                   decoration: InputDecoration(
-                    labelText: t('importDateText'),
-                    helperText: t('importDateHint'),
+                    hintText: t('importTaskTitle'),
+                    errorText: !task.excluded && !task.hasValidTitle
+                        ? t('importEmptyTitle')
+                        : null,
                   ),
-                  onChanged: _submitting
-                      ? null
-                      : (value) => setState(() {
-                          task.dueText = value;
-                          task.confirmed = false;
-                        }),
+                  onChanged: (value) => setState(() => task.title = value),
                 ),
-                CheckboxListTile(
-                  key: ValueKey('keep-due-${task.id}'),
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(t('importKeepDateText')),
-                  value: task.keepDueText,
-                  onChanged: _submitting
-                      ? null
-                      : (value) => setState(() {
-                          task.keepDueText = value ?? false;
-                          task.confirmed = false;
-                        }),
-                ),
-              ],
-              for (final reason in task.reviewReasons.map(_reasonText))
-                if (reason != null)
-                  Text(
-                    '${t('importNeedsReview')}: $reason',
-                    style: theme.textTheme.bodySmall,
-                  ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  TextButton(
-                    key: ValueKey('split-${task.id}'),
-                    onPressed: _submitting
-                        ? null
-                        : () => setState(() {
-                            if (widget.batch.splitAtNewline(task) != null) {
-                              _titleControllers[task.id]!.text = task.title;
-                            }
-                          }),
-                    child: Text(t('importSplit')),
-                  ),
-                  TextButton(
-                    key: ValueKey('merge-${task.id}'),
-                    onPressed: _submitting || previous.isEmpty
-                        ? null
-                        : () => setState(() {
-                            FocusScope.of(context).unfocus();
-                            final target = previous.last;
-                            if (widget.batch.mergeWithPrevious(task)) {
-                              _titleControllers[target.id]!.text = target.title;
-                            }
-                          }),
-                    child: Text(t('importMergePrevious')),
-                  ),
-                ],
               ),
-              SwitchListTile(
-                key: ValueKey('exclude-${task.id}'),
+              IconButton(
+                key: ValueKey('options-${task.id}'),
+                tooltip: t('importTaskOptions'),
+                isSelected: expanded,
+                onPressed: _submitting
+                    ? null
+                    : () => setState(() {
+                        if (!_expanded.add(task.id)) _expanded.remove(task.id);
+                      }),
+                icon: const Icon(Icons.more_horiz),
+              ),
+            ],
+          ),
+          if (_isDuplicate(task) || task.checked)
+            Padding(
+              padding: const EdgeInsets.only(left: 48, top: 4),
+              child: Text(
+                [
+                  if (_isDuplicate(task)) t('importDuplicate'),
+                  if (task.checked) t('importCompleted'),
+                ].join(' · '),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          if (expanded) ...[
+            const SizedBox(height: 12),
+            CheckboxListTile(
+              key: ValueKey('checked-${task.id}'),
+              contentPadding: EdgeInsets.zero,
+              value: task.checked,
+              title: Text(t('importCompleted')),
+              onChanged: _submitting
+                  ? null
+                  : (value) => setState(() => task.checked = value ?? false),
+            ),
+            DropdownButtonFormField<String>(
+              key: ValueKey('parent-${task.id}'),
+              isExpanded: true,
+              decoration: InputDecoration(labelText: t('importParent')),
+              value: parents.any((candidate) => candidate.id == task.parentId)
+                  ? task.parentId
+                  : '',
+              items: [
+                DropdownMenuItem(value: '', child: Text(t('importNoParent'))),
+                for (final candidate in parents)
+                  DropdownMenuItem(
+                    value: candidate.id,
+                    child: Text(
+                      candidate.title,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: _submitting
+                  ? null
+                  : (value) => setState(
+                      () => widget.batch.setParent(
+                        task,
+                        value == '' ? null : value,
+                      ),
+                    ),
+            ),
+            if (task.dueText != null) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                key: ValueKey('due-${task.id}'),
+                initialValue: task.dueText,
+                readOnly: _submitting,
+                decoration: InputDecoration(labelText: t('importDateText')),
+                onChanged: (value) => setState(() => task.dueText = value),
+              ),
+              CheckboxListTile(
+                key: ValueKey('keep-due-${task.id}'),
                 contentPadding: EdgeInsets.zero,
-                title: Text(
-                  task.excluded ? t('importRestore') : t('importExclude'),
-                ),
-                value: task.excluded,
+                title: Text(t('importKeepDateText')),
+                value: task.keepDueText,
                 onChanged: _submitting
                     ? null
                     : (value) =>
-                          setState(() => widget.batch.setExcluded(task, value)),
+                          setState(() => task.keepDueText = value ?? false),
               ),
-              if (!task.excluded)
-                CheckboxListTile(
-                  key: ValueKey('confirm-${task.id}'),
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(t('importConfirmTask')),
-                  value: task.confirmed,
-                  onChanged: _submitting || !task.hasValidTitle
-                      ? null
-                      : (value) =>
-                            setState(() => task.confirmed = value ?? false),
-                ),
             ],
-          ),
-        ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton(
+                  key: ValueKey('split-${task.id}'),
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() {
+                          if (widget.batch.splitAtNewline(task) != null) {
+                            _titles[task.id]!.text = task.title;
+                          }
+                        }),
+                  child: Text(t('importSplit')),
+                ),
+                TextButton(
+                  key: ValueKey('merge-${task.id}'),
+                  onPressed: _submitting || preceding.isEmpty
+                      ? null
+                      : () => setState(() {
+                          FocusScope.of(context).unfocus();
+                          final target = preceding.last;
+                          if (widget.batch.mergeWithPrevious(task)) {
+                            _titles[target.id]?.text = target.title;
+                          }
+                        }),
+                  child: Text(t('importMergePrevious')),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
-    );
-  }
-
-  /// Recognizer reasons are diagnostics. Only the ones with plain wording
-  /// are shown; the rest stay out of the UI.
-  String? _reasonText(String reason) {
-    const keys = <String, String>{
-      'date text needs review': 'importReasonDate',
-      'indent/parent needs review': 'importReasonParent',
-      'parent row is missing or out of order': 'importReasonParentOrder',
-      'parent was excluded': 'importReasonParentExcluded',
-      'split task needs review': 'importReasonSplit',
-      'merged task needs review': 'importReasonMerged',
-    };
-    final key = keys[reason];
-    if (key != null) return t(key);
-    const dropped = 'dropped ';
-    if (reason.startsWith(dropped)) {
-      const kinds = <String, String>{
-        'chrome': 'importDroppedTop',
-        'meta': 'importDroppedMeta',
-        'section': 'importDroppedSection',
-      };
-      final kind = kinds[reason.substring(dropped.length)];
-      return kind == null ? t('importReasonDropped') : t(kind);
-    }
-    return null;
-  }
-
-  /// Recognition notes are written for diagnostics. Only the one a user can
-  /// act on is shown, in their language; the rest stay out of the UI.
-  String? _noteText(String note) {
-    if (note.startsWith('No task rows detected')) return t('importNoteNoRows');
-    return null;
-  }
-
-  Widget _duplicateTile(DuplicateHint hint, int index) {
-    return CheckboxListTile(
-      key: ValueKey('duplicate-$index'),
-      title: Text('${t('importDuplicate')}: ${hint.imageIds.join(' / ')}'),
-      subtitle: Text(t('importDuplicateHint')),
-      value: hint.acknowledged,
-      onChanged: _submitting
-          ? null
-          : (value) => setState(() => hint.acknowledged = value ?? false),
     );
   }
 }

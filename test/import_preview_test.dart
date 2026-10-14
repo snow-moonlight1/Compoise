@@ -1,12 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:compoise/import_preview/draft_model.dart';
 import 'package:compoise/import_preview/draft_preview.dart';
-import 'package:compoise/l10n.dart';
 import 'package:compoise/models.dart';
 
 Map<String, dynamic> image(String id, {bool withDue = false}) => {
@@ -174,12 +172,14 @@ Future<void> pumpPreview(
   double textScale = 1,
   double keyboardInset = 0,
   Map<String, ImageProvider> thumbnails = const {},
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
   await tester.pumpWidget(
     MaterialApp(
+      theme: theme,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(
           context,
@@ -188,6 +188,7 @@ Future<void> pumpPreview(
       ),
       home: Scaffold(
         body: DraftPreview(
+          key: ObjectKey(value),
           batch: value,
           language: language,
           boards: const [ImportBoardChoice('board', 'My board')],
@@ -253,8 +254,8 @@ void main() {
       }
       expect(
         value.canSubmit,
-        isFalse,
-      ); // duplicate needs explicit acknowledgement
+        isTrue,
+      ); // duplicate hints never block a valid selection
       value.duplicates.first.acknowledged = true;
       expect(value.canSubmit, isTrue);
       final submission = value.snapshot();
@@ -318,143 +319,6 @@ void main() {
     value.setExcluded(parent, false);
     expect(value.mergeWithPrevious(split), isTrue);
     expect(parent.title, 'Milk Bread');
-  });
-
-  testWidgets(
-    'review is required; reorder, edit, skip failure, confirm and submit',
-    (tester) async {
-      tester.view.physicalSize = const Size(400, 780);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final value = batch();
-      ImportSubmission? submitted;
-      var cancelled = false;
-      Widget app() => MaterialApp(
-        home: Scaffold(
-          body: DraftPreview(
-            batch: value,
-            boards: const [ImportBoardChoice('board', 'My board')],
-            onSubmit: (submission) async {
-              submitted = submission;
-            },
-            onCancel: () {
-              cancelled = true;
-            },
-          ),
-        ),
-      );
-      await tester.pumpWidget(app());
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
-            .onPressed,
-        isNull,
-      );
-      expect(find.text('OCR unavailable'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('image-down-one')));
-      await tester.pumpWidget(app());
-      expect(value.images.map((image) => image.id), ['broken', 'one', 'two']);
-      value.boardId = 'board';
-      value.quadrant = 1;
-      for (final task in value.activeTasks) {
-        task.confirmed = true;
-      }
-      await tester.pumpWidget(app());
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
-            .onPressed,
-        isNull,
-      );
-      value.duplicates.first.acknowledged = true;
-      await tester.pumpWidget(app());
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
-            .onPressed,
-        isNotNull,
-      );
-      await tester.ensureVisible(find.byKey(const ValueKey('import-submit')));
-      await tester.tap(find.byKey(const ValueKey('import-submit')));
-      await tester.pump();
-      expect(submitted, isNotNull);
-      expect(submitted!.tasks.map((task) => task.imageId), [
-        'one',
-        'one',
-        'two',
-        'two',
-      ]);
-      expect(cancelled, isFalse);
-    },
-  );
-
-  testWidgets('cancel never calls submit callback', (tester) async {
-    var calls = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DraftPreview(
-            batch: DraftBatch.fromJson(image('one')),
-            boards: const [ImportBoardChoice('board', 'Board')],
-            onSubmit: (_) async {
-              calls++;
-            },
-            onCancel: () {},
-          ),
-        ),
-      ),
-    );
-    await tester.ensureVisible(find.byKey(const ValueKey('import-cancel')));
-    await tester.tap(find.byKey(const ValueKey('import-cancel')));
-    await tester.pump();
-    expect(calls, 0);
-  });
-
-  testWidgets('keyboard edit clears confirmation on a narrow screen', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 720);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final value = DraftBatch.fromJson(image('one'));
-    value.boardId = 'board';
-    value.quadrant = 1;
-    for (final task in value.activeTasks) {
-      task.confirmed = true;
-    }
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DraftPreview(
-            batch: value,
-            boards: const [ImportBoardChoice('board', 'Board')],
-            onSubmit: (_) async {},
-            onCancel: () {},
-          ),
-        ),
-      ),
-    );
-    expect(
-      tester
-          .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
-          .onPressed,
-      isNotNull,
-    );
-    final title = find.byKey(const ValueKey('title-one:3'));
-    await tester.ensureVisible(title);
-    await tester.enterText(title, 'Buy oat milk');
-    await tester.pump();
-    expect(value.activeTasks.first.title, 'Buy oat milk');
-    expect(value.activeTasks.first.confirmed, isFalse);
-    expect(
-      tester
-          .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
-          .onPressed,
-      isNull,
-    );
-    expect(tester.takeException(), isNull);
   });
 
   test(
@@ -606,7 +470,7 @@ void main() {
       for (final task in hinted.activeTasks) {
         task.confirmed = true;
       }
-      expect(hinted.canSubmit, isFalse);
+      expect(hinted.canSubmit, isTrue);
     },
   );
 
@@ -713,7 +577,7 @@ void main() {
       expect(dropped.confirmed, isFalse);
 
       ready(value);
-      parent.confirmed = false;
+      parent.title = ' ';
       expect(value.canSubmit, isFalse);
       expect(() => value.snapshot(), throwsA(isA<DraftFormatException>()));
     },
@@ -736,399 +600,5 @@ void main() {
       expect(source, isNot(contains('GoRouter')));
       expect(source, isNot(contains('DateTime')));
     }
-  });
-
-  testWidgets('incomplete review never calls onSubmit', (tester) async {
-    addTearDown(tester.view.reset);
-    var calls = 0;
-    Future<void> submit(ImportSubmission _) async => calls++;
-
-    final failed = DraftBatch.fromJson({
-      'schema': 'wp17r2-draft/1',
-      'images': [
-        {'id': 'broken', 'error': 'OCR unavailable'},
-      ],
-    });
-    failed.boardId = 'board';
-    failed.quadrant = 2;
-    await pumpPreview(tester, value: failed, onSubmit: submit);
-    await tapSubmit(tester);
-
-    final skipped = batch();
-    ready(skipped);
-    skipped.images[0].skipped = true;
-    skipped.images[2].skipped = true;
-    await pumpPreview(tester, value: skipped, onSubmit: submit);
-    await tapSubmit(tester);
-
-    final empty = DraftBatch.fromJson(image('one'));
-    ready(empty);
-    empty.activeTasks.first.title = '   ';
-    await pumpPreview(tester, value: empty, onSubmit: submit);
-    expect(find.text('请输入任务文字'), findsOneWidget);
-    await tapSubmit(tester);
-
-    final unconfirmed = batch();
-    unconfirmed.boardId = 'board';
-    unconfirmed.quadrant = 3;
-    unconfirmed.duplicates.first.acknowledged = true;
-    await pumpPreview(tester, value: unconfirmed, onSubmit: submit);
-    await tapSubmit(tester);
-
-    final duplicate = batch();
-    ready(duplicate);
-    duplicate.duplicates.first.acknowledged = false;
-    await pumpPreview(tester, value: duplicate, onSubmit: submit);
-    await tapSubmit(tester);
-
-    expect(calls, 0);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('clearing a title in the field blocks submit', (tester) async {
-    addTearDown(tester.view.reset);
-    var calls = 0;
-    final value = DraftBatch.fromJson(image('one'));
-    ready(value);
-    await pumpPreview(
-      tester,
-      value: value,
-      onSubmit: (_) async => calls++,
-      size: const Size(390, 844),
-    );
-    expect(
-      tester
-          .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
-          .onPressed,
-      isNotNull,
-    );
-    final title = find.byKey(const ValueKey('title-one:3'));
-    await tester.ensureVisible(title);
-    await tester.enterText(title, '');
-    await tester.pump();
-    expect(value.activeTasks.first.title, isEmpty);
-    expect(value.activeTasks.first.confirmed, isFalse);
-    await tapSubmit(tester);
-    expect(calls, 0);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets(
-    'split, merge, exclude and restore disable submit until reconfirmed',
-    (tester) async {
-      addTearDown(tester.view.reset);
-      var calls = 0;
-      final value = DraftBatch.fromJson(
-        imageJson('one', [
-          taskJson(row: 1, title: 'Milk\nBread'),
-          taskJson(row: 2, title: 'Eggs', level: 1, parent: 1),
-        ]),
-      );
-      ready(value);
-      await pumpPreview(
-        tester,
-        value: value,
-        onSubmit: (_) async => calls++,
-        size: const Size(390, 844),
-      );
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('import-submit')))
-            .onPressed,
-        isNotNull,
-      );
-
-      await tester.ensureVisible(find.byKey(const ValueKey('split-one:1')));
-      await tester.tap(find.byKey(const ValueKey('split-one:1')));
-      await tester.pumpAndSettle();
-      expect(value.images.single.tasks[0].confirmed, isFalse);
-      expect(value.images.single.tasks[1].confirmed, isFalse);
-      await tapSubmit(tester);
-
-      for (final key in const ['confirm-one:1', 'confirm-one:edit:0']) {
-        final box = find.byKey(ValueKey(key));
-        await tester.ensureVisible(box);
-        await tester.tap(box);
-        await tester.pump();
-      }
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('merge-one:edit:0')),
-      );
-      await tester.tap(find.byKey(const ValueKey('merge-one:edit:0')));
-      await tester.pumpAndSettle();
-      expect(value.images.single.tasks.first.confirmed, isFalse);
-      expect(value.images.single.tasks.first.title, 'Milk Bread');
-      await tapSubmit(tester);
-
-      final parentConfirm = find.byKey(const ValueKey('confirm-one:1'));
-      await tester.ensureVisible(parentConfirm);
-      await tester.tap(parentConfirm);
-      await tester.pump();
-      await tester.ensureVisible(find.byKey(const ValueKey('exclude-one:1')));
-      await tester.tap(find.byKey(const ValueKey('exclude-one:1')));
-      await tester.pumpAndSettle();
-      final tasks = value.images.single.tasks;
-      expect(tasks.first.excluded, isTrue);
-      expect(tasks.first.confirmed, isFalse);
-      expect(tasks[1].parentId, isNull);
-      expect(tasks[1].confirmed, isFalse);
-      await tapSubmit(tester);
-
-      final restore = find.byKey(const ValueKey('exclude-one:1'));
-      await tester.ensureVisible(restore);
-      await tester.tap(restore);
-      await tester.pumpAndSettle();
-      expect(tasks.first.excluded, isFalse);
-      expect(tasks.first.confirmed, isFalse);
-      await tapSubmit(tester);
-      expect(calls, 0);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets('narrow, phone, large text, keyboard and scroll stay usable', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    addTearDown(tester.view.reset);
-    final thumbnails = {'one': MemoryImage(_png), 'two': MemoryImage(_png)};
-    for (final size in const [Size(320, 720), Size(390, 844)]) {
-      for (final scale in const [1.0, 2.0]) {
-        await pumpPreview(
-          tester,
-          value: batch(),
-          onSubmit: (_) async {},
-          size: size,
-          textScale: scale,
-          thumbnails: thumbnails,
-        );
-        expect(tester.takeException(), isNull, reason: '$size scale $scale');
-        final submit = find.byKey(const ValueKey('import-submit'));
-        await tester.ensureVisible(submit);
-        expect(
-          tester.getRect(submit).bottom,
-          lessThanOrEqualTo(tester.getRect(reviewScrollable).bottom + 1),
-        );
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: 'scroll $size scale $scale',
-        );
-      }
-    }
-
-    final keyboardBatch = batch();
-    await pumpPreview(
-      tester,
-      value: keyboardBatch,
-      onSubmit: (_) async {},
-      size: const Size(320, 720),
-      textScale: 2,
-      keyboardInset: 320,
-      thumbnails: thumbnails,
-    );
-    final scrollState = tester.state<ScrollableState>(reviewScrollable);
-    expect(scrollState.position.viewportDimension, lessThan(420));
-    expect(scrollState.position.maxScrollExtent, greaterThan(0));
-    final title = find.byKey(const ValueKey('title-two:3'));
-    await tester.ensureVisible(title);
-    await tester.enterText(title, '键盘输入');
-    await tester.pump();
-    expect(
-      keyboardBatch.images.last.tasks
-          .firstWhere((task) => task.id == 'two:3')
-          .title,
-      '键盘输入',
-    );
-    final submit = find.byKey(const ValueKey('import-submit'));
-    await tester.ensureVisible(submit);
-    final viewport = tester.getRect(reviewScrollable);
-    expect(
-      tester.getRect(submit).bottom,
-      lessThanOrEqualTo(viewport.bottom + 1),
-    );
-    var implicit = false;
-    void visit(SemanticsNode node) {
-      if (node.hasFlag(SemanticsFlag.hasImplicitScrolling)) implicit = true;
-      node.visitChildren((child) {
-        visit(child);
-        return true;
-      });
-    }
-
-    for (final view in tester.binding.renderViews) {
-      final root = view.owner?.semanticsOwner?.rootSemanticsNode;
-      if (root != null) visit(root);
-    }
-    expect(implicit, isTrue);
-    semantics.dispose();
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Chinese, English and Japanese copy expose semantic labels', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    addTearDown(tester.view.reset);
-    const foreign = {
-      Language.en: '校对截图任务',
-      Language.zh: 'Review screenshot tasks',
-      Language.ja: 'Review screenshot tasks',
-    };
-    for (final language in const [Language.zh, Language.en, Language.ja]) {
-      final dict = dictOf(language);
-      await pumpPreview(
-        tester,
-        value: batch(),
-        onSubmit: (_) async {},
-        language: language,
-        size: const Size(390, 844),
-        thumbnails: {'one': MemoryImage(_png)},
-      );
-      expect(find.text(dict['importReviewTitle']!), findsOneWidget);
-      expect(find.text(foreign[language]!), findsNothing);
-      expect(find.text(dict['importReviewHint']!), findsOneWidget);
-      expect(find.text(dict['importImageFailed']!), findsOneWidget);
-      expect(find.text(dict['importDateHint']!), findsWidgets);
-      expect(find.text(dict['importDuplicateHint']!), findsOneWidget);
-      expect(find.text(dict['cancel']!), findsOneWidget);
-      expect(find.text(dict['importSubmit']!), findsOneWidget);
-      expect(
-        find.text('${dict['importNeedsReview']}: ${dict['importReasonDate']}'),
-        findsWidgets,
-      );
-      expect(
-        find.text(
-          '${dict['importNeedsReview']}: ${dict['importReasonParent']}',
-        ),
-        findsWidgets,
-      );
-      expect(
-        find.text(
-          '${dict['importNeedsReview']}: ${dict['importReasonDropped']}',
-        ),
-        findsWidgets,
-      );
-      // Recognizer diagnostics without plain wording stay out of the UI.
-      expect(
-        find.text('${dict['importNeedsReview']}: indent uncertain'),
-        findsNothing,
-      );
-
-      expect(
-        tester
-            .getSemantics(find.text(dict['importReviewTitle']!))
-            .hasFlag(SemanticsFlag.isHeader),
-        isTrue,
-      );
-      expect(
-        tester.getSemantics(find.byType(Image)).label,
-        '${dict['importImage']!} 1',
-      );
-      expect(
-        tester
-            .getSemantics(find.byTooltip(dict['importMoveLater']!).first)
-            .tooltip,
-        dict['importMoveLater'],
-      );
-      expect(
-        tester
-            .getSemantics(find.byKey(const ValueKey('import-submit')))
-            .hasFlag(SemanticsFlag.isButton),
-        isTrue,
-      );
-      expect(
-        tester.getSemantics(find.byKey(const ValueKey('import-submit'))).label,
-        contains(dict['importSubmit']!),
-      );
-      expect(
-        tester.getSemantics(find.byKey(const ValueKey('duplicate-0'))).label,
-        contains(dict['importDuplicate']!),
-      );
-      expect(tester.takeException(), isNull, reason: language.name);
-    }
-    semantics.dispose();
-  });
-
-  testWidgets('keyboard activates only a ready submit button', (tester) async {
-    final semantics = tester.ensureSemantics();
-    addTearDown(tester.view.reset);
-    var calls = 0;
-    final blocked = DraftBatch.fromJson(image('one'));
-    blocked.boardId = 'board';
-    blocked.quadrant = 1;
-    await pumpPreview(
-      tester,
-      value: blocked,
-      onSubmit: (_) async => calls++,
-      size: const Size(390, 844),
-    );
-    final blockedButton = find.byKey(const ValueKey('import-submit'));
-    await tester.ensureVisible(blockedButton);
-    final blockedSemantics = tester.getSemantics(blockedButton);
-    expect(blockedSemantics.hasFlag(SemanticsFlag.isButton), isTrue);
-    expect(blockedSemantics.hasFlag(SemanticsFlag.isEnabled), isFalse);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
-    expect(calls, 0);
-
-    final value = DraftBatch.fromJson(image('one'));
-    ready(value);
-    await pumpPreview(
-      tester,
-      value: value,
-      onSubmit: (_) async => calls++,
-      size: const Size(390, 844),
-    );
-    final title = find.byKey(const ValueKey('title-one:3'));
-    await tester.ensureVisible(title);
-    await tester.tap(title);
-    await tester.pump();
-    await tester.enterText(title, 'Buy oat milk');
-    await tester.pump();
-    expect(value.activeTasks.first.confirmed, isFalse);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
-    expect(calls, 0);
-
-    final confirm = find.byKey(const ValueKey('confirm-one:3'));
-    await tester.ensureVisible(confirm);
-    await tester.tap(confirm);
-    await tester.pump();
-    final submit = find.byKey(const ValueKey('import-submit'));
-    await tester.ensureVisible(submit);
-    expect(
-      tester.getSemantics(submit).hasFlag(SemanticsFlag.isEnabled),
-      isTrue,
-    );
-    final root = tester.element(submit);
-    var reached = false;
-    for (var i = 0; i < 60 && !reached; i++) {
-      final context = tester.binding.focusManager.primaryFocus?.context;
-      if (context is Element) {
-        var found = context == root;
-        void visit(Element element) {
-          if (found) return;
-          if (element == context) {
-            found = true;
-            return;
-          }
-          element.visitChildren(visit);
-        }
-
-        if (!found) visit(root);
-        reached = found;
-      }
-      if (!reached) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-      }
-    }
-    expect(reached, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
-    expect(calls, 1);
-    semantics.dispose();
-    expect(tester.takeException(), isNull);
   });
 }

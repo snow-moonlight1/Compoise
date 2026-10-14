@@ -281,6 +281,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('options-one:3')));
+      await tester.pumpAndSettle();
       expect(measureFields(tester).length, greaterThanOrEqualTo(4));
       await check(tester, 'review page');
       await tester.pumpWidget(const SizedBox());
