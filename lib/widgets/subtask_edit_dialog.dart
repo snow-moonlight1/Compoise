@@ -88,7 +88,7 @@ class _SubtaskEditDialogState extends State<_SubtaskEditDialog> {
       SubTaskEditResult(
         title: title,
         notesMarkdown: notes.isEmpty ? null : _notes.text,
-        deadline: endOfCivilDayMs(_deadline),
+        deadline: _deadline?.millisecondsSinceEpoch,
         reminderAt: _reminderAt,
       ),
     );
@@ -193,7 +193,7 @@ class _SubtaskEditDialogState extends State<_SubtaskEditDialog> {
                 child: Text(
                   [
                     if (_deadline != null)
-                      '${_t['deadline']}: ${formatCivilDate(_deadline!)}',
+                      '${_t['deadline']}: ${formatCivilDateTime(_deadline!)}',
                     if (_reminderAt != null)
                       '${_t['reminder']}: ${formatCivilDateTimeMs(_reminderAt!)}',
                   ].join(' · '),

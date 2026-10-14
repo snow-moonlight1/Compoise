@@ -9,6 +9,7 @@ class MainActivity : FlutterActivity() {
     private var screenshots: ScreenshotSafBridge? = null
     private var timeZone: DeviceTimeZoneBridge? = null
     private var ocrAssets: OcrAssetsBridge? = null
+    private var reminderSettings: ReminderSettingsBridge? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         screenshots = ScreenshotSafBridge(this,
@@ -18,10 +19,18 @@ class MainActivity : FlutterActivity() {
         timeZone?.start()
         ocrAssets = OcrAssetsBridge(this,
             MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.compoise/ocr_assets"))
+        reminderSettings = ReminderSettingsBridge(this,
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/reminder_settings"))
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (screenshots?.onActivityResult(requestCode, resultCode, data) != true) {
+        if (reminderSettings?.onActivityResult(requestCode) != true &&
+            screenshots?.onActivityResult(requestCode, resultCode, data) != true) {
             super.onActivityResult(requestCode, resultCode, data)
+        }
+    }
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (reminderSettings?.onRequestPermissionsResult(requestCode) != true) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         }
     }
     override fun onDestroy() {
@@ -31,6 +40,8 @@ class MainActivity : FlutterActivity() {
         timeZone = null
         ocrAssets?.destroy()
         ocrAssets = null
+        reminderSettings?.destroy()
+        reminderSettings = null
         super.onDestroy()
     }
 }

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
-import '../ui/orphan_squeeze.dart';
 import '../planned_policy.dart';
 import '../storage.dart';
 import '../task_query.dart';
 import '../ui/platform_ui_policy.dart';
+import '../ui/motion_policy.dart';
+import '../widgets/animated_task_title.dart';
+import '../widgets/task_exit.dart';
 import '../widgets/date_edit_fields.dart';
 import '../widgets/reminder_failure_banner.dart';
 import '../widgets/task_detail_panel.dart';
@@ -14,9 +16,8 @@ import '../widgets/task_filter_panel.dart';
 import '../widgets/task_hierarchy_checkbox.dart';
 import '../widgets/today_celebration_banner.dart';
 
-/// The Today list: what is planned for today, what carried over, and what is
-/// due without a plan — gathered from every quadrant and, on request, every
-/// board.
+/// Tasks linked to today's schedule and tasks due today or overdue, gathered
+/// from every quadrant and, on request, every board.
 ///
 /// Grouping is by day, never by quadrant: a row carries its own quadrant badge,
 /// so nothing here can rewrite where a task lives on the matrix.
@@ -31,11 +32,12 @@ class TodayScreen extends StatefulWidget {
 
 /// One rendered line: a section heading, or a task under the heading above it.
 class _TodayRow {
-  const _TodayRow.header(this.section) : task = null;
-  const _TodayRow.task(this.task) : section = null;
+  const _TodayRow.header(this.section) : task = null, exiting = false;
+  const _TodayRow.task(this.task, {this.exiting = false}) : section = null;
 
   final TodaySection? section;
   final Task? task;
+  final bool exiting;
 }
 
 class _TodayScreenState extends State<TodayScreen> {
@@ -49,6 +51,21 @@ class _TodayScreenState extends State<TodayScreen> {
   Store? _observedStore;
   _TodayScope? _todayScope;
   bool _showCelebration = false;
+  bool _celebrateAfterExit = false;
+  late final _exits = {
+    for (final section in TodaySection.values)
+      section: ExitRetention<Task>(onChange: _onExitTick),
+  };
+
+  void _onExitTick() {
+    if (!mounted) return;
+    setState(() {
+      if (_celebrateAfterExit && _exits.values.every((exit) => exit.isEmpty)) {
+        _celebrateAfterExit = false;
+        _showCelebration = true;
+      }
+    });
+  }
 
   bool get _allBoards => _applied.scope == TaskScopeFilter.allBoards;
 
@@ -65,6 +82,9 @@ class _TodayScreenState extends State<TodayScreen> {
 
   @override
   void dispose() {
+    for (final exit in _exits.values) {
+      exit.dispose();
+    }
     _observedStore?.removeListener(_onTodayStoreChanged);
     super.dispose();
   }
@@ -111,9 +131,13 @@ class _TodayScreenState extends State<TodayScreen> {
     final hide = previous.scopeKey != next.scopeKey || next.openIds.isNotEmpty;
     _todayScope = next;
     if (celebrate) {
-      setState(() => _showCelebration = true);
-    } else if (hide && _showCelebration) {
-      setState(() => _showCelebration = false);
+      setState(() {
+        _celebrateAfterExit = !MotionPolicy.reduceMotionNow(context);
+        _showCelebration = !_celebrateAfterExit;
+      });
+    } else if (hide) {
+      _celebrateAfterExit = false;
+      if (_showCelebration) setState(() => _showCelebration = false);
     }
   }
 
@@ -152,14 +176,6 @@ class _TodayScreenState extends State<TodayScreen> {
     required bool isWide,
   }) => _detail.open(context, task, isWide: isWide);
 
-  void _planToday(Store store, Task task) {
-    store.setPlannedDay(task.id, civilToday());
-  }
-
-  void _clearPlan(Store store, Task task) {
-    store.setPlannedDay(task.id, null);
-  }
-
   @override
   Widget build(BuildContext context) {
     final store = context.watch<Store>();
@@ -176,13 +192,42 @@ class _TodayScreenState extends State<TodayScreen> {
       // Filter changes do not notify the store. They are not a completion.
       _todayScope = captured;
       _showCelebration = false;
+      _celebrateAfterExit = false;
+    }
+    final reduce = MotionPolicy.reduceMotionOf(context);
+    final entries = {
+      for (final section in TodaySection.values)
+        section: _exits[section]!.sync(
+          items: groups
+              .where((group) => group.section == section)
+              .expand((group) => group.tasks)
+              .toList(),
+          epochKey:
+              '${captured.scopeKey}#${store.boards.map((board) => store.boardEpoch(board.id)).join(',')}',
+          idOf: (task) => task.id,
+          keepIfMissing: (task) =>
+              store.tasks.any((live) => live.id == task.id && live.completed),
+          reduceMotion: reduce,
+        ),
+    };
+    if (reduce && _celebrateAfterExit) {
+      _celebrateAfterExit = false;
+      _showCelebration = true;
     }
     final rows = [
-      for (final group in groups) ...[
-        _TodayRow.header(group.section),
-        for (final task in group.tasks) _TodayRow.task(task),
-      ],
+      for (final section in TodaySection.values)
+        if (entries[section]!.isNotEmpty) ...[
+          _TodayRow.header(section),
+          for (final entry in entries[section]!)
+            _TodayRow.task(entry.item, exiting: entry.exiting),
+        ],
     ];
+    final rowIndexes = {
+      for (var i = 0; i < rows.length; i++)
+        ValueKey(rows[i].section == null
+            ? 'today-exit-${rows[i].task!.id}'
+            : 'today-section-${rows[i].section!.name}'): i,
+    };
     final activeCount = _applied.dimensionCount(TaskFilterKind.archive);
     final detailTask = _detail.taskIn(store);
 
@@ -207,54 +252,51 @@ class _TodayScreenState extends State<TodayScreen> {
           currentBoardName: _boardName(store, activeBoardId),
         ),
         Expanded(
-          child:
-              rows.isEmpty
-                  ? _buildEmptyState(t, theme)
-                  : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    itemCount: rows.length,
-                    itemBuilder:
-                        (context, index) =>
-                            rows[index].section != null
-                                ? _buildSectionHeader(
-                                  t,
-                                  theme,
-                                  rows[index].section!,
-                                  groups,
-                                )
-                                : _buildRow(
-                                  store,
-                                  t,
-                                  theme,
-                                  rows[index].task!,
-                                  activeBoardId,
-                                  isWide,
-                                ),
+          child: rows.isEmpty
+              ? _buildEmptyState(t, theme)
+              : ListView.builder(
+                  findChildIndexCallback: (key) => rowIndexes[key],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
+                  itemCount: rows.length,
+                  itemBuilder: (context, index) => rows[index].section != null
+                      ? _buildSectionHeader(
+                          t,
+                          theme,
+                          rows[index].section!,
+                          groups,
+                        )
+                      : _buildRow(
+                          store,
+                          t,
+                          theme,
+                          rows[index].task!,
+                          activeBoardId,
+                          isWide,
+                          rows[index].exiting,
+                        ),
+                ),
         ),
       ],
     );
 
     return Scaffold(
-      bottomNavigationBar:
-          policy.isTouchLayout
-              ? FilterChromeBar(
-                activeCount: activeCount,
-                canClear: !_applied.isDefault,
-                onOpen: () => _openFilter(context),
-                onClear: _clearFilters,
-                expanded: true,
-              )
-              : null,
+      bottomNavigationBar: policy.isTouchLayout
+          ? FilterChromeBar(
+              activeCount: activeCount,
+              canClear: !_applied.isDefault,
+              onOpen: () => _openFilter(context),
+              onClear: _clearFilters,
+              expanded: true,
+            )
+          : null,
       body: SafeArea(
         bottom: !policy.isTouchLayout,
-        child:
-            detailTask == null
-                ? mainContent
-                : _buildWithDetail(mainContent, detailTask, theme, isWide),
+        child: detailTask == null
+            ? mainContent
+            : _buildWithDetail(mainContent, detailTask, theme, isWide),
       ),
     );
   }
@@ -279,10 +321,9 @@ class _TodayScreenState extends State<TodayScreen> {
       separator: VerticalDivider(
         width: 1,
         thickness: 1,
-        color:
-            theme.brightness == Brightness.light
-                ? const Color(0xFFD5DAE1)
-                : theme.colorScheme.outlineVariant,
+        color: theme.brightness == Brightness.light
+            ? const Color(0xFFD5DAE1)
+            : theme.colorScheme.outlineVariant,
       ),
       crossAxisAlignment: CrossAxisAlignment.start,
     );
@@ -353,8 +394,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
   String _sectionLabel(Map<String, String> t, TodaySection section) =>
       switch (section) {
-        TodaySection.carriedOver => t['todaySectionCarriedOver']!,
-        TodaySection.plannedToday => t['todaySectionPlanned']!,
+        TodaySection.scheduledToday => t['todaySectionPlanned']!,
         TodaySection.dueNow => t['todaySectionDueNow']!,
       };
 
@@ -365,8 +405,9 @@ class _TodayScreenState extends State<TodayScreen> {
     List<TodayGroup> groups,
   ) {
     final count = groups
-        .firstWhere((group) => group.section == section)
-        .tasks.length;
+        .where((group) => group.section == section)
+        .expand((group) => group.tasks)
+        .length;
     return Padding(
       key: ValueKey('today-section-${section.name}'),
       padding: const EdgeInsets.fromLTRB(8, 14, 8, 6),
@@ -421,80 +462,85 @@ class _TodayScreenState extends State<TodayScreen> {
     Task task,
     String activeBoardId,
     bool isWide,
+    bool exiting,
   ) {
     final qColor = Color(quadrantColors[task.quadrant] ?? 0xFF888888);
     final showBoardBadge = _allBoards || task.boardId != activeBoardId;
     final stepsDone = task.subtasks.where((s) => s.completed).length;
 
-    return InkWell(
-      key: ValueKey('today-item-${task.id}'),
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => _openDetail(context, task, isWide: isWide),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TaskHierarchyCheckbox(
-              hitTargetKey: ValueKey('today-check-${task.id}'),
-              visualKey: ValueKey('today-check-${task.id}-visual'),
-              level: TaskHierarchyLevel.parent,
-              value: false,
-              semanticsLabel: taskCheckboxLabel(
-                t: t,
+    return ExitingRow(
+      key: ValueKey('today-exit-${task.id}'),
+      exiting: exiting,
+      child: InkWell(
+        key: ValueKey('today-item-${task.id}'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _openDetail(context, task, isWide: isWide),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TaskHierarchyCheckbox(
+                hitTargetKey: ValueKey('today-check-${task.id}'),
+                visualKey: ValueKey('today-check-${task.id}-visual'),
                 level: TaskHierarchyLevel.parent,
-                value: false,
-                title: task.title,
+                value: exiting || task.completed,
+                semanticsLabel: taskCheckboxLabel(
+                  t: t,
+                  level: TaskHierarchyLevel.parent,
+                  value: exiting || task.completed,
+                  title: task.title,
+                ),
+                onChanged: (value) => store.setParentCompleted(task, value),
               ),
-              onChanged: (value) => store.setParentCompleted(task, value),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (showBoardBadge) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (showBoardBadge) ...[
+                          Flexible(
+                            child: Text(
+                              _boardName(store, task.boardId),
+                              key: ValueKey('today-board-${task.id}'),
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: qColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            _boardName(store, task.boardId),
-                            key: ValueKey('today-board-${task.id}'),
+                            t['q${task.quadrant}'] ?? 'Q${task.quadrant}',
+                            key: ValueKey('today-quadrant-${task.id}'),
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: qColor,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
                       ],
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: qColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          t['q${task.quadrant}'] ?? 'Q${task.quadrant}',
-                          key: ValueKey('today-quadrant-${task.id}'),
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: qColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  OrphanSqueeze(
-                    child: Text(
-                      task.title,
+                    ),
+                    const SizedBox(height: 4),
+                    AnimatedStrikeThroughText(
+                      text: task.title,
+                      completed: exiting || task.completed,
+                      strikeKey: ValueKey('today-strike-${task.id}'),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -502,72 +548,38 @@ class _TodayScreenState extends State<TodayScreen> {
                         height: 1.35,
                       ),
                     ),
-                  ),
-                  if (task.plannedDate != null || task.deadline != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 2,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (task.plannedDate != null)
-                            _DateLabel(
-                              key: ValueKey('today-planned-${task.id}'),
-                              icon: Icons.event_note,
-                              text:
-                                  '${t['plannedDate']}: ${formatCivilDateMs(task.plannedDate!)}',
-                              color: theme.colorScheme.primary,
-                            ),
-                          if (task.deadline != null)
-                            _DeadlineLabel(task: task, t: t, theme: theme),
-                        ],
-                      ),
-                    ),
-                  if (task.subtasks.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        (t['subtaskProgress'] ?? 'Subtasks {done}/{total}')
-                            .replaceAll('{done}', '$stepsDone')
-                            .replaceAll('{total}', '${task.subtasks.length}'),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                    if (task.deadline != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 2,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (task.deadline != null)
+                              _DeadlineLabel(task: task, t: t, theme: theme),
+                          ],
                         ),
                       ),
-                    ),
-                ],
+                    if (task.subtasks.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          (t['subtaskProgress'] ?? 'Subtasks {done}/{total}')
+                              .replaceAll('{done}', '$stepsDone')
+                              .replaceAll('{total}', '${task.subtasks.length}'),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            _planMenu(store, t, task),
-          ],
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _planMenu(Store store, Map<String, String> t, Task task) {
-    return PopupMenuButton<String>(
-      key: ValueKey('today-menu-${task.id}'),
-      tooltip: t['moreProperties']!,
-      icon: const Icon(Icons.more_horiz, size: 20),
-      onSelected: (value) {
-        if (value == 'plan-today') {
-          _planToday(store, task);
-        } else if (value == 'clear-plan') {
-          _clearPlan(store, task);
-        }
-      },
-      itemBuilder:
-          (context) => [
-            if (plannedDaysLeft(task.plannedDate) != 0)
-              PopupMenuItem(
-                value: 'plan-today',
-                child: Text(t['planForToday']!),
-              ),
-            if (task.plannedDate != null)
-              PopupMenuItem(value: 'clear-plan', child: Text(t['clearPlan']!)),
-          ],
     );
   }
 }
@@ -581,8 +593,7 @@ class _TodayScope {
   final Set<String> openIds;
 }
 
-/// One date on a Today row. The planned day carries [color] from the accent and
-/// never the error colour, so a plan cannot be misread as a missed deadline.
+/// One exact deadline on a Today row.
 class _DateLabel extends StatelessWidget {
   const _DateLabel({
     super.key,
@@ -634,11 +645,10 @@ class _DeadlineLabel extends StatelessWidget {
     return _DateLabel(
       key: ValueKey('today-deadline-${task.id}'),
       icon: Icons.calendar_month,
-      text: '${t['deadline']}: ${formatCivilDateMs(task.deadline!)}',
-      color:
-          days <= 0
-              ? theme.colorScheme.error
-              : theme.colorScheme.onSurfaceVariant,
+      text: '${t['deadline']}: ${formatCivilDateTimeMs(task.deadline!)}',
+      color: days <= 0
+          ? theme.colorScheme.error
+          : theme.colorScheme.onSurfaceVariant,
     );
   }
 }

@@ -38,7 +38,7 @@ void main() {
         ],
       );
       addTearDown(store.dispose);
-      store.setPlannedDay('a', DateTime(2026, 9, 30, 14));
+      store.updateTask(Task.fromJson(store.tasks.firstWhere((t) => t.id == 'a').toJson())..plannedDate = DateTime(2026, 9, 30).millisecondsSinceEpoch);
       final plannedDate = store.tasks.firstWhere((t) => t.id == 'a').plannedDate;
       expect((await store.flush()).success, isTrue);
       final revision = store.lastSaveResult.revision;

@@ -1,3 +1,4 @@
+import 'package:compoise/schedule_item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,7 +79,37 @@ Future<Store> _seed(List<Task> tasks, {AppSettings? settings}) async {
     boards: _boards(),
     tasks: tasks,
   );
+  _scheduleToday(store);
   return store;
+}
+
+void _scheduleToday(Store store, [Iterable<Task>? chosen]) {
+  final today = DateTime.now();
+  for (final task in chosen ?? store.tasks) {
+    if (task.plannedDate != null &&
+        plannedDaysLeft(task.plannedDate) == 0 &&
+        !store.scheduleItems.any((s) => s.id == 'slot-${task.id}')) {
+      store.addScheduleItem(
+        ScheduleItem.timeBlock(
+          id: 'slot-${task.id}',
+          taskId: task.id,
+          startAt: DateTime(
+            today.year,
+            today.month,
+            today.day,
+            9,
+          ).millisecondsSinceEpoch,
+          endAt: DateTime(
+            today.year,
+            today.month,
+            today.day,
+            10,
+          ).millisecondsSinceEpoch,
+          timeZoneId: 'Asia/Shanghai',
+        ),
+      );
+    }
+  }
 }
 
 Future<void> _pump(
@@ -376,7 +407,7 @@ void main() {
       ]);
       try {
         await _pump(tester, store);
-        expect(find.text('Nothing is planned for today'), findsOneWidget);
+        expect(find.text('Nothing for today'), findsOneWidget);
         expect(_celebration, findsNothing);
         _expectLatchClear(store);
 
@@ -386,6 +417,7 @@ void main() {
           plannedDate: _midnight(),
         );
         store.addTasks([added]);
+        _scheduleToday(store, [added]);
         await tester.pumpAndSettle();
         expect(_celebration, findsNothing);
         _expectLatchClear(store);
@@ -405,7 +437,7 @@ void main() {
       store.setParentCompleted(store.tasks.single, true);
       try {
         await _pump(tester, store);
-        expect(find.text('Nothing is planned for today'), findsOneWidget);
+        expect(find.text('Nothing for today'), findsOneWidget);
         expect(_celebration, findsNothing);
         _expectLatchClear(store);
       } finally {
@@ -451,7 +483,7 @@ void main() {
       await _pump(tester, store);
       store.setActiveBoard('b-2');
       await tester.pumpAndSettle();
-      expect(find.text('Nothing is planned for today'), findsOneWidget);
+      expect(find.text('Nothing for today'), findsOneWidget);
       expect(_celebration, findsNothing);
       _expectLatchClear(store);
 
@@ -472,26 +504,28 @@ void main() {
     }
   });
 
-  testWidgets('clearing a plan that empties Today does not celebrate', (
+  testWidgets('deleting a schedule that empties Today does not celebrate', (
     tester,
   ) async {
     final store = await _seed([_task(id: 'only', quadrant: qEliminate)]);
     try {
       await _pump(tester, store);
-      await tester.tap(find.byKey(const ValueKey('today-menu-only')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Clear plan'));
+      store.deleteScheduleItem(
+        'slot-only',
+        expectedRevision: store.scheduleRevision('slot-only'),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Nothing is planned for today'), findsOneWidget);
+      expect(find.text('Nothing for today'), findsOneWidget);
       expect(_celebration, findsNothing);
       _expectLatchClear(store);
       final cleared = store.tasks.single;
       expect(cleared.completed, isFalse);
-      _expectFields(cleared, quadrant: qEliminate, planned: null);
+      _expectFields(cleared, quadrant: qEliminate, planned: _midnight());
 
-      final added = store.newTask('Replacement', plannedDate: _midnight());
+      final added = store.newTask('Replacement', deadline: _endOfToday());
       store.addTasks([added]);
+      _scheduleToday(store, [added]);
       await tester.pumpAndSettle();
       await _check(tester, added.id);
       expect(_celebration, findsOneWidget);
@@ -538,7 +572,7 @@ void main() {
       await _pump(tester, store);
       store.deleteTaskWithUndo('only');
       await tester.pumpAndSettle();
-      expect(find.text('Nothing is planned for today'), findsOneWidget);
+      expect(find.text('Nothing for today'), findsOneWidget);
       expect(_celebration, findsNothing);
       _expectLatchClear(store);
     } finally {
@@ -638,6 +672,7 @@ void main() {
 
       final added = store.newTask('Another', plannedDate: _midnight());
       store.addTasks([added]);
+      _scheduleToday(store, [added]);
       await tester.pumpAndSettle();
       expect(_celebration, findsNothing);
       await _check(tester, added.id);
@@ -664,6 +699,7 @@ void main() {
 
       final added = store.newTask('After return', plannedDate: _midnight());
       store.addTasks([added]);
+      _scheduleToday(store, [added]);
       await tester.pumpAndSettle();
       await _check(tester, added.id);
       expect(_celebration, findsNothing);
@@ -685,6 +721,7 @@ void main() {
       store.todayCelebration.clock = () => DateTime(2031, 6, 1, 23);
       final sameDay = store.newTask('Same day', plannedDate: _midnight());
       store.addTasks([sameDay]);
+      _scheduleToday(store, [sameDay]);
       await tester.pumpAndSettle();
       await _check(tester, sameDay.id);
       expect(_celebration, findsNothing);
@@ -692,6 +729,7 @@ void main() {
       store.todayCelebration.clock = () => DateTime(2031, 6, 2, 8);
       final nextDay = store.newTask('Next day', plannedDate: _midnight());
       store.addTasks([nextDay]);
+      _scheduleToday(store, [nextDay]);
       await tester.pumpAndSettle();
       await _check(tester, nextDay.id);
       expect(_celebration, findsOneWidget);
@@ -765,6 +803,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('today-check-only')));
       await tester.pump();
 
+      await tester.pump(MotionPolicy.exitHold + MotionPolicy.exitCollapse);
+      await tester.pump();
       expect(_motion, findsOneWidget);
       expect(_static, findsNothing);
       // The fade is mounted at rest. The pump that built it does not also

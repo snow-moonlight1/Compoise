@@ -10,7 +10,7 @@ import 'helpers.dart';
 
 void main() {
   testWidgets(
-    'D2 narrow home keeps plan, deadline and reminder while opening detail',
+    'D2 narrow home keeps deadline and reminder without the retired plan badge',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -46,7 +46,7 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(
           find.byKey(ValueKey('task-planned-${parent.id}')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(
           find.byIcon(Icons.notifications_active_outlined),

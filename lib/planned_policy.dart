@@ -1,6 +1,4 @@
-/// Planning-day semantics for the Today list. Kept apart from the urgency rules
-/// in `deadline_policy.dart` on purpose: a plan says *when the user intends to
-/// work*, a deadline says *how late it may slip*.
+/// Today queries, apart from deadline-driven urgency promotion.
 library;
 
 import 'calendar_dates.dart';
@@ -10,40 +8,23 @@ import 'models.dart';
 /// A task's place on the Today list. Sections are date buckets, not quadrants:
 /// one bucket mixes tasks from every quadrant and board in scope.
 enum TodaySection {
-  /// Planned for an earlier day and still open, so it carried over.
-  carriedOver,
+  /// Linked to a schedule interval occupying today.
+  scheduledToday,
 
-  /// Planned for today.
-  plannedToday,
-
-  /// Nothing is planned for today, but the deadline is today or already past.
+  /// Due today or overdue, without a schedule occupying today.
   dueNow,
 }
 
-/// Stored form of a planned day: local civil midnight. A plan is a whole day, so
-/// midnight keeps it from reading as "already past" while that same day runs.
-int? plannedDayMs(DateTime? day) =>
-    day == null ? null : civilDate(day).millisecondsSinceEpoch;
-
-/// Whole civil days from [now] to the stored plan: 0 today, 1 tomorrow, negative
-/// for a carried-over day. Null when nothing is planned.
-int? plannedDaysLeft(int? plannedDateMs, {DateTime? now}) => plannedDateMs == null
-    ? null
-    : calendarDaysLeft(plannedDateMs, now: now);
+/// Timestamp helpers for preserving retired planning-day data in fixtures.
+int? plannedDayMs(DateTime? day) => day == null ? null : civilDate(day).millisecondsSinceEpoch;
+int? plannedDaysLeft(int? day, {DateTime? now}) => day == null ? null : calendarDaysLeft(day, now: now);
 
 /// Which bucket [task] belongs to, or null when it does not belong on Today.
 ///
-/// A plan wins over a deadline so a task is listed once; the row still shows the
-/// deadline. A task planned for a later day still surfaces when its deadline
-/// arrives, because the two fields answer different questions.
+/// Schedule membership is supplied by the Store to [groupForToday].
 TodaySection? todaySectionOf(Task task, {DateTime? now}) {
   if (task.completed) return null;
   final ref = now ?? DateTime.now();
-  final plan = plannedDaysLeft(task.plannedDate, now: ref);
-  if (plan != null) {
-    if (plan == 0) return TodaySection.plannedToday;
-    if (plan < 0) return TodaySection.carriedOver;
-  }
   final due = task.deadline == null
       ? null
       : calendarDaysLeft(task.deadline!, now: ref);
@@ -62,19 +43,16 @@ bool completedOnDay(Task task, {DateTime? now}) {
 }
 
 /// Stable order inside one bucket: the nearest commitment first, then the
-/// earliest plan, then the oldest task. Null dates sort last.
+/// oldest task. Null deadlines sort last.
 int compareTodayTasks(Task a, Task b) {
   final byDeadline = _compareNullableMs(a.deadline, b.deadline);
   if (byDeadline != 0) return byDeadline;
-  final byPlan = _compareNullableMs(a.plannedDate, b.plannedDate);
-  if (byPlan != 0) return byPlan;
   return a.createdAt.compareTo(b.createdAt);
 }
 
 /// Display order of the buckets.
 const List<TodaySection> todaySectionOrder = [
-  TodaySection.carriedOver,
-  TodaySection.plannedToday,
+  TodaySection.scheduledToday,
   TodaySection.dueNow,
 ];
 
@@ -90,7 +68,7 @@ class TodayGroup {
 /// ones. Quadrants and boards are mixed inside a bucket: the caller shows each
 /// task's own quadrant and board rather than grouping by either.
 /// Tasks in [scheduledTaskIds] belong to today's schedule and take precedence
-/// over their planned day, without modifying any task field.
+/// over their due-date group, without modifying any task field.
 List<TodayGroup> groupForToday(
   Iterable<Task> tasks, {
   DateTime? now,
@@ -100,7 +78,7 @@ List<TodayGroup> groupForToday(
   final bySection = <TodaySection, List<Task>>{};
   for (final task in tasks) {
     final section = !task.completed && scheduledTaskIds.contains(task.id)
-        ? TodaySection.plannedToday
+        ? TodaySection.scheduledToday
         : todaySectionOf(task, now: ref);
     if (section == null) continue;
     bySection.putIfAbsent(section, () => <Task>[]).add(task);
