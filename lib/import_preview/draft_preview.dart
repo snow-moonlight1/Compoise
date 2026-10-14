@@ -92,7 +92,9 @@ class _DraftPreviewState extends State<DraftPreview> {
     return PopScope(
       canPop: !_submitting,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) _cancel();
+        // The route has already popped. onCancel requests navigation, so it
+        // must only run for the explicit cancel button, never after a pop.
+        if (didPop) _cancelled = true;
       },
       child: SafeArea(
         child: SingleChildScrollView(

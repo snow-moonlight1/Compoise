@@ -29,6 +29,7 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
   String? _problem;
   bool _checking = true, _processing = false, _saving = false;
   bool _downloading = false, _downloadFailed = false;
+  bool _leaving = false;
   double _downloadProgress = 0;
   int _done = 0, _total = 0;
 
@@ -49,7 +50,7 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
     } catch (_) {
       problem = 'Unavailable';
     }
-    if (mounted) {
+    if (mounted && !_leaving) {
       setState(() {
         _checking = false;
         _problem = problem == null ? null : 'screenshotImport$problem';
@@ -60,7 +61,7 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
   bool get _needsModels => _problem == 'screenshotImportModelsMissing';
 
   Future<void> _downloadModels() async {
-    if (_downloading) return;
+    if (_downloading || _leaving) return;
     setState(() {
       _downloading = true;
       _downloadFailed = false;
@@ -69,14 +70,16 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
     try {
       await (widget.downloadModels ?? OcrModels.download)(
         onProgress: (value) {
-          if (mounted) setState(() => _downloadProgress = value);
+          if (mounted && !_leaving) {
+            setState(() => _downloadProgress = value);
+          }
         },
       );
-      if (!mounted) return;
+      if (!mounted || _leaving) return;
       setState(() => _downloading = false);
       await _check();
     } catch (_) {
-      if (mounted) {
+      if (mounted && !_leaving) {
         setState(() {
           _downloading = false;
           _downloadFailed = true;
@@ -87,20 +90,29 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
 
   @override
   void dispose() {
-    _submission?.cancel();
+    _stop();
     unawaited(_backend.dispose().catchError((Object _) {}));
     super.dispose();
   }
 
-  void _cancel() {
-    if (_saving) return;
+  // Called both before an explicit pop and after system/AppBar navigation.
+  // Cleanup never navigates, and late callbacks are ignored during the exit
+  // animation, while this State is still mounted.
+  void _stop() {
+    if (_leaving) return;
+    _leaving = true;
     _submission?.cancel();
     _backend.cancel();
+  }
+
+  void _cancel() {
+    if (_saving || _leaving) return;
+    _stop();
     Navigator.of(context).pop();
   }
 
   Future<void> _choose() async {
-    if (_processing || _checking || _problem != null) return;
+    if (_processing || _checking || _problem != null || _leaving) return;
     setState(() {
       _processing = true;
       _done = 0;
@@ -108,14 +120,14 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
     });
     try {
       final result = await _backend.capture((done, total) {
-        if (mounted) {
+        if (mounted && !_leaving) {
           setState(() {
             _done = done;
             _total = total;
           });
         }
       });
-      if (!mounted) return;
+      if (!mounted || _leaving) return;
       final t = context.read<Store>().t;
       setState(() {
         _processing = false;
@@ -148,7 +160,7 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
         }
       });
     } catch (_) {
-      if (mounted) {
+      if (mounted && !_leaving) {
         setState(() {
           _processing = false;
           _problem = 'screenshotImportCleanupFailed';
@@ -163,6 +175,9 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
     final t = store.t;
     return PopScope(
       canPop: !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _stop();
+      },
       child: Scaffold(
         appBar: AppBar(
           title: Text(t['screenshotImportTitle']!),
@@ -182,10 +197,13 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
                     setState(() => _saving = true);
                     try {
                       await _submission!.commit(store, submitted);
-                      if (!context.mounted) return;
+                      if (!context.mounted || _leaving) return;
+                      _stop();
                       Navigator.of(context).pop();
                     } finally {
-                      if (mounted) setState(() => _saving = false);
+                      if (mounted && !_leaving) {
+                        setState(() => _saving = false);
+                      }
                     }
                   },
                 )
