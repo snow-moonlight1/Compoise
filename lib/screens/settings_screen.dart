@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_notice.dart';
 import 'package:provider/provider.dart';
 
 import '../ai_capabilities.dart';
@@ -146,14 +147,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     store.updateAIConfig(next);
     if (keyChanged && store.credentialUnavailable) {
       _apiKeyController.text = store.aiConfig.apiKey;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.removeCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(store.t['credentialUnavailableTip']!),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      showAppNotice(context, store.t['credentialUnavailableTip']!);
     }
   }
 
@@ -176,14 +170,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _modelController.text = preset.defaultModel;
     }
     store.updateAIConfig(next);
-
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(store.t['providerSwitchedTip']!),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   @override
@@ -516,23 +502,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   final result = await applyDesktopSettings(store);
                   if (!context.mounted) return;
                   if (v && result.closeToTrayEffective) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          t['closeToTrayNotice'] ??
-                              'When enabled, closing the window minimizes to the system tray. Right-click the tray icon to exit.',
-                        ),
-                        duration: const Duration(seconds: 4),
-                      ),
+                    showAppNotice(
+                      context,
+                      t['closeToTrayNotice'] ??
+                          'When enabled, closing the window minimizes to the system tray. Right-click the tray icon to exit.',
                     );
                   } else if (v && result.tray.isFailure) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          t['desktopTrayUnavailable'] ??
-                              'System tray is unavailable. Closing to tray is disabled.',
-                        ),
-                      ),
+                    showAppNotice(
+                      context,
+                      t['desktopTrayUnavailable'] ??
+                          'System tray is unavailable. Closing to tray is disabled.',
                     );
                   }
                 },
@@ -1023,17 +1002,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         body: t['reminderTestBody'] ?? 'Compoise test notification',
       );
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            shown
-                ? t['testNotificationSentPlain'] ?? 'Test notification sent.'
-                : t['reminderTestNoService'] ??
-                      'Test notification failed: no notification service.',
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      // The notification itself is the success signal.
+      if (!shown) {
+        showAppNotice(
+          context,
+          t['reminderTestNoService'] ??
+              'Test notification failed: no notification service.',
+        );
+      }
       return;
     }
     final service = ReminderService.instance;
@@ -1049,14 +1025,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       recordRetry: false,
     );
     if (!context.mounted) return;
-    final String message;
+    final String? message;
     switch (result.status) {
       case ReminderScheduleStatus.scheduled:
       case ReminderScheduleStatus.displayed:
-        // The stock wording names the Windows Action Center.
-        message = defaultTargetPlatform == TargetPlatform.windows
-            ? t['testNotificationSent'] ?? 'Test notification sent.'
-            : t['testNotificationSentPlain'] ?? 'Test notification sent.';
+        // The notification itself is the success signal.
+        message = null;
       case ReminderScheduleStatus.scheduledInApp:
         message = t['reminderTestInAppOnly'] ?? 'Armed inside the app only.';
       case ReminderScheduleStatus.superseded:
@@ -1066,15 +1040,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         message = t['reminderTestFailed'] ?? 'Test notification failed.';
     }
     final report = _permissionReport(permission, t);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          permission == ReminderPermissionStatus.granted
-              ? message
-              : '$message ${report.text}',
-        ),
-        duration: const Duration(seconds: 4),
-      ),
+    final granted = permission == ReminderPermissionStatus.granted;
+    if (message == null && granted) return;
+    showAppNotice(
+      context,
+      [if (message != null) message, if (!granted) report.text].join(' '),
     );
   }
 
@@ -1126,12 +1096,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Navigator.pop(dialogCtx);
                 final after = await service.requestPermission();
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(_permissionReport(after, t).text),
-                    duration: const Duration(seconds: 4),
-                  ),
-                );
+                if (after != ReminderPermissionStatus.granted) {
+                  showAppNotice(context, _permissionReport(after, t).text);
+                }
               },
               child: Text(t['requestPermissionBtn'] ?? 'Request Permission'),
             ),
@@ -1813,9 +1780,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       store.setFontFamily(FontFamilyPref.serif);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(store.t['songtiDownloadFailed']!)));
+      showAppNotice(context, store.t['songtiDownloadFailed']!);
     } finally {
       final ctx = dialogContext;
       if (ctx != null && ctx.mounted) Navigator.pop(ctx);
@@ -1974,9 +1939,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _runExport(BuildContext context, Store store) async {
     final result = await _backup.export(context, store);
     if (!context.mounted || result.message == null) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(result.message!)));
+    showAppNotice(context, result.message!);
   }
 
   Future<void> _runImport(BuildContext context, Store store) async {
@@ -1990,9 +1953,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
     if (!context.mounted || result.message == null) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(result.message!)));
+    showAppNotice(context, result.message!);
   }
 }
 

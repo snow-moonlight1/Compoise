@@ -3,6 +3,7 @@ import 'dart:async';
 import '../ui/danger_button_style.dart';
 import '../widgets/reminder_failure_banner.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_notice.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -194,15 +195,8 @@ class _MatrixHomeState extends State<MatrixHome> {
         subtaskId: payload.subtaskId,
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            store.t['taskNotFound'] ??
-                'Task no longer exists or has been deleted',
-          ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      showAppNotice(context, store.t['taskNotFound'] ??
+                'Task no longer exists or has been deleted');
     }
   }
 
@@ -243,23 +237,15 @@ class _MatrixHomeState extends State<MatrixHome> {
           language: store.settings.language,
         );
         if (!mounted || !shell.isDesktopSupported || !result.hasFailure) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              store.t['desktopShellApplyFailed'] ??
-                  'Some Windows desktop features are unavailable. Open Settings to retry.',
-            ),
-          ),
-        );
+        showAppNotice(context, store.t['desktopShellApplyFailed'] ??
+                  'Some Windows desktop features are unavailable. Open Settings to retry.');
       }());
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final store = context.read<Store>();
       if (store.corruptNotice != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(store.corruptNotice!)));
+        showAppNotice(context, store.corruptNotice!);
         store.corruptNotice = null;
       }
       if (!store.hasSeenOnboarding) {
@@ -1232,9 +1218,6 @@ class _MatrixHomeState extends State<MatrixHome> {
       });
       store.clearBoard(boardId);
       _focusScrollOffsets.removeWhere((k, _) => k.startsWith('$boardId-'));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(t['boardCleared']!)));
     }
   }
 
@@ -1299,15 +1282,6 @@ class _MatrixHomeState extends State<MatrixHome> {
       _selecting = false;
       _selectedIds.clear();
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          t['tasksMoved']!
-              .replaceAll('{n}', '$count')
-              .replaceAll('{quadrant}', t['q$quadrant']!),
-        ),
-      ),
-    );
   }
 
   Future<String?> _askText(

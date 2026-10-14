@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_notice.dart';
 import 'package:provider/provider.dart';
 
 import '../storage.dart';
@@ -34,16 +35,9 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
       if (!Platform.isAndroid && !Platform.isIOS) {
         await File(path).writeAsBytes(bytes, flush: true);
       }
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(store.t['recoverySaved']!)));
-      }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(store.t['recoverySaveFailed']!)));
+        showAppNotice(context, store.t['recoverySaveFailed']!);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -74,15 +68,11 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
     setState(() => _busy = true);
     try {
       if (!await store.discardDamagedStartupData() && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(store.t['recoveryDiscardFailed']!)),
-        );
+        showAppNotice(context, store.t['recoveryDiscardFailed']!);
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(store.t['recoveryDiscardFailed']!)),
-        );
+        showAppNotice(context, store.t['recoveryDiscardFailed']!);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -12,11 +12,14 @@ import '../storage.dart';
 class MotionPolicy {
   const MotionPolicy._();
 
-  /// Strikethrough draw duration for a completed title (~220ms, easeOut).
-  static const Duration strikethrough = Duration(milliseconds: 220);
+  /// Total strikethrough draw duration for a completed title (~400ms,
+  /// easeOut). Fixed regardless of how many lines the title wraps to: lines
+  /// are struck one after another, so each line of a long title goes faster.
+  static const Duration strikethrough = Duration(milliseconds: 400);
 
-  /// Hold between a finished strikethrough and the row collapsing.
-  static const Duration exitHold = Duration(milliseconds: 220);
+  /// Wait before a completed row collapses; matches [strikethrough] so the
+  /// line finishes before the row leaves.
+  static const Duration exitHold = strikethrough;
 
   /// Collapse duration of a row that is leaving a list (~120ms).
   static const Duration exitCollapse = Duration(milliseconds: 120);

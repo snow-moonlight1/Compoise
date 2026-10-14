@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_notice.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -187,17 +188,8 @@ class TaskCard extends StatelessWidget {
             HapticFeedback.lightImpact();
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (context.mounted) {
-                final snapshot = store.toggleCompleteWithUndo(task);
+                store.toggleCompleteWithUndo(task);
                 onChanged();
-                if (snapshot != null) {
-                  _showUndoSnackBar(
-                    context,
-                    msg:
-                        '${task.title}: ${task.completed ? (t['taskCompleted'] ?? 'Task completed') : (t['taskRestored'] ?? 'Task restored')}',
-                    snapshot: snapshot,
-                    store: store,
-                  );
-                }
               }
             });
             return false;
@@ -617,47 +609,23 @@ class TaskCard extends StatelessWidget {
   }) {
     final t = store.t;
     final messenger = ScaffoldMessenger.of(context);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          key: const ValueKey('task-undo-snackbar'),
-          content: Text(msg),
-          duration: const Duration(seconds: 5),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            key: const ValueKey('undo-action-btn'),
-            label: t['undo'] ?? 'Undo',
-            onPressed: () {
-              final ok = store.applyUndo(snapshot);
-              if (ok) {
-                HapticFeedback.lightImpact();
-                messenger
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      content: Text(t['actionUndone'] ?? 'Action undone'),
-                      duration: const Duration(milliseconds: 1500),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-              } else {
-                messenger
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        t['undoUnavailable'] ?? 'Cannot undo this action',
-                      ),
-                      duration: const Duration(milliseconds: 1800),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-              }
-            },
-          ),
-        ),
-      );
+    showAppNoticeOn(
+      messenger,
+      msg,
+      key: const ValueKey('task-undo-snackbar'),
+      actionKey: const ValueKey('undo-action-btn'),
+      actionLabel: t['undo'] ?? 'Undo',
+      onAction: () {
+        if (store.applyUndo(snapshot)) {
+          HapticFeedback.lightImpact();
+        } else {
+          showAppNoticeOn(
+            messenger,
+            t['undoUnavailable'] ?? 'Cannot undo this action',
+          );
+        }
+      },
+    );
   }
 
   Future<void> _showContextMenu(BuildContext context, Offset position) async {
@@ -747,17 +715,8 @@ class TaskCard extends StatelessWidget {
     if (target != null && context.mounted) {
       if (target == 'toggle_complete') {
         HapticFeedback.lightImpact();
-        final snapshot = store.toggleCompleteWithUndo(task);
+        store.toggleCompleteWithUndo(task);
         onChanged();
-        if (snapshot != null) {
-          _showUndoSnackBar(
-            context,
-            msg:
-                '${task.title}: ${task.completed ? (t['taskCompleted'] ?? 'Task completed') : (t['taskRestored'] ?? 'Task restored')}',
-            snapshot: snapshot,
-            store: store,
-          );
-        }
       } else if (target == 'delete') {
         HapticFeedback.lightImpact();
         final snapshot = store.deleteTaskWithUndo(task.id);
@@ -774,25 +733,6 @@ class TaskCard extends StatelessWidget {
         final targetQuadrant = int.parse(target.substring(8));
         HapticFeedback.selectionClick();
         store.moveTask(task.id, targetQuadrant);
-        final qName = switch (targetQuadrant) {
-          qDo => t['q1']!,
-          qPlan => t['q2']!,
-          qDelegate => t['q3']!,
-          _ => t['q4']!,
-        };
-        final msg = (t['taskMoved'] ?? 'Moved to {quadrant}').replaceAll(
-          '{quadrant}',
-          qName,
-        );
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('${task.title}: $msg'),
-              duration: const Duration(milliseconds: 1800),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
       }
     }
   }

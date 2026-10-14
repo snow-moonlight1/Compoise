@@ -125,11 +125,11 @@ void main() {
     await tester.tap(find.byKey(ValueKey('complete-$id')));
     await tester.pump();
     final start = strikeProgress(tester, id);
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 100));
     final mid = strikeProgress(tester, id);
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 100));
     final late = strikeProgress(tester, id);
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 220));
     final done = strikeProgress(tester, id);
 
     expect(start, lessThan(mid));

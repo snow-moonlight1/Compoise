@@ -58,8 +58,8 @@ void main() {
   test('transition durations have a single source in MotionPolicy', () {
     // Values intentionally preserved from the pre-hardcoded call sites;
     // this test locks them so a future edit cannot silently change the feel.
-    expect(MotionPolicy.strikethrough, const Duration(milliseconds: 220));
-    expect(MotionPolicy.exitHold, const Duration(milliseconds: 220));
+    expect(MotionPolicy.strikethrough, const Duration(milliseconds: 400));
+    expect(MotionPolicy.exitHold, const Duration(milliseconds: 400));
     expect(MotionPolicy.exitCollapse, const Duration(milliseconds: 120));
     expect(MotionPolicy.entranceStep, const Duration(milliseconds: 45));
     expect(MotionPolicy.entranceFade, const Duration(milliseconds: 260));

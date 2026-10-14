@@ -129,33 +129,6 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     });
   }
 
-  void _showMovedNotice(
-    BuildContext context,
-    String title,
-    int targetQuadrant,
-  ) {
-    final t = context.read<Store>().t;
-    final qName = switch (targetQuadrant) {
-      qDo => t['q1']!,
-      qPlan => t['q2']!,
-      qDelegate => t['q3']!,
-      _ => t['q4']!,
-    };
-    final msg = (t['taskMoved'] ?? 'Moved to {quadrant}').replaceAll(
-      '{quadrant}',
-      qName,
-    );
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('$title: $msg'),
-          duration: const Duration(milliseconds: 1800),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     final store = context.watch<Store>();
@@ -201,7 +174,6 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           HapticFeedback.mediumImpact();
           store.moveTask(task.id, q);
           _scrollToTopIfNeeded();
-          _showMovedNotice(context, task.title, q);
         }
       },
       builder: (context, candidate, _) {

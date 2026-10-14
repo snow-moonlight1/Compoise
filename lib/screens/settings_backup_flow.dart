@@ -130,7 +130,7 @@ class SettingsBackupFlow {
         }
       }
       if (bundle.parts.length == 1) {
-        return BackupResult(BackupOutcome.succeeded, t['exportSuccess']!);
+        return const BackupResult(BackupOutcome.succeeded);
       }
       return BackupResult(
         BackupOutcome.succeeded,
@@ -255,10 +255,15 @@ class SettingsBackupFlow {
           shell.isDesktopSupported && desktopResult.hasFailure
           ? '\n${desktopStatusText(store.t, shell)}'
           : '';
+      // A plain import is silent; only skipped data or a desktop problem
+      // needs a word.
+      final notice = '${backupImportResultNotice(t, plan)}$desktopWarning';
+      if (notice.trim().isEmpty) {
+        return const BackupResult(BackupOutcome.succeeded);
+      }
       return BackupResult(
         BackupOutcome.succeeded,
-        '${t['importSuccess']} (${plan.addedTasks})'
-        '${backupImportResultNotice(t, plan)}$desktopWarning',
+        '${t['importSuccess']} (${plan.addedTasks})$notice',
       );
     } on BackupRejectedException catch (error) {
       return BackupResult(
