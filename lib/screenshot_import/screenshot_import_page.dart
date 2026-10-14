@@ -183,16 +183,6 @@ class _ScreenshotImportPageState extends State<ScreenshotImportPage> {
                     try {
                       await _submission!.commit(store, submitted);
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            t['screenshotImportSuccess']!.replaceAll(
-                              '{count}',
-                              '${submitted.tasks.length}',
-                            ),
-                          ),
-                        ),
-                      );
                       Navigator.of(context).pop();
                     } finally {
                       if (mounted) setState(() => _saving = false);

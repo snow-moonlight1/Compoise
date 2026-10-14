@@ -23,7 +23,9 @@ class StrikeThroughPainter extends CustomPainter {
   /// Visible line fragments, in reading order.
   final List<ui.TextBox> boxes;
 
-  /// 0 = not drawn, 1 = full line width.
+  /// 0 = not drawn, 1 = every line fully struck. Lines are struck in reading
+  /// order, top to bottom, at one pen speed: progress maps to a share of the
+  /// summed line widths, so a later line starts only when the one above ends.
   final double progress;
 
   final Color color;
@@ -33,13 +35,26 @@ class StrikeThroughPainter extends CustomPainter {
   int get lineCount => boxes.map((b) => b.top.round()).toSet().length;
 
   /// Total length currently drawn, exposed for animation assertions.
-  double get drawnLength {
-    final p = progress.clamp(0.0, 1.0);
+  double get drawnLength => _totalLength * progress.clamp(0.0, 1.0);
+
+  double get _totalLength {
     var total = 0.0;
     for (final b in boxes) {
-      total += (b.right - b.left) * p;
+      total += b.right - b.left;
     }
     return total;
+  }
+
+  /// Drawn width of each fragment at the current progress.
+  List<double> get segmentWidths {
+    var budget = drawnLength;
+    final widths = <double>[];
+    for (final b in boxes) {
+      final w = (b.right - b.left).clamp(0.0, budget).toDouble();
+      budget -= w;
+      widths.add(w);
+    }
+    return widths;
   }
 
   @override
@@ -51,8 +66,10 @@ class StrikeThroughPainter extends CustomPainter {
           ..color = color
           ..strokeWidth = thickness
           ..style = PaintingStyle.stroke;
-    for (final box in boxes) {
-      final width = (box.right - box.left) * p;
+    final widths = segmentWidths;
+    for (var i = 0; i < boxes.length; i++) {
+      final box = boxes[i];
+      final width = widths[i];
       if (width <= 0.5) continue;
       final y = box.top + (box.bottom - box.top) / 2;
       canvas.drawLine(Offset(box.left, y), Offset(box.left + width, y), paint);

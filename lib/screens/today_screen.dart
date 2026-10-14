@@ -152,20 +152,12 @@ class _TodayScreenState extends State<TodayScreen> {
     required bool isWide,
   }) => _detail.open(context, task, isWide: isWide);
 
-  void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
-  }
-
   void _planToday(Store store, Task task) {
     store.setPlannedDay(task.id, civilToday());
-    _toast(store.t['taskPlannedToday']!);
   }
 
   void _clearPlan(Store store, Task task) {
     store.setPlannedDay(task.id, null);
-    _toast(store.t['taskPlanCleared']!);
   }
 
   @override

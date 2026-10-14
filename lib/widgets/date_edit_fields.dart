@@ -7,6 +7,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'app_notice.dart';
 
 import '../calendar_dates.dart';
 import 'reminder_access.dart';
@@ -343,13 +344,7 @@ Future<void> pickReminderMoment(
     pickedTime.minute,
   );
   if (combined.isBefore(DateTime.now())) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          t['reminderPastError'] ?? 'Reminder time cannot be in the past',
-        ),
-      ),
-    );
+    showAppNotice(context, t['reminderPastError'] ?? 'Reminder time cannot be in the past');
     return;
   }
 
@@ -366,13 +361,7 @@ Future<void> applyPresetReminderMoment(
   required DateTime moment,
 }) async {
   if (!moment.isAfter(DateTime.now())) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          t['reminderPastError'] ?? 'Reminder time cannot be in the past',
-        ),
-      ),
-    );
+    showAppNotice(context, t['reminderPastError'] ?? 'Reminder time cannot be in the past');
     return;
   }
   onPicked(moment.millisecondsSinceEpoch);

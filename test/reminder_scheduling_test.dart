@@ -778,7 +778,7 @@ void main() {
       fixture.settle(tester, store);
     });
 
-    testWidgets('an accepted test notification is reported as accepted', (
+    testWidgets('an accepted test notification stays silent', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -787,10 +787,7 @@ void main() {
 
       await tapKey(tester, const ValueKey('test-android-notif-btn'));
 
-      expect(
-        find.textContaining(store.t['testNotificationSentPlain']!),
-        findsOneWidget,
-      );
+      expect(find.byType(SnackBar), findsNothing);
       expect(service.scheduled.keys, contains(_id('test-win-notif')));
       debugDefaultTargetPlatformOverride = null;
       fixture.settle(tester, store);

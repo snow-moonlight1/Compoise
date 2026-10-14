@@ -362,12 +362,6 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   ),
                   onChanged: (_) {
                     store.restoreTask(task);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(t['taskRestored'] ?? 'Task restored'),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
                   },
                 ),
                 const SizedBox(width: 8),
@@ -552,12 +546,6 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   icon: const Icon(Icons.restore, size: 20),
                   onPressed: () {
                     store.restoreTask(task);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(t['taskRestored'] ?? 'Task restored'),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
                   },
                 ),
 

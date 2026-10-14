@@ -266,10 +266,10 @@ void main() {
 
         // Test notification scheduled in service
         expect(inMemoryReminder.scheduled.length, equals(1));
-        // appends the real permission state to the honest result text.
+        // Success is silent: no "sent" message.
         expect(
           find.textContaining(store.t['testNotificationSent']!),
-          findsOneWidget,
+          findsNothing,
         );
 
         await tester.pumpWidget(const SizedBox());

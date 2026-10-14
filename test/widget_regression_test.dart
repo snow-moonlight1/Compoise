@@ -728,10 +728,8 @@ void main() {
       hasLength(2),
     );
     expect(find.byKey(const ValueKey('batch-move-btn')), findsNothing);
-    expect(
-      find.text('Moved 2 tasks to Urgent but Not Important'),
-      findsOneWidget,
-    );
+    // Moving is routine: no message.
+    expect(find.byType(SnackBar), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -2488,14 +2486,8 @@ void main() {
       ]);
       expect(store.tasksIn(qDo), isEmpty);
 
-      // Verify confirmation SnackBar is displayed
-      expect(
-        find.descendant(
-          of: find.byType(SnackBar),
-          matching: find.textContaining(store.t['q3']!),
-        ),
-        findsOneWidget,
-      );
+      // Moving is routine: no message.
+      expect(find.byType(SnackBar), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
     },
@@ -2887,8 +2879,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('clear-board-confirm-btn')));
       await tester.pumpAndSettle();
 
-      // SnackBar shown
-      expect(find.text(store.t['boardCleared']!), findsOneWidget);
+      // Clearing is confirmed up front; no message afterwards.
+      expect(find.byType(SnackBar), findsNothing);
 
       // Board 1 has 0 tasks
       expect(store.boardTaskCount(b1Id), 0);
@@ -3187,7 +3179,7 @@ void main() {
   );
 
   testWidgets(
-    'CompletedScreen unchecking or tapping restore button restores task to original quadrant and shows SnackBar',
+    'CompletedScreen unchecking or tapping restore button restores task to original quadrant silently',
     (tester) async {
       tester.view.physicalSize = const Size(1000, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -3225,8 +3217,10 @@ void main() {
       await tester.tap(find.byKey(ValueKey('completed-restore-${tDone.id}')));
       await tester.pump();
 
-      // SnackBar is displayed
-      expect(find.text(store.t['taskRestored']!), findsOneWidget);
+      // Restoring is routine: no message.
+      expect(find.byType(SnackBar), findsNothing);
+      // Let the row's exit (strike, hold, collapse) finish.
+      await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
       // CompletedScreen now shows empty state
@@ -3464,7 +3458,7 @@ void main() {
   );
 
   testWidgets(
-    'horizontal swipe right completes task, shows SnackBar with Undo action, tapping Undo restores task',
+    'horizontal swipe right completes task silently; swiping again restores it',
     (tester) async {
       viewport(tester, const Size(800, 600));
       final store = await setup(tester);
@@ -3483,14 +3477,13 @@ void main() {
       // Task should be marked complete
       expect(t.completed, isTrue);
 
-      // Undo SnackBar should be displayed
-      expect(find.byKey(const ValueKey('task-undo-snackbar')), findsOneWidget);
-      expect(find.byKey(const ValueKey('undo-action-btn')), findsOneWidget);
-      expect(find.textContaining('Task to Complete'), findsWidgets);
+      // Completing is routine: no message at all.
+      expect(find.byType(SnackBar), findsNothing);
 
-      // Tap Undo
-      await tester.tap(find.byKey(const ValueKey('undo-action-btn')));
+      // Swipe right again restores it.
+      await tester.drag(find.text('Task to Complete'), const Offset(300, 0));
       await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
 
       // Task should be restored to incomplete
       expect(t.completed, isFalse);
@@ -3607,10 +3600,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(t.completed, isTrue);
-      expect(find.byKey(const ValueKey('task-undo-snackbar')), findsOneWidget);
-
-      // Tap Undo
-      await tester.tap(find.byKey(const ValueKey('undo-action-btn')));
+      expect(find.byType(SnackBar), findsNothing);
+      store.restoreTask(t);
       await tester.pumpAndSettle();
       expect(t.completed, isFalse);
 
@@ -4029,8 +4020,8 @@ void main() {
           isTrue,
         );
 
-        // SnackBar feedback was shown
-        expect(find.byType(SnackBar), findsOneWidget);
+        // A successful test is silent; the notification itself is the signal.
+        expect(find.byType(SnackBar), findsNothing);
 
         await tester.pumpWidget(const SizedBox());
       } finally {

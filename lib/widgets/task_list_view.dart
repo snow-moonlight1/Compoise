@@ -66,22 +66,6 @@ class _TaskListViewState extends State<TaskListView> {
     super.dispose();
   }
 
-  void _showMovedNotice(BuildContext context, String taskTitle, int targetQ) {
-    final store = context.read<Store>();
-    final qName = store.t['q$targetQ'] ?? 'Q$targetQ';
-    final msg = (store.t['taskMoved'] ?? 'Moved to {quadrant}').replaceAll(
-      '{quadrant}',
-      qName,
-    );
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        duration: const Duration(milliseconds: 1400),
-      ),
-    );
-  }
-
   /// DragTarget reports leave before the next target's move. A later claim
   /// in the same gesture cancels the clear so the section highlight does not
   /// flicker while the pointer crosses rows.
@@ -108,7 +92,6 @@ class _TaskListViewState extends State<TaskListView> {
     if (task.quadrant != quadrant) {
       HapticFeedback.mediumImpact();
       store.moveTask(task.id, quadrant);
-      _showMovedNotice(context, task.title, quadrant);
     }
   }
 
