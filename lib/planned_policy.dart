@@ -89,14 +89,19 @@ class TodayGroup {
 /// Buckets [tasks] for the Today list in [todaySectionOrder], dropping the empty
 /// ones. Quadrants and boards are mixed inside a bucket: the caller shows each
 /// task's own quadrant and board rather than grouping by either.
+/// Tasks in [scheduledTaskIds] belong to today's schedule and take precedence
+/// over their planned day, without modifying any task field.
 List<TodayGroup> groupForToday(
   Iterable<Task> tasks, {
   DateTime? now,
+  Set<String> scheduledTaskIds = const {},
 }) {
   final ref = now ?? DateTime.now();
   final bySection = <TodaySection, List<Task>>{};
   for (final task in tasks) {
-    final section = todaySectionOf(task, now: ref);
+    final section = !task.completed && scheduledTaskIds.contains(task.id)
+        ? TodaySection.plannedToday
+        : todaySectionOf(task, now: ref);
     if (section == null) continue;
     bySection.putIfAbsent(section, () => <Task>[]).add(task);
   }

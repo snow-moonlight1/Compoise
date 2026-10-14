@@ -32,9 +32,59 @@ Widget _app(Store store, {bool accessibleNavigation = false}) {
 }
 
 void main() {
+  for (final a11y in [false, true]) {
+    testWidgets(
+      'replacement deletion notices each get a fresh timeout ($a11y)',
+      (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            FakeAccessibilityFeatures(accessibleNavigation: a11y);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        var count = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(accessibleNavigation: a11y),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showAppNotice(
+                    context,
+                    'Deleted ${++count}',
+                    key: const ValueKey('same-delete-notice'),
+                    actionLabel: 'Undo',
+                    onAction: () {},
+                  ),
+                  child: const Text('delete'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('delete'));
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(seconds: 2));
+        await tester.tap(find.text('delete'));
+        await tester.pumpAndSettle();
+        expect(find.text('Deleted 2'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 3));
+        expect(find.text('Deleted 2'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expect(find.byType(SnackBar), findsNothing);
+      },
+    );
+  }
+
   testWidgets('a notice with an action still goes away on its own', (
     tester,
   ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     await tester.pumpWidget(
       MaterialApp(
         builder: (context, child) => MediaQuery(
@@ -67,12 +117,18 @@ void main() {
   for (final a11y in [false, true]) {
     testWidgets('swipe: complete is silent, delete undo auto-hides '
         '(accessibleNavigation: $a11y)', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          FakeAccessibilityFeatures(accessibleNavigation: a11y);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
       await tester.binding.setSurfaceSize(const Size(800, 600));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final (store, _) = await makeStore();
       store.addTasks([
         store.newTask('Swipe done', quadrant: qDo),
         store.newTask('Swipe gone', quadrant: qDo),
+        store.newTask('Swipe gone next', quadrant: qDo),
       ]);
       await tester.pumpWidget(_app(store, accessibleNavigation: a11y));
       await tester.pumpAndSettle();
@@ -88,6 +144,12 @@ void main() {
       await tester.drag(find.text('Swipe gone'), const Offset(-300, 0));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('undo-action-btn')), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.drag(find.text('Swipe gone next'), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('undo-action-btn')), findsOneWidget);
+      expect(store.tasks.any((t) => t.title == 'Swipe gone next'), isFalse);
 
       await tester.pump(kNoticeDuration);
       await tester.pumpAndSettle();

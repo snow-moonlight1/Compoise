@@ -811,26 +811,19 @@ class _MatrixHomeState extends State<MatrixHome> {
                 ),
               ),
             ),
-            if (_selectedIds.length == 1 && compact)
+            if (!policy.isTouchLayout && _selectedIds.length == 1 && compact)
               IconButton(
                 tooltip: t['editTask'],
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: editSelected,
               ),
-            if (_selectedIds.length == 1 && !compact)
+            if (!policy.isTouchLayout && _selectedIds.length == 1 && !compact)
               TextButton.icon(
                 onPressed: editSelected,
                 icon: const Icon(Icons.edit_outlined, size: 18),
                 label: Text(t['editTask']!),
               ),
             const SizedBox(width: 4),
-            if (policy.isTouchLayout)
-              IconButton(
-                key: const ValueKey('more-btn'),
-                tooltip: t['more'] ?? 'More',
-                icon: const Icon(Icons.more_horiz),
-                onPressed: _openMore,
-              ),
             IconButton(
               key: const ValueKey('exit-selection-btn'),
               tooltip: t['cancelSelection'],

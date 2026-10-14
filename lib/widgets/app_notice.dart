@@ -52,6 +52,9 @@ void showAppNoticeOn(
     SnackBar(
       key: key,
       content: _AutoClose(
+        // Delete notices share a SnackBar key. Give each timer its own state
+        // when accessibility makes replacement happen within the same frame.
+        key: UniqueKey(),
         onTimeout: () {
           if (!closed) controller.close();
         },
@@ -59,6 +62,7 @@ void showAppNoticeOn(
       ),
       duration: kNoticeDuration,
       behavior: SnackBarBehavior.floating,
+      dismissDirection: DismissDirection.horizontal,
       margin: margin,
       showCloseIcon: actionLabel == null,
       action: actionLabel == null
@@ -77,7 +81,7 @@ void showAppNoticeOn(
 /// it (an action under accessibility navigation, or a dialog covering the
 /// page). The timer lives with the widget, so nothing outlives the screen.
 class _AutoClose extends StatefulWidget {
-  const _AutoClose({required this.onTimeout, required this.child});
+  const _AutoClose({super.key, required this.onTimeout, required this.child});
 
   final VoidCallback onTimeout;
   final Widget child;
