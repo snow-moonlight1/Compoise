@@ -1531,6 +1531,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
+      if (!preset.isCustom)
       Builder(
         builder: (context) {
           final tip = Row(
@@ -1544,7 +1545,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  t['aiRecommendTip']!,
+                  t['aiRecommendTip']!
+                      .replaceAll('{provider}', preset.name(t))
+                      .replaceAll('{model}', preset.defaultModel),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     height: 1.3,

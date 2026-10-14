@@ -330,7 +330,8 @@ void main() {
   test('en/zh/ja recommendation reflects default without accuracy promise', () {
     for (final language in Language.values) {
       final tip = dictOf(language)['aiRecommendTip']!;
-      expect(tip, contains(getAIProviderPreset('deepseek').defaultModel));
+      expect(tip, contains('{model}'));
+      expect(tip, contains('{provider}'));
       expect(tip, isNot(contains('deepseek-v4-flash')));
       expect(tip, isNot(contains('最高')));
       expect(tip, isNot(contains('highest')));

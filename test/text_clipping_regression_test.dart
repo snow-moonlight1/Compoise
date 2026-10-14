@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:compoise/ai_presets.dart';
 import 'package:compoise/ai_service.dart';
 import 'package:compoise/l10n.dart';
 import 'package:compoise/models.dart';
@@ -111,8 +112,13 @@ void main() {
     expect(offCenterFields(tester), isEmpty);
 
     // The tip under the fields lines up with them.
+    final preset = getAIProviderPreset(store.aiConfig.provider);
     final tip = find.ancestor(
-      of: find.text(store.t['aiRecommendTip']!),
+      of: find.text(
+        store.t['aiRecommendTip']!
+            .replaceAll('{provider}', preset.name(store.t))
+            .replaceAll('{model}', preset.defaultModel),
+      ),
       matching: find.byType(CustomPaint),
     );
     final tipBox = tester.getRect(tip.first);
