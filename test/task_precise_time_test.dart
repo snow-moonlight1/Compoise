@@ -107,6 +107,9 @@ void main() {
           await tester.tap(find.text('open'));
           await tester.pumpAndSettle();
           expect(find.text('截止与提醒'), findsOneWidget);
+          expect(find.byType(AlertDialog), findsOneWidget);
+          // Phones edit in the same compact dialog as desktop, not a new page.
+          expect(find.byType(Scaffold), findsOneWidget);
           expect(find.text('计划日'), findsNothing);
           expect(find.byKey(const ValueKey('deadline-today')), findsNothing);
           expect(

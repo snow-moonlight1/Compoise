@@ -433,7 +433,12 @@ void main() {
         expect(civilDate(dialog.initialDate!), isNot(DateTime(2190, 6, 15)));
         expect(dialog.initialDate!.isAfter(dialog.lastDate), isFalse);
         await _cancelPicker(tester);
-        await tester.pageBack();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog).last,
+            matching: find.text(store.t['cancel']!),
+          ),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('subtask-cancel-btn')));
         await tester.pumpAndSettle();

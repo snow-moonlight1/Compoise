@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlarmManager
 import androidx.core.app.NotificationManagerCompat
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -33,6 +34,7 @@ class ReminderSettingsBridge(
                     "exactAlarms" to exactAlarmsEnabled(),
                     "background" to backgroundEnabled(),
                     "autoStartAvailable" to autoStartIntents().any(::canOpen),
+                    "autoStart" to autoStartEnabled(),
                 ))
                 "open" -> {
                     if (pending != null) {
@@ -56,6 +58,32 @@ class ReminderSettingsBridge(
     private fun backgroundEnabled(): Boolean =
         Build.VERSION.SDK_INT < 23 || activity.getSystemService(PowerManager::class.java)
             .isIgnoringBatteryOptimizations(activity.packageName)
+
+    // MIUI OP_AUTO_START is 10008: MODE_ALLOWED = 0, MODE_IGNORED = 1.
+    // New HyperOS versions removed AppOpsUtils.getApplicationAutoStart; read
+    // the underlying operation for our own UID instead, without API bypasses.
+    // Other manufacturers and inaccessible/unknown modes remain unknown.
+    private fun autoStartEnabled(): Boolean? {
+        if (Build.MANUFACTURER.lowercase() !in listOf("xiaomi", "redmi", "poco")) return null
+        return try {
+            val manager = activity.getSystemService(Context.APP_OPS_SERVICE)
+            val method = manager.javaClass.getMethod(
+                "checkOpNoThrow", Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType, String::class.java
+            )
+            when (method.invoke(manager, 10008, android.os.Process.myUid(), activity.packageName) as? Int) {
+                0 -> true
+                1 -> false
+                else -> null
+            }
+        } catch (_: ReflectiveOperationException) {
+            null
+        } catch (_: RuntimeException) {
+            null
+        } catch (_: LinkageError) {
+            null
+        }
+    }
 
     private fun notificationSettings(): Intent = if (Build.VERSION.SDK_INT >= 26)
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -109,7 +137,7 @@ class ReminderSettingsBridge(
     }
 
     // OEM routes are probed before use. Missing or protected activities fall
-    // back to the system's app settings, and never claim auto-start is enabled.
+    // back to the system's app settings. Status is read independently above.
     private fun autoStartIntents(): List<Intent> {
         val components = when (Build.MANUFACTURER.lowercase()) {
             "xiaomi", "redmi", "poco" -> listOf(

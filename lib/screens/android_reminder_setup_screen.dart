@@ -22,7 +22,10 @@ Future<void> maybeShowAndroidReminderSetup(BuildContext context) async {
   // and restart the process. The setup remains reachable from Settings.
   await prefs.setBool(reminderSetupSeenKey, true);
   if (!context.mounted) return;
-  if (status.granted && !status.autoStartAvailable) return;
+  if (status.granted &&
+      (!status.autoStartAvailable || status.autoStart == true)) {
+    return;
+  }
   await Navigator.of(context).push<void>(
     MaterialPageRoute(
       builder: (_) =>
@@ -140,7 +143,9 @@ class _AndroidReminderSetupScreenState extends State<AndroidReminderSetupScreen>
           return; // Declining a permission does not open more prompts.
         }
       }
-      if (mounted && _status?.autoStartAvailable == true) {
+      if (mounted &&
+          _status?.autoStartAvailable == true &&
+          _status?.autoStart != true) {
         if (!await _open('autoStart') || !mounted) return;
       }
       if (mounted && widget.firstVisit) Navigator.pop(context);
@@ -206,7 +211,7 @@ class _AndroidReminderSetupScreenState extends State<AndroidReminderSetupScreen>
                   'autoStart',
                   t['reminderAutoStart']!,
                   t['reminderAutoStartHint']!,
-                  null,
+                  _status?.autoStart,
                 ),
               ExpansionTile(
                 title: Text(t['reminderSettingsHelp']!),

@@ -21,6 +21,7 @@ class FakeSettings extends AndroidReminderSettings {
       background = false,
       autoStart = true;
   bool unavailable = false;
+  bool? autoStartEnabled;
   String? declined, failed;
   Completer<bool>? gate;
   final opened = <String>[];
@@ -32,6 +33,7 @@ class FakeSettings extends AndroidReminderSettings {
           exactAlarms: exact,
           background: background,
           autoStartAvailable: autoStart,
+          autoStart: autoStartEnabled,
         );
   @override
   Future<bool> open(String setting) async {
@@ -84,6 +86,103 @@ Future<void> finish(WidgetTester tester, Store store) async {
 }
 
 void main() {
+  testWidgets(
+    'first launch skips setup when auto-start and other permissions are already granted',
+    (tester) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        AndroidReminderSettings.channel,
+        (call) async => {
+          'notifications': true,
+          'exactAlarms': true,
+          'background': true,
+          'autoStartAvailable': true,
+          'autoStart': true,
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          AndroidReminderSettings.channel,
+          null,
+        ),
+      );
+      final (store, _) = await makeStore(hasSeenOnboarding: true);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
+      expect(find.byType(AndroidReminderSetupScreen), findsNothing);
+      expect(
+        (await SharedPreferences.getInstance()).getBool(reminderSetupSeenKey),
+        isTrue,
+      );
+      await finish(tester, store);
+    },
+  );
+
+  testWidgets(
+    'auto-start reflects the real state after returning and on resume',
+    (tester) async {
+      final (store, _) = await makeStore();
+      final settings = FakeSettings()
+        ..notifications = true
+        ..exact = true
+        ..background = true
+        ..autoStartEnabled = true;
+      await tester.pumpWidget(
+        app(store, AndroidReminderSetupScreen(settings: settings)),
+      );
+      await tester.pumpAndSettle();
+      final row = find.byKey(const ValueKey('reminder-setting-autoStart'));
+      Finder check() => find.descendant(
+        of: row,
+        matching: find.byIcon(Icons.check_circle_outline),
+      );
+      expect(check(), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('reminder-setup-enable')));
+      await tester.pumpAndSettle();
+      expect(settings.opened, isEmpty);
+
+      settings.autoStartEnabled = false;
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(settings.opened, ['autoStart']);
+      expect(check(), findsNothing);
+
+      settings.autoStartEnabled = true;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(check(), findsOneWidget);
+
+      settings.autoStartEnabled = null;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(check(), findsNothing);
+      await finish(tester, store);
+    },
+  );
+
+  testWidgets(
+    'native auto-start values preserve unknown instead of inventing a grant',
+    (tester) async {
+      for (final raw in [true, false, null, 0, 'true']) {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          AndroidReminderSettings.channel,
+          (call) async => {
+            'notifications': true,
+            'exactAlarms': true,
+            'background': true,
+            'autoStartAvailable': true,
+            'autoStart': raw,
+          },
+        );
+        final result = await const AndroidReminderSettings().status();
+        expect(result!.autoStart, raw is bool ? raw : null);
+      }
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        AndroidReminderSettings.channel,
+        null,
+      );
+    },
+  );
+
   testWidgets(
     'an unreadable permission status offers retry instead of a dead end',
     (tester) async {
@@ -165,7 +264,7 @@ void main() {
         'autoStart',
       ]);
       expect(find.byType(SnackBar), findsNothing);
-      // Auto-start remains a link, never a checkmark claiming a permission we cannot read.
+      // An unreadable state remains a link; visiting Settings is not a grant.
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('reminder-setting-autoStart')),
