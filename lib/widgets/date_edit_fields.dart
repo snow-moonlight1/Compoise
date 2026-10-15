@@ -3,7 +3,6 @@ library;
 
 import 'package:flutter/material.dart';
 import '../calendar_dates.dart';
-import '../ui/platform_ui_policy.dart';
 import 'app_notice.dart';
 import 'reminder_access.dart';
 
@@ -19,18 +18,11 @@ Future<TaskTimeSelection?> showTaskTimeEditor(
   DateTime? deadline,
   int? reminderAt,
 }) {
-  final touch = PlatformUiPolicy.of(context).isTouchLayout;
   final editor = _TaskTimeEditor(
     t: t,
     deadline: deadline,
     reminderAt: reminderAt,
-    fullPage: touch,
   );
-  if (touch) {
-    return Navigator.of(
-      context,
-    ).push<TaskTimeSelection>(MaterialPageRoute(builder: (_) => editor));
-  }
   return showDialog<TaskTimeSelection>(
     context: context,
     builder: (_) => editor,
@@ -42,12 +34,10 @@ class _TaskTimeEditor extends StatefulWidget {
     required this.t,
     required this.deadline,
     required this.reminderAt,
-    required this.fullPage,
   });
   final Map<String, String> t;
   final DateTime? deadline;
   final int? reminderAt;
-  final bool fullPage;
   @override
   State<_TaskTimeEditor> createState() => _TaskTimeEditorState();
 }
@@ -142,24 +132,6 @@ class _TaskTimeEditorState extends State<_TaskTimeEditor> {
       onPressed: confirm,
       child: Text(t['confirm']!),
     );
-    if (widget.fullPage) {
-      return Scaffold(
-        appBar: AppBar(title: Text(t['timePanel']!)),
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: content,
-            ),
-          ),
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(padding: const EdgeInsets.all(16), child: save),
-        ),
-      );
-    }
     return AlertDialog(
       title: Text(t['timePanel']!),
       content: SizedBox(

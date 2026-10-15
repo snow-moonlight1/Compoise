@@ -6,11 +6,13 @@ class AndroidReminderStatus {
     required this.exactAlarms,
     required this.background,
     required this.autoStartAvailable,
+    this.autoStart,
   });
   final bool notifications;
   final bool exactAlarms;
   final bool background;
-  // Android does not expose whether an OEM's auto-start switch is enabled.
+  // Null means the manufacturer does not expose a readable state.
+  final bool? autoStart;
   final bool autoStartAvailable;
   bool get granted => notifications && exactAlarms && background;
 }
@@ -28,6 +30,9 @@ class AndroidReminderSettings {
         exactAlarms: values['exactAlarms'] == true,
         background: values['background'] == true,
         autoStartAvailable: values['autoStartAvailable'] == true,
+        autoStart: values['autoStart'] is bool
+            ? values['autoStart'] as bool
+            : null,
       );
     } on MissingPluginException {
       return null;
