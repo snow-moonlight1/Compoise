@@ -80,6 +80,6 @@
 
 - 首次完成应用引导后，在单独页面提供可跳过的提醒设置。点“开启提醒”后，只申请尚未开启的通知、准时提醒和后台运行，按顺序进行；拒绝其中一项时停止后续申请。
 - 系统设置返回后刷新真实权限状态，并重新安排已有的未来提醒。用户已开启的权限不重复申请。
-- 自启动在能找到厂商入口时提供快捷跳转。小米 / Redmi / POCO 读取当前应用 UID 的 MIUI / HyperOS `OP_AUTO_START`（10008）实际开关，返回后重新读取，已开启就显示勾且不重复申请；接口不可用、返回未知值或其他厂商保留快捷入口，不把访问设置当成已授权。操作编号参考 [XiaomiUtilities](https://gist.github.com/0awawa0/65bf88e43159750f596da194ed923522)，并在 HyperOS 3 / Android 16 真机核对开启与关闭的返回值；不再使用新版系统已移除的 `AppOpsUtils.getApplicationAutoStart`，没有引入隐藏 API 绕过或新依赖。入口失效时尝试应用设置；旧手机设置说明保留在可展开区域。
+- 自启动在能找到厂商入口时提供快捷跳转。小米 / Redmi / POCO 读取当前应用 UID 的 MIUI / HyperOS `OP_AUTO_START`（10008）实际开关，返回后重新读取，已开启就显示勾且不重复申请；接口不可用、返回未知值或其他厂商保留快捷入口，不把访问设置当成已授权。操作编号参考 [XiaomiUtilities](https://gist.github.com/0awawa0/65bf88e43159750f596da194ed923522)，并在 HyperOS 3 / Android 16 真机核对开启与关闭的返回值；不再依赖这台 HyperOS 3 真机上不可用的 `AppOpsUtils.getApplicationAutoStart`，没有引入隐藏 API 绕过或新依赖。入口失效时尝试应用设置；旧手机设置说明保留在可展开区域。
 - 设置中的“提醒与后台设置”随时可以重新打开。Windows 和 Linux 不进入手机权限引导。
 - 使用 Android 官方通知、精确闹钟和电池优化接口，厂商自启动入口参考 [autostart_settings 的实现](https://github.com/chris-wolf/autostart_settings)。系统行为参考 [Android 闹钟文档](https://developer.android.com/develop/background-work/services/alarms)和 [Doze 文档](https://developer.android.com/training/monitoring-device-state/doze-standby)。没有加入常驻服务或轮询保活。

@@ -60,7 +60,7 @@ class ReminderSettingsBridge(
             .isIgnoringBatteryOptimizations(activity.packageName)
 
     // MIUI OP_AUTO_START is 10008: MODE_ALLOWED = 0, MODE_IGNORED = 1.
-    // New HyperOS versions removed AppOpsUtils.getApplicationAutoStart; read
+    // Some HyperOS versions do not expose AppOpsUtils.getApplicationAutoStart; read
     // the underlying operation for our own UID instead, without API bypasses.
     // Other manufacturers and inaccessible/unknown modes remain unknown.
     private fun autoStartEnabled(): Boolean? {
