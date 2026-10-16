@@ -706,60 +706,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
               t['settingsHelpAbout'] ?? t['onboarding'] ?? 'Help & About',
               Icons.help_outline,
             ),
-            ListTile(
-              key: const ValueKey('reopen-onboarding-btn'),
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                Icons.school_outlined,
-                color: theme.colorScheme.primary,
-              ),
-              title: Text(t['reopenOnboarding'] ?? 'Tutorial & Gestures Guide'),
-              subtitle: Text(
-                t['reopenOnboardingDesc'] ??
-                    'Review core operations, gestures, and features anytime',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const OnboardingScreen(isReviewMode: true),
+            SettingsMaintenanceTiles(
+              t: t,
+              store: store,
+              helpTiles: [
+                ListTile(
+                  key: const ValueKey('reopen-onboarding-btn'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.school_outlined,
+                    color: theme.colorScheme.primary,
                   ),
-                );
-              },
-            ),
-            ListTile(
-              key: const ValueKey('reopen-planner-guide-btn'),
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                Icons.calendar_month_outlined,
-                color: theme.colorScheme.primary,
-              ),
-              title: Text(t['scheduleGuideReplay']!),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => showPlannerGuide(context, t, markSeen: false),
-            ),
-            if (policy.showDesktopShortcuts)
-              ListTile(
-                key: const ValueKey('shortcuts-help-tile'),
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.keyboard_outlined,
-                  color: theme.colorScheme.primary,
-                ),
-                title: Text(t['shortcutsHelp'] ?? 'Keyboard Shortcuts'),
-                subtitle: Text(
-                  t['shortcutHelp'] ?? 'Keyboard Shortcuts Help',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  title: Text(
+                    t['reopenOnboarding'] ?? 'Tutorial & Gestures Guide',
                   ),
+                  subtitle: Text(
+                    t['reopenOnboardingDesc'] ??
+                        'Review core operations, gestures, and features anytime',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const OnboardingScreen(isReviewMode: true),
+                      ),
+                    );
+                  },
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showShortcutsHelpDialog(context, t),
-              ),
-            SettingsMaintenanceTiles(t: t, store: store),
+                ListTile(
+                  key: const ValueKey('reopen-planner-guide-btn'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.calendar_month_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: Text(t['scheduleGuideReplay']!),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => showPlannerGuide(context, t, markSeen: false),
+                ),
+                if (policy.showDesktopShortcuts)
+                  ListTile(
+                    key: const ValueKey('shortcuts-help-tile'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.keyboard_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: Text(t['shortcutsHelp'] ?? 'Keyboard Shortcuts'),
+                    subtitle: Text(
+                      t['shortcutHelp'] ?? 'Keyboard Shortcuts Help',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showShortcutsHelpDialog(context, t),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -829,8 +839,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showReminderGuideDialog(BuildContext context, Map<String, String> t) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => const AndroidReminderSetupScreen()));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const AndroidReminderSetupScreen(),
+      ),
+    );
   }
 
   Widget _buildGuideItem(
@@ -1402,21 +1415,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
           ),
         ),
-      ] else ...[
-        const SizedBox(height: 6),
-        Theme(
-          data: theme.copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            key: const ValueKey('advanced-settings-tile'),
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
-            title: Text(
-              t['advancedSettings']!,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
+      ],
+      const SizedBox(height: 6),
+      Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const ValueKey('advanced-settings-tile'),
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          title: Text(
+            t['advancedSettings']!,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
-            children: [
+          ),
+          children: [
+            if (!preset.isCustom) ...[
               const SizedBox(height: 8),
               TextField(
                 key: const ValueKey('base-url-input'),
@@ -1441,105 +1455,107 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
                 ),
               ),
-              const SizedBox(height: 10),
             ],
-          ),
-        ),
-      ],
-      if (!preset.isCustom)
-      Builder(
-        builder: (context) {
-          final tip = Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.tips_and_updates_outlined,
-                size: 15,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  t['aiRecommendTip']!
-                      .replaceAll('{provider}', preset.name(t))
-                      .replaceAll('{model}', preset.defaultModel),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.3,
-                  ),
+            const SizedBox(height: 10),
+            _raisedMenu(
+              DropdownButtonFormField<int>(
+                key: const ValueKey('ai-timeout-selector'),
+                isExpanded: true,
+                decoration: _inputDecoration(
+                  labelText: t['aiTimeoutLabel'],
+                  menu: true,
                 ),
-              ),
-            ],
-          );
-          if (NeumorphicSkin.maybeOf(context) != null) {
-            // No side gutter: the tip lines up with the fields above.
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: neuSlab(
-                context,
-                inset: true,
-                gutter: 0,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  child: tip,
-                ),
-              ),
-            );
-          }
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            margin: const EdgeInsets.only(top: 4, bottom: 4),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                value: DevicePrefs.instance.aiTimeoutSeconds,
+                items: [
+                  for (final seconds in DevicePrefs.aiTimeoutChoices)
+                    DropdownMenuItem(
+                      value: seconds,
+                      child: Text(
+                        t['aiTimeoutSeconds']!.replaceAll('{n}', '$seconds'),
+                      ),
+                    ),
+                ],
+                onChanged: (seconds) {
+                  if (seconds == null) return;
+                  setState(() {
+                    store.ai.completionTimeout = Duration(seconds: seconds);
+                  });
+                  unawaited(DevicePrefs.instance.setAiTimeoutSeconds(seconds));
+                },
               ),
             ),
-            child: tip,
-          );
-        },
-      ),
-      const SizedBox(height: 10),
-      _raisedMenu(
-        DropdownButtonFormField<int>(
-          key: const ValueKey('ai-timeout-selector'),
-          isExpanded: true,
-          decoration: _inputDecoration(
-            labelText: t['aiTimeoutLabel'],
-            menu: true,
-          ),
-          value: DevicePrefs.instance.aiTimeoutSeconds,
-          items: [
-            for (final seconds in DevicePrefs.aiTimeoutChoices)
-              DropdownMenuItem(
-                value: seconds,
-                child: Text(
-                  t['aiTimeoutSeconds']!.replaceAll('{n}', '$seconds'),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                t['aiTimeoutHint']!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
+            ),
+            const SizedBox(height: 10),
           ],
-          onChanged: (seconds) {
-            if (seconds == null) return;
-            setState(() {
-              store.ai.completionTimeout = Duration(seconds: seconds);
-            });
-            unawaited(DevicePrefs.instance.setAiTimeoutSeconds(seconds));
+        ),
+      ),
+      if (!preset.isCustom)
+        Builder(
+          builder: (context) {
+            final tip = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.tips_and_updates_outlined,
+                  size: 15,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    t['aiRecommendTip']!
+                        .replaceAll('{provider}', preset.name(t))
+                        .replaceAll('{model}', preset.defaultModel),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            );
+            if (NeumorphicSkin.maybeOf(context) != null) {
+              // No side gutter: the tip lines up with the fields above.
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: neuSlab(
+                  context,
+                  inset: true,
+                  gutter: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: tip,
+                  ),
+                ),
+              );
+            }
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              margin: const EdgeInsets.only(top: 4, bottom: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.35,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                ),
+              ),
+              child: tip,
+            );
           },
         ),
-      ),
-      Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          t['aiTimeoutHint']!,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-          ),
-        ),
-      ),
       const SizedBox(height: 10),
       TestConnectionButton(t: t, store: store),
     ];
