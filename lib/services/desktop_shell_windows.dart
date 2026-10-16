@@ -6,6 +6,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../l10n.dart';
+import '../diagnostics/app_log.dart';
 import 'desktop_shell_host.dart';
 
 @visibleForTesting
@@ -80,7 +81,7 @@ class WindowsDesktopShellHost
       );
       return const DesktopShellResult.success();
     } catch (e) {
-      debugPrint('Failed to initialize Windows tray: $e');
+      AppLog.warn('desktop', 'Failed to initialize Windows tray: $e');
       return DesktopShellResult(
         DesktopShellResultKind.unavailable,
         detail: e.toString(),
@@ -155,7 +156,7 @@ class WindowsDesktopShellHost
       });
       return const DesktopShellResult.success();
     } catch (e) {
-      debugPrint('Failed to register global hotkey: $e');
+      AppLog.warn('desktop', 'Failed to register global hotkey: $e');
       return DesktopShellResult(
         DesktopShellResultKind.unavailable,
         detail: e.toString(),

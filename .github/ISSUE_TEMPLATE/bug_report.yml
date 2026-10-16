@@ -49,3 +49,12 @@ body:
     attributes:
       label: 外观风格 / Style
       options: [默认 / Default, 漫画描边 / Comic outline, 拟态 / Neumorphic]
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断信息（可选）/ Diagnostics (optional)
+      description: |
+        设置 → 帮助与关于 → 导出诊断信息，把文件拖到这里或粘贴内容。文件不含任务内容和密钥，发送前请再看一遍。
+        Settings → Help & About → Export diagnostics, then attach the file or paste its text. It has no task content or keys; please read it before posting.
+    validations:
+      required: false

@@ -1,12 +1,18 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'app_version.dart';
+import 'diagnostics/app_log.dart';
 import 'screens/matrix_screen.dart';
 import 'screens/startup_recovery_screen.dart';
 import 'models.dart';
 import 'services/desktop_shell_service.dart';
 import 'services/desktop_shell_windows.dart';
+import 'services/device_prefs.dart';
 import 'services/single_instance.dart';
 import 'services/window_geometry.dart';
 import 'storage.dart';
@@ -15,6 +21,10 @@ import 'ui/songti_font.dart';
 
 Future<void> main([List<String> args = const <String>[]]) async {
   WidgetsFlutterBinding.ensureInitialized();
+  installAppErrorLogging();
+  unawaited(AppLog.instance.enableFileSink());
+  AppLog.info('app', 'Started $appVersionLabel on ${Platform.operatingSystem}');
+  await DevicePrefs.instance.load();
   await ensureWindowsWindowManager();
   await WindowGeometry.instance.start();
   final reminders = ReminderService.instance;
@@ -56,6 +66,7 @@ class CompoiseApp extends StatelessWidget {
           persistence: persistence,
           saveWriter: saveWriter,
         );
+        store.ai.completionTimeout = DevicePrefs.instance.aiTimeout;
         store.init();
         return store;
       },

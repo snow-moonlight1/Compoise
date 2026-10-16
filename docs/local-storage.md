@@ -19,7 +19,15 @@
 
 - 任务、任务板和日程总是在同一次提交里一起保存或一起回滚，不会只存下一半。
 - API 密钥不进快照，通过 `lib/credential_store.dart` 存进系统安全存储：Android Keystore、Windows 系统凭据保护、Linux Secret Service。
-- 一些只和本机有关的状态（例如日程引导是否看过、窗口位置）用单独的键保存，不进快照，也不随备份转移。
+- 一些只和本机有关的状态（例如日程引导是否看过、窗口位置）用单独的键保存，不进快照，也不随备份转移。导入备份不会改它们。
+
+| 本机键（`lib/services/device_prefs.dart`） | 内容 |
+| --- | --- |
+| `compoise-update-check-enabled` | 是否自动检查更新，默认关闭 |
+| `compoise-update-last-check` | 上次检查更新的时间（毫秒时间戳） |
+| `compoise-ai-timeout-seconds` | 整理、拆分任务时等待 AI 的秒数：30、60 或 120，默认 60 |
+
+- 诊断日志不在 SharedPreferences，而是应用支持目录下的 `logs/compoise.log`，每个文件最多约 256 KB，最多保留 3 个（`lib/diagnostics/app_log.dart`）。
 
 ## 启动恢复
 

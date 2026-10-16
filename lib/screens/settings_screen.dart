@@ -10,6 +10,7 @@ import '../ai_capabilities.dart';
 import '../ai_presets.dart';
 import '../models.dart';
 import '../services/desktop_shell_service.dart';
+import '../services/device_prefs.dart';
 import '../services/linux_test_notification.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
@@ -24,6 +25,7 @@ import 'onboarding_screen.dart';
 import 'settings_backup_flow.dart';
 import 'settings_desktop.dart';
 import 'settings_model_request.dart';
+import 'settings_maintenance.dart';
 import 'android_reminder_setup_screen.dart';
 
 enum _SettingsPanel { assistant, font }
@@ -757,6 +759,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => showShortcutsHelpDialog(context, t),
               ),
+            SettingsMaintenanceTiles(t: t, store: store),
           ],
         ),
       ),
@@ -1499,6 +1502,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: tip,
           );
         },
+      ),
+      const SizedBox(height: 10),
+      _raisedMenu(
+        DropdownButtonFormField<int>(
+          key: const ValueKey('ai-timeout-selector'),
+          isExpanded: true,
+          decoration: _inputDecoration(
+            labelText: t['aiTimeoutLabel'],
+            menu: true,
+          ),
+          value: DevicePrefs.instance.aiTimeoutSeconds,
+          items: [
+            for (final seconds in DevicePrefs.aiTimeoutChoices)
+              DropdownMenuItem(
+                value: seconds,
+                child: Text(
+                  t['aiTimeoutSeconds']!.replaceAll('{n}', '$seconds'),
+                ),
+              ),
+          ],
+          onChanged: (seconds) {
+            if (seconds == null) return;
+            setState(() {
+              store.ai.completionTimeout = Duration(seconds: seconds);
+            });
+            unawaited(DevicePrefs.instance.setAiTimeoutSeconds(seconds));
+          },
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          t['aiTimeoutHint']!,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
       ),
       const SizedBox(height: 10),
       TestConnectionButton(t: t, store: store),

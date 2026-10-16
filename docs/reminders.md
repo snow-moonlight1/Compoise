@@ -12,7 +12,7 @@
 
 | 平台 | 行为 |
 | --- | --- |
-| Android | 使用通知、精确闹钟和开机恢复。实际的准时程度取决于系统版本、权限和厂商的省电策略。 |
+| Android | 使用通知、精确闹钟和开机恢复。首次完成引导后提供可跳过的提醒设置，依次申请通知、准时提醒和后台运行（忽略电池优化，`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`），并提供厂商自启动入口，见[任务与日程 · Android 提醒设置](tasks-and-schedule.md#android-提醒设置)。实际的准时程度取决于系统版本、权限和厂商的省电策略。 |
 | Windows | 使用本地通知，配合托盘和应用生命周期。 |
 | Linux | 还没有按时投递的提醒，任务上的提醒时间可以编辑，但不会弹出通知。设置里可以发送一条测试通知（`lib/services/linux_test_notification.dart`），用来检查系统通知服务是否可用。 |
 
@@ -23,6 +23,11 @@
 ## 相关代码和测试
 
 - `lib/services/reminder_service.dart`：调度、权限、记录和恢复。
+- `lib/screens/android_reminder_setup_screen.dart`、`android/app/src/main/kotlin/com/compoise/app/ReminderSettingsBridge.kt`：Android 提醒设置页，以及读取通知、精确闹钟、电池优化和厂商自启动状态的原生接口。
 - `lib/storage.dart`：任务变化与提醒状态的协调。
-- `lib/screens/settings_screen.dart`：权限说明、测试通知和问题提示。
-- `test/reminder_service_test.dart` 等提醒相关测试。
+- `lib/screens/settings_screen.dart`：权限说明、测试通知、“提醒与后台设置”入口和问题提示。
+- `test/reminder_service_test.dart`、`test/android_reminder_setup_test.dart` 等提醒相关测试。
+
+## 排查
+
+调度、权限探测和取消失败时，`ReminderService` 会把失败类型写进本机诊断日志（`lib/diagnostics/app_log.dart`），只记录错误类型和提醒编号，不记录任务标题。用户可以在“设置 → 帮助与关于 → 导出诊断信息”导出，附在问题报告里。

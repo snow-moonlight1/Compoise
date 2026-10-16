@@ -5,6 +5,7 @@
 ## 1. 准备版本
 
 1. 在 `pubspec.yaml` 中把 `version` 改成新版本，格式为 `X.Y.Z+N`：`X.Y.Z` 是对外版本号，`N` 是 Android 的 versionCode，每次发版都要加一。
+   同时把 `lib/app_version.dart` 里的 `appVersion` 和 `appBuildNumber` 改成一样的值（设置页、诊断信息和检查更新用它）；`test/update_check_test.dart` 会在两者不一致时失败。
 2. 在 [CHANGELOG](../CHANGELOG.md) 中把 `Unreleased` 下的内容移到新版本条目，写上日期。
 3. 通过 PR 合并到 `main`，确认 CI 是绿的。
 
@@ -19,6 +20,12 @@ git push origin v1.1.0
 ```
 
 标签必须和 `pubspec.yaml` 一致（`v1.1.0` 或 `v1.1.0+2`），否则 CI 会直接失败。以 `-ci.N` 结尾的标签（如 `v1.1.0-ci.1`）用于试跑，会生成草稿预发布，不检查版本号。
+
+正式标签还要通过 `scripts/check_build_number.py`：版本号和 `+N` 构建号都必须大于之前每一个正式 `v*` 标签（不算 `-ci` 标签和当前标签），否则 release 工作流在构建前就停止。这样 Android 不会因为 versionCode 没有增加而无法覆盖安装。本地可以先跑：
+
+```sh
+python3 scripts/check_build_number.py --tag v1.1.0
+```
 
 ## 3. CI 构建
 

@@ -63,6 +63,9 @@ jobs:
       - name: Release candidate regressions
         run: python3 -m unittest discover -s scripts/tests -p test_release_candidate.py
 
+      - name: Release version guard regressions
+        run: python3 -m unittest discover -s scripts/tests -p test_check_build_number.py
+
       - name: Windows candidate audit regressions
         run: python3 -m unittest discover -s scripts/tests -p test_wp28_r2_candidate_audit.py
 
