@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../diagnostics/app_log.dart';
 import '../models.dart';
 import 'desktop_shell_service.dart';
 
@@ -630,7 +631,7 @@ abstract class ReminderService {
       // so, instead of pretending no reminder work is pending.
       _readErrorKind = reminderErrorKind(e);
       _refreshLedgerIssue();
-      debugPrint('Reminder ledger read failed: $_readErrorKind');
+      AppLog.warn('reminder', 'Reminder ledger read failed: $_readErrorKind');
       return;
     }
     _pendingLoaded = true;
@@ -669,7 +670,7 @@ abstract class ReminderService {
       }
     } catch (e) {
       damaged++;
-      debugPrint('Ignored unreadable reminder ledger: ${e.runtimeType}');
+      AppLog.warn('reminder', 'Ignored unreadable reminder ledger: ${e.runtimeType}');
     }
     // This read answers for the stored bytes: a later read replaces this count,
     // and an explicit ledger retry clears it once the clean records are written.
@@ -874,7 +875,7 @@ abstract class ReminderService {
   void _recordWriteFailure(Object error) {
     _lastWriteError = reminderErrorKind(error);
     _refreshLedgerIssue();
-    debugPrint('Reminder ledger write failed: $_lastWriteError');
+    AppLog.warn('reminder', 'Reminder ledger write failed: $_lastWriteError');
   }
 
   /// Waits until every queued ledger write has been attempted and reports
@@ -921,7 +922,7 @@ abstract class ReminderService {
         // once this reminder is tracked again or the data stops backing it.
         _rememberRefused(job);
         _refreshLedgerIssue();
-        debugPrint('Reminder ledger is full: refused ${job.key}');
+        AppLog.warn('reminder', 'Reminder ledger is full: refused ${job.key}');
         return ReminderLedgerUpdate.rejected;
       }
     }
@@ -947,7 +948,8 @@ abstract class ReminderService {
     }
     if (victim == null) return false;
     _pendingJobs.remove(victim.key);
-    debugPrint(
+    AppLog.warn(
+      'reminder',
       'Reminder ledger dropped an exhausted record to make room: ${victim.key}',
     );
     return true;
@@ -1899,7 +1901,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         // Allow a later call to retry initialization instead of latching a
         // completed gate that reports success.
         _initCompleter = null;
-        debugPrint('Local notifications unavailable: platform init failed');
+        AppLog.warn('reminder', 'Local notifications unavailable: platform init failed');
       }
 
       try {
@@ -1918,7 +1920,8 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           }
         }
       } catch (e) {
-        debugPrint(
+        AppLog.warn(
+          'reminder',
           'Failed to read notification launch details: ${reminderErrorKind(e)}',
         );
       }
@@ -1930,7 +1933,8 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       }
     } catch (e) {
       _initCompleter = null;
-      debugPrint(
+      AppLog.warn(
+        'reminder',
         'Failed to initialize local notifications: ${reminderErrorKind(e)}',
       );
     } finally {
@@ -1965,7 +1969,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           ? ReminderPermissionStatus.granted
           : ReminderPermissionStatus.inexactOnly;
     } catch (e) {
-      debugPrint('Notification permission probe failed: ${e.runtimeType}');
+      AppLog.warn('reminder', 'Notification permission probe failed: ${e.runtimeType}');
       return ReminderPermissionStatus.unknown;
     }
   }
@@ -1994,7 +1998,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       }
       return await checkPermission();
     } catch (e) {
-      debugPrint('Notification permission request failed: ${e.runtimeType}');
+      AppLog.warn('reminder', 'Notification permission request failed: ${e.runtimeType}');
       return ReminderPermissionStatus.unknown;
     }
   }
@@ -2135,7 +2139,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         }
       } catch (e) {
         lastScheduleError = reminderErrorKind(e);
-        debugPrint('Notification scheduling failed: $lastScheduleError');
+        AppLog.warn('reminder', 'Notification scheduling failed: $lastScheduleError');
         result = ReminderScheduleResult(
           ReminderScheduleStatus.failed,
           notificationId: notifId,
@@ -2149,7 +2153,8 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         try {
           await _plugin.cancel(notifId);
         } catch (e) {
-          debugPrint(
+          AppLog.warn(
+            'reminder',
             'Superseded notification cleanup failed: ${reminderErrorKind(e)}',
           );
         }
@@ -2206,7 +2211,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     } catch (e) {
       nativeErrorKind = reminderErrorKind(e);
       lastScheduleError = nativeErrorKind;
-      debugPrint('Native Windows schedule failed: $nativeErrorKind');
+      AppLog.warn('reminder', 'Native Windows schedule failed: $nativeErrorKind');
     }
     if (_revision[notifId] != gen) {
       return ReminderScheduleResult(
@@ -2247,7 +2252,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
             errorKind: kind,
           ),
         );
-        debugPrint('In-app Windows notification failed: $kind');
+        AppLog.warn('reminder', 'In-app Windows notification failed: $kind');
       }
     });
     return ReminderScheduleResult(
@@ -2379,7 +2384,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       );
     } catch (e) {
       final kind = reminderErrorKind(e);
-      debugPrint('Notification cancel failed: $kind');
+      AppLog.warn('reminder', 'Notification cancel failed: $kind');
       return recordCancelOutcome(
         payload: payload,
         userInitiated: userInitiated,
@@ -2425,7 +2430,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       try {
         await _plugin.cancelAll();
       } catch (e) {
-        debugPrint('Cancel-all failed: ${reminderErrorKind(e)}');
+        AppLog.warn('reminder', 'Cancel-all failed: ${reminderErrorKind(e)}');
         // Re-issue each cancellation so every failure keeps a retry record
         // instead of leaving an untracked ghost notification.
         for (final entry in leftovers.entries) {

@@ -31,8 +31,8 @@
 规则的回归测试：
 
 - `test/screenshot_status_bar_test.dart`：真实中文截图，OCR 结果录制在 `test/fixtures/screenshots/`；
-- `test/wp17_i3a_screenshot_adapter_test.dart`；
-- `test/wp17_q2_structure_test.dart`。
+- `test/screenshot_adapter_test.dart`；
+- `test/screenshot_structure_test.dart`。
 
 ## 模型
 

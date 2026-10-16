@@ -26,7 +26,7 @@ Compoise (方寸) is a local-first task manager for Android, Windows and Linux. 
 | Matrix and focus | Sort tasks by importance and urgency. Switch between the overview and a single quadrant. |
 | Boards | Keep work, study and personal plans apart. |
 | Tasks and steps | Break big tasks into steps. Add notes, tags, deadlines and reminders. |
-| Today | Shows the tasks planned for today and the ones carried over. |
+| Today | Gathers the tasks on today's schedule and the ones due today or overdue. |
 | Schedule | Day and week views. Book time blocks for tasks or add standalone events. |
 | Dynamic urgency | Moves tasks to urgent as their deadline approaches, based on a threshold you set. No AI needed. |
 | AI | Bring your own API key to classify, group or break down tasks. |

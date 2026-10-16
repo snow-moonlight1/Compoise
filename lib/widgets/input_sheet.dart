@@ -560,7 +560,9 @@ class _InputSheetState extends State<InputSheet> {
       }
     } catch (error) {
       if (mounted && !_closed && !request.isCancelled) {
-        setState(() => _error = aiErrorMessage(error, store.t));
+        setState(
+          () => _error = aiErrorMessage(error, store.t, completion: true),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);

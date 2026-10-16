@@ -16,6 +16,12 @@ JSON 备份是**明文文件**，包含任务、日程和配置，默认不含 A
 
 Android 提醒可能使用通知、精确闹钟、开机恢复和震动权限；Windows 可使用本地通知、托盘和热键。Linux 预览版目前不会投递系统提醒通知。权限、系统设置和设备行为会影响 Android 与 Windows 的提醒送达。
 
+Android 的提醒设置只在用户点击后申请权限：通知、准时提醒，以及让应用不受电池优化限制（`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`）。为了显示自启动是否已开启，应用会在本机读取小米 / Redmi / POCO 系统中本应用的自启动开关，并查询厂商自启动设置页是否存在；这些结果不离开设备。
+
+应用在本机应用数据目录保留一份很小的诊断日志（最多几个轮换文件），记录提醒、托盘等功能的失败类型和未捕获的错误。写入前会去掉密钥、网址、邮箱和系统用户名，不记录任务内容。日志不会自动上传；只有用户在设置中“导出诊断信息”并自行分享文件时，它才会离开设备。导出文件还包含版本、系统版本、界面设置、AI 预设与协议名称和任务数量。
+
+“自动检查更新”默认关闭。开启后，应用每天最多一次向 GitHub（`api.github.com`）查询本项目的最新版本；手动点“检查更新”也发送同样的请求。请求只带应用版本号，不含任务或个人信息；GitHub 会像处理其他网络请求一样看到你的 IP 地址。应用不会自动下载或安装更新。
+
 ## English
 
 Compoise currently provides Flutter clients for Android and Windows, plus a Linux desktop preview. Tasks, boards, notes, schedules, and ordinary settings are stored in the app's local data. The task library has no application-level encryption, account, or automatic cloud sync. Ordinary task management works offline. The current app does not include advertising or behavioral analytics SDKs.
@@ -29,3 +35,9 @@ JSON backups are **plaintext** and include tasks, schedules, and configuration, 
 Screenshot import recognizes text on the device. The recognition models are downloaded from this project's release locations the first time you use it (model files only; nothing is uploaded). Selected images are recognized on the device, and only ordinary task fields are saved after review. Android creates bounded private temporary copies one at a time, deletes them after recognition, and cleans this module's leftovers on exit or the next startup. Desktop clients read selected originals without deleting them. Original images and raw OCR results are not saved in the task library or logs. The app does not upload screenshots.
 
 Android reminders may use notification, exact alarm, boot recovery, and vibration permissions. Windows can use local notifications, a tray icon, and hotkeys. The Linux preview does not currently deliver system reminder notifications. On Android and Windows, delivery depends on permissions, system settings, and device behavior.
+
+On Android, reminder setup asks for permissions only after you tap it: notifications, exact alarms, and an exemption from battery optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`). To show whether autostart is on, the app reads this app's autostart switch on Xiaomi / Redmi / POCO devices and checks whether a vendor autostart settings page exists. These results stay on the device.
+
+The app keeps a small diagnostics log in its local app data folder (a few rotating files) with the failure types of features such as reminders and the tray, and uncaught errors. Keys, web addresses, e-mail addresses, and system user names are removed before writing, and task content is not logged. The log is never uploaded; it leaves the device only if you choose "Export diagnostics" in Settings and share the file yourself. The exported file also lists the app and system versions, display settings, the AI preset and protocol names, and task counts.
+
+"Check for updates automatically" is off by default. When you turn it on, the app asks GitHub (`api.github.com`) for this project's latest release at most once a day; tapping "Check for updates" sends the same request. The request carries only the app version and no tasks or personal data. GitHub sees your IP address, as with any web request. The app never downloads or installs updates by itself.

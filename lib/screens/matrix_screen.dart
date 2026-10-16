@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../shortcuts.dart';
 import '../services/desktop_exit_coordinator.dart';
 import '../services/desktop_shell_service.dart';
+import '../services/update_check.dart';
 import '../ui/desktop_exit_strings.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/batch_decompose_sheet.dart';
@@ -31,6 +32,7 @@ import 'onboarding_screen.dart';
 import 'planner_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+import 'settings_maintenance.dart';
 import 'android_reminder_setup_screen.dart';
 import 'today_screen.dart';
 
@@ -212,6 +214,9 @@ class _MatrixHomeState extends State<MatrixHome> {
       _boundReminders!.onNotificationSelected = _handleNotificationPayload;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_checkForUpdate());
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final store = context.read<Store>();
       final shell = _desktopShell;
@@ -256,6 +261,21 @@ class _MatrixHomeState extends State<MatrixHome> {
       }
       if (mounted) await maybeShowAndroidReminderSetup(context);
     });
+  }
+
+  /// The opt-in daily check. Quiet unless a newer release exists.
+  Future<void> _checkForUpdate() async {
+    final result = await UpdateChecker().checkIfDue();
+    if (result == null || !mounted) return;
+    final t = context.read<Store>().t;
+    showAppNotice(
+      context,
+      t['updateAvailableNotice']!.replaceAll('{latest}', result.latest ?? ''),
+      actionLabel: t['updateView'],
+      onAction: () {
+        if (mounted) showUpdateAvailableDialog(context, t, result);
+      },
+    );
   }
 
   @override

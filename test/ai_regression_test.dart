@@ -205,7 +205,7 @@ void main() {
   });
 
   testWidgets(
-    '30 second timeout covers both headers and body and aborts transport',
+    '60 second completion timeout covers both headers and body and aborts transport',
     (tester) async {
       final headers = Completer<http.StreamedResponse>();
       final body = StreamController<List<int>>();
@@ -220,16 +220,47 @@ void main() {
         analyze(service),
         throwsA(isA<TimeoutException>()),
       );
-      await tester.pump(const Duration(seconds: 20));
+      await tester.pump(const Duration(seconds: 40));
       headers.complete(http.StreamedResponse(body.stream, 200));
       await tester.pump();
-      await tester.pump(const Duration(seconds: 10));
+      await tester.pump(const Duration(seconds: 20));
       await pending;
       expect(aborted, isTrue);
       await body.close();
       service.close();
     },
   );
+
+  testWidgets('a chosen completion wait time replaces the default', (
+    tester,
+  ) async {
+    final headers = Completer<http.StreamedResponse>();
+    final service = AIService(
+      client: MockClient.streaming((request, _) => headers.future),
+    )..completionTimeout = const Duration(seconds: 30);
+    expect(service.timeout, aiRequestTimeout);
+    var failed = false;
+    final pending = analyze(service).catchError((Object e) {
+      failed = e is TimeoutException;
+      return <AIAnalysisResult>[];
+    });
+    await tester.pump(const Duration(seconds: 29));
+    expect(failed, isFalse);
+    await tester.pump(const Duration(seconds: 2));
+    await pending;
+    expect(failed, isTrue);
+    service.close();
+  });
+
+  test('only sort and split requests mention the wait time setting', () {
+    final t = <String, String>{
+      'requestTimeout': 'probe',
+      'aiCompletionTimeout': 'completion',
+    };
+    final timeout = TimeoutException('AI timeout');
+    expect(aiErrorMessage(timeout, t), 'probe');
+    expect(aiErrorMessage(timeout, t, completion: true), 'completion');
+  });
 
   testWidgets('cancel signal is forwarded to the HTTP transport', (
     tester,

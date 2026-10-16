@@ -71,6 +71,8 @@ legacy/web/android/app/build/
 legacy/web/android/capacitor-cordova-android-plugins/
 
 # Signing credentials and keystores
+# Maintainer's local folder for release signing material; never commit it.
+Android credential/
 key.properties
 keystore.properties
 *.jks

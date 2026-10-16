@@ -199,7 +199,9 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
       Navigator.pop(context);
     } catch (error) {
       if (mounted && !_closed) {
-        setState(() => _error = aiErrorMessage(error, store.t));
+        setState(
+          () => _error = aiErrorMessage(error, store.t, completion: true),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);

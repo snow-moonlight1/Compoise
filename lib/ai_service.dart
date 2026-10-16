@@ -69,11 +69,19 @@ class AICancellation {
   }
 }
 
-String aiErrorMessage(Object error, Map<String, String> t) {
+/// [completion] marks a sort or split request, whose wait time the user can
+/// raise in Settings; its timeout message says so.
+String aiErrorMessage(
+  Object error,
+  Map<String, String> t, {
+  bool completion = false,
+}) {
   if (error is AIException) {
     return '${t[error.code] ?? t['error']}${error.status == null ? '' : ' (${error.status})'}';
   }
-  if (error is TimeoutException) return t['requestTimeout']!;
+  if (error is TimeoutException) {
+    return t[completion ? 'aiCompletionTimeout' : 'requestTimeout']!;
+  }
   if (error is FormatException || error is TypeError) {
     return t['aiInvalidResponse']!;
   }
@@ -82,11 +90,24 @@ String aiErrorMessage(Object error, Map<String, String> t) {
 
 const aiRequestTimeout = Duration(seconds: 30);
 
+/// The default wait for a sort or split answer. Reasoning models can take
+/// longer than a connection probe, so this is separate from [aiRequestTimeout]
+/// and the user can change it in Settings.
+const aiCompletionTimeout = Duration(seconds: 60);
+
 class AIService {
-  AIService({http.Client? client, this.timeout = aiRequestTimeout})
-    : _client = client ?? http.Client();
+  AIService({
+    http.Client? client,
+    this.timeout = aiRequestTimeout,
+    this.completionTimeout = aiCompletionTimeout,
+  }) : _client = client ?? http.Client();
   final http.Client _client;
+
+  /// Connection tests, model discovery and generation probes.
   final Duration timeout;
+
+  /// Sorting and splitting tasks ([requestCompletion]).
+  Duration completionTimeout;
   final _requests = <Completer<void>>{};
 
   void close() {
@@ -654,7 +675,11 @@ class AIService {
 
     final req = _postJson(uri.toString(), config, body);
 
-    final res = await _send(req, cancellation: cancellation);
+    final res = await _send(
+      req,
+      cancellation: cancellation,
+      timeout: completionTimeout,
+    );
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw AIException('aiHttpError', res.statusCode);
     }
@@ -684,6 +709,7 @@ class AIService {
   Future<http.Response> _send(
     http.Request req, {
     AICancellation? cancellation,
+    Duration? timeout,
   }) async {
     final abort = Completer<void>();
     _requests.add(abort);
@@ -701,7 +727,7 @@ class AIService {
       return await (() async =>
               http.Response.fromStream(await _client.send(request)))()
           .timeout(
-            timeout,
+            timeout ?? this.timeout,
             onTimeout: () {
               cancel();
               throw TimeoutException('AI timeout');

@@ -20,17 +20,19 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 
 | 位置 | 作用 |
 | --- | --- |
-| `lib/main.dart` | 入口：创建提醒服务、持久化适配器和桌面外壳，再启动界面 |
+| `lib/main.dart` | 入口：接上错误日志，读取本机偏好，创建提醒服务、持久化适配器和桌面外壳，再启动界面 |
+| `lib/app_version.dart` | 应用显示和检查更新用的版本号，须与 `pubspec.yaml` 一致（有测试检查） |
 | `lib/models.dart`、`lib/schedule_item.dart` | 任务、子项、任务板、日程、设置和 AI 配置等数据类型及序列化 |
 | `lib/storage.dart` | `Store`：加载、保存、事务、撤销和全部用户操作；页面不各自实现业务规则 |
 | `lib/task_commands.dart`、`task_query.dart`、`task_filter.dart`、`task_stats.dart` | 任务的修改、读取、筛选和统计 |
 | `lib/planned_policy.dart`、`lib/deadline_policy.dart`、`lib/calendar_dates.dart` | 今天待办、截止时间和紧急性规则，见[任务与日程](tasks-and-schedule.md) |
 | `lib/planner/` | 日程页：日视图、周视图、任务池、日程编辑 |
-| `lib/screens/` | 页面：四象限首页、今天、已完成、搜索、设置、引导、启动恢复 |
-| `lib/widgets/` | 可复用组件：任务卡片、详情面板、输入面板等 |
+| `lib/screens/` | 页面：四象限首页、今天、已完成、搜索、设置（含“帮助与关于”里的检查更新和诊断导出，`settings_maintenance.dart`）、引导、Android 提醒设置、启动恢复 |
+| `lib/widgets/` | 可复用组件：任务卡片、详情面板、输入面板，以及统一的提示 `app_notice.dart` 等 |
 | `lib/screenshot_import/`、`lib/import_preview/`、`lib/ocr/` | 截图识别：选图、OCR、整理成草稿、校对页，见[截图识别导入](ocr.md) |
 | `lib/ai_service.dart`、`ai_presets.dart`、`ai_capabilities.dart`、`model_discovery.dart` | AI 请求、服务商预设、模型能力和模型列表，见 [AI 服务商](ai-providers.md) |
-| `lib/services/` | 提醒、Windows 桌面外壳（托盘、单实例、全局快捷键）、窗口位置、Linux 测试通知 |
+| `lib/services/` | 提醒、Windows 桌面外壳（托盘、单实例、全局快捷键）、窗口位置、Linux 测试通知、本机偏好（`device_prefs.dart`）、检查更新（`update_check.dart`） |
+| `lib/diagnostics/` | 本机诊断日志（内存 + 轮换文件，写入前脱敏）和诊断信息导出 |
 | `lib/platform/` | 设备时区 |
 | `lib/ui/` | 平台交互策略（`platform_ui_policy.dart`）、动画策略、字体策略 |
 | `lib/theme.dart` | 主题，包括漫画描边和拟态两种可选风格 |
@@ -48,7 +50,7 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 
 | 平台 | 说明 |
 | --- | --- |
-| Android | `applicationId` 和命名空间都是 `com.compoise.app`。提醒使用通知和闹钟调度，开机后恢复。截图通过系统文件选择器（SAF）读取。 |
+| Android | `applicationId` 和命名空间都是 `com.compoise.app`。提醒使用通知和闹钟调度，开机后恢复；`ReminderSettingsBridge.kt` 读取通知、精确闹钟、电池优化和厂商自启动状态，并打开对应的系统设置。截图通过系统文件选择器（SAF）读取。 |
 | Windows | runner 承接托盘、单实例、全局快捷键、关闭到托盘和窗口生命周期。数据目录为 `%APPDATA%\Compoise\Compoise`。 |
 | Linux | GTK 窗口，密钥通过 Secret Service 保存，文件选择依赖 zenity 或 kdialog。设置里可以发送测试通知，但还没有按时投递的提醒，也没有托盘和全局快捷键。 |
 

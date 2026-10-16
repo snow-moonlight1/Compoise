@@ -40,6 +40,10 @@ jobs:
       win_matrix: ${{ steps.p.outputs.win_matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history and tags, so the build-number guard can read the
+          # pubspec.yaml of every earlier release tag.
+          fetch-depth: 0
 
       - name: Resolve version and release mode
         id: v
@@ -73,6 +77,12 @@ jobs:
           echo "formal=$formal" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "Release label: $label (formal=$formal)"
+
+      - name: Require a newer version and build number than earlier releases
+        if: steps.v.outputs.formal == 'true'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 scripts/check_build_number.py --tag "$TAG"
 
       - name: Select platforms
         id: p
