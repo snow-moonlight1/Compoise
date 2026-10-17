@@ -76,6 +76,7 @@ class SettingsMaintenanceTiles extends StatefulWidget {
     super.key,
     required this.t,
     required this.store,
+    this.helpTiles = const [],
     this.prefs,
     this.checker,
     this.writeFile,
@@ -83,6 +84,7 @@ class SettingsMaintenanceTiles extends StatefulWidget {
 
   final Map<String, String> t;
   final Store store;
+  final List<Widget> helpTiles;
   final DevicePrefs? prefs;
   final UpdateChecker? checker;
   final DiagnosticsFileWriter? writeFile;
@@ -164,7 +166,6 @@ class _SettingsMaintenanceTilesState extends State<SettingsMaintenanceTiles> {
         SwitchListTile(
           key: const ValueKey('update-check-toggle'),
           contentPadding: EdgeInsets.zero,
-          dense: true,
           secondary: Icon(
             Icons.system_update_outlined,
             color: theme.colorScheme.primary,
@@ -191,6 +192,7 @@ class _SettingsMaintenanceTilesState extends State<SettingsMaintenanceTiles> {
           trailing: _checking ? progress() : const Icon(Icons.chevron_right),
           onTap: _checking ? null : _checkNow,
         ),
+        ...widget.helpTiles,
         ListTile(
           key: const ValueKey('export-diagnostics'),
           contentPadding: EdgeInsets.zero,

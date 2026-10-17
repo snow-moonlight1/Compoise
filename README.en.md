@@ -19,6 +19,16 @@
 
 Compoise (方寸) is a local-first task manager for Android, Windows and Linux. It is built around the Eisenhower matrix. It helps you sort tasks by priority and plan your day, and it can use your own AI provider to organize and break down tasks.
 
+## Preview
+
+See your priorities in the matrix, tap a quadrant to focus, and reserve time for what matters in your schedule.
+
+| Matrix and focus | Daily schedule |
+| :---: | :---: |
+| <img src="docs/media/matrix-focus-en.gif" alt="Demo: focus on the Urgent and Important quadrant, then return to the matrix overview" width="300" /> | <img src="docs/media/schedule-en.png" alt="Daily schedule with a project proposal time block, a team catch-up and reading time" width="300" /> |
+
+These previews show the Android layout with sample tasks. A [static matrix screenshot](docs/media/matrix-en.png) is also available.
+
 ## Features
 
 | Feature | What it does |
