@@ -6,6 +6,8 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-19
+
 ### Added
 
 - Settings → Help & About: an optional daily update check (off by default; it only asks GitHub for the latest release), a "Check for updates" button and the app version.
@@ -53,5 +55,6 @@ First public release. 首个公开版本。
 - The Linux version does not deliver scheduled reminder notifications, and it has no tray icon or global hotkey.
 - Windows ARM64 is not built yet.
 
-[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.1
 [1.0.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.0
