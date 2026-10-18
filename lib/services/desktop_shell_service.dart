@@ -628,11 +628,8 @@ class DesktopShellService extends ChangeNotifier {
   }
 
   static DesktopShellHost _defaultHostFactory() {
-    if (debugIsDesktopOverride != null ||
-        debugUseRealWindowsShellOverride == false)
-      return _NoopDesktopShellHost();
-    if (isWindowsWindowManagerPrepared &&
-        defaultTargetPlatform == TargetPlatform.linux) {
+    if (debugIsDesktopOverride != null) return _NoopDesktopShellHost();
+    if (isWindowsWindowManagerPrepared && shouldUseRealLinuxShell()) {
       return LinuxDesktopShellHost();
     }
     return isWindowsWindowManagerPrepared && shouldUseRealWindowsShell()

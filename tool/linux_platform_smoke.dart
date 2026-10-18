@@ -1,15 +1,19 @@
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+
 /// Run under a test D-Bus session (scripts/tests/linux_desktop_bus.py).
 /// Uses only synthetic in-memory preferences; never touches a user's library.
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
-import '../lib/models.dart';
-import '../lib/services/desktop_shell_windows.dart';
-import '../lib/services/desktop_shell_service.dart';
-import '../lib/services/reminder_service.dart';
+import 'package:compoise/models.dart';
+import 'package:compoise/services/desktop_shell_windows.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
+import 'package:compoise/services/reminder_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
