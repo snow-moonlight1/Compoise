@@ -1983,7 +1983,8 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           final payload = ReminderPayload.deserialize(response.payload);
           if (payload != null) {
             _deliverPayload(payload);
-          } else if (defaultTargetPlatform == TargetPlatform.windows) {
+          } else if (defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux) {
             DesktopShellService.instance.restoreWindow();
           }
         },

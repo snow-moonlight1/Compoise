@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:compoise/models.dart';
 import 'package:compoise/services/linux_autostart.dart';
+import 'package:compoise/services/desktop_shell_service.dart';
 import 'package:compoise/services/reminder_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -11,13 +12,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _Plugin implements FlutterLocalNotificationsPlugin {
   final shown = <int>[];
   final bodies = <String?>[];
+  DidReceiveNotificationResponseCallback? onResponse;
   @override
   dynamic noSuchMethod(Invocation call) {
     if (call.memberName == #show) {
       shown.add(call.positionalArguments[0] as int);
       bodies.add(call.positionalArguments[2] as String?);
     }
-    if (call.memberName == #initialize) return Future<bool?>.value(true);
+    if (call.memberName == #initialize) {
+      onResponse =
+          call.namedArguments[#onDidReceiveNotificationResponse]
+              as DidReceiveNotificationResponseCallback?;
+      return Future<bool?>.value(true);
+    }
     return Future<void>.value();
   }
 }
@@ -41,6 +48,24 @@ void main() {
   });
   tearDown(() {
     debugDefaultTargetPlatformOverride = null;
+  });
+
+  test('clicking a missed-summary notification restores the window', () async {
+    final plugin = _Plugin();
+    final service = FlutterLocalNotificationsReminderService(
+      plugin: plugin,
+      ledgerStore: InMemoryReminderLedgerStore(),
+    );
+    var restored = 0;
+    DesktopShellService.instance.onShowWindow = () => restored++;
+    addTearDown(DesktopShellService.instance.resetForTest);
+    await service.init();
+    plugin.onResponse!(
+      const NotificationResponse(
+        notificationResponseType: NotificationResponseType.selectedNotification,
+      ),
+    );
+    expect(restored, 1);
   });
 
   test('asynchronous Linux bus failures do not escape the backend', () async {
