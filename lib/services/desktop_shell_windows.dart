@@ -31,8 +31,9 @@ bool shouldUseRealWindowsShell() {
 
 bool shouldUseRealLinuxShell() {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.linux) return false;
-  if (debugUseRealWindowsShellOverride != null)
+  if (debugUseRealWindowsShellOverride != null) {
     return debugUseRealWindowsShellOverride!;
+  }
   return !Platform.environment.containsKey('FLUTTER_TEST');
 }
 
