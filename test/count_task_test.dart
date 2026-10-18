@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:compoise/models.dart';
 import 'package:compoise/storage.dart';
+import 'package:compoise/widgets/task_edit_draft.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'helpers.dart';
 
@@ -16,6 +17,63 @@ Task counted({int? target = 2, int value = 0}) => Task(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final board = Board(id: 'work', name: 'Work', createdAt: 1);
+
+  test(
+    'editing a target preserves counts recorded since the editor opened',
+    () {
+      final draft = TaskEditDraft(
+        counted(target: 50, value: 1),
+        onChanged: () {},
+      );
+      addTearDown(draft.dispose);
+      draft.countProgress = CountProgress(value: 1, target: 100);
+      final live = counted(target: 50, value: 3);
+      expect(
+        draft.applyTo(live).countProgress,
+        CountProgress(value: 3, target: 100),
+      );
+      draft.countProgress = CountProgress(value: 1, target: 2);
+      expect(() => draft.applyTo(live), throwsA(isA<CountProgressException>()));
+    },
+  );
+
+  test('multi-volume v4 restores finite and unlimited counters', () {
+    final tasks = [
+      counted(target: 50, value: 12)..notesMarkdown = 'x' * (5 * 1024 * 1024),
+      counted(target: null, value: 9)
+        ..id = 'second'
+        ..notesMarkdown = 'y' * (5 * 1024 * 1024),
+    ];
+    final source = ExportData(
+      boards: [board],
+      tasks: tasks,
+      settings: AppSettings(),
+      aiConfig: AIConfig(),
+    );
+    final bundle = buildBackupBundle(jsonEncode(source.toJson()));
+    expect(bundle.recoverable, isTrue);
+    expect(bundle.parts.length, greaterThan(1));
+    var boards = <Board>[];
+    var restored = <Task>[];
+    for (var i = 0; i < bundle.parts.length; i++) {
+      final plan = ImportPreflight.inspect(
+        jsonDecode(bundle.parts[i].json) as Map<String, dynamic>,
+        i == 0 ? 'overwrite' : 'merge',
+        currentBoards: boards,
+        currentTasks: restored,
+        revision: i,
+      );
+      boards = plan.boards;
+      restored = plan.tasks;
+    }
+    expect(
+      {for (final task in restored) task.id: task.countProgress},
+      {
+        'practice': CountProgress(value: 12, target: 50),
+        'second': CountProgress(value: 9),
+      },
+    );
+  });
 
   test(
     'finite progress completes on the target, undo restores it and survives restart',
