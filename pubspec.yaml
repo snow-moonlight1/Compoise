@@ -1,7 +1,7 @@
 name: compoise
 description: "Local-first Eisenhower matrix for Android, Windows, and Linux preview. Tasks stay on device; AI requests go to a user-configured endpoint."
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.1.0+3
 
 environment:
   # OS24 pin: Flutter 3.32.8 stable / Dart 3.8.1.
@@ -39,6 +39,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/tray_icon.ico
+    - assets/branding/rounded_rectangle_logo.png
     - assets/licenses/MaterialIcons_LICENSE.txt
     - assets/licenses/THIRD_PARTY_NOTICES.txt
     - assets/licenses/NotoSerifSC-OFL.txt

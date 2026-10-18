@@ -14,6 +14,7 @@ import 'task_steps_composer.dart';
 
 class InputSheet extends StatefulWidget {
   final InputModePref initialMode;
+  final String? initialText;
   final bool embedded;
   final ValueChanged<bool>? onDirtyChanged;
 
@@ -23,6 +24,7 @@ class InputSheet extends StatefulWidget {
   const InputSheet({
     super.key,
     required this.initialMode,
+    this.initialText,
     this.embedded = false,
     this.onDirtyChanged,
     this.quadrant,
@@ -70,6 +72,11 @@ class _InputSheetState extends State<InputSheet> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialText != null) {
+      _mode = InputModePref.single;
+      _batch = true;
+      _controller.text = widget.initialText!;
+    }
     _controller.addListener(_reportDirty);
     _parentTitle.addListener(_reportDirty);
   }

@@ -13,6 +13,7 @@ import 'models.dart';
 import 'services/desktop_shell_service.dart';
 import 'services/desktop_shell_windows.dart';
 import 'services/device_prefs.dart';
+import 'services/quick_capture.dart';
 import 'services/single_instance.dart';
 import 'services/window_geometry.dart';
 import 'storage.dart';
@@ -25,6 +26,7 @@ Future<void> main([List<String> args = const <String>[]]) async {
   unawaited(AppLog.instance.enableFileSink());
   AppLog.info('app', 'Started $appVersionLabel on ${Platform.operatingSystem}');
   await DevicePrefs.instance.load();
+  await QuickCapture.instance.install();
   await ensureWindowsWindowManager();
   await WindowGeometry.instance.start();
   final reminders = ReminderService.instance;

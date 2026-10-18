@@ -45,6 +45,8 @@ class TaskEditDraft {
   final TextEditingController notesController = TextEditingController();
   final TextEditingController newSubtaskController = TextEditingController();
 
+  CountProgress? countProgress;
+  CountProgress? _initialCountProgress;
   int quadrant = 0;
   DateTime? deadline;
   int? reminderAt;
@@ -93,6 +95,7 @@ class TaskEditDraft {
     if (_discarding) return false;
     if (title != _initialTitle.trim()) return true;
     if ((notes ?? '').trim() != _initialNotes.trim()) return true;
+    if (countProgress != _initialCountProgress) return true;
     if (quadrant != _initialQuadrant) return true;
     if (deadlineMs != _initialDeadlineMs) return true;
     if (reminderAt != _initialReminderAt) return true;
@@ -113,6 +116,8 @@ class TaskEditDraft {
     // A half-written subtask belongs to the task that is being left, never to
     // [task]: clearing here is what keeps it from landing on the wrong parent.
     newSubtaskController.clear();
+    countProgress = task.countProgress;
+    _initialCountProgress = task.countProgress;
     quadrant = task.quadrant;
     deadline = task.deadline == null
         ? null
@@ -155,6 +160,14 @@ class TaskEditDraft {
     final titleChanged = draftTitle != _initialTitle.trim();
     final notesChanged = (draftNotes ?? '').trim() != _initialNotes.trim();
     return Task.fromJson(current.toJson())
+      ..countProgress = countProgress != _initialCountProgress
+          ? (countProgress == null
+                ? null
+                : CountProgress(
+                    value: current.countProgress?.value ?? countProgress!.value,
+                    target: countProgress!.target,
+                  ))
+          : current.countProgress
       ..title = titleChanged ? draftTitle : current.title
       ..notesMarkdown = notesChanged ? draftNotes : current.notesMarkdown
       ..quadrant = quadrant != _initialQuadrant ? quadrant : current.quadrant

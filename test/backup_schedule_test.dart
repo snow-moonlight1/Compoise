@@ -96,7 +96,7 @@ String _canonical(Store store) => jsonEncode({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('default v3 round trips both event associations and task fields', () {
+  test('default v4 round trips both event associations and task fields', () {
     final linked = ScheduleItem.event(
       id: 'linked',
       title: '评审',
@@ -114,10 +114,10 @@ void main() {
       timestamp: 1,
     );
     final json = data.toJson();
-    expect(json['version'], 3);
+    expect(json['version'], ExportData.currentVersion);
     expect(ExportData.fromJson(json).toJson(), json);
     final migration = DataMigrator.migratePayload(json);
-    expect(migration.targetVersion, 3);
+    expect(migration.targetVersion, ExportData.currentVersion);
     expect(
       migration.scheduleItems.map((s) => s.toJson()).toList(),
       json['scheduleItems'],
@@ -324,9 +324,9 @@ void main() {
       final store = await _open();
       addTearDown(store.dispose);
       expect(store.exportJsonResult(version: 2).lostScheduleItems, 0);
-      expect(() => store.exportJson(version: 4), throwsFormatException);
+      expect(() => store.exportJson(version: 5), throwsFormatException);
       expect(
-        () => DataMigrator.migratePayload({..._payload(), 'version': 4}),
+        () => DataMigrator.migratePayload({..._payload(), 'version': 5}),
         throwsFormatException,
       );
     },
@@ -339,7 +339,7 @@ void main() {
       final store = await _seed(credentials: credentials);
       addTearDown(store.dispose);
       final current = jsonDecode(await store.exportJsonWithCredential());
-      expect(current['version'], 3);
+      expect(current['version'], ExportData.currentVersion);
       expect(current['scheduleItems'], hasLength(1));
       expect(current['aiConfig']['customApiKey'], 'synthetic-key');
       await expectLater(

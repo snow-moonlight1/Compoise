@@ -70,7 +70,7 @@ sudo apt install libgtk-3-0 libsecret-1-0 libayatana-appindicator3-1 zenity font
 
 - On newer Debian and Ubuntu, `libfuse2` is called `libfuse2t64`.
 - Saving an API key needs an unlocked keyring, such as GNOME Keyring or KWallet. Without one, your tasks are still saved, but AI is unavailable.
-- The Linux version does not yet show reminder notifications on time, and it has no tray icon or global hotkey.
+- Linux delivers reminders while the app runs, supports close to tray and optional login startup, and summarizes missed reminders on restart. Some desktops need a tray extension; global hotkeys remain unsupported.
 
 ## AI and privacy
 
@@ -141,3 +141,7 @@ Bug reports, ideas, translations and code are all welcome. Please read the [cont
 ## License
 
 © 2026 Compoise contributors. Licensed under the [GNU General Public License v3.0 only](LICENSE). Third-party dependencies and assets keep their own licenses; see the [third-party notices](assets/licenses/THIRD_PARTY_NOTICES.txt). The Material Icons font bundled with Flutter 3.32.8 is credited under CC BY 4.0, with the full text in [MaterialIcons_LICENSE.txt](assets/licenses/MaterialIcons_LICENSE.txt). OCR third-party licenses are listed in [native/ocr/THIRD_PARTY_OCR_NOTICES.md](native/ocr/THIRD_PARTY_OCR_NOTICES.md).
+
+### Count progress and quick capture
+
+Tasks can track a target count or keep counting indefinitely. Use Record once to increment; the normal checkbox still finishes the whole task. Android accepts shared text as a manual batch preview and offers New task / Today launcher shortcuts. Windows global quick capture opens the input field. Calendar recurrence is deferred.

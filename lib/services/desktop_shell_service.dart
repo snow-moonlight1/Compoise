@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models.dart';
 import 'desktop_shell_host.dart';
 import 'desktop_shell_windows.dart';
+import 'desktop_shell_linux.dart';
 
 @immutable
 class DesktopShellSettingsResult {
@@ -71,7 +72,9 @@ class DesktopShellService extends ChangeNotifier {
   bool get isDesktopSupported {
     if (_desktopSupportOverride != null) return _desktopSupportOverride;
     if (debugIsDesktopOverride != null) return debugIsDesktopOverride!;
-    return !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+    return !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
   }
 
   DesktopShellResult _trayResult = const DesktopShellResult.disabled();
@@ -168,22 +171,21 @@ class DesktopShellService extends ChangeNotifier {
     notifyListeners();
 
     final previous = _applyTail;
-    final run =
-        previous == null
-            ? _applySettingsNow(
+    final run = previous == null
+        ? _applySettingsNow(
+            generation: generation,
+            closeToTray: closeToTray,
+            globalShortcut: normalizedShortcut,
+            language: language,
+          )
+        : previous.then(
+            (_) => _applySettingsNow(
               generation: generation,
               closeToTray: closeToTray,
               globalShortcut: normalizedShortcut,
               language: language,
-            )
-            : previous.then(
-              (_) => _applySettingsNow(
-                generation: generation,
-                closeToTray: closeToTray,
-                globalShortcut: normalizedShortcut,
-                language: language,
-              ),
-            );
+            ),
+          );
     final tail = run.then<void>((_) {}, onError: (_, _) {});
     _applyTail = tail;
     unawaited(
@@ -293,8 +295,9 @@ class DesktopShellService extends ChangeNotifier {
     if (globalShortcut.isEmpty) {
       try {
         final removed = await host.unregisterHotkey();
-        hotkey =
-            removed.succeeded ? const DesktopShellResult.disabled() : removed;
+        hotkey = removed.succeeded
+            ? const DesktopShellResult.disabled()
+            : removed;
       } catch (error) {
         hotkey = DesktopShellResult(
           DesktopShellResultKind.unavailable,
@@ -305,7 +308,10 @@ class DesktopShellService extends ChangeNotifier {
         _hotkeyResult.succeeded) {
       hotkey = _hotkeyResult;
     } else {
-      _hotkeyTrigger = restoreWindow;
+      _hotkeyTrigger = () {
+        restoreWindow();
+        onQuickAddTask?.call();
+      };
       try {
         hotkey = await host.registerHotkey(globalShortcut, _hotkeyTrigger!);
       } catch (error) {
@@ -521,8 +527,9 @@ class DesktopShellService extends ChangeNotifier {
     if (lateExit == DesktopExitResult.completed) {
       return const DesktopShellResult.disabled();
     }
-    _hotkeyResult =
-        result.succeeded ? const DesktopShellResult.disabled() : result;
+    _hotkeyResult = result.succeeded
+        ? const DesktopShellResult.disabled()
+        : result;
     _registeredGlobalShortcut = host.registeredShortcut;
     if (_registeredGlobalShortcut == null) _hotkeyTrigger = null;
     notifyListeners();
@@ -622,6 +629,9 @@ class DesktopShellService extends ChangeNotifier {
 
   static DesktopShellHost _defaultHostFactory() {
     if (debugIsDesktopOverride != null) return _NoopDesktopShellHost();
+    if (isWindowsWindowManagerPrepared && shouldUseRealLinuxShell()) {
+      return LinuxDesktopShellHost();
+    }
     return isWindowsWindowManagerPrepared && shouldUseRealWindowsShell()
         ? WindowsDesktopShellHost()
         : _NoopDesktopShellHost();

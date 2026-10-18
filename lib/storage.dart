@@ -924,6 +924,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     to.completedAt = from.completedAt;
     // Copied, unlike the fields above: a caller's draft list must not stay
     // wired to the stored task after the update returns.
+    to.countProgress = from.countProgress;
     to.tags = List<String>.from(from.tags);
     to.recoveryPending = from.recoveryPending;
   }
@@ -937,6 +938,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     if (!identical(updated, live)) {
       _copyTaskFields(updated, live);
       updated = live;
+    }
+    if (oldTask.completed && !updated.completed && updated.countProgress?.reached == true) {
+      final progress = updated.countProgress!;
+      updated.countProgress = CountProgress(value:progress.value-1,target:progress.target);
+    }
+    if (updated.countProgress?.reached == true) {
+      updated.completed = true;
     }
     final oldQuadrant = oldTask.quadrant;
     final quadrantChanged = oldQuadrant != updated.quadrant;
@@ -964,7 +972,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
 
-    if (settings.autoCompleteParent && updated.subtasks.isNotEmpty) {
+    if (settings.autoCompleteParent &&
+        updated.countProgress == null &&
+        updated.subtasks.isNotEmpty) {
       final allDone = updated.subtasks.every((s) => s.completed);
       if (allDone) {
         if (!updated.completed) {
@@ -1235,6 +1245,13 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     final now = DateTime.now().millisecondsSinceEpoch;
     final updated = Task.fromJson(stored.toJson());
     updated.completed = completed;
+    if (!completed && updated.countProgress?.reached == true) {
+      final progress = updated.countProgress!;
+      updated.countProgress = CountProgress(
+        value: progress.value - 1,
+        target: progress.target,
+      );
+    }
     updated.completedAt = completed
         ? (stored.completed ? stored.completedAt : now)
         : null;
@@ -1347,6 +1364,41 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  /// Records one unit without changing the task's dates or identity.
+  TaskUndoSnapshot? recordTaskCount(String taskId) {
+    if (hasStartupRecovery) throw StateError('Startup recovery pending');
+    final i = tasks.indexWhere((t) => t.id == taskId);
+    if (i < 0) return null;
+    final task = tasks[i];
+    final progress = task.countProgress;
+    if (task.completed ||
+        progress == null ||
+        progress.reached ||
+        progress.value == CountProgress.maxValue) {
+      return null;
+    }
+    final before = Task.fromJson(task.toJson());
+    final updated = Task.fromJson(task.toJson());
+    updated.countProgress = CountProgress(
+      value: progress.value + 1,
+      target: progress.target,
+    );
+    if (updated.countProgress!.reached) {
+      updated.completed = true;
+      for (final sub in updated.subtasks) {
+        sub.completed = true;
+      }
+    }
+    updateTask(updated);
+    return TaskUndoSnapshot.capture(
+      actionType: TaskUndoType.complete,
+      task: before,
+      boardEpoch: boardEpoch(before.boardId),
+      originalIndex: i,
+      commandSeq: taskSeq(before.id),
+    );
+  }
+
   /// Checks if [snapshot] is still valid according to the invalidation contract:
   /// 1. Target board must exist.
   /// 2. Board epoch must match snapshot.boardEpoch (invalidated if clearBoard, clearQuadrant,
@@ -1446,6 +1498,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
         final i = tasks.indexWhere((t) => t.id == snapshot.taskId);
         if (i == -1) return false;
         final current = tasks[i];
+        current.countProgress = snapshot.task.countProgress;
         current.completed = snapshot.task.completed;
         current.completedAt = snapshot.task.completedAt;
         final subMap = {for (final s in snapshot.task.subtasks) s.id: s};

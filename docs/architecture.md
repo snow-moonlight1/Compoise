@@ -52,7 +52,7 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 | --- | --- |
 | Android | `applicationId` 和命名空间都是 `com.compoise.app`。提醒使用通知和闹钟调度，开机后恢复；`ReminderSettingsBridge.kt` 读取通知、精确闹钟、电池优化和厂商自启动状态，并打开对应的系统设置。截图通过系统文件选择器（SAF）读取。 |
 | Windows | runner 承接托盘、单实例、全局快捷键、关闭到托盘和窗口生命周期。数据目录为 `%APPDATA%\Compoise\Compoise`。 |
-| Linux | GTK 窗口，密钥通过 Secret Service 保存，文件选择依赖 zenity 或 kdialog。设置里可以发送测试通知，但还没有按时投递的提醒，也没有托盘和全局快捷键。 |
+| Linux | GTK 窗口，密钥通过 Secret Service 保存，文件选择依赖 zenity 或 kdialog。设置里可以发送测试通知，应用运行时可定时提醒、汇总错过的提醒，支持托盘和可选登录启动；没有全局快捷键。 |
 
 手机和桌面的交互差异（悬停、右键、双击、拖放、快捷键、侧边任务池等）由 `lib/ui/platform_ui_policy.dart` 决定，判断依据是平台，而不是窗口宽度。
 
@@ -63,3 +63,5 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 - `test/fixtures/`：测试数据，包括真实截图和 OCR 评测样本（`test/fixtures/ocr-evaluation/`）。
 
 命令见[开发指南](development.md)。
+
+计次规则位于 `lib/count_progress.dart`，Store 负责记录、完成和撤销；快速记录原生桥接与队列位于 `lib/services/quick_capture.dart`。Linux 托盘适配位于 `desktop_shell_linux.dart`，登录启动位于 `linux_autostart.dart`。

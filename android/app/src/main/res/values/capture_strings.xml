@@ -1,0 +1,4 @@
+<resources>
+    <string name="shortcut_new_task">New task</string>
+    <string name="shortcut_today">Today</string>
+</resources>

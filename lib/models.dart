@@ -8,6 +8,8 @@ import 'ai_presets.dart';
 import 'quadrant.dart';
 import 'task_tags.dart';
 import 'schedule_item.dart';
+import 'count_progress.dart';
+export 'count_progress.dart';
 
 export 'dart:ui' show Locale;
 export 'quadrant.dart';
@@ -167,6 +169,7 @@ class SubTask {
 enum UrgencyMode { auto, manual }
 
 class Task {
+  CountProgress? countProgress;
   String id;
   String boardId;
   String title;
@@ -190,6 +193,7 @@ class Task {
   Map<String, dynamic>? recoveryPending;
 
   Task({
+    this.countProgress,
     required this.id,
     required this.boardId,
     required this.title,
@@ -212,6 +216,9 @@ class Task {
        tags = tags ?? [];
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
+    countProgress: j['countProgress'] == null
+        ? null
+        : CountProgress.fromJson(j['countProgress']!),
     id: _requiredId(j['id']),
     boardId: (j['boardId'] as String?) ?? '',
     title: (j['title'] as String?) ?? '',
@@ -242,6 +249,11 @@ class Task {
 
   Map<String, dynamic> toJson({int? targetVersion}) {
     final isV1 = targetVersion == 1;
+    if (countProgress != null && targetVersion != null && targetVersion < 4) {
+      throw const FormatException(
+        'Count progress needs the current backup format',
+      );
+    }
     return {
       'id': id,
       'boardId': boardId,
@@ -250,6 +262,7 @@ class Task {
       'isLongTerm': isLongTerm,
       'completed': completed,
       'createdAt': createdAt,
+      if (countProgress != null) 'countProgress': countProgress!.toJson(),
       if (deadline != null) 'deadline': deadline,
       'subtasks': subtasks
           .map((s) => s.toJson(targetVersion: targetVersion))
@@ -577,10 +590,10 @@ class BackupExportResult {
 }
 
 class ExportData {
-  static const currentVersion = 3;
+  static const currentVersion = 4;
   static const legacyVersion = 1;
   static const version = currentVersion;
-  static const supportedVersions = {1, 2, 3};
+  static const supportedVersions = {1, 2, 3, 4};
 
   final int versionNumber;
   final int timestamp;
@@ -613,18 +626,24 @@ class ExportData {
     if (!supportedVersions.contains(v)) {
       throw FormatException('Unsupported export version: $v');
     }
-    if (v == 3 && j['scheduleItems'] is! List) {
+    if (v >= 3 && j['scheduleItems'] is! List) {
       throw const FormatException('Missing or invalid scheduleItems');
     }
     final boards = ((j['boards'] as List?) ?? [])
         .cast<Map<String, dynamic>>()
         .map(Board.fromJson)
         .toList();
+    if (v < 4 &&
+        ((j['tasks'] as List?) ?? []).any(
+          (raw) => raw is Map && raw.containsKey('countProgress'),
+        )) {
+      throw const FormatException('Count progress in an older backup');
+    }
     final tasks = ((j['tasks'] as List?) ?? [])
         .cast<Map<String, dynamic>>()
         .map(Task.fromJson)
         .toList();
-    final schedule = v == 3
+    final schedule = v >= 3
         ? (j['scheduleItems'] as List)
               .cast<Map<String, dynamic>>()
               .map(ScheduleItem.fromJson)
@@ -667,7 +686,7 @@ class ExportData {
       'timestamp': timestamp,
       'boards': boards.map((b) => b.toJson()).toList(),
       'tasks': tasks.map((t) => t.toJson(targetVersion: v)).toList(),
-      if (v == 3)
+      if (v >= 3)
         'scheduleItems': scheduleItems.map((item) => item.toJson()).toList(),
       'settings': settings.toJson(targetVersion: v),
       'aiConfig': aiConfig.toJson(includeCredential: includeCredential),

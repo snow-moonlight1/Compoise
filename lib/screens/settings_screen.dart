@@ -12,6 +12,7 @@ import '../models.dart';
 import '../services/desktop_shell_service.dart';
 import '../services/device_prefs.dart';
 import '../services/linux_test_notification.dart';
+import '../services/linux_autostart.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
 import '../theme.dart';
@@ -43,6 +44,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _modelController = TextEditingController();
   final _apiKeyFocusNode = FocusNode();
   final _baseUrlFocusNode = FocusNode();
+  bool? _linuxAutostartEnabled;
+  bool _linuxAutostartBusy = false;
   bool _apiKeyHadFocus = false;
   bool _baseUrlHadFocus = false;
   String? _lastSyncedBaseUrl;
@@ -73,6 +76,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      LinuxAutostart().isEnabled().then((enabled) {
+        if (mounted) setState(() => _linuxAutostartEnabled = enabled);
+      });
+    }
     final store = context.read<Store>();
     _lastSyncedBaseUrl = store.aiConfig.baseUrl;
     _lastSyncedModel = store.aiConfig.model;
@@ -488,6 +496,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text(t['backupVersionInfo']!, style: theme.textTheme.bodySmall),
             const SizedBox(height: 24),
 
+            if (defaultTargetPlatform == TargetPlatform.linux) ...[
+              _sectionTitle(
+                theme,
+                t['desktopSection']!,
+                Icons.desktop_windows_outlined,
+              ),
+              _toggle(
+                context,
+                t['closeToTray']!,
+                t['closeToTraySubtitle']!,
+                store.settings.closeToTray,
+                (value) async {
+                  store.updateSettings((s) => s..closeToTray = value);
+                  final result = await applyDesktopSettings(store);
+                  if (context.mounted && value && !result.closeToTrayEffective) {
+                    showAppNotice(context, t['desktopTrayUnavailable']!);
+                  }
+                },
+              ),
+              SwitchListTile(
+                key: const ValueKey('linux-autostart'),
+                contentPadding: EdgeInsets.zero,
+                title: Text(t['linuxAutostart']!),
+                subtitle: Text(t['linuxRunningHint']!),
+                value: _linuxAutostartEnabled ?? false,
+                onChanged: _linuxAutostartEnabled == null || _linuxAutostartBusy
+                    ? null
+                    : (value) async {
+                        setState(() => _linuxAutostartBusy = true);
+                        try {
+                          await LinuxAutostart().setEnabled(value);
+                          if (mounted) {
+                            setState(() => _linuxAutostartEnabled = value);
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
+                            showAppNotice(context, t['linuxAutostartFailed']!);
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _linuxAutostartBusy = false);
+                          }
+                        }
+                      },
+              ),
+              Text(t['linuxShortcutHint']!, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 24),
+            ],
             if (policy.showDesktopSettings) ...[
               _sectionTitle(
                 theme,

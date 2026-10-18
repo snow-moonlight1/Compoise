@@ -191,7 +191,7 @@ void main() {
         await tester.pumpAndSettle();
         expect((await running).outcome, BackupOutcome.succeeded);
         final json = jsonDecode(utf8.decode(picker.savedBytes!));
-        expect(json['version'], 3);
+        expect(json['version'], ExportData.currentVersion);
         expect(json['scheduleItems'], hasLength(3));
         expect(json['aiConfig'].containsKey('customApiKey'), isFalse);
         expect(writes, 1);

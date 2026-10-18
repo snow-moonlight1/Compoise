@@ -219,14 +219,14 @@ void main() {
   });
 
   group('ExportData', () {
-    test('standard v3 export shape', () {
+    test('standard v4 export shape', () {
       final json = ExportData(
         boards: [Board(id: 'b1', name: 'My Tasks', createdAt: 1)],
         tasks: [Task(id: 't1', boardId: 'b1', title: 'x', quadrant: 1, createdAt: 1)],
         settings: AppSettings(),
         aiConfig: AIConfig(),
       ).toJson();
-      expect(json['version'], 3);
+      expect(json['version'], ExportData.currentVersion);
       expect(json['boards'], isA<List>());
       expect(json['tasks'], isA<List>());
       expect(json['settings'], isA<Map>());

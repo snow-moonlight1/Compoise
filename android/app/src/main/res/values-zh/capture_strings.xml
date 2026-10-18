@@ -1,0 +1,4 @@
+<resources>
+    <string name="shortcut_new_task">新建任务</string>
+    <string name="shortcut_today">今天</string>
+</resources>

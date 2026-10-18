@@ -6,6 +6,21 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
+### Added
+
+- Optional task count progress: a finite target or unlimited counting, a separate Record once action, automatic completion at the target, and Undo.
+- Android text sharing into a manual multiline preview, plus New task / Today launcher shortcuts; shares wait while an existing draft is open.
+- Linux reminders while the app runs, a deduplicated missed-reminder summary, system tray and close to tray, and opt-in XDG login startup.
+- Backup format v4 preserves count progress; v1/v2/v3 imports remain supported and exports to older formats refuse to drop counters.
+
+### Changed
+
+- Windows global quick capture now opens the new-task input after restoring the window.
+- Calendar recurrence is deferred; count progress does not create calendar events or change task dates.
+
+
 ## [1.0.1] - 2026-10-19
 
 ### Added
@@ -55,6 +70,8 @@ First public release. 首个公开版本。
 - The Linux version does not deliver scheduled reminder notifications, and it has no tray icon or global hotkey.
 - Windows ARM64 is not built yet.
 
-[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.1.0...HEAD
 [1.0.1]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.1
 [1.0.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.0
+
+[1.1.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.1.0

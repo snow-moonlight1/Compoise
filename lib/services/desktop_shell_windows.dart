@@ -29,8 +29,16 @@ bool shouldUseRealWindowsShell() {
   return true;
 }
 
+bool shouldUseRealLinuxShell() {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.linux) return false;
+  if (debugUseRealWindowsShellOverride != null) {
+    return debugUseRealWindowsShellOverride!;
+  }
+  return !Platform.environment.containsKey('FLUTTER_TEST');
+}
+
 Future<void> ensureWindowsWindowManager() async {
-  if (!shouldUseRealWindowsShell()) return;
+  if (!shouldUseRealWindowsShell() && !shouldUseRealLinuxShell()) return;
   await windowManager.ensureInitialized();
   await windowManager.setPreventClose(true);
   _windowsWindowManagerPrepared = true;

@@ -15,7 +15,7 @@ Android、Windows 和 Linux 共用同一种 JSON 备份文件。本文说明文�
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "timestamp": 1790700000000,
   "boards": [{"id": "board-1", "name": "示例板", "createdAt": 1726000000000}],
   "tasks": [{"id": "task-1", "boardId": "board-1", "title": "示例任务", "quadrant": 2, "createdAt": 1726000000000, "subtasks": []}],
@@ -28,7 +28,7 @@ Android、Windows 和 Linux 共用同一种 JSON 备份文件。本文说明文�
 
 | 顶层字段 | 说明 |
 | --- | --- |
-| `version` | 文件格式号，当前为 `3`。比当前更新的格式号会被拒绝。 |
+| `version` | 文件格式号，当前为 `4`。比当前更新的格式号会被拒绝。 |
 | `boards`、`tasks`、`scheduleItems` | 必须是数组，可以为空。 |
 | `settings`、`aiConfig` | 可以省略或为 `null`。覆盖导入时，缺少的部分保留本机设置；合并导入不导入它们。 |
 | `timestamp` | 导出时间（Unix 毫秒），导入时不使用。 |
@@ -37,12 +37,19 @@ Android、Windows 和 Linux 共用同一种 JSON 备份文件。本文说明文�
 | 对象 | 字段 |
 | --- | --- |
 | 任务板 | `id`、`name`、`createdAt` |
-| 任务 | `id`、`boardId`、`title`、`quadrant`、`isLongTerm`、`completed`、`createdAt`、`deadline`、`plannedDate`、`subtasks`、`reasoning`、`urgencyMode`、`notesMarkdown`、`reminderAt`、`reminderTimezone`、`completedAt`、`tags` |
+| 任务 | `id`、`boardId`、`title`、`quadrant`、`isLongTerm`、`completed`、`createdAt`、`deadline`、`plannedDate`、`subtasks`、`reasoning`、`urgencyMode`、`notesMarkdown`、`reminderAt`、`reminderTimezone`、`completedAt`、`tags`、`countProgress` |
 | 子项 | `id`、`title`、`completed`、`deadline`、`notesMarkdown`、`reminderAt`、`completedAt` |
 | 日程 | `id`、`kind`、`startAt`、`endAt`、`timeZoneId`；时间块必须有 `taskId`；事件必须有非空的 `title`，以及 `taskId` 或 `boardId` 二选一 |
 | 设置、AI 配置 | `AppSettings` 和 `AIConfig` 的 JSON 字段；默认不写出 `aiConfig.customApiKey` |
 
 完整的序列化规则和默认值以 `lib/models.dart` 和 `lib/schedule_item.dart` 为准。
+
+### 计次与旧版本兼容
+
+- v4 的任务可带 `countProgress: {"value": 12, "target": 50}`；没有 `target` 表示无限累计；没有整个字段表示普通任务。
+- 次数必须是非负整数，有限目标必须为正整数且不小于当前次数；未知计次字段或损坏的数据会拒绝导入。
+- 继续导入 v1/v2/v3；导入时按旧格式缺省为普通任务。旧版方寸不能读取 v4 备份。
+- 含计次的任务不允许导出为 v1/v2/v3，避免静默丢失进度。界面默认导出完整的当前格式。
 
 ### 字段规则
 

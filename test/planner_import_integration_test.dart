@@ -8,6 +8,7 @@ import 'package:compoise/schedule_time.dart';
 import 'package:compoise/screens/settings_backup_messages.dart';
 import 'package:compoise/screenshot_import/screenshot_submission.dart';
 import 'package:compoise/storage.dart';
+import 'package:compoise/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -91,7 +92,7 @@ void main() {
         store.scheduleItems.map((item) => item.toJson()).toList(),
       );
       final backup = jsonDecode(store.exportJson()) as Map<String, dynamic>;
-      expect(backup['version'], 3);
+      expect(backup['version'], ExportData.currentVersion);
       expect(backup['scheduleItems'], hasLength(2));
 
       // Overwrite preview uses B2's summary adapter, then restores both collections.

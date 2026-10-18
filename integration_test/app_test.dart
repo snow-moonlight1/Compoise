@@ -8,6 +8,7 @@ import 'package:compoise/main.dart' as app;
 import 'package:compoise/screens/matrix_screen.dart';
 import 'package:compoise/services/desktop_shell_windows.dart';
 import 'package:compoise/storage.dart';
+import 'package:compoise/models.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -126,6 +127,49 @@ Future<void> main() async {
         listen: false,
       );
       expect(store.hasSeenOnboarding, isTrue);
+    } finally {
+      await unmount(tester);
+      await tester.binding.setSurfaceSize(null);
+    }
+  });
+
+  testWidgets('count progress survives backup restore in the production app', (
+    tester,
+  ) async {
+    try {
+      await boot(tester, seenOnboarding: true);
+      await _waitFor(tester, find.byKey(const ValueKey('add-task-btn')));
+      final store = Provider.of<Store>(
+        tester.element(find.byType(MatrixHome)),
+        listen: false,
+      );
+      final task = store.newTask('Synthetic count task', quadrant: 2)
+        ..countProgress = CountProgress(target: 3);
+      store.addTasks([task]);
+      final add = find.byKey(ValueKey('count-add-${task.id}'));
+      await _waitFor(tester, add);
+      await tester.tap(add);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(add);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(store.tasks.single.countProgress!.value, 2);
+      expect(store.tasks.single.completed, isFalse);
+      final backup = jsonDecode(store.exportJson()) as Map<String, dynamic>;
+      expect(backup['version'], 4);
+      store.clearBoard(store.activeBoardId);
+      await store.flush(waitForReminders: false);
+      expect(store.tasks, isEmpty);
+      store.importData(backup, 'overwrite');
+      await store.flush(waitForReminders: false);
+      await _waitFor(tester, add);
+      expect(
+        store.tasks.single.countProgress,
+        CountProgress(value: 2, target: 3),
+      );
+      await tester.tap(add);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(store.tasks.single.completed, isTrue);
+      expect(store.tasks.single.countProgress!.value, 3);
     } finally {
       await unmount(tester);
       await tester.binding.setSurfaceSize(null);

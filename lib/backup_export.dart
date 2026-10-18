@@ -224,7 +224,7 @@ class _Draft {
     ...envelope,
     'boards': const [],
     'tasks': const [],
-    if (envelope['version'] == 3) 'scheduleItems': const [],
+    if ((envelope['version'] as int) >= 3) 'scheduleItems': const [],
     'recovery': true,
   });
 
@@ -263,7 +263,7 @@ class _Draft {
     ...envelope,
     'boards': boards,
     'tasks': tasks,
-    if (envelope['version'] == 3) 'scheduleItems': scheduleItems,
+    if ((envelope['version'] as int) >= 3) 'scheduleItems': scheduleItems,
     if (recovery) 'recovery': true,
     if (chunks.isNotEmpty) 'recoveryChunks': chunks,
   };
@@ -436,8 +436,8 @@ _Library _sourceLibrary(Map<String, dynamic> decoded) {
       !ExportData.supportedVersions.contains(version.toInt()) ||
       decoded['boards'] is! List ||
       decoded['tasks'] is! List ||
-      (version != 3 && decoded.containsKey('scheduleItems')) ||
-      (version == 3 && decoded['scheduleItems'] is! List)) {
+      (version < 3 && decoded.containsKey('scheduleItems')) ||
+      (version >= 3 && decoded['scheduleItems'] is! List)) {
     throw const FormatException('Invalid backup envelope');
   }
   final boards = [
@@ -449,7 +449,7 @@ _Library _sourceLibrary(Map<String, dynamic> decoded) {
       Task.fromJson(Map<String, dynamic>.from(raw as Map)),
   ];
   final schedules = <ScheduleItem>[
-    if (version == 3)
+    if (version >= 3)
       for (final raw in decoded['scheduleItems'] as List)
         ScheduleItem.fromJson(Map<String, dynamic>.from(raw as Map)),
   ];
@@ -760,7 +760,7 @@ _LibraryCounts _libraryCounts(Map<String, dynamic> decoded) {
     _distinctIdCount((decoded['boards'] as List?) ?? const <dynamic>[]),
     tasks.length,
     subtasks,
-    decoded['version'] == 3
+    (decoded['version'] as int? ?? 1) >= 3
         ? _distinctIdCount(decoded['scheduleItems'] as List<dynamic>)
         : 0,
   );

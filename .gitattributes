@@ -1,1 +1,4 @@
 tool/wp15_d2_linux.sh text eol=lf
+
+# Shell entry points must remain runnable from WSL and Linux.
+*.sh text eol=lf

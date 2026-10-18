@@ -133,7 +133,7 @@ jobs:
       - name: Install Linux desktop dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev libayatana-appindicator3-dev xvfb
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev libayatana-appindicator3-dev xvfb dbus-x11 python3-dbus python3-gi
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -156,6 +156,17 @@ jobs:
 
       - name: Mock integration test on Linux
         run: xvfb-run -a -s '-screen 0 1280x1024x24' env GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 flutter test --no-pub integration_test/app_test.dart -d linux
+
+      - name: Linux notification and tray protocol smoke
+        run: bash scripts/ci/check_linux_desktop.sh
+
+      - name: Upload Linux desktop smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-desktop-smoke
+          path: build/linux-desktop-smoke.*/
+          if-no-files-found: ignore
 
       - name: Build Linux release bundle
         run: flutter build linux --release --no-pub
