@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -15,6 +16,8 @@ ROOT = SCRIPT.parents[1]
 spec = importlib.util.spec_from_file_location('candidate', SCRIPT)
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
+VERSION = re.search(r'^version:\s*(\S+)', (ROOT / 'pubspec.yaml').read_text(encoding='utf-8'), re.M)[1]
+SEMVER, BUILD = VERSION.split('+')
 COMMIT = 'a' * 40
 CERT = 'b' * 64
 
@@ -25,7 +28,7 @@ class CandidateTests(unittest.TestCase):
         self.base = Path(self.temp.name)
         self.directory = self.base / 'candidate'
         self.directory.mkdir()
-        self.ctx = gate.context(ROOT, 'v1.0.0+1', COMMIT)
+        self.ctx = gate.context(ROOT, f'v{VERSION}', COMMIT)
         self.bundle = self.base / 'bundle'
         for name in ('compoise.exe', 'flutter_windows.dll', 'data/app.so', 'data/icudtl.dat', 'data/flutter_assets/AssetManifest.bin', 'data/flutter_assets/assets/licenses/THIRD_PARTY_NOTICES.txt'):
             path = self.bundle / name
@@ -50,10 +53,10 @@ class CandidateTests(unittest.TestCase):
                 for path in self.bundle.rglob('*'):
                     if path.is_file():
                         archive.write(path, path.relative_to(self.bundle).as_posix())
-            evidence = {'productName': 'Compoise', 'companyName': 'Compoise', 'authenticode': 'NotSigned', 'fileVersionNumeric': '1.0.0.1', 'fileVersionString': '1.0.0+1', 'legalCopyright': 'Compoise contributors', 'appDataDir': r'%APPDATA%\Compoise\Compoise'}
+            evidence = {'productName': 'Compoise', 'companyName': 'Compoise', 'authenticode': 'NotSigned', 'fileVersionNumeric': f'{SEMVER}.{BUILD}', 'fileVersionString': VERSION, 'legalCopyright': 'Compoise contributors', 'appDataDir': r'%APPDATA%\Compoise\Compoise'}
         else:
             artifact.write_bytes(b'synthetic APK; not signed or installable')
-            evidence = {'apkSignatureVerified': 'true', 'apkSignatureDN': 'CN=Synthetic test', 'apkSignatureCertSha256': CERT, 'apkPackage': 'com.compoise.app', 'apkVersionName': '1.0.0', 'apkVersionCode': '1'}
+            evidence = {'apkSignatureVerified': 'true', 'apkSignatureDN': 'CN=Synthetic test', 'apkSignatureCertSha256': CERT, 'apkPackage': 'com.compoise.app', 'apkVersionName': SEMVER, 'apkVersionCode': BUILD}
         facts = {**self.ctx, 'source': {'dirty': False, 'paths': [], 'diffSha256': gate.digest(b'')}, 'evidence': evidence}
         facts_path = self.base / (platform + '-facts.json')
         facts_path.write_text(json.dumps(facts))
@@ -174,7 +177,7 @@ class CandidateTests(unittest.TestCase):
 
     def test_android_missing_bad_unverified_debug_cert(self):
         self.make_platform('Android')
-        for mutate in (lambda p: p['evidence'].pop('apkSignatureDN'), lambda p: p['evidence'].update(apkSignatureDN='CN=Android Debug'), lambda p: p['evidence'].update(apkSignatureCertSha256='c' * 64), lambda p: p['evidence'].update(apkSignatureVerified='false'), lambda p: p['evidence'].update(apkVersionCode='2')):
+        for mutate in (lambda p: p['evidence'].pop('apkSignatureDN'), lambda p: p['evidence'].update(apkSignatureDN='CN=Android Debug'), lambda p: p['evidence'].update(apkSignatureCertSha256='c' * 64), lambda p: p['evidence'].update(apkSignatureVerified='false'), lambda p: p['evidence'].update(apkVersionCode=str(int(BUILD) + 1))):
             with self.subTest(mutate=mutate):
                 self.make_platform('Android')
                 self.change_proof(mutate, 'Android')
@@ -256,3 +259,4 @@ class ReleaseBuildGateTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
