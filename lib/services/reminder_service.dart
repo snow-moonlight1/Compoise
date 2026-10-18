@@ -1898,6 +1898,48 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     }
   }
 
+  Future<bool?> _initializePlugin(
+    InitializationSettings settings, {
+    DidReceiveNotificationResponseCallback? onDidReceiveNotificationResponse,
+  }) {
+    Future<bool?> initialize() => _plugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
+    );
+    if (defaultTargetPlatform != TargetPlatform.linux) return initialize();
+    final outcome = Completer<bool?>();
+    // Linux's D-Bus signal subscriptions can fail outside the awaited call.
+    // Keep startup and later connection errors inside the notification backend.
+    runZonedGuarded(
+      () async {
+        try {
+          final ready = await initialize();
+          if (!outcome.isCompleted) outcome.complete(ready);
+        } catch (error) {
+          AppLog.warn(
+            'reminder',
+            'Linux notification initialization failed: ${error.runtimeType}',
+          );
+          if (!outcome.isCompleted) outcome.complete(false);
+        }
+      },
+      (error, stack) {
+        _initialized = false;
+        _platformDeclined = true;
+        _initCompleter = null;
+        AppLog.warn(
+          'reminder',
+          'Linux notification connection failed: ${error.runtimeType}',
+        );
+        if (!outcome.isCompleted) outcome.complete(false);
+      },
+    );
+    return outcome.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () => false,
+    );
+  }
+
   @override
   Future<void> init({
     void Function(ReminderPayload payload)? onNotificationSelected,
@@ -1935,7 +1977,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         ),
       );
 
-      final ready = await _plugin.initialize(
+      final ready = await _initializePlugin(
         initSettings,
         onDidReceiveNotificationResponse: (response) {
           final payload = ReminderPayload.deserialize(response.payload);

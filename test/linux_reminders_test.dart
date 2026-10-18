@@ -22,6 +22,17 @@ class _Plugin implements FlutterLocalNotificationsPlugin {
   }
 }
 
+class _BrokenBusPlugin extends _Plugin {
+  @override
+  dynamic noSuchMethod(Invocation call) {
+    if (call.memberName == #initialize) {
+      Timer.run(() => throw StateError('Synthetic disconnected bus'));
+      return Future<bool?>.value(true);
+    }
+    return super.noSuchMethod(call);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
@@ -30,6 +41,14 @@ void main() {
   });
   tearDown(() {
     debugDefaultTargetPlatformOverride = null;
+  });
+
+  test('asynchronous Linux bus failures do not escape the backend', () async {
+    final service = FlutterLocalNotificationsReminderService(
+      plugin: _BrokenBusPlugin(), ledgerStore: InMemoryReminderLedgerStore());
+    await service.init();
+    await Future<void>.delayed(Duration.zero);
+    expect(await service.probePermission(), ReminderPermissionStatus.unsupported);
   });
 
   test(
