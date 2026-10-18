@@ -5,6 +5,27 @@ import 'models.dart';
 
 const Map<Language, Map<String, String>> _dicts = {
   Language.en: {
+    "linuxAutostart": "Start at login",
+    "linuxAutostartFailed": "Could not change login startup. Please try again.",
+    "linuxRunningHint":
+        "Reminders need the app running. Close to tray to keep them active.",
+    "linuxShortcutHint":
+        "Global shortcuts are not available on Linux. Some desktops need a tray extension to show the icon.",
+    "linuxMissedTitle": "Missed reminders",
+    "linuxMissedBody":
+        "{n} reminders became due while Compoise was closed. Open your tasks to review them.",
+    "countTitle": "Count progress",
+    "countOff": "Off",
+    "countFinite": "Target count",
+    "countUnlimited": "Keep counting",
+    "countTarget": "Target",
+    "countRecord": "Record once",
+    "countRecorded": "Recorded once",
+    "countUnlimitedProgress": "{n} times",
+    "countHint":
+        "Record each time with +1. A target completes the task automatically; you can also finish it with the checkbox. Dates stay unchanged.",
+    "countInvalid":
+        "Enter a positive whole number, at least the current count.",
     'scheduleNavLabel': 'Schedule',
     'scheduleBackToday': 'Back to today',
     'scheduleTodayShort': 'T',
@@ -34,21 +55,31 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleGuideDone': 'Got it',
     'scheduleGuideReplay': 'Schedule guide',
     'scheduleGuide1Title': 'Task pool',
-    'scheduleGuide1BodyDesktop': 'The task pool sits on the right. Tasks are grouped by quadrant; click the tabs to switch.',
-    'scheduleGuide2BodyDesktop': 'Drag a task from the pool onto the timeline with the mouse. Release to create a schedule item, in 15-minute steps.',
-    'scheduleGuide4BodyDesktop': 'Drag a block up or down with the mouse to move it, or drag its top or bottom edge to change the time. Right-click for edit and delete; double-click empty time to add one.',
-    'scheduleGuide6BodyDesktop': 'Use ◀ ▶ or the arrow keys to move, T for today, and D / W to switch between day and week.',
-    'scheduleGuide1Body': 'Tap the task pool at the bottom to open it. Tasks are grouped by quadrant; swipe or tap the tabs to switch.',
+    'scheduleGuide1BodyDesktop':
+        'The task pool sits on the right. Tasks are grouped by quadrant; click the tabs to switch.',
+    'scheduleGuide2BodyDesktop':
+        'Drag a task from the pool onto the timeline with the mouse. Release to create a schedule item, in 15-minute steps.',
+    'scheduleGuide4BodyDesktop':
+        'Drag a block up or down with the mouse to move it, or drag its top or bottom edge to change the time. Right-click for edit and delete; double-click empty time to add one.',
+    'scheduleGuide6BodyDesktop':
+        'Use ◀ ▶ or the arrow keys to move, T for today, and D / W to switch between day and week.',
+    'scheduleGuide1Body':
+        'Tap the task pool at the bottom to open it. Tasks are grouped by quadrant; swipe or tap the tabs to switch.',
     'scheduleGuide2Title': 'Drag to schedule',
-    'scheduleGuide2Body': 'Long-press a task and drag it onto the timeline. Release to create a schedule item, in 15-minute steps.',
+    'scheduleGuide2Body':
+        'Long-press a task and drag it onto the timeline. Release to create a schedule item, in 15-minute steps.',
     'scheduleGuide3Title': 'Tap a block',
-    'scheduleGuide3Body': 'Tap a block to select it. Round handles appear on its top and bottom edges; drag a handle or the edge itself to change the start or end. Edit and delete sit in the small bar. Tap empty space to deselect.',
+    'scheduleGuide3Body':
+        'Tap a block to select it. Round handles appear on its top and bottom edges; drag a handle or the edge itself to change the start or end. Edit and delete sit in the small bar. Tap empty space to deselect.',
     'scheduleGuide4Title': 'Move a block',
-    'scheduleGuide4Body': 'Long-press a block and drag it up or down to move it. On a computer, drag the top or bottom edge with the mouse.',
+    'scheduleGuide4Body':
+        'Long-press a block and drag it up or down to move it. On a computer, drag the top or bottom edge with the mouse.',
     'scheduleGuide5Title': 'Day and week',
-    'scheduleGuide5Body': 'Use the date strip and the Day | Week switch at the top. Tap Today to come back.',
+    'scheduleGuide5Body':
+        'Use the date strip and the Day | Week switch at the top. Tap Today to come back.',
     'scheduleGuide6Title': 'Pinch to zoom',
-    'scheduleGuide6Body': 'Pinch in on the day view to see the whole week, and pinch out to return to a day.',
+    'scheduleGuide6Body':
+        'Pinch in on the day view to see the whole week, and pinch out to return to a day.',
     'scheduleMenuTasks': 'Back to tasks',
     'scheduleEditorKeepEditing': 'Keep editing',
     'scheduleEditorNew': 'New schedule item',
@@ -73,12 +104,15 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleEditorSaved': 'Schedule saved',
     'scheduleDeleteFailed': 'Couldn\'t delete. Please try again.',
     'scheduleDropFailed': 'Couldn\'t place it there. Try another time.',
-    'scheduleEditorGap': 'That time doesn\'t exist (clocks change that day). Pick another time.',
+    'scheduleEditorGap':
+        'That time doesn\'t exist (clocks change that day). Pick another time.',
     'scheduleEditorFold': 'This time occurs twice. Choose a UTC offset.',
     'scheduleEditorZoneError': 'Enter a recognized IANA time zone.',
     'scheduleEditorInputError': 'Enter a valid date and time.',
-    'scheduleEditorInvalid': 'Couldn\'t save. Please check the title and the start and end times.',
-    'scheduleEditorStale': 'This item was changed or removed elsewhere. The page has been refreshed.',
+    'scheduleEditorInvalid':
+        'Couldn\'t save. Please check the title and the start and end times.',
+    'scheduleEditorStale':
+        'This item was changed or removed elsewhere. The page has been refreshed.',
     'scheduleEditorReviewChanged':
         'The draft or overlaps changed. Review again before saving.',
     'scheduleEditorOverlap': 'Overlapping records',
@@ -116,7 +150,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleZoneHint':
         'Changing the display time zone only changes how records are shown. Saved start, end and recorded time zones stay unchanged.',
     'scheduleTimeEntry': 'Schedule time',
-    'scheduleTaskMissing': 'This task no longer exists. The page has been refreshed.',
+    'scheduleTaskMissing':
+        'This task no longer exists. The page has been refreshed.',
     'scheduleReadOnly': 'Read-only schedule',
     'scheduleDay': 'Day',
     'scheduleWeek': 'Week',
@@ -199,15 +234,13 @@ const Map<Language, Map<String, String>> _dicts = {
     'screenshotImportCleanupFailed':
         'Could not clear the previous images. Please try again.',
     'screenshotImportSuccess': 'Imported {count} confirmed tasks.',
-    'screenshotImportSafFileLimit':
-        'Each image must be smaller than 16 MB.',
+    'screenshotImportSafFileLimit': 'Each image must be smaller than 16 MB.',
     'screenshotImportSafBatchLimit':
         'The selected images are too large in total (max 48 MB).',
     'screenshotImportSafPixelLimit':
         'The images are too large. Choose fewer or smaller images.',
     'screenshotImportSafCountLimit': 'Select at most 10 screenshots.',
-    'screenshotImportSafPng':
-        'Only PNG and JPG images are supported.',
+    'screenshotImportSafPng': 'Only PNG and JPG images are supported.',
     'screenshotImportSafRead': 'The selected image could not be opened.',
     'screenshotImportSafCancelled': 'Screenshot selection was cancelled.',
     'importReviewTitle': 'Review screenshot tasks',
@@ -253,7 +286,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'importDroppedMeta': 'Skipped: looks like extra info, not a task',
     'importDroppedSection': 'Skipped: looks like a heading, not a task',
     'importNoteNoRows': 'No tasks found in this image.',
-    'screenshotImportPickerFailed': 'Could not open the file chooser. On Linux, install zenity (or kdialog) and try again.',
+    'screenshotImportPickerFailed':
+        'Could not open the file chooser. On Linux, install zenity (or kdialog) and try again.',
     'appTitle': 'Compoise',
     'q1': 'Urgent and Important',
     'q2': 'Not Urgent but Important',
@@ -338,7 +372,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'customBaseUrl': 'Base URL',
     'customApiKey': 'API Key',
     'customModel': 'Model Name',
-    'customUrlHint': 'Usually just the site address, e.g. https://api.deepseek.com. Add /v1 if your provider asks for it.',
+    'customUrlHint':
+        'Usually just the site address, e.g. https://api.deepseek.com. Add /v1 if your provider asks for it.',
     'enableThinking': 'Thinking Mode',
     'enableThinkingDesc': 'Enable model reasoning/thinking output.',
     'aiRecommendTip': 'Tip: {provider} uses {model} by default.',
@@ -347,7 +382,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'empty': 'Empty',
     'processing': 'Processing…',
     'error': 'Error',
-    'aiNote': 'AI features send your text to the AI provider you chose. Adding tasks normally is free.',
+    'aiNote':
+        'AI features send your text to the AI provider you chose. Adding tasks normally is free.',
     'shortcutHint': 'Tip: Ctrl + Enter to submit',
     'hideCompleted': 'Hide Completed',
     'delete': 'Delete',
@@ -356,9 +392,11 @@ const Map<Language, Map<String, String>> _dicts = {
     'on': 'ON',
     'off': 'OFF',
     'testConnection': 'Test Connection',
-    'connFailNetwork': 'Can\'t reach the service. Check your network or the API address.',
+    'connFailNetwork':
+        'Can\'t reach the service. Check your network or the API address.',
     'connFailModel': 'This model name isn\'t available. Pick another model.',
-    'connFailQuota': 'Out of credit or too many requests. Check your account balance and try again later.',
+    'connFailQuota':
+        'Out of credit or too many requests. Check your account balance and try again later.',
     'connFailServer': 'The service is having trouble. Try again later.',
     'connFailAddress': 'The API address looks wrong. Check it and try again.',
     'testOk': 'Connection successful',
@@ -370,13 +408,15 @@ const Map<Language, Map<String, String>> _dicts = {
     'connectionGenerationLabel': 'Selected model generation',
     'aiEndpointReachable': 'Connected. Your API key works.',
     'aiDiscoveryOk': 'Model list loaded.',
-    'aiDiscoveryUnavailable': 'This provider doesn\'t list its models. Type the model name yourself.',
+    'aiDiscoveryUnavailable':
+        'This provider doesn\'t list its models. Type the model name yourself.',
     'aiCheckSkipped': 'Not checked.',
     'aiNoModels': 'No models found.',
     'aiGenerationOk': 'The model works.',
     'aiGenerationEmpty': 'The model sent back nothing. Try another model.',
     'aiGenerationPartial': 'The model works.',
-    'aiGenerationThinkingOnly': 'Connected, but the model only thought and gave no answer. Try turning Thinking Mode off.',
+    'aiGenerationThinkingOnly':
+        'Connected, but the model only thought and gave no answer. Try turning Thinking Mode off.',
     'aiGenerationNotRun': 'Not tested yet.',
     'testGeneration': 'Test selected model',
     'testGenerationBilling':
@@ -385,12 +425,18 @@ const Map<Language, Map<String, String>> _dicts = {
         'Send one short request to the selected model? The provider may charge for this call.',
     'testGenerationConfirmAction': 'Send test',
     'aiCancelled': 'The request was cancelled.',
-    'aiThinkingUnsupported': 'This model can\'t switch Thinking Mode. Turn it off or pick another model.',
-    'aiThinkingAlwaysOn': 'This model always thinks first and can\'t turn it off. Leave Thinking Mode on, or pick another model.',
-    'aiThinkingNotForciblyOff': 'This model may still think first, so answers can be slower. To switch thinking off completely, pick another model.',
-    'aiThinkingLowestEffort': 'This model can\'t fully stop thinking. It\'s set to the lowest level, so it may still think a little.',
-    'aiThinkingCapabilityUnverified': 'With a custom address, Thinking Mode can\'t be controlled and the model may still think first. Pick the provider\'s preset to control it.',
-    'aiThinkingModelUnverified': 'Thinking Mode can\'t be controlled for this model yet, so it may still think first.',
+    'aiThinkingUnsupported':
+        'This model can\'t switch Thinking Mode. Turn it off or pick another model.',
+    'aiThinkingAlwaysOn':
+        'This model always thinks first and can\'t turn it off. Leave Thinking Mode on, or pick another model.',
+    'aiThinkingNotForciblyOff':
+        'This model may still think first, so answers can be slower. To switch thinking off completely, pick another model.',
+    'aiThinkingLowestEffort':
+        'This model can\'t fully stop thinking. It\'s set to the lowest level, so it may still think a little.',
+    'aiThinkingCapabilityUnverified':
+        'With a custom address, Thinking Mode can\'t be controlled and the model may still think first. Pick the provider\'s preset to control it.',
+    'aiThinkingModelUnverified':
+        'Thinking Mode can\'t be controlled for this model yet, so it may still think first.',
     'boards': 'Boards',
     'createBoard': 'New Board',
     'renameBoard': 'Rename',
@@ -436,7 +482,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'tomorrow': 'Tomorrow',
     'pickDate': 'Pick Date',
     'pickDateTime': 'Choose date and time',
-    'reminderSetupIntro': 'Turn on notifications and allow reminders while the app is closed.',
+    'reminderSetupIntro':
+        'Turn on notifications and allow reminders while the app is closed.',
     'reminderNotifications': 'Notifications',
     'reminderNotificationsHint': 'Show reminders on your phone',
     'reminderExactAlarms': 'On-time reminders',
@@ -552,22 +599,32 @@ const Map<Language, Map<String, String>> _dicts = {
     'decomposingSingle': 'Decomposing…',
     'dataManagement': 'Data Backup',
     'exportData': 'Export JSON',
-    'backupVersionInfo': 'The exported file includes boards, tasks, schedules and settings. Import it any time to restore them.',
+    'backupVersionInfo':
+        'The exported file includes boards, tasks, schedules and settings. Import it any time to restore them.',
     'backupImportV3': 'Review the schedule changes below.',
-    'backupImportLegacy': 'This backup has no schedules. Merge keeps your schedules; overwrite clears them.',
-    'backupUnsupportedVersion': 'This backup file can\'t be read. Update the app and try again.',
-    'exportScheduleLossBlocked': 'Export stopped: {n} schedule entries couldn\'t be saved to the file.',
+    'backupImportLegacy':
+        'This backup has no schedules. Merge keeps your schedules; overwrite clears them.',
+    'backupUnsupportedVersion':
+        'This backup file can\'t be read. Update the app and try again.',
+    'exportScheduleLossBlocked':
+        'Export stopped: {n} schedule entries couldn\'t be saved to the file.',
     'importScheduleAdded': 'Schedule entries to add',
     'importScheduleSkipped': 'Identical schedule entries to skip',
     'importScheduleConflicts': 'Conflicting schedule entries',
     'importScheduleRemoved': 'Current schedule entries to remove',
-    'importScheduleLegacyOverwrite': 'Overwriting with this backup will delete {n} current schedule entries. They cannot be recovered from this file.',
-    'importScheduleLegacyIgnored': 'Schedule entries in this backup can\'t be imported.',
-    'importScheduleLegacyRestoredNone': 'No schedule entries were restored from this file.',
-    'importScheduleConflictBlocked': 'The backup has duplicate schedule entries with different content. Sort them out before importing.',
-    'importScheduleInvalid': 'Some schedule data in the backup is damaged. Nothing was imported.',
+    'importScheduleLegacyOverwrite':
+        'Overwriting with this backup will delete {n} current schedule entries. They cannot be recovered from this file.',
+    'importScheduleLegacyIgnored':
+        'Schedule entries in this backup can\'t be imported.',
+    'importScheduleLegacyRestoredNone':
+        'No schedule entries were restored from this file.',
+    'importScheduleConflictBlocked':
+        'The backup has duplicate schedule entries with different content. Sort them out before importing.',
+    'importScheduleInvalid':
+        'Some schedule data in the backup is damaged. Nothing was imported.',
     'exportCredentialTitle': 'Back up API key',
-    'exportCredentialWarning': 'A backup with your API key can be read by anyone who gets the file. You\'ll be asked each time whether to include it.',
+    'exportCredentialWarning':
+        'A backup with your API key can be read by anyone who gets the file. You\'ll be asked each time whether to include it.',
     'exportWithoutCredential': 'Exclude API key',
     'exportWithCredential': 'Include API key',
     'exportSuccess': 'Backup saved.',
@@ -582,7 +639,8 @@ const Map<Language, Map<String, String>> _dicts = {
         'This library has invalid data or references, so a complete backup could not be built. Nothing was written.',
     'importKeepCredential': 'Keep local API key',
     'importReplaceCredential': 'Use backup API key',
-    'importCredentialPresent': 'The backup includes an API key. Your current key is kept unless you choose to replace it.',
+    'importCredentialPresent':
+        'The backup includes an API key. Your current key is kept unless you choose to replace it.',
     'credentialUnavailableTip':
         'System keyring is unavailable, so the API key cannot be saved. AI features are off; your tasks still save normally.',
     'credentialStoreError': 'API key could not be saved securely. Retry.',
@@ -604,7 +662,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'importOptions': 'Import Options',
     'importPrompt': 'How would you like to import this backup?',
     'importModeMerge': 'Merge with backup boards',
-    'importModeMergeDesc': 'Keep your current data and add what\'s in the backup.',
+    'importModeMergeDesc':
+        'Keep your current data and add what\'s in the backup.',
     'importModeMergeInto': 'Merge into an existing board',
     'importModeMergeIntoDesc':
         'Choose a board for imported tasks and independent events. Keep current data.',
@@ -627,15 +686,18 @@ const Map<Language, Map<String, String>> _dicts = {
     'importConfigImpact': 'AI configuration included',
     'importPresent': 'Yes',
     'importAbsent': 'No',
-    'importConflictBlocked': 'The backup has conflicting duplicates and can\'t be imported.',
+    'importConflictBlocked':
+        'The backup has conflicting duplicates and can\'t be imported.',
     'importSaveError':
         'Import was not saved. Your existing data is unchanged; retry the import.',
     'importWarningEmpty':
         'The backup contains no boards, tasks or schedule entries.',
     'importWarningOrphan': 'A task with a missing board will be skipped.',
     'importWarningBoard': 'A default board will be created.',
-    'importWarningReference': 'Tasks without a board will go to the first board.',
-    'importWarningLegacy': 'Some data in this backup will be converted automatically.',
+    'importWarningReference':
+        'Tasks without a board will go to the first board.',
+    'importWarningLegacy':
+        'Some data in this backup will be converted automatically.',
     'importWarningUnknown': 'Some unrecognized content will be skipped',
     'importWarningNormalized': 'Some values will be corrected automatically',
     'retrySave': 'Retry save',
@@ -692,7 +754,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiInvalidResponse':
         'AI returned incomplete or invalid data. Your input was kept; please retry.',
     'aiNetworkError': 'Unable to connect. Check your network and AI settings.',
-    'aiHttpError': 'The AI service turned the request down. Check your API key, model and account balance.',
+    'aiHttpError':
+        'The AI service turned the request down. Check your API key, model and account balance.',
     'storageReadError': 'Unable to read local data. Retry to open the app.',
     'storageWriteError':
         'Local save failed. Export a backup before closing the app.',
@@ -844,7 +907,8 @@ const Map<Language, Map<String, String>> _dicts = {
         'In Windows Settings -> System -> Notifications, ensure notifications for Compoise are turned On, with "Show notification banners" and "Play a sound" checked.',
     'testNotification': 'Send Test Notification',
     'reminderTestBody': 'Compoise test notification',
-    'testNotificationSentPlain': 'Test notification sent. Check your system notifications.',
+    'testNotificationSentPlain':
+        'Test notification sent. Check your system notifications.',
     'testNotificationSent':
         'Test notification sent! Check your Windows toast banner or Action Center.',
     'reminderTestInAppOnly':
@@ -853,7 +917,8 @@ const Map<Language, Map<String, String>> _dicts = {
         'Test notification failed: no desktop notification service is running.',
     'reminderTestFailed':
         'Test notification failed: the system did not accept it.',
-    'permissionUnknown': 'This system doesn\'t report whether notifications are allowed. If reminders don\'t show up, check the system notification settings.',
+    'permissionUnknown':
+        'This system doesn\'t report whether notifications are allowed. If reminders don\'t show up, check the system notification settings.',
     'permissionUnsupported':
         'Local reminders are not available on this platform.',
     'reminderCancelFailed':
@@ -890,7 +955,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'onboardingStep4Desc':
         'Swipe right to complete or left to delete with a 5-second undo window. Find, restore, or delete tasks in Completed Tasks.',
     'onboardingStep5Title': 'AI Assistant with Your Own Key',
-    'onboardingStep5Desc': 'Add your own API key in Settings to sort, group and break down tasks with AI. Tasks stay on this device; only when you use AI is the related task text sent to the AI provider you chose. Everything else works without a key.',
+    'onboardingStep5Desc':
+        'Add your own API key in Settings to sort, group and break down tasks with AI. Tasks stay on this device; only when you use AI is the related task text sent to the AI provider you chose. Everything else works without a key.',
     'onboardingDragHint':
         'Tip: Press and hold to drag a card, or right-click for the Move menu.',
     'onboardingLocalBadge': 'Tasks saved on this device · BYOK',
@@ -921,6 +987,22 @@ const Map<Language, Map<String, String>> _dicts = {
     'todayCelebrationBody': 'Every open task in this view is done.',
   },
   Language.zh: {
+    "linuxAutostart": "登录时启动",
+    "linuxAutostartFailed": "无法更改登录启动设置，请重试。",
+    "linuxRunningHint": "提醒需要应用保持运行；可启用关闭到托盘。",
+    "linuxShortcutHint": "Linux 暂不支持全局快捷键；部分桌面需要托盘扩展才能显示图标。",
+    "linuxMissedTitle": "错过的提醒",
+    "linuxMissedBody": "方寸关闭期间有 {n} 项提醒到期，请打开任务查看。",
+    "countTitle": "计次待办",
+    "countOff": "不计次",
+    "countFinite": "设置目标次数",
+    "countUnlimited": "无限累计",
+    "countTarget": "目标次数",
+    "countRecord": "记录一次",
+    "countRecorded": "已记录一次",
+    "countUnlimitedProgress": "已完成 {n} 次",
+    "countHint": "用 +1 记录每次进度；达到目标后自动完成，也可用勾选结束整个任务。不会改变日期。",
+    "countInvalid": "请输入正整数，且不能小于已完成次数。",
     'scheduleNavLabel': '日程',
     'scheduleBackToday': '回到今天',
     'scheduleTodayShort': '今',
@@ -952,13 +1034,15 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleGuide1Title': '任务池',
     'scheduleGuide1BodyDesktop': '任务池在右侧，按象限分组，点标签切换象限。',
     'scheduleGuide2BodyDesktop': '用鼠标把任务从任务池拖到时间线上，松手即创建日程，时间按 15 分钟对齐。',
-    'scheduleGuide4BodyDesktop': '用鼠标上下拖动日程块即可移动，拖上下边缘可调整时间；右键可编辑或删除，在空白时段双击可新建。',
+    'scheduleGuide4BodyDesktop':
+        '用鼠标上下拖动日程块即可移动，拖上下边缘可调整时间；右键可编辑或删除，在空白时段双击可新建。',
     'scheduleGuide6BodyDesktop': '用 ◀ ▶ 或方向键切换日期，T 回到今天，D / W 切换日 / 周。',
     'scheduleGuide1Body': '点底部的任务池可以展开。任务按象限分组，左右滑动或点标签切换象限。',
     'scheduleGuide2Title': '拖动排程',
     'scheduleGuide2Body': '长按任务并拖到时间线上，松手即创建日程，时间按 15 分钟对齐。',
     'scheduleGuide3Title': '点日程块',
-    'scheduleGuide3Body': '点一下日程块即可选中。上下边缘出现圆形手柄，拖手柄或直接拖边缘都能调整开始/结束时间；编辑和删除在小工具条里。点空白处取消选中。',
+    'scheduleGuide3Body':
+        '点一下日程块即可选中。上下边缘出现圆形手柄，拖手柄或直接拖边缘都能调整开始/结束时间；编辑和删除在小工具条里。点空白处取消选中。',
     'scheduleGuide4Title': '移动日程',
     'scheduleGuide4Body': '长按日程块后上下拖动即可整体移动。电脑上可直接用鼠标拖上下边缘。',
     'scheduleGuide5Title': '日视图与周视图',
@@ -1081,14 +1165,11 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleDropHint': '松手放入 {time}，可再拖动边缘微调时长',
     'scheduleWeekHint': '点日期进入当天 · 双指放大回日视图',
     'screenshotImportTitle': '导入截图',
-    'screenshotImportHint':
-        '选择截图，自动识别里面的文字并生成任务。识别在本机完成，不会上传。一次最多 10 张截图。',
-    'ocrModelDownloadPrompt':
-        '首次使用需要下载识别模型（约 {mb} MB），之后可离线使用。',
+    'screenshotImportHint': '选择截图，自动识别里面的文字并生成任务。识别在本机完成，不会上传。一次最多 10 张截图。',
+    'ocrModelDownloadPrompt': '首次使用需要下载识别模型（约 {mb} MB），之后可离线使用。',
     'ocrModelDownloadAction': '下载模型（约 11 MB）',
     'ocrModelDownloading': '正在下载模型…',
-    'ocrModelDownloadFailed':
-        '模型下载失败，请检查网络后重试。',
+    'ocrModelDownloadFailed': '模型下载失败，请检查网络后重试。',
     'screenshotImportChecking': '正在准备…',
     'screenshotImportProgress': '正在处理截图：{done}/{total}',
     'screenshotImportChoose': '选择截图',
@@ -1148,7 +1229,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'importDroppedMeta': '已跳过：看起来是附加信息，不是任务',
     'importDroppedSection': '已跳过：看起来是标题，不是任务',
     'importNoteNoRows': '这张图片里没有识别到任务。',
-    'screenshotImportPickerFailed': '无法打开选择文件的窗口。Linux 上请先安装 zenity（或 kdialog）后重试。',
+    'screenshotImportPickerFailed':
+        '无法打开选择文件的窗口。Linux 上请先安装 zenity（或 kdialog）后重试。',
     'appTitle': '方寸',
     'q1': '紧急且重要',
     'q2': '不紧急但重要',
@@ -1272,7 +1354,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiThinkingAlwaysOn': '这个模型总会先思考，无法关闭。请保持思考模式开启，或换一个模型。',
     'aiThinkingNotForciblyOff': '这个模型可能仍会先思考，回答会慢一些。想完全关闭的话，请换一个模型。',
     'aiThinkingLowestEffort': '这个模型无法完全关闭思考，已调到最低，可能仍会稍微思考。',
-    'aiThinkingCapabilityUnverified': '使用自定义地址时无法控制思考模式，模型可能仍会先思考。想控制的话，请选择对应服务商的预设。',
+    'aiThinkingCapabilityUnverified':
+        '使用自定义地址时无法控制思考模式，模型可能仍会先思考。想控制的话，请选择对应服务商的预设。',
     'aiThinkingModelUnverified': '暂时无法控制这个模型的思考模式，它可能仍会先思考。',
     'boards': '任务板',
     'createBoard': '新建任务板',
@@ -1459,8 +1542,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'importKeepCredential': '保留本机密钥',
     'importReplaceCredential': '使用备份密钥',
     'importCredentialPresent': '备份里带有 API 密钥。除非你选择替换，否则保留本机的密钥。',
-    'credentialUnavailableTip':
-        '系统钥匙串不可用，API 密钥无法保存，AI 功能暂不可用；任务数据照常保存。',
+    'credentialUnavailableTip': '系统钥匙串不可用，API 密钥无法保存，AI 功能暂不可用；任务数据照常保存。',
     'credentialStoreError': 'API 密钥未能安全保存，请重试。',
     'importData': '导入数据 (JSON)',
     'importSuccess': '数据导入成功！',
@@ -1686,8 +1768,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'testNotificationSent': '测试通知已发送！请查看右下角通知横幅或操作中心。',
     'reminderTestBody': '方寸 测试通知',
     'reminderTestInAppOnly': '系统拒绝了定时通知，本次仅在应用运行期间提醒。',
-    'reminderTestNoService':
-        '测试通知发送失败：未检测到系统通知服务。',
+    'reminderTestNoService': '测试通知发送失败：未检测到系统通知服务。',
     'reminderTestFailed': '测试通知发送失败：系统未接受该通知。',
     'permissionUnknown': '这个系统无法查看通知是否已允许。如果收不到提醒，请到系统通知设置里检查。',
     'permissionUnsupported': '当前平台不支持本地提醒。',
@@ -1718,7 +1799,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'onboardingStep4Title': '已完成任务与 5 秒撤销',
     'onboardingStep4Desc': '卡片右滑完成、左滑删除，享有 5 秒撤销反悔机制。在已完成页面查找、恢复或删除任务。',
     'onboardingStep5Title': 'AI 助手与自备密钥',
-    'onboardingStep5Desc': '在设置中填入你自己的 API 密钥，即可用 AI 分类、编组与拆解。任务保存在本机；只有使用 AI 时，相关任务文字才会发给你选的 AI 服务商。不填密钥也能使用全部手动功能。',
+    'onboardingStep5Desc':
+        '在设置中填入你自己的 API 密钥，即可用 AI 分类、编组与拆解。任务保存在本机；只有使用 AI 时，相关任务文字才会发给你选的 AI 服务商。不填密钥也能使用全部手动功能。',
     'onboardingDragHint': '提示：长按卡片拖动，或右键打开“移动到”菜单。',
     'onboardingLocalBadge': '任务保存在本机 · 自备 API 密钥',
     'onboardingSampleQ1': '发布 v1.0 版本\n修复严重缺陷',
@@ -1747,6 +1829,22 @@ const Map<Language, Map<String, String>> _dicts = {
     'todayCelebrationBody': '当前范围内的未完成任务都已完成。',
   },
   Language.ja: {
+    "linuxAutostart": "ログイン時に起動",
+    "linuxAutostartFailed": "自動起動を変更できませんでした。再試行してください。",
+    "linuxRunningHint": "通知にはアプリの起動が必要です。トレイに格納して実行を続けられます。",
+    "linuxShortcutHint": "Linuxではグローバルショートカットに対応していません。デスクトップによってはトレイ拡張が必要です。",
+    "linuxMissedTitle": "見逃した通知",
+    "linuxMissedBody": "アプリの終了中に{n}件の通知時刻を過ぎました。タスクを確認してください。",
+    "countTitle": "回数で進捗管理",
+    "countOff": "オフ",
+    "countFinite": "目標回数を設定",
+    "countUnlimited": "回数を積み重ねる",
+    "countTarget": "目標回数",
+    "countRecord": "1回記録",
+    "countRecorded": "1回記録しました",
+    "countUnlimitedProgress": "{n} 回完了",
+    "countHint": "＋1で進捗を記録します。目標に達すると完了し、チェックでも終了できます。日付は変わりません。",
+    "countInvalid": "現在の回数以上の正の整数を入力してください。",
     'scheduleNavLabel': '予定',
     'scheduleBackToday': '今日に戻る',
     'scheduleTodayShort': '今',
@@ -1777,14 +1875,17 @@ const Map<Language, Map<String, String>> _dicts = {
     'scheduleGuideReplay': 'スケジュールガイド',
     'scheduleGuide1Title': 'タスクプール',
     'scheduleGuide1BodyDesktop': 'タスクプールは右側にあります。象限ごとに分かれており、タブをクリックで切り替えます。',
-    'scheduleGuide2BodyDesktop': 'タスクをマウスでプールからタイムラインへドラッグし、放すと予定が作成されます（15 分単位）。',
-    'scheduleGuide4BodyDesktop': '予定をマウスで上下にドラッグして移動、上下の端をドラッグして時間を変更。右クリックで編集・削除、空き時間をダブルクリックで追加。',
+    'scheduleGuide2BodyDesktop':
+        'タスクをマウスでプールからタイムラインへドラッグし、放すと予定が作成されます（15 分単位）。',
+    'scheduleGuide4BodyDesktop':
+        '予定をマウスで上下にドラッグして移動、上下の端をドラッグして時間を変更。右クリックで編集・削除、空き時間をダブルクリックで追加。',
     'scheduleGuide6BodyDesktop': '◀ ▶ または矢印キーで移動、T で今日、D / W で日 / 週を切り替えます。',
     'scheduleGuide1Body': '下部のタスクプールをタップして開きます。象限ごとに分かれており、スワイプまたはタブで切り替えられます。',
     'scheduleGuide2Title': 'ドラッグで予定化',
     'scheduleGuide2Body': 'タスクを長押ししてタイムラインへドラッグし、放すと予定が作成されます（15 分単位）。',
     'scheduleGuide3Title': '予定をタップ',
-    'scheduleGuide3Body': '予定をタップして選択。上下の丸いハンドル（または辺そのもの）をドラッグして開始・終了を変更。編集・削除は小さなバーから。空白をタップで選択解除。',
+    'scheduleGuide3Body':
+        '予定をタップして選択。上下の丸いハンドル（または辺そのもの）をドラッグして開始・終了を変更。編集・削除は小さなバーから。空白をタップで選択解除。',
     'scheduleGuide4Title': '予定を移動',
     'scheduleGuide4Body': '予定を長押しして上下にドラッグすると移動できます。パソコンでは上下の端をマウスでドラッグします。',
     'scheduleGuide5Title': '日・週表示',
@@ -1912,24 +2013,19 @@ const Map<Language, Map<String, String>> _dicts = {
     'screenshotImportTitle': 'スクリーンショットを取り込む',
     'screenshotImportHint':
         'スクリーンショットを選ぶと、中の文字を読み取ってタスクにします。認識は端末内で行い、アップロードしません。一度に最大10枚まで。',
-    'ocrModelDownloadPrompt':
-        '初回のみ認識モデル（約 {mb} MB）のダウンロードが必要です。以後はオフラインで使えます。',
+    'ocrModelDownloadPrompt': '初回のみ認識モデル（約 {mb} MB）のダウンロードが必要です。以後はオフラインで使えます。',
     'ocrModelDownloadAction': 'ダウンロード（約 11 MB）',
     'ocrModelDownloading': 'モデルをダウンロード中…',
-    'ocrModelDownloadFailed':
-        'モデルのダウンロードに失敗しました。ネットワークを確認して再試行してください。',
+    'ocrModelDownloadFailed': 'モデルのダウンロードに失敗しました。ネットワークを確認して再試行してください。',
     'screenshotImportChecking': '準備中…',
     'screenshotImportProgress': '画像を処理中：{done}/{total}',
     'screenshotImportChoose': 'スクリーンショットを選ぶ',
     'screenshotImportRetry': '再確認',
-    'screenshotImportModelsMissing':
-        '認識モデルがないか破損しています。もう一度ダウンロードしてください。',
-    'screenshotImportNativeMissing':
-        'このバージョンではスクリーンショット認識を利用できません。',
+    'screenshotImportModelsMissing': '認識モデルがないか破損しています。もう一度ダウンロードしてください。',
+    'screenshotImportNativeMissing': 'このバージョンではスクリーンショット認識を利用できません。',
     'screenshotImportUnavailable': 'この端末ではスクリーンショット認識を利用できません。',
     'screenshotImportReadFailed': 'この画像は認識できませんでした。タスクは追加されていません。',
-    'screenshotImportCleanupFailed':
-        '前の画像を片付けられませんでした。もう一度お試しください。',
+    'screenshotImportCleanupFailed': '前の画像を片付けられませんでした。もう一度お試しください。',
     'screenshotImportSuccess': '確認済みの {count} 項目を取り込みました。',
     'screenshotImportSafFileLimit': '画像は1枚16 MB未満にしてください。',
     'screenshotImportSafBatchLimit': '選んだ画像の合計が48 MBを超えています。',
@@ -1980,7 +2076,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'importDroppedMeta': 'スキップ：補足情報のようで、タスクではありません',
     'importDroppedSection': 'スキップ：見出しのようで、タスクではありません',
     'importNoteNoRows': 'この画像にはタスクが見つかりませんでした。',
-    'screenshotImportPickerFailed': 'ファイル選択画面を開けませんでした。Linux では zenity（または kdialog）を入れてから再試行してください。',
+    'screenshotImportPickerFailed':
+        'ファイル選択画面を開けませんでした。Linux では zenity（または kdialog）を入れてから再試行してください。',
     'appTitle': 'Compoise',
     'q1': '緊急かつ重要',
     'q2': '緊急でないが重要',
@@ -2056,7 +2153,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'customBaseUrl': 'ベースURL',
     'customApiKey': 'APIキー',
     'customModel': 'モデル名',
-    'customUrlHint': '通常はサイトのアドレスだけで十分です（例: https://api.deepseek.com）。サービスに指定されたら末尾に /v1 を付けてください。',
+    'customUrlHint':
+        '通常はサイトのアドレスだけで十分です（例: https://api.deepseek.com）。サービスに指定されたら末尾に /v1 を付けてください。',
     'enableThinking': '思考モード',
     'enableThinkingDesc': 'モデルの推論/思考プロセスを有効にします。',
     'aiRecommendTip': 'ヒント：{provider} の初期モデルは {model} です。',
@@ -2094,7 +2192,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'aiGenerationOk': 'モデルは正常に使えます。',
     'aiGenerationEmpty': 'モデルから応答がありません。別のモデルを試してください。',
     'aiGenerationPartial': 'モデルは正常に使えます。',
-    'aiGenerationThinkingOnly': '接続できましたが、モデルが考えるだけで回答しませんでした。思考モードをオフにして試してください。',
+    'aiGenerationThinkingOnly':
+        '接続できましたが、モデルが考えるだけで回答しませんでした。思考モードをオフにして試してください。',
     'aiGenerationNotRun': 'まだテストしていません。',
     'testGeneration': '選択モデルの生成をテスト',
     'testGenerationBilling': '生成テストは課金されることがあります。確認した後にだけ送信します。',
@@ -2102,10 +2201,13 @@ const Map<Language, Map<String, String>> _dicts = {
     'testGenerationConfirmAction': 'テストを送信',
     'aiCancelled': 'リクエストは取り消されました。',
     'aiThinkingUnsupported': 'このモデルは思考モードに対応していません。オフにするか、別のモデルを選んでください。',
-    'aiThinkingAlwaysOn': 'このモデルは常に考えてから答え、オフにできません。思考モードをオンのままにするか、別のモデルを選んでください。',
-    'aiThinkingNotForciblyOff': 'このモデルは考えてから答える場合があり、少し遅くなります。完全にオフにするには別のモデルを選んでください。',
+    'aiThinkingAlwaysOn':
+        'このモデルは常に考えてから答え、オフにできません。思考モードをオンのままにするか、別のモデルを選んでください。',
+    'aiThinkingNotForciblyOff':
+        'このモデルは考えてから答える場合があり、少し遅くなります。完全にオフにするには別のモデルを選んでください。',
     'aiThinkingLowestEffort': 'このモデルは思考を完全には止められません。最小に設定したので、少し考える場合があります。',
-    'aiThinkingCapabilityUnverified': 'カスタムアドレスでは思考モードを制御できず、モデルが考える場合があります。制御するにはサービスのプリセットを選んでください。',
+    'aiThinkingCapabilityUnverified':
+        'カスタムアドレスでは思考モードを制御できず、モデルが考える場合があります。制御するにはサービスのプリセットを選んでください。',
     'aiThinkingModelUnverified': 'このモデルの思考モードはまだ制御できないため、考えてから答える場合があります。',
     'boards': 'ボード',
     'createBoard': '新規ボード',
@@ -2273,13 +2375,16 @@ const Map<Language, Map<String, String>> _dicts = {
     'importScheduleSkipped': '同一内容でスキップする予定',
     'importScheduleConflicts': '予定の重複',
     'importScheduleRemoved': '削除する現在の予定',
-    'importScheduleLegacyOverwrite': 'このバックアップで上書きすると、現在の予定 {n} 件が削除されます。このファイルからは復元できません。',
+    'importScheduleLegacyOverwrite':
+        'このバックアップで上書きすると、現在の予定 {n} 件が削除されます。このファイルからは復元できません。',
     'importScheduleLegacyIgnored': 'このバックアップの予定は読み込めません。',
     'importScheduleLegacyRestoredNone': 'このファイルから予定は復元されていません。',
-    'importScheduleConflictBlocked': 'バックアップに内容の異なる重複した予定があります。整理してから読み込んでください。',
+    'importScheduleConflictBlocked':
+        'バックアップに内容の異なる重複した予定があります。整理してから読み込んでください。',
     'importScheduleInvalid': 'バックアップの予定データが壊れています。何も読み込んでいません。',
     'exportCredentialTitle': 'API キーのバックアップ',
-    'exportCredentialWarning': 'API キー入りのバックアップは、ファイルを手にした人なら誰でも読めます。毎回含めるか確認します。',
+    'exportCredentialWarning':
+        'API キー入りのバックアップは、ファイルを手にした人なら誰でも読めます。毎回含めるか確認します。',
     'exportWithoutCredential': 'API キーを除外',
     'exportWithCredential': 'API キーを含める',
     'exportSuccess': 'バックアップを保存しました。',
@@ -2361,8 +2466,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'recoveryOnboarding': 'はじめてガイド',
     'recoverySaveBatch': '最近の変更',
     'requestTimeout': 'タイムアウトしました。ネットワークを確認して再試行してください。',
-    'aiCompletionTimeout':
-        'AI の応答に時間がかかりすぎました。再試行するか、設定で AI の待ち時間を長くしてください。',
+    'aiCompletionTimeout': 'AI の応答に時間がかかりすぎました。再試行するか、設定で AI の待ち時間を長くしてください。',
     'aiTimeoutLabel': 'AI の待ち時間',
     'aiTimeoutSeconds': '{n} 秒',
     'aiTimeoutHint': 'タスクの整理や分解で応答を待つ時間です。遅いモデルでは長めが必要な場合があります。',
@@ -2371,7 +2475,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'checkUpdateNow': '更新を確認',
     'appVersionLabel': 'バージョン {version}',
     'updateAvailableTitle': '新しいバージョンがあります',
-    'updateAvailableBody': 'バージョン {latest} が公開されています（現在 {current}）。リリースページからダウンロードできます：',
+    'updateAvailableBody':
+        'バージョン {latest} が公開されています（現在 {current}）。リリースページからダウンロードできます：',
     'updateAvailableNotice': 'バージョン {latest} が公開されました',
     'updateView': '表示',
     'updateUpToDate': '最新バージョンです。',
@@ -2379,7 +2484,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'copyLink': 'リンクをコピー',
     'linkCopied': 'リンクをコピーしました',
     'exportDiagnostics': '診断情報を書き出す',
-    'exportDiagnosticsDesc': 'バージョン、システム情報、最近のエラーをテキストに保存します（不具合報告用）。タスクやキーは含みません。',
+    'exportDiagnosticsDesc':
+        'バージョン、システム情報、最近のエラーをテキストに保存します（不具合報告用）。タスクやキーは含みません。',
     'diagnosticsSaved': '診断情報を保存しました',
     'diagnosticsFailed': '診断情報を保存できませんでした。',
     'aiMissingConfig': '設定で AI の URL と API キーを入力してください。',
@@ -2524,10 +2630,10 @@ const Map<Language, Map<String, String>> _dicts = {
     'testNotificationSent': 'テスト通知を送信しました！通知バナーまたはアクションセンターを確認してください。',
     'reminderTestBody': 'Compoise テスト通知',
     'reminderTestInAppOnly': 'システムが予約通知を拒否したため、アプリ起動中のみ通知します。',
-    'reminderTestNoService':
-        'テスト通知に失敗しました：デスクトップの通知サービスが見つかりません。',
+    'reminderTestNoService': 'テスト通知に失敗しました：デスクトップの通知サービスが見つかりません。',
     'reminderTestFailed': 'テスト通知に失敗しました。システムが受け付けませんでした。',
-    'permissionUnknown': 'このシステムでは通知が許可されているか確認できません。リマインダーが届かない場合は、システムの通知設定を確認してください。',
+    'permissionUnknown':
+        'このシステムでは通知が許可されているか確認できません。リマインダーが届かない場合は、システムの通知設定を確認してください。',
     'permissionUnsupported': 'このプラットフォームではローカルリマインダーを利用できません。',
     'reminderCancelFailed': 'タスク側のリマインダーは削除されましたが、既存のシステム通知をキャンセルできませんでした。',
     'reminderLedgerUnreadable':
@@ -2560,7 +2666,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'onboardingStep4Desc':
         '右スワイプで完了、左スワイプで削除（5秒以内なら元に戻せます）。完了タスク画面で検索、復元、削除ができます。',
     'onboardingStep5Title': 'AIアシスタントと自分のAPIキー',
-    'onboardingStep5Desc': '設定で自分の API キーを入力すると、AI で分類・グループ化・分解ができます。タスクはこの端末に保存され、AI を使うときだけ関連するタスクの文字を選んだ AI サービスに送ります。キーなしでも手動機能はすべて使えます。',
+    'onboardingStep5Desc':
+        '設定で自分の API キーを入力すると、AI で分類・グループ化・分解ができます。タスクはこの端末に保存され、AI を使うときだけ関連するタスクの文字を選んだ AI サービスに送ります。キーなしでも手動機能はすべて使えます。',
     'onboardingDragHint': 'ヒント：長押しでドラッグ、右クリックで移動メニュー。',
     'onboardingLocalBadge': 'タスクはこの端末に保存 · 自分のAPIキー',
     'onboardingSampleQ1': 'リリース v1.0 公開\n重大バグを修正',

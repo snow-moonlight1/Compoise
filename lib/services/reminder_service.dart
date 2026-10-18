@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../diagnostics/app_log.dart';
 import '../models.dart';
+import '../l10n.dart';
 import 'desktop_shell_service.dart';
 
 /// Generates a deterministic 31-bit non-negative integer notification ID
@@ -670,7 +671,10 @@ abstract class ReminderService {
       }
     } catch (e) {
       damaged++;
-      AppLog.warn('reminder', 'Ignored unreadable reminder ledger: ${e.runtimeType}');
+      AppLog.warn(
+        'reminder',
+        'Ignored unreadable reminder ledger: ${e.runtimeType}',
+      );
     }
     // This read answers for the stored bytes: a later read replaces this count,
     // and an explicit ledger retry clears it once the clean records are written.
@@ -1019,7 +1023,8 @@ abstract class ReminderService {
       }
     } catch (_) {}
     if (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.windows) {
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux) {
       return FlutterLocalNotificationsReminderService();
     }
     return NoopReminderService();
@@ -1776,6 +1781,48 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   Completer<void>? _initCompleter;
   void Function(ReminderPayload payload)? _onNotificationSelected;
   final Map<int, Timer> _activeTimers = {};
+  final Map<int, int> _linuxDelivered = {};
+  static const linuxDeliveredKey = 'compoise-linux-delivered-reminders';
+  bool _linuxLoaded = false;
+  DateTime Function() clock = DateTime.now;
+  Timer Function(Duration, void Function()) createTimer = (delay, callback) =>
+      Timer(delay, callback);
+
+  Future<void> _loadLinuxDelivered() async {
+    if (_linuxLoaded) return;
+    _linuxLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(linuxDeliveredKey);
+      if (raw != null) {
+        final values = jsonDecode(raw) as Map<String, dynamic>;
+        for (final entry in values.entries) {
+          final id = int.tryParse(entry.key);
+          if (id != null && entry.value is int) {
+            _linuxDelivered[id] = entry.value as int;
+          }
+        }
+      }
+    } catch (_) {
+      AppLog.warn('reminder', 'Could not read Linux delivery history');
+    }
+  }
+
+  Future<void> _saveLinuxDelivered() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        linuxDeliveredKey,
+        jsonEncode({
+          for (final entry in _linuxDelivered.entries)
+            '${entry.key}': entry.value,
+        }),
+      );
+    } catch (_) {
+      AppLog.warn('reminder', 'Could not save Linux delivery history');
+    }
+  }
+
   final Map<int, int> _revision = {};
   Future<void> _chain = Future.value();
   List<Task>? _queuedReschedule;
@@ -1839,7 +1886,8 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       if (_consumedLaunchPayload) return;
       _consumedLaunchPayload = true;
     }
-    if (defaultTargetPlatform == TargetPlatform.windows) {
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux) {
       DesktopShellService.instance.restoreWindow();
     }
     final handler = _onNotificationSelected;
@@ -1876,9 +1924,15 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         appUserModelId: 'Compoise.CompoiseApp.1.0',
         guid: '69a03975-2989-4d05-b778-5e824707612f',
       );
-      const initSettings = InitializationSettings(
+      final initSettings = InitializationSettings(
         android: androidSettings,
         windows: windowsSettings,
+        linux: LinuxInitializationSettings(
+          defaultActionName: 'Open',
+          defaultIcon: AssetsLinuxIcon(
+            'assets/branding/rounded_rectangle_logo.png',
+          ),
+        ),
       );
 
       final ready = await _plugin.initialize(
@@ -1901,7 +1955,10 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         // Allow a later call to retry initialization instead of latching a
         // completed gate that reports success.
         _initCompleter = null;
-        AppLog.warn('reminder', 'Local notifications unavailable: platform init failed');
+        AppLog.warn(
+          'reminder',
+          'Local notifications unavailable: platform init failed',
+        );
       }
 
       try {
@@ -1945,6 +2002,11 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   @override
   Future<ReminderPermissionStatus> probePermission() async {
     try {
+      if (defaultTargetPlatform == TargetPlatform.linux) {
+        return _initialized
+            ? ReminderPermissionStatus.unknown
+            : ReminderPermissionStatus.unsupported;
+      }
       if (defaultTargetPlatform == TargetPlatform.windows) {
         // Windows can report that the toast channel declined, but the user's
         // notification setting and Focus Assist state are not queryable
@@ -1969,7 +2031,10 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
           ? ReminderPermissionStatus.granted
           : ReminderPermissionStatus.inexactOnly;
     } catch (e) {
-      AppLog.warn('reminder', 'Notification permission probe failed: ${e.runtimeType}');
+      AppLog.warn(
+        'reminder',
+        'Notification permission probe failed: ${e.runtimeType}',
+      );
       return ReminderPermissionStatus.unknown;
     }
   }
@@ -1977,7 +2042,8 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
   @override
   Future<ReminderPermissionStatus> requestPermission() async {
     try {
-      if (defaultTargetPlatform == TargetPlatform.windows) {
+      if (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux) {
         return await checkPermission();
       }
       final androidImpl = _plugin
@@ -1998,7 +2064,10 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       }
       return await checkPermission();
     } catch (e) {
-      AppLog.warn('reminder', 'Notification permission request failed: ${e.runtimeType}');
+      AppLog.warn(
+        'reminder',
+        'Notification permission request failed: ${e.runtimeType}',
+      );
       return ReminderPermissionStatus.unknown;
     }
   }
@@ -2024,6 +2093,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       ),
       // The body already goes in as the toast's text line. Repeating it as
       // the subtitle made Windows show it twice.
+      linux: const LinuxNotificationDetails(),
       windows: const WindowsNotificationDetails(
         duration: WindowsNotificationDuration.long,
       ),
@@ -2084,7 +2154,7 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       if (_revision[notifId] != gen) {
         return settle(ReminderScheduleStatus.superseded);
       }
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final nowMs = clock().millisecondsSinceEpoch;
       if (nowMs - triggerAtMs > ReminderService.deliveryGraceMs) {
         return settle(ReminderScheduleStatus.expired);
       }
@@ -2107,9 +2177,24 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
             notifDetails,
             payload: serializedPayload,
           );
+          if (defaultTargetPlatform == TargetPlatform.linux) {
+            _linuxDelivered[notifId] = triggerAtMs;
+            await _saveLinuxDelivered();
+          }
           result = ReminderScheduleResult(
             ReminderScheduleStatus.displayed,
             notificationId: notifId,
+          );
+        } else if (defaultTargetPlatform == TargetPlatform.linux) {
+          result = _scheduleInApp(
+            payload: payload,
+            notifId: notifId,
+            gen: gen,
+            title: title,
+            body: body,
+            triggerAtMs: triggerAtMs,
+            notifDetails: notifDetails,
+            serializedPayload: serializedPayload,
           );
         } else if (defaultTargetPlatform == TargetPlatform.windows) {
           result = await _scheduleWindows(
@@ -2139,7 +2224,10 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         }
       } catch (e) {
         lastScheduleError = reminderErrorKind(e);
-        AppLog.warn('reminder', 'Notification scheduling failed: $lastScheduleError');
+        AppLog.warn(
+          'reminder',
+          'Notification scheduling failed: $lastScheduleError',
+        );
         result = ReminderScheduleResult(
           ReminderScheduleStatus.failed,
           notificationId: notifId,
@@ -2211,7 +2299,10 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     } catch (e) {
       nativeErrorKind = reminderErrorKind(e);
       lastScheduleError = nativeErrorKind;
-      AppLog.warn('reminder', 'Native Windows schedule failed: $nativeErrorKind');
+      AppLog.warn(
+        'reminder',
+        'Native Windows schedule failed: $nativeErrorKind',
+      );
     }
     if (_revision[notifId] != gen) {
       return ReminderScheduleResult(
@@ -2219,7 +2310,31 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
         notificationId: notifId,
       );
     }
-    final delayMs = triggerAtMs - DateTime.now().millisecondsSinceEpoch;
+    return _scheduleInApp(
+      payload: payload,
+      notifId: notifId,
+      gen: gen,
+      title: title,
+      body: body,
+      triggerAtMs: triggerAtMs,
+      notifDetails: notifDetails,
+      serializedPayload: serializedPayload,
+      nativeErrorKind: nativeErrorKind,
+    );
+  }
+
+  ReminderScheduleResult _scheduleInApp({
+    required ReminderPayload payload,
+    required int notifId,
+    required int gen,
+    required String title,
+    String? body,
+    required int triggerAtMs,
+    required NotificationDetails notifDetails,
+    required String serializedPayload,
+    String? nativeErrorKind,
+  }) {
+    final delayMs = triggerAtMs - clock().millisecondsSinceEpoch;
     if (delayMs <= 0) {
       return ReminderScheduleResult(
         ReminderScheduleStatus.failed,
@@ -2228,33 +2343,44 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       );
     }
     // Keep-alive fallback: this toast is only reachable while the app runs.
-    _activeTimers[notifId] = Timer(Duration(milliseconds: delayMs), () async {
-      _activeTimers.remove(notifId);
-      if (_revision[notifId] != gen) return;
-      try {
-        await _plugin.show(
-          notifId,
-          title,
-          body,
-          notifDetails,
-          payload: serializedPayload,
-        );
-      } catch (e) {
-        final kind = reminderErrorKind(e);
-        lastScheduleError = kind;
-        await recordScheduleOutcome(
-          payload: payload,
-          triggerAtMs: triggerAtMs,
-          recordRetry: true,
-          result: ReminderScheduleResult(
-            ReminderScheduleStatus.failed,
-            notificationId: notifId,
-            errorKind: kind,
-          ),
-        );
-        AppLog.warn('reminder', 'In-app Windows notification failed: $kind');
-      }
-    });
+    _activeTimers[notifId] = createTimer(
+      Duration(milliseconds: delayMs),
+      () async {
+        if (_revision[notifId] != gen) return;
+        _activeTimers.remove(notifId);
+        try {
+          await _plugin.show(
+            notifId,
+            title,
+            body,
+            notifDetails,
+            payload: serializedPayload,
+          );
+          if (_revision[notifId] != gen) {
+            await _plugin.cancel(notifId);
+            return;
+          }
+          if (defaultTargetPlatform == TargetPlatform.linux) {
+            _linuxDelivered[notifId] = triggerAtMs;
+            await _saveLinuxDelivered();
+          }
+        } catch (e) {
+          final kind = reminderErrorKind(e);
+          lastScheduleError = kind;
+          await recordScheduleOutcome(
+            payload: payload,
+            triggerAtMs: triggerAtMs,
+            recordRetry: true,
+            result: ReminderScheduleResult(
+              ReminderScheduleStatus.failed,
+              notificationId: notifId,
+              errorKind: kind,
+            ),
+          );
+          AppLog.warn('reminder', 'In-app desktop notification failed: $kind');
+        }
+      },
+    );
     return ReminderScheduleResult(
       ReminderScheduleStatus.scheduledInApp,
       notificationId: notifId,
@@ -2454,6 +2580,50 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
     );
   }
 
+  Future<void> _summarizeLinuxMissed(List<Task> tasks) async {
+    await _loadLinuxDelivered();
+    final now = clock().millisecondsSinceEpoch;
+    final reminders = <int, int>{};
+    for (final task in tasks.where((t) => !t.completed)) {
+      if (task.reminderAt != null) {
+        reminders[generateNotificationId(task.id)] = task.reminderAt!;
+      }
+      for (final sub in task.subtasks.where((s) => !s.completed)) {
+        if (sub.reminderAt != null) {
+          reminders[generateNotificationId(task.id, subtaskId: sub.id)] =
+              sub.reminderAt!;
+        }
+      }
+    }
+    final missed = {
+      for (final e in reminders.entries)
+        if (e.value <= now && _linuxDelivered[e.key] != e.value) e.key: e.value,
+    };
+    if (missed.isNotEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final settings = prefs.getString('compoise-settings');
+        final language = settings == null
+            ? Language.en
+            : AppSettings.fromJson(
+                jsonDecode(settings) as Map<String, dynamic>,
+              ).language;
+        final t = dictOf(language);
+        await _plugin.show(
+          0x7ffffffe,
+          t['linuxMissedTitle'],
+          t['linuxMissedBody']!.replaceAll('{n}', '${missed.length}'),
+          const NotificationDetails(linux: LinuxNotificationDetails()),
+        );
+        _linuxDelivered.addAll(missed);
+      } catch (_) {
+        AppLog.warn('reminder', 'Linux missed-reminder summary failed');
+      }
+    }
+    _linuxDelivered.removeWhere((id, _) => !reminders.containsKey(id));
+    await _saveLinuxDelivered();
+  }
+
   Future<void> _rescheduleReady(List<Task> allTasks) async {
     final batch = _restoreGeneration;
     final revisions = Map<int, int>.from(_revision);
@@ -2462,7 +2632,10 @@ class FlutterLocalNotificationsReminderService extends ReminderService {
       return (_revision[key] ?? 0) == (revisions[key] ?? 0);
     }
 
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      await _summarizeLinuxMissed(allTasks);
+    }
+    final nowMs = clock().millisecondsSinceEpoch;
     for (final t in allTasks) {
       if (batch != _restoreGeneration) return;
       if (t.completed) continue;

@@ -29,6 +29,7 @@ import '../widgets/task_list_view.dart';
 import '../widgets/text_prompt.dart';
 import 'completed_screen.dart';
 import 'onboarding_screen.dart';
+import '../services/quick_capture.dart';
 import 'planner_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
@@ -55,6 +56,37 @@ class MatrixHome extends StatefulWidget {
 class _MatrixHomeState extends State<MatrixHome> {
   DesktopShellService get _desktopShell =>
       widget.desktopShell ?? DesktopShellService.instance;
+
+  bool _captureReady = false;
+  bool _captureBusy = false;
+  void _onCapture() {
+    unawaited(_drainCapture());
+  }
+
+  Future<void> _drainCapture() async {
+    if (!mounted || !_captureReady || _captureBusy || _composerOpen) return;
+    final request = QuickCapture.instance.next;
+    if (request == null) return;
+    _captureBusy = true;
+    var handled = false;
+    try {
+      if (!await _protectDetailDraft() || !mounted) return;
+      QuickCapture.instance.acknowledge(request);
+      handled = true;
+      if (request.action == 'today') {
+        _openToday();
+      } else {
+        await _openInput(
+          initialText: request.action == 'share' ? request.text : null,
+        );
+      }
+    } finally {
+      _captureBusy = false;
+      if (handled && mounted && QuickCapture.instance.next != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _onCapture());
+      }
+    }
+  }
 
   bool _selecting = false;
   final Set<String> _selectedIds = {};
@@ -149,12 +181,8 @@ class _MatrixHomeState extends State<MatrixHome> {
       flush: () => store.flush(includeReminderLedger: true),
       retrySave: () => store.retrySave(includeReminderLedger: true),
       timeout: widget.exitSaveTimeout,
-      chooseAfterProblem:
-          (problem) => showDesktopExitSaveProblem(
-            context,
-            problem,
-            store.settings.language,
-          ),
+      chooseAfterProblem: (problem) =>
+          showDesktopExitSaveProblem(context, problem, store.settings.language),
     ).prepareToExit();
   }
 
@@ -198,8 +226,10 @@ class _MatrixHomeState extends State<MatrixHome> {
         subtaskId: payload.subtaskId,
       );
     } else {
-      showAppNotice(context, store.t['taskNotFound'] ??
-                'Task no longer exists or has been deleted');
+      showAppNotice(
+        context,
+        store.t['taskNotFound'] ?? 'Task no longer exists or has been deleted',
+      );
     }
   }
 
@@ -208,6 +238,7 @@ class _MatrixHomeState extends State<MatrixHome> {
   @override
   void initState() {
     super.initState();
+    QuickCapture.instance.addListener(_onCapture);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _boundReminders = context.read<Store>().reminderService;
@@ -243,8 +274,11 @@ class _MatrixHomeState extends State<MatrixHome> {
           language: store.settings.language,
         );
         if (!mounted || !shell.isDesktopSupported || !result.hasFailure) return;
-        showAppNotice(context, store.t['desktopShellApplyFailed'] ??
-                  'Some Windows desktop features are unavailable. Open Settings to retry.');
+        showAppNotice(
+          context,
+          store.t['desktopShellApplyFailed'] ??
+              'Some Windows desktop features are unavailable. Open Settings to retry.',
+        );
       }());
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -260,6 +294,8 @@ class _MatrixHomeState extends State<MatrixHome> {
         ).push(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
       }
       if (mounted) await maybeShowAndroidReminderSetup(context);
+      _captureReady = true;
+      _onCapture();
     });
   }
 
@@ -280,6 +316,7 @@ class _MatrixHomeState extends State<MatrixHome> {
 
   @override
   void dispose() {
+    QuickCapture.instance.removeListener(_onCapture);
     if (_boundReminders?.onNotificationSelected == _handleNotificationPayload) {
       _boundReminders!.onNotificationSelected = null;
     }
@@ -344,9 +381,8 @@ class _MatrixHomeState extends State<MatrixHome> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (_) =>
-                              SearchScreen(initialBoardId: store.activeBoardId),
+                      builder: (_) =>
+                          SearchScreen(initialBoardId: store.activeBoardId),
                     ),
                   );
                 }
@@ -359,10 +395,8 @@ class _MatrixHomeState extends State<MatrixHome> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (_) => CompletedScreen(
-                            initialBoardId: store.activeBoardId,
-                          ),
+                      builder: (_) =>
+                          CompletedScreen(initialBoardId: store.activeBoardId),
                     ),
                   );
                 }
@@ -448,94 +482,79 @@ class _MatrixHomeState extends State<MatrixHome> {
                         viewMode == ViewMode.list &&
                         _focusedQuadrant == null &&
                         !_listExitFading;
-                    final activeCenter =
-                        showListView
-                            ? TaskListView(
-                              selecting: _selecting,
-                              selectedIds: _selectedIds,
-                              expandedIds: _expandedIdsFor(store),
-                              onSelect:
-                                  (id) => setState(() {
-                                    if (!_selectedIds.add(id)) {
-                                      _selectedIds.remove(id);
-                                    }
-                                  }),
-                              onToggleExpand: (id) => _toggleExpand(store, id),
-                              onEnsureExpanded:
-                                  (id) => _ensureExpanded(store, id),
-                              onQuadrantTap: _requestFocusQuadrant,
-                              onEdit:
-                                  (task) => _openTaskDetail(
-                                    context,
-                                    task,
-                                    isWide: wide,
-                                  ),
-                              onEditSubtask:
-                                  (task, subtaskId) => _openTaskDetail(
-                                    context,
-                                    task,
-                                    isWide: wide,
-                                    subtaskId: subtaskId,
-                                  ),
-                            )
-                            : QuadrantTransitionLayout(
-                              key: _quadrantTransitionKey,
-                              focusedQuadrant:
-                                  _focusedQuadrant ?? _listExitFrom,
-                              viewMode: viewMode,
-                              selecting: _selecting,
-                              selectedIds: _selectedIds,
-                              expandedIds: _expandedIdsFor(store),
-                              onSelect:
-                                  (id) => setState(() {
-                                    if (!_selectedIds.add(id)) {
-                                      _selectedIds.remove(id);
-                                    }
-                                  }),
-                              onToggleExpand: (id) => _toggleExpand(store, id),
-                              onEnsureExpanded:
-                                  (id) => _ensureExpanded(store, id),
-                              onFocusQuadrant: _requestFocusQuadrant,
-                              onExitFocus: _requestExitFocus,
-                              onEdit:
-                                  (task) => _openTaskDetail(
-                                    context,
-                                    task,
-                                    isWide: wide,
-                                  ),
-                              onEditSubtask:
-                                  (task, subtaskId) => _openTaskDetail(
-                                    context,
-                                    task,
-                                    isWide: wide,
-                                    subtaskId: subtaskId,
-                                  ),
-                              onMoveSelected: (q) => _moveSelectedTo(store, q),
-                              fadeOutOnly:
-                                  _listExitFading && _focusedQuadrant == null,
-                              onFadeOutDone: () {
-                                if (!mounted || !_listExitFading) return;
-                                setState(() {
-                                  _listExitFading = false;
-                                  _listExitFrom = null;
-                                });
-                              },
-                            );
+                    final activeCenter = showListView
+                        ? TaskListView(
+                            selecting: _selecting,
+                            selectedIds: _selectedIds,
+                            expandedIds: _expandedIdsFor(store),
+                            onSelect: (id) => setState(() {
+                              if (!_selectedIds.add(id)) {
+                                _selectedIds.remove(id);
+                              }
+                            }),
+                            onToggleExpand: (id) => _toggleExpand(store, id),
+                            onEnsureExpanded: (id) =>
+                                _ensureExpanded(store, id),
+                            onQuadrantTap: _requestFocusQuadrant,
+                            onEdit: (task) =>
+                                _openTaskDetail(context, task, isWide: wide),
+                            onEditSubtask: (task, subtaskId) => _openTaskDetail(
+                              context,
+                              task,
+                              isWide: wide,
+                              subtaskId: subtaskId,
+                            ),
+                          )
+                        : QuadrantTransitionLayout(
+                            key: _quadrantTransitionKey,
+                            focusedQuadrant: _focusedQuadrant ?? _listExitFrom,
+                            viewMode: viewMode,
+                            selecting: _selecting,
+                            selectedIds: _selectedIds,
+                            expandedIds: _expandedIdsFor(store),
+                            onSelect: (id) => setState(() {
+                              if (!_selectedIds.add(id)) {
+                                _selectedIds.remove(id);
+                              }
+                            }),
+                            onToggleExpand: (id) => _toggleExpand(store, id),
+                            onEnsureExpanded: (id) =>
+                                _ensureExpanded(store, id),
+                            onFocusQuadrant: _requestFocusQuadrant,
+                            onExitFocus: _requestExitFocus,
+                            onEdit: (task) =>
+                                _openTaskDetail(context, task, isWide: wide),
+                            onEditSubtask: (task, subtaskId) => _openTaskDetail(
+                              context,
+                              task,
+                              isWide: wide,
+                              subtaskId: subtaskId,
+                            ),
+                            onMoveSelected: (q) => _moveSelectedTo(store, q),
+                            fadeOutOnly:
+                                _listExitFading && _focusedQuadrant == null,
+                            onFadeOutDone: () {
+                              if (!mounted || !_listExitFading) return;
+                              setState(() {
+                                _listExitFading = false;
+                                _listExitFrom = null;
+                              });
+                            },
+                          );
 
                     Widget mainContent;
                     final showSidebar = detailTask != null;
-                    final panel =
-                        detailTask == null
-                            ? null
-                            : TaskDetailPanel(
-                              key: _detailKey,
-                              task: detailTask,
-                              highlightSubtaskId: _detail.highlightSubtaskId,
-                              isSidebar: true,
-                              onScheduleTime: _scheduleFromDetail,
-                              onDirtyChanged: _detail.reportDraft,
-                              onClose: _detail.handleClose,
-                            );
+                    final panel = detailTask == null
+                        ? null
+                        : TaskDetailPanel(
+                            key: _detailKey,
+                            task: detailTask,
+                            highlightSubtaskId: _detail.highlightSubtaskId,
+                            isSidebar: true,
+                            onScheduleTime: _scheduleFromDetail,
+                            onDirtyChanged: _detail.reportDraft,
+                            onClose: _detail.handleClose,
+                          );
                     if (!useSideDetail && panel != null) {
                       mainContent = panel;
                     } else if (showSidebar) {
@@ -789,10 +808,9 @@ class _MatrixHomeState extends State<MatrixHome> {
     if (_selecting) {
       final compact = MediaQuery.sizeOf(context).width < 360;
       void editSelected() {
-        final task =
-            store.tasks
-                .where((item) => item.id == _selectedIds.single)
-                .firstOrNull;
+        final task = store.tasks
+            .where((item) => item.id == _selectedIds.single)
+            .firstOrNull;
         if (task != null) {
           _openTaskDetail(context, task, isWide: wide);
         }
@@ -812,10 +830,7 @@ class _MatrixHomeState extends State<MatrixHome> {
                   ),
                 ),
               )
-            : BoxDecoration(
-                color: neu.canvas,
-                boxShadow: neu.raisedShadows,
-              ),
+            : BoxDecoration(color: neu.canvas, boxShadow: neu.raisedShadows),
         child: Row(
           children: [
             Expanded(
@@ -823,9 +838,9 @@ class _MatrixHomeState extends State<MatrixHome> {
                 compact
                     ? '${_selectedIds.length} ${t['selectedMark']}'
                     : t['multiSelectStatus']!.replaceAll(
-                      '{n}',
-                      '${_selectedIds.length}',
-                    ),
+                        '{n}',
+                        '${_selectedIds.length}',
+                      ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -850,11 +865,10 @@ class _MatrixHomeState extends State<MatrixHome> {
               key: const ValueKey('exit-selection-btn'),
               tooltip: t['cancelSelection'],
               icon: const Icon(Icons.close),
-              onPressed:
-                  () => setState(() {
-                    _selecting = false;
-                    _selectedIds.clear();
-                  }),
+              onPressed: () => setState(() {
+                _selecting = false;
+                _selectedIds.clear();
+              }),
             ),
           ],
         ),
@@ -1058,7 +1072,7 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
   }
 
-  Future<void> _openInput() async {
+  Future<void> _openInput({String? initialText}) async {
     if (_composerOpen) return;
     if (!await _protectDetailDraft()) return;
     if (!mounted) return;
@@ -1073,38 +1087,40 @@ class _MatrixHomeState extends State<MatrixHome> {
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
-          builder:
-              (_) => InputSheet(
-                initialMode: store.settings.defaultInputMode,
-                onDirtyChanged: (dirty) => _composerDirty = dirty,
-              ),
+          builder: (_) => InputSheet(
+            initialMode: initialText == null
+                ? store.settings.defaultInputMode
+                : InputModePref.single,
+            initialText: initialText,
+            onDirtyChanged: (dirty) => _composerDirty = dirty,
+          ),
         );
       } else {
         longTerm = await showDialog<List<Task>>(
           context: context,
           barrierDismissible: true,
-          builder:
-              (ctx) => Dialog(
-                insetPadding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 24,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 520,
-                    maxHeight: 640,
-                  ),
-                  child: InputSheet(
-                    initialMode: store.settings.defaultInputMode,
-                    onDirtyChanged: (dirty) => _composerDirty = dirty,
-                  ),
-                ),
+          builder: (ctx) => Dialog(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520, maxHeight: 640),
+              child: InputSheet(
+                initialMode: initialText == null
+                    ? store.settings.defaultInputMode
+                    : InputModePref.single,
+                initialText: initialText,
+                onDirtyChanged: (dirty) => _composerDirty = dirty,
               ),
+            ),
+          ),
         );
       }
     } finally {
       _composerOpen = false;
       _composerDirty = false;
+      _onCapture();
     }
     if (!mounted || longTerm == null || longTerm.isEmpty) return;
     await showBatchDecomposeSheet(context, longTerm);
@@ -1141,22 +1157,21 @@ class _MatrixHomeState extends State<MatrixHome> {
     final boardId = store.activeBoardId;
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(t['deleteBoard']!),
-            content: Text(t['confirmDeleteBoard']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(t['cancel']!),
-              ),
-              FilledButton(
-                style: dangerButtonStyle(context),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(t['confirm']!),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text(t['deleteBoard']!),
+        content: Text(t['confirmDeleteBoard']!),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(t['cancel']!),
           ),
+          FilledButton(
+            style: dangerButtonStyle(context),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(t['confirm']!),
+          ),
+        ],
+      ),
     );
     if (ok == true && context.mounted) {
       store.deleteBoard(boardId);
@@ -1181,29 +1196,28 @@ class _MatrixHomeState extends State<MatrixHome> {
 
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            key: const ValueKey('clear-board-dialog'),
-            title: Text(t['clearBoardTitle']!),
-            content: Text(
-              t['clearBoardConfirm']!
-                  .replaceAll('{board}', board.name)
-                  .replaceAll('{n}', '$count'),
-            ),
-            actions: [
-              TextButton(
-                key: const ValueKey('clear-board-cancel-btn'),
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(t['cancel']!),
-              ),
-              FilledButton(
-                key: const ValueKey('clear-board-confirm-btn'),
-                style: dangerButtonStyle(context),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(t['clear']!),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('clear-board-dialog'),
+        title: Text(t['clearBoardTitle']!),
+        content: Text(
+          t['clearBoardConfirm']!
+              .replaceAll('{board}', board.name)
+              .replaceAll('{n}', '$count'),
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('clear-board-cancel-btn'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(t['cancel']!),
           ),
+          FilledButton(
+            key: const ValueKey('clear-board-confirm-btn'),
+            style: dangerButtonStyle(context),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(t['clear']!),
+          ),
+        ],
+      ),
     );
     if (ok == true && context.mounted) {
       setState(() {

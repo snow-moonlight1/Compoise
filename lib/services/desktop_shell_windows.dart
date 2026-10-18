@@ -30,7 +30,13 @@ bool shouldUseRealWindowsShell() {
 }
 
 Future<void> ensureWindowsWindowManager() async {
-  if (!shouldUseRealWindowsShell()) return;
+  if (debugUseRealWindowsShellOverride == false) return;
+  if (!shouldUseRealWindowsShell()) {
+    if (defaultTargetPlatform != TargetPlatform.linux ||
+        Platform.environment.containsKey('FLUTTER_TEST')) {
+      return;
+    }
+  }
   await windowManager.ensureInitialized();
   await windowManager.setPreventClose(true);
   _windowsWindowManagerPrepared = true;

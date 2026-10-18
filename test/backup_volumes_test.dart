@@ -491,7 +491,7 @@ void main() {
       for (final document in ['{', 'null', '[]', '42', '{"boards":[]}']) {
         _assertRefusal(document, status: BackupStatus.incomplete);
       }
-      for (final version in [null, '3', 3.5, 4]) {
+      for (final version in [null, '3', 3.5, 5]) {
         final source = _document()..['version'] = version;
         _assertRefusal(jsonEncode(source), status: BackupStatus.incomplete);
       }

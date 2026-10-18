@@ -271,7 +271,7 @@ void main() {
 
     test('a future version is refused by both readers', () {
       final payload = {
-        'version': 4,
+        'version': 5,
         'timestamp': epoch,
         'boards': <Map<String, dynamic>>[],
         'tasks': <Map<String, dynamic>>[],

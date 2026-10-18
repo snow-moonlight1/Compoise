@@ -14,6 +14,7 @@ import 'subtask_edit_dialog.dart';
 import 'task_edit_draft.dart';
 import 'task_hierarchy_checkbox.dart';
 import 'task_tags_editor.dart';
+import 'task_count.dart';
 
 /// Confirms discarding an unsaved detail draft. Returns true when the user
 /// chooses to discard, false when they keep editing or dismiss the dialog.
@@ -363,6 +364,19 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
     }
   }
 
+  bool _applyDraft(Store store, Task current) {
+    try {
+      store.updateTask(_draft.applyTo(current));
+      return true;
+    } on CountProgressException {
+      setState(() {
+        _saving = false;
+        _saveError = store.t['countInvalid'];
+      });
+      return false;
+    }
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     if (_pendingSave) {
@@ -371,7 +385,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       final current = store.tasks
           .where((t) => t.id == widget.task.id)
           .firstOrNull;
-      if (current != null) store.updateTask(_draft.applyTo(current));
+      if (current != null && !_applyDraft(store, current)) return;
       final result = await store.retrySave(waitForReminders: false);
       if (!mounted) return;
       setState(() => _saving = false);
@@ -411,7 +425,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       _saving = true;
       _saveError = null;
     });
-    store.updateTask(_draft.applyTo(current));
+    if (!_applyDraft(store, current)) return;
     final result = await store.flush(waitForReminders: false);
     if (!mounted) return;
     setState(() => _saving = false);
@@ -448,7 +462,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
       _saving = true;
       _saveError = null;
     });
-    store.updateTask(_draft.applyTo(current));
+    if (!_applyDraft(store, current)) return false;
     final result = await store.flush(waitForReminders: false);
     if (!mounted) return false;
     setState(() => _saving = false);
@@ -965,8 +979,7 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                             icon: const Icon(Icons.schedule),
                             label: Text(t['timePanel']!),
                           ),
-                          if (d != null ||
-                              _draft.reminderAt != null)
+                          if (d != null || _draft.reminderAt != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Wrap(
@@ -1205,6 +1218,13 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                               ],
                             ),
                             const SizedBox(height: 16),
+
+                            TaskCountEditor(
+                              progress: _draft.countProgress,
+                              t: t,
+                              onChanged: (value) =>
+                                  setState(() => _draft.countProgress = value),
+                            ),
 
                             TextButton.icon(
                               onPressed: _confirmDeleteTask,

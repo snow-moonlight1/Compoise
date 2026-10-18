@@ -44,3 +44,5 @@
 运行时的临时状态不要放进快照。
 
 > 发布之后，包名、存储键名和签名都不能再改。改了会让已安装的用户读不到原来的数据。
+
+计次进度随任务一起进入双槽快照，备份格式为 v4。Linux 已送达提醒的触发时间保存在本机 `compoise-linux-delivered-reminders` 中，不进入备份；登录启动使用 XDG 配置目录的 `autostart/compoise.desktop`，默认不创建。

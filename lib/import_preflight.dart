@@ -215,7 +215,7 @@ class ImportPreflight {
     }
     final boardsRaw = payload['boards'] as List;
     final tasksRaw = payload['tasks'] as List;
-    final isV3 = payload['version'] == 3;
+    final isV3 = payload['version'] == 3 || payload['version'] == 4;
     if (isV3 && payload['scheduleItems'] is! List) {
       throw const FormatException('Missing or invalid scheduleItems array');
     }
@@ -387,6 +387,7 @@ class ImportPreflight {
         'reminderTimezone',
         'completedAt',
         'tags',
+        if (payload['version'] == 4) 'countProgress',
         'recoveryPending',
       }, 'Task $taskIndex');
       final childRaw = raw['subtasks'];

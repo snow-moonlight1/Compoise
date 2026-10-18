@@ -44,7 +44,7 @@ void main() {
       aiConfig: AIConfig(),
       timestamp: 1,
     ).toJson();
-    expect(payload['version'], 3);
+    expect(payload['version'], ExportData.currentVersion);
     final plan = store.previewImport(payload, 'overwrite');
     expect(plan.conflicts, 0);
     expect(store.scheduleItems, isEmpty);

@@ -116,6 +116,9 @@ class DataMigrator {
         continue;
       }
       try {
+        if (sourceVersion < 4 && raw.containsKey('countProgress')) {
+          throw const FormatException('Count progress in an older backup');
+        }
         final task = Task.fromJson(Map<String, dynamic>.from(raw));
         final childIds = <String>{};
         for (final child in task.subtasks) {
@@ -141,7 +144,7 @@ class DataMigrator {
     }
 
     final schedule = <ScheduleItem>[];
-    if (sourceVersion == 3) {
+    if (sourceVersion >= 3) {
       final rawSchedule = json['scheduleItems'];
       if (rawSchedule is! List) {
         throw const FormatException('Missing or invalid scheduleItems array');
@@ -197,7 +200,9 @@ class DataMigrator {
 
     // 7. Version upgrade normalization
     if (sourceVersion == legacyVersion) {
-      warnings.add('Successfully migrated legacy v1 payload to v3');
+      warnings.add(
+        'Successfully migrated legacy v1 payload to v$currentVersion',
+      );
     }
 
     return MigrationResult(
