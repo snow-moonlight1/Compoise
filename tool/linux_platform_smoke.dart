@@ -51,7 +51,21 @@ Future<void> main() async {
     );
     facts['inAppSchedule'] =
         scheduled.status == ReminderScheduleStatus.scheduledInApp;
-    await Future<void>.delayed(const Duration(seconds: 3));
+    var delivered = false;
+    for (var attempt = 0; attempt < 40; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(
+        FlutterLocalNotificationsReminderService.linuxDeliveredKey,
+      );
+      if (raw != null &&
+          (jsonDecode(raw) as Map)['${generateNotificationId('future')}'] ==
+              now + 1500) {
+        delivered = true;
+        break;
+      }
+    }
+    facts['scheduledDeliveryRecorded'] = delivered;
     final tasks = [
       Task(
         id: 'future',

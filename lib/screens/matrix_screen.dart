@@ -78,6 +78,7 @@ class _MatrixHomeState extends State<MatrixHome> {
       } else {
         await _openInput(
           initialText: request.action == 'share' ? request.text : null,
+          draftProtected: true,
         );
       }
     } finally {
@@ -1072,9 +1073,12 @@ class _MatrixHomeState extends State<MatrixHome> {
     }
   }
 
-  Future<void> _openInput({String? initialText}) async {
+  Future<void> _openInput({
+    String? initialText,
+    bool draftProtected = false,
+  }) async {
     if (_composerOpen) return;
-    if (!await _protectDetailDraft()) return;
+    if (!draftProtected && !await _protectDetailDraft()) return;
     if (!mounted) return;
     if (_detail.taskId != null) setState(_detail.drop);
     final store = context.read<Store>();

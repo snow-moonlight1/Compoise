@@ -846,7 +846,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'traySearch': 'Search Tasks',
     'trayExit': 'Exit Application',
     'desktopShellApplyFailed':
-        'Some Windows desktop features are unavailable. Open Settings to retry.',
+        'Some desktop features are unavailable. Open Settings to retry.',
     'desktopShellApplying': 'Applying Windows desktop settings…',
     'desktopShellNotApplied': 'Desktop settings have not been applied yet.',
     'desktopTrayUnavailable':

@@ -45,10 +45,15 @@ void main() {
 
   test('asynchronous Linux bus failures do not escape the backend', () async {
     final service = FlutterLocalNotificationsReminderService(
-      plugin: _BrokenBusPlugin(), ledgerStore: InMemoryReminderLedgerStore());
+      plugin: _BrokenBusPlugin(),
+      ledgerStore: InMemoryReminderLedgerStore(),
+    );
     await service.init();
     await Future<void>.delayed(Duration.zero);
-    expect(await service.probePermission(), ReminderPermissionStatus.unsupported);
+    expect(
+      await service.probePermission(),
+      ReminderPermissionStatus.unsupported,
+    );
   });
 
   test(

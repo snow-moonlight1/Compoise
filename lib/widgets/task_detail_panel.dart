@@ -742,6 +742,15 @@ class _TaskDetailPanelState extends State<TaskDetailPanel> {
                           ),
                           const SizedBox(height: 16),
 
+                          if (widget.task.countProgress != null)
+                            TaskCountAction(
+                              task: widget.task,
+                              store: store,
+                              onChanged: () {
+                                if (mounted) setState(() {});
+                              },
+                            ),
+
                           // Subtasks Section
                           Text(
                             '${t['subtasks'] ?? 'Subtasks'} (${_draft.subtasks.where((s) => s.completed).length}/${_draft.subtasks.length})',

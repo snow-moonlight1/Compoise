@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import '../l10n.dart';
+import '../diagnostics/app_log.dart';
 import 'desktop_shell_host.dart';
 
 /// Linux shell support deliberately leaves global shortcuts unsupported.
@@ -24,7 +25,7 @@ class LinuxDesktopShellHost
     final t = dictOf(callbacks.language);
     try {
       await trayManager.setIcon('assets/branding/rounded_rectangle_logo.png');
-      await trayManager.setToolTip(t['appTitle']!);
+      await trayManager.setTitle(t['appTitle']!);
       await trayManager.setContextMenu(
         Menu(
           items: [
@@ -38,7 +39,11 @@ class LinuxDesktopShellHost
       );
       await windowManager.setPreventClose(true);
       return const DesktopShellResult.success();
-    } catch (_) {
+    } catch (error) {
+      AppLog.warn(
+        'desktop',
+        'Linux tray initialization failed: ${error.runtimeType}',
+      );
       // A missing tray must never hide the only reachable application window.
       await windowManager.setPreventClose(true);
       return const DesktopShellResult(DesktopShellResultKind.unavailable);
@@ -90,8 +95,7 @@ class LinuxDesktopShellHost
   void onWindowClose() => _callbacks?.onWindowCloseRequested();
   @override
   void onTrayIconMouseDown() => _callbacks?.onRestoreRequested();
-  @override
-  void onTrayIconRightMouseDown() => trayManager.popUpContextMenu();
+  // Linux AppIndicator opens its menu natively; popUpContextMenu is not supported.
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
