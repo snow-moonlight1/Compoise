@@ -50,6 +50,14 @@ jobs:
       - name: Default tests
         run: flutter test --no-pub
 
+      - name: Sync scale benchmark (recorded in the job summary)
+        env:
+          COMPOISE_BENCH: '1'
+          COMPOISE_BENCH_OUT: sync-benchmark.md
+        run: |
+          flutter test --no-pub test/benchmark/sync_scale_benchmark_test.dart
+          { echo '### Sync scale benchmark'; echo; cat sync-benchmark.md; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: OCR preparation and bundle regressions
         run: python3 -m unittest discover -s native/ocr/tools -p 'test_ocr*.py'
 
