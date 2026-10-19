@@ -37,7 +37,7 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 | `lib/ui/` | 平台交互策略（`platform_ui_policy.dart`）、动画策略、字体策略 |
 | `lib/theme.dart` | 主题，包括漫画描边和拟态两种可选风格 |
 | `lib/l10n.dart` | English、简体中文、日本語文案 |
-| `lib/sync/` | 可选同步：按字段合并的同步状态、加密信封、文件格式和同步引擎，见[同步说明](sync.md) |
+| `lib/sync/` | 可选同步：按字段合并的同步状态、加密信封、文件格式、同步引擎、调度控制器和 WebDAV 传输，见[同步说明](sync.md) |
 | `lib/experiments/` | 尚未接入正式应用的实验（开发模式、托管 AI、拟态组件样板），正式界面不引用它们 |
 | `native/ocr/` | OCR 原生库（C++，ncnn + PP-OCRv5），通过 FFI 调用 |
 
