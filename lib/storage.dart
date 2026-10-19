@@ -20,6 +20,8 @@ import 'planned_policy.dart';
 import 'schedule_item.dart';
 import 'save_protocol.dart';
 import 'services/reminder_service.dart';
+import 'sync/sync_engine.dart' show SyncApplyOutcome, SyncSnapshot;
+import 'sync/sync_library.dart';
 import 'task_commands.dart';
 import 'today_celebration.dart';
 
@@ -2237,6 +2239,171 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // --- sync ---
+
+  /// The synced part of the live library, with the revision
+  /// [applySyncLibrary] checks. The library is detached JSON.
+  SyncSnapshot captureSyncSnapshot() => SyncSnapshot(
+    revision: _dirtyRevision,
+    library: SyncLibrary.fromModels(
+      boards: _boards,
+      tasks: _tasks,
+      scheduleItems: _scheduleItems,
+      settings: settings,
+    ),
+  );
+
+  /// Changes with every accepted command.
+  int get syncRevision => _dirtyRevision;
+
+  /// The revision a sync download produced, so the sync scheduler can tell
+  /// it from a user edit.
+  int get syncAppliedRevision => _syncAppliedRevision;
+  int _syncAppliedRevision = -1;
+
+  /// True when every accepted command has reached disk. Sync stamps only a
+  /// durable library, so a crash cannot leave the vault ahead of this device.
+  bool get syncLibraryDurable =>
+      ready &&
+      !_disposed &&
+      !hasStartupRecovery &&
+      persistenceError == null &&
+      _savedRevision == _dirtyRevision;
+
+  /// Replaces boards, tasks, schedule and the synced settings with [library]
+  /// in one commit, unless a command was accepted after [baseRevision].
+  ///
+  /// The library is validated as a whole first; a record this build cannot
+  /// read fails the apply instead of being dropped. A failed commit puts the
+  /// library back the way the import rollback does, keeping any command that
+  /// ran while the batch was in flight.
+  Future<SyncApplyOutcome> applySyncLibrary(
+    int baseRevision,
+    SyncLibrary library,
+  ) => _runTransaction(() => _applySyncLocked(baseRevision, library));
+
+  Future<SyncApplyOutcome> _applySyncLocked(
+    int baseRevision,
+    SyncLibrary library,
+  ) async {
+    if (!ready || _disposed || hasStartupRecovery || credentialError != null) {
+      return SyncApplyOutcome.failed;
+    }
+    if (baseRevision != _dirtyRevision) return SyncApplyOutcome.stale;
+    final _SyncLibraryModels next;
+    try {
+      next = _readSyncLibrary(library);
+    } catch (_) {
+      return SyncApplyOutcome.failed;
+    }
+    final before = captureSnapshot();
+    _applySyncState(next);
+    final atCommit = _dirtyRevision;
+    final values = _snapshotValues();
+    final result = await _saveProtocol!.commit(values);
+    lastSaveResult = result;
+    if (!result.success) {
+      _rollbackImport(before, values);
+      persistenceError = t['storageWriteError'];
+      if (_dirtyRevision > _savedRevision) _scheduleCommit();
+      if (!_disposed) notifyListeners();
+      return SyncApplyOutcome.failed;
+    }
+    _savedValues = values;
+    _savedRevision = atCommit;
+    persistenceError = null;
+    _enqueueImportReminderSync(replaceAll: false);
+    if (_dirtyRevision > _savedRevision) _scheduleCommit();
+    if (!_disposed) notifyListeners();
+    return SyncApplyOutcome.applied;
+  }
+
+  _SyncLibraryModels _readSyncLibrary(SyncLibrary library) {
+    final boards = [for (final raw in library.boards) Board.fromJson(raw)];
+    final boardIds = <String>{};
+    for (final board in boards) {
+      if (board.id.isEmpty || !boardIds.add(board.id)) {
+        throw const FormatException('Invalid board id');
+      }
+    }
+    if (boards.isEmpty) throw const FormatException('No boards');
+    final tasks = [for (final raw in library.tasks) Task.fromJson(raw)];
+    final taskIds = <String>{};
+    for (final task in tasks) {
+      if (task.id.isEmpty || !taskIds.add(task.id)) {
+        throw const FormatException('Invalid task id');
+      }
+      if (!boardIds.contains(task.boardId)) {
+        throw const FormatException('Task board is missing');
+      }
+      final subtaskIds = <String>{};
+      for (final sub in task.subtasks) {
+        if (sub.id.isEmpty || !subtaskIds.add(sub.id)) {
+          throw const FormatException('Invalid subtask id');
+        }
+      }
+    }
+    final schedule = [
+      for (final raw in library.scheduleItems) ScheduleItem.fromJson(raw),
+    ];
+    validateScheduleCollection(
+      schedule,
+      parentTaskIds: taskIds,
+      boardIds: boardIds,
+    );
+    final nextSettings = AppSettings.fromJson(
+      overlaySettings(settings.toJson(), library.settings),
+      defaultLanguage: settings.language,
+    );
+    nextSettings.urgencyThresholdDays = nextSettings.urgencyThresholdDays
+        .clamp(1, 14);
+    return (
+      boards: boards,
+      tasks: tasks,
+      schedule: schedule,
+      settings: nextSettings,
+    );
+  }
+
+  void _applySyncState(_SyncLibraryModels next) {
+    _syncAppliedRevision = ++_dirtyRevision;
+    final previousTasks = {
+      for (final task in _tasks) task.id: jsonEncode(task.toJson()),
+    };
+    for (final task in next.tasks) {
+      if (previousTasks.remove(task.id) != jsonEncode(task.toJson())) {
+        _touchTask(task.id);
+      }
+    }
+    // What is left was removed elsewhere; an undo for it must not apply.
+    previousTasks.keys.forEach(_touchTask);
+    final previousSchedule = {
+      for (final item in _scheduleItems) item.id: jsonEncode(item.toJson()),
+    };
+    for (final item in next.schedule) {
+      if (previousSchedule.remove(item.id) != jsonEncode(item.toJson())) {
+        _touchSchedule(item.id);
+      }
+    }
+    previousSchedule.keys.forEach(_touchSchedule);
+    final removedBoards = {
+      for (final board in _boards) board.id,
+    }.difference({for (final board in next.boards) board.id});
+    for (final id in removedBoards) {
+      bumpBoardEpoch(id);
+    }
+    _boards = next.boards;
+    _tasks = next.tasks;
+    _scheduleItems = next.schedule;
+    settings = next.settings;
+    if (!_boards.any((board) => board.id == activeBoardId)) {
+      activeBoardId = _boards.first.id;
+    }
+    // Not durable yet: keep older reminder rebuilds from publishing it.
+    _reminderEpoch++;
+    notifyListeners();
+  }
+
   // --- deadline auto-promotion ---
 
   /// Test hook: run one promotion pass immediately.
@@ -2515,3 +2682,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 }
 
 int _now() => DateTime.now().millisecondsSinceEpoch;
+
+typedef _SyncLibraryModels = ({
+  List<Board> boards,
+  List<Task> tasks,
+  List<ScheduleItem> schedule,
+  AppSettings settings,
+});

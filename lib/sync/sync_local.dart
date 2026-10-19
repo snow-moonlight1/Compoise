@@ -164,6 +164,11 @@ abstract class SyncLocalStore {
   Future<void> saveState(String? json);
   Future<String?> loadPending();
   Future<void> savePending(String? json);
+
+  /// Which provider this device connects with, without secrets. Owned by the
+  /// app's sync controller, not the engine.
+  Future<String?> loadProvider();
+  Future<void> saveProvider(String? json);
 }
 
 class MemorySyncLocalStore implements SyncLocalStore {
@@ -206,6 +211,14 @@ class MemorySyncLocalStore implements SyncLocalStore {
     writes++;
     pending = json;
   }
+
+  String? provider;
+
+  @override
+  Future<String?> loadProvider() async => provider;
+
+  @override
+  Future<void> saveProvider(String? json) async => provider = json;
 }
 
 /// Files under `<app support>/sync/`. Every write goes to a temporary file
@@ -274,4 +287,10 @@ class FileSyncLocalStore implements SyncLocalStore {
 
   @override
   Future<void> savePending(String? json) => _write('sync-pending.json', json);
+
+  @override
+  Future<String?> loadProvider() => _read('sync-provider.json');
+
+  @override
+  Future<void> saveProvider(String? json) => _write('sync-provider.json', json);
 }

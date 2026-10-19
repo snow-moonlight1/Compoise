@@ -28,6 +28,7 @@ dependencies:
   tray_manager: ^0.5.3
   crypto: ^3.0.7
   cryptography: ^2.9.0
+  xml: ^6.5.0
 
 dev_dependencies:
   flutter_test:
