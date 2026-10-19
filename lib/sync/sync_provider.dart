@@ -2,6 +2,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import '../credential_store.dart';
@@ -74,6 +75,29 @@ class SyncProviderConfig {
 
   String encode() => jsonEncode(toJson());
 }
+
+/// A starting name for this device in the device list.
+String defaultSyncDeviceName() {
+  if (Platform.isAndroid) return 'Android';
+  if (Platform.isIOS) return 'iPhone';
+  try {
+    final host = Platform.localHostname.trim();
+    if (host.isNotEmpty && host != 'localhost') return host;
+  } catch (_) {
+    // Fall back to the system name.
+  }
+  return syncPlatformLabel(Platform.operatingSystem);
+}
+
+/// Display name for a platform id from a device file.
+String syncPlatformLabel(String platform) => switch (platform) {
+  'android' => 'Android',
+  'ios' => 'iOS',
+  'windows' => 'Windows',
+  'linux' => 'Linux',
+  'macos' => 'macOS',
+  _ => platform,
+};
 
 /// Builds the transport for [config]. [secret] is the provider secret from
 /// secure storage: the WebDAV password, or an OAuth token bundle.
