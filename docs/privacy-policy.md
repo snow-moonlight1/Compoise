@@ -20,7 +20,7 @@ Android 的提醒设置只在用户点击后申请权限：通知、准时提醒
 
 应用在本机应用数据目录保留一份很小的诊断日志（最多几个轮换文件），记录提醒、托盘等功能的失败类型和未捕获的错误。写入前会去掉密钥、网址、邮箱和系统用户名，不记录任务内容。日志不会自动上传；只有用户在设置中“导出诊断信息”并自行分享文件时，它才会离开设备。导出文件还包含版本、系统版本、界面设置、AI 预设与协议名称和任务数量。
 
-“自动检查更新”默认关闭。开启后，应用每天最多一次向 GitHub（`api.github.com`）查询本项目的最新版本；手动点“检查更新”也发送同样的请求。请求只带应用版本号，不含任务或个人信息；GitHub 会像处理其他网络请求一样看到你的 IP 地址。应用不会自动下载或安装更新。
+“自动检查更新”默认关闭。开启后，应用每天最多一次向 GitHub（`api.github.com`）查询本项目的最新版本；这个接口拒绝或出错时（例如同一网络的查询太多），改为访问 `github.com` 上本项目的最新发布页，从跳转地址读出版本号。手动点“检查更新”也发送同样的请求。请求只带应用版本号，不含任务或个人信息；GitHub 会像处理其他网络请求一样看到你的 IP 地址。应用不会自动下载或安装更新。
 
 ## English
 
@@ -40,4 +40,4 @@ On Android, reminder setup asks for permissions only after you tap it: notificat
 
 The app keeps a small diagnostics log in its local app data folder (a few rotating files) with the failure types of features such as reminders and the tray, and uncaught errors. Keys, web addresses, e-mail addresses, and system user names are removed before writing, and task content is not logged. The log is never uploaded; it leaves the device only if you choose "Export diagnostics" in Settings and share the file yourself. The exported file also lists the app and system versions, display settings, the AI preset and protocol names, and task counts.
 
-"Check for updates automatically" is off by default. When you turn it on, the app asks GitHub (`api.github.com`) for this project's latest release at most once a day; tapping "Check for updates" sends the same request. The request carries only the app version and no tasks or personal data. GitHub sees your IP address, as with any web request. The app never downloads or installs updates by itself.
+"Check for updates automatically" is off by default. When you turn it on, the app asks GitHub (`api.github.com`) for this project's latest release at most once a day. If that API refuses or fails (for example, when too many requests come from the same network), the app opens this project's latest-release page on `github.com` instead and reads the version from the address it redirects to. Tapping "Check for updates" sends the same request. The request carries only the app version and no tasks or personal data. GitHub sees your IP address, as with any web request. The app never downloads or installs updates by itself.

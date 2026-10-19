@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../diagnostics/app_log.dart';
 import '../storage.dart';
 import '../sync/sync_controller.dart';
 import '../sync/sync_engine.dart';
@@ -135,6 +136,19 @@ String syncErrorText(Object error, Map<String, String> t) {
     };
   }
   return t['syncErrorGeneric']!;
+}
+
+/// A log line for a failed setup step: the kind of failure and, for an HTTP
+/// answer, the request and status. Never addresses, names or passwords.
+String syncErrorLabel(Object error) {
+  if (error is SyncRemoteException) {
+    final status = RegExp(r'^\w+: HTTP \d{3}$').hasMatch(error.message)
+        ? ' (${error.message})'
+        : '';
+    return 'remote ${error.kind.name}$status';
+  }
+  if (error is SyncSetupException) return 'setup ${error.kind.name}';
+  return '${error.runtimeType}';
 }
 
 /// Checks a new sync password; null when it is acceptable.
@@ -278,6 +292,7 @@ class _WebDavSetupScreenState extends State<WebDavSetupScreen> {
         _probed = config;
       });
     } catch (error) {
+      AppLog.warn('sync', 'Connection check failed: ${syncErrorLabel(error)}');
       if (mounted) setState(() => _error = syncErrorText(error, t));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -311,6 +326,7 @@ class _WebDavSetupScreenState extends State<WebDavSetupScreen> {
       await sync.connect(_probed!, _secret.text, password: password);
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
+      AppLog.warn('sync', 'Setup failed: ${syncErrorLabel(error)}');
       if (mounted) setState(() => _error = syncErrorText(error, t));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -476,7 +492,9 @@ class _WebDavSetupScreenState extends State<WebDavSetupScreen> {
         ],
       ] else ...[
         Text(
-          _fill(t['syncFoundVault']!, {'count': info.deviceFiles}),
+          info.deviceFiles == 0
+              ? t['syncFoundVaultNoDevices']!
+              : _fill(t['syncFoundVault']!, {'count': info.deviceFiles}),
           key: const ValueKey('sync-found-vault'),
         ),
         if (vault.encrypted) ...[
@@ -623,32 +641,10 @@ class _SyncDashboardState extends State<_SyncDashboard> {
   }
 
   Future<void> _rename() async {
-    final controller = TextEditingController(text: sync.config?.deviceName);
     final name = await showDialog<String>(
       context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text(t['syncRenameDevice']!),
-        content: TextField(
-          key: const ValueKey('sync-rename-input'),
-          controller: controller,
-          autofocus: true,
-          maxLength: 64,
-          decoration: InputDecoration(labelText: t['syncDeviceName']),
-          onSubmitted: (value) => Navigator.pop(dialog, value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog),
-            child: Text(t['cancel']!),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialog, controller.text),
-            child: Text(t['save']!),
-          ),
-        ],
-      ),
+      builder: (_) => _RenameDialog(t: t, initial: sync.config?.deviceName),
     );
-    controller.dispose();
     final trimmed = name?.trim() ?? '';
     if (trimmed.isNotEmpty) await _run(() => sync.renameDevice(trimmed));
   }
@@ -846,6 +842,7 @@ class _SyncDashboardState extends State<_SyncDashboard> {
       subtitle: Text(details.join(' · ')),
       trailing: device.isThisDevice
           ? IconButton(
+              key: const ValueKey('sync-rename-device'),
               tooltip: t['syncRenameDevice'],
               icon: const Icon(Icons.edit_outlined),
               onPressed: _busy ? null : _rename,
@@ -855,6 +852,54 @@ class _SyncDashboardState extends State<_SyncDashboard> {
               icon: const Icon(Icons.delete_outline),
               onPressed: _busy ? null : () => _removeDevice(device),
             ),
+    );
+  }
+}
+
+/// Owns its controller, so the field survives the closing animation.
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.t, this.initial});
+
+  final Map<String, String> t;
+  final String? initial;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final _name = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    return AlertDialog(
+      title: Text(t['syncRenameDevice']!),
+      content: TextField(
+        key: const ValueKey('sync-rename-input'),
+        controller: _name,
+        autofocus: true,
+        maxLength: 64,
+        decoration: InputDecoration(labelText: t['syncDeviceName']),
+        onSubmitted: (value) => Navigator.pop(context, value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(t['cancel']!),
+        ),
+        FilledButton(
+          key: const ValueKey('sync-rename-save'),
+          onPressed: () => Navigator.pop(context, _name.text),
+          child: Text(t['save']!),
+        ),
+      ],
     );
   }
 }

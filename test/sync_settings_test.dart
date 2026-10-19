@@ -159,6 +159,21 @@ Future<void> _tapAndWait(
   await tester.pumpAndSettle();
 }
 
+Future<void> _connect(WidgetTester tester, UiRig rig) => _wait(
+  tester,
+  rig.controller.connect(
+    const SyncProviderConfig(
+      kind: SyncProviderKind.webdav,
+      deviceName: 'Phone',
+      webdav: WebDavSettings(
+        url: 'https://dav.example.com/dav/',
+        username: 'user',
+      ),
+    ),
+    'secret',
+  ),
+);
+
 void main() {
   testWidgets('the settings row opens the sync page', (tester) async {
     final rig = await _rig(tester);
@@ -299,20 +314,7 @@ void main() {
 
   testWidgets('disconnecting returns to the intro', (tester) async {
     final rig = await _rig(tester);
-    await _wait(
-      tester,
-      rig.controller.connect(
-        const SyncProviderConfig(
-          kind: SyncProviderKind.webdav,
-          deviceName: 'Phone',
-          webdav: WebDavSettings(
-            url: 'https://dav.example.com/dav/',
-            username: 'user',
-          ),
-        ),
-        'secret',
-      ),
-    );
+    await _connect(tester, rig);
     await tester.pumpWidget(rig.app(const SyncSettingsScreen()));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('sync-dashboard')), findsOneWidget);
@@ -340,20 +342,7 @@ void main() {
     tester,
   ) async {
     final rig = await _rig(tester);
-    await _wait(
-      tester,
-      rig.controller.connect(
-        const SyncProviderConfig(
-          kind: SyncProviderKind.webdav,
-          deviceName: 'Phone',
-          webdav: WebDavSettings(
-            url: 'https://dav.example.com/dav/',
-            username: 'user',
-          ),
-        ),
-        'secret',
-      ),
-    );
+    await _connect(tester, rig);
     rig.server.password = 'rotated';
     await _wait(tester, rig.controller.syncNow());
     await tester.pumpWidget(rig.app(const SyncSettingsScreen()));
@@ -372,5 +361,62 @@ void main() {
     expect(rig.secret.value, 'rotated');
     expect(rig.controller.status.phase, SyncPhase.idle);
     expect(find.byKey(const ValueKey('sync-action-input')), findsNothing);
+  });
+
+  testWidgets('renaming this device closes the dialog cleanly', (tester) async {
+    final rig = await _rig(tester);
+    await _connect(tester, rig);
+    await tester.pumpWidget(rig.app(const SyncSettingsScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('Phone'), findsOneWidget);
+
+    await _tapAndSettle(
+      tester,
+      find.byKey(const ValueKey('sync-rename-device')),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('sync-rename-input')),
+      '  Desk PC  ',
+    );
+    await _tapAndWait(
+      tester,
+      find.byKey(const ValueKey('sync-rename-save')),
+      () => rig.controller.config?.deviceName == 'Desk PC',
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('sync-rename-input')), findsNothing);
+    expect(rig.controller.config?.deviceName, 'Desk PC');
+    expect(find.text('Desk PC'), findsOneWidget);
+
+    // Cancelling keeps the name.
+    await _tapAndSettle(
+      tester,
+      find.byKey(const ValueKey('sync-rename-device')),
+    );
+    await _tapAndSettle(tester, find.text(en['cancel']!));
+    expect(tester.takeException(), isNull);
+    expect(rig.controller.config?.deviceName, 'Desk PC');
+  });
+
+  testWidgets('sync data without devices is described plainly', (tester) async {
+    final rig = await _rig(tester);
+    await _connect(tester, rig);
+    await _wait(tester, rig.controller.disconnect(deleteOwnFile: true));
+    expect(
+      rig.server.files.keys.where((path) => path.endsWith('.cps')),
+      isEmpty,
+    );
+
+    await tester.pumpWidget(rig.app(const WebDavSetupScreen()));
+    await tester.pumpAndSettle();
+    await _fillWebDav(tester);
+    await _tapAndSettle(
+      tester,
+      find.byKey(const ValueKey('sync-webdav-connect')),
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('sync-found-vault'))).data,
+      en['syncFoundVaultNoDevices'],
+    );
   });
 }
