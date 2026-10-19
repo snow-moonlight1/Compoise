@@ -72,6 +72,15 @@ class ReleaseVersion implements Comparable<ReleaseVersion> {
 
 enum UpdateCheckStatus { available, upToDate, failed }
 
+class _UpdateHttpError implements Exception {
+  const _UpdateHttpError(this.status);
+
+  final int status;
+
+  @override
+  String toString() => 'HTTP $status';
+}
+
 class UpdateCheckResult {
   const UpdateCheckResult(this.status, {this.latest, this.url});
 
@@ -87,7 +96,9 @@ class UpdateCheckResult {
 /// Asks GitHub for the latest formal release and compares it with this build.
 ///
 /// The request carries no user data: only the fixed URL, an `Accept` header
-/// and a `User-Agent` naming the app version. Failures are quiet and logged.
+/// and a `User-Agent` naming the app version. When the API refuses or fails,
+/// the release page on github.com is asked the same way. Failures are quiet
+/// and logged.
 class UpdateChecker {
   UpdateChecker({
     http.Client? client,
@@ -111,50 +122,91 @@ class UpdateChecker {
   Future<UpdateCheckResult> check() async {
     final client = _client ?? http.Client();
     try {
-      final res = await client
-          .get(
-            Uri.parse(latestReleaseApi),
-            headers: {
-              'Accept': 'application/vnd.github+json',
-              'User-Agent': 'Compoise/$appVersion',
-            },
-          )
-          .timeout(timeout);
-      if (res.statusCode != 200) {
-        AppLog.warn('update', 'Update check HTTP ${res.statusCode}');
+      try {
+        return await _viaApi(client);
+      } catch (e) {
+        AppLog.warn('update', 'Update check failed: ${_describe(e)}');
+      }
+      // The API allows 60 anonymous requests an hour per IP address, which a
+      // shared network or proxy can use up. The release page redirects to the
+      // latest tag without that limit.
+      try {
+        return await _viaReleasePage(client);
+      } catch (e) {
+        AppLog.warn('update', 'Release page check failed: ${_describe(e)}');
         return const UpdateCheckResult(UpdateCheckStatus.failed);
       }
-      final json = jsonDecode(utf8.decode(res.bodyBytes));
-      if (json is! Map) throw const FormatException('release is not an object');
-      if (json['draft'] == true || json['prerelease'] == true) {
-        return const UpdateCheckResult(UpdateCheckStatus.upToDate);
-      }
-      final tag = json['tag_name'];
-      final latest = tag is String ? ReleaseVersion.parse(tag) : null;
-      final current = ReleaseVersion.parse(_current);
-      if (latest == null || current == null) {
-        throw const FormatException('unreadable version');
-      }
-      if (latest.isPreRelease || !(latest > current)) {
-        return UpdateCheckResult(
-          UpdateCheckStatus.upToDate,
-          latest: latest.label,
-        );
-      }
-      final page = json['html_url'];
-      return UpdateCheckResult(
-        UpdateCheckStatus.available,
-        latest: latest.label,
-        url: page is String && page.startsWith(releasePagePrefix)
-            ? page
-            : latestReleasePage,
-      );
-    } catch (e) {
-      AppLog.warn('update', 'Update check failed: ${e.runtimeType}');
-      return const UpdateCheckResult(UpdateCheckStatus.failed);
     } finally {
       if (_client == null) client.close();
     }
+  }
+
+  static String _describe(Object error) =>
+      error is _UpdateHttpError ? error.toString() : '${error.runtimeType}';
+
+  Future<UpdateCheckResult> _viaApi(http.Client client) async {
+    final res = await client
+        .get(
+          Uri.parse(latestReleaseApi),
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'Compoise/$appVersion',
+          },
+        )
+        .timeout(timeout);
+    if (res.statusCode != 200) throw _UpdateHttpError(res.statusCode);
+    final json = jsonDecode(utf8.decode(res.bodyBytes));
+    if (json is! Map) throw const FormatException('release is not an object');
+    if (json['draft'] == true || json['prerelease'] == true) {
+      return const UpdateCheckResult(UpdateCheckStatus.upToDate);
+    }
+    final tag = json['tag_name'];
+    if (tag is! String) throw const FormatException('no tag');
+    final page = json['html_url'];
+    return _compare(tag, page is String ? page : null);
+  }
+
+  /// `github.com/.../releases/latest` answers with a redirect to the page of
+  /// the latest formal release, whose last path segment is its tag.
+  Future<UpdateCheckResult> _viaReleasePage(http.Client client) async {
+    final request = http.Request('GET', Uri.parse(latestReleasePage))
+      ..followRedirects = false
+      ..headers['User-Agent'] = 'Compoise/$appVersion';
+    final res = await http.Response.fromStream(
+      await client.send(request).timeout(timeout),
+    ).timeout(timeout);
+    final location = res.headers['location'];
+    if (res.statusCode < 300 || res.statusCode >= 400 || location == null) {
+      throw _UpdateHttpError(res.statusCode);
+    }
+    final target = Uri.parse(latestReleasePage).resolve(location).toString();
+    const tagPrefix = '${releasePagePrefix}releases/tag/';
+    if (!target.startsWith(tagPrefix)) {
+      throw const FormatException('unexpected redirect');
+    }
+    final tag = Uri.decodeComponent(target.substring(tagPrefix.length));
+    return _compare(tag, target);
+  }
+
+  UpdateCheckResult _compare(String tag, String? page) {
+    final latest = ReleaseVersion.parse(tag);
+    final current = ReleaseVersion.parse(_current);
+    if (latest == null || current == null) {
+      throw const FormatException('unreadable version');
+    }
+    if (latest.isPreRelease || !(latest > current)) {
+      return UpdateCheckResult(
+        UpdateCheckStatus.upToDate,
+        latest: latest.label,
+      );
+    }
+    return UpdateCheckResult(
+      UpdateCheckStatus.available,
+      latest: latest.label,
+      url: page != null && page.startsWith(releasePagePrefix)
+          ? page
+          : latestReleasePage,
+    );
   }
 
   /// The automatic check: only when the user turned it on and at most once a

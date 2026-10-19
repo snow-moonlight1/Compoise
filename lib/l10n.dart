@@ -612,7 +612,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncWebdavUser': 'Username',
     'syncWebdavPassword': 'Password',
     'syncWebdavPasswordHint':
-        'For Nutstore, use an app password created under Security in its web settings.',
+        'Nutstore needs a third-party app password, not your sign-in password. Create one in the security settings of the Nutstore website or app.',
     'syncWebdavFolderNote':
         'Compoise uses a folder named Compoise at this address and creates it if needed.',
     'syncWebdavUrlInvalid':
@@ -626,6 +626,8 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncNewVault':
         'There is no Compoise sync data here yet. A new one will be created.',
     'syncFoundVault': 'Found existing sync data (devices: {count}).',
+    'syncFoundVaultNoDevices':
+        'Found existing sync data. No device is using it right now.',
     'syncFoundEncrypted':
         'The sync data is encrypted. Enter the sync password to join.',
     'syncJoinMerge':
@@ -1639,7 +1641,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncWebdavUrl': '服务器地址',
     'syncWebdavUser': '用户名',
     'syncWebdavPassword': '密码',
-    'syncWebdavPasswordHint': '坚果云请使用在网页版“账户信息 → 安全选项”里生成的应用密码。',
+    'syncWebdavPasswordHint': '坚果云要用第三方应用密码，不是登录密码。可以在坚果云网页版或客户端的安全设置里生成。',
     'syncWebdavFolderNote': '方寸会在这个地址下使用名为 Compoise 的文件夹，没有时自动创建。',
     'syncWebdavUrlInvalid': '请输入以 https:// 或 http:// 开头的地址',
     'syncWebdavInsecure':
@@ -1650,6 +1652,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncWorking': '正在连接…',
     'syncNewVault': '这个位置还没有方寸的同步数据，将新建一份。',
     'syncFoundVault': '找到已有的同步数据（{count} 台设备）。',
+    'syncFoundVaultNoDevices': '找到已有的同步数据，目前没有设备在使用。',
     'syncFoundEncrypted': '同步数据已加密，请输入同步密码后加入。',
     'syncJoinMerge': '本机现有的任务会和同步数据合并，两边的任务都会保留。',
     'syncUsePassword': '设置同步密码（可选）',
@@ -2584,7 +2587,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncWebdavUser': 'ユーザー名',
     'syncWebdavPassword': 'パスワード',
     'syncWebdavPasswordHint':
-        'Nutstore（坚果云）では、ウェブ版の「セキュリティ」で作成したアプリパスワードを使ってください。',
+        'Nutstore（坚果云）では、ログインパスワードではなくサードパーティアプリ用パスワードを使います。Nutstore のウェブ版またはアプリのセキュリティ設定で作成できます。',
     'syncWebdavFolderNote': 'このアドレスの Compoise フォルダーを使います。なければ作成します。',
     'syncWebdavUrlInvalid': 'https:// または http:// で始まるアドレスを入力してください',
     'syncWebdavInsecure':
@@ -2595,6 +2598,7 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncWorking': '接続中…',
     'syncNewVault': 'ここにはまだ Compoise の同期データがありません。新しく作成します。',
     'syncFoundVault': '既存の同期データが見つかりました（{count} 台）。',
+    'syncFoundVaultNoDevices': '既存の同期データが見つかりました。現在使っているデバイスはありません。',
     'syncFoundEncrypted': '同期データは暗号化されています。同期パスワードを入力して参加してください。',
     'syncJoinMerge': 'この端末のタスクは同期データとまとめられ、両方のタスクが残ります。',
     'syncUsePassword': '同期パスワードを設定する（任意）',

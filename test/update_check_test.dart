@@ -112,6 +112,73 @@ void main() {
     }
   });
 
+  test('a refused API falls back to the release page redirect', () async {
+    final seen = <http.Request>[];
+    final checker = UpdateChecker(
+      currentVersion: '1.0.0+1',
+      client: MockClient((request) async {
+        seen.add(request);
+        if (request.url.toString() == latestReleaseApi) {
+          return http.Response('{"message":"API rate limit exceeded"}', 403);
+        }
+        return http.Response(
+          '',
+          302,
+          headers: {
+            'location':
+                'https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.1',
+          },
+        );
+      }),
+    );
+    final result = await checker.check();
+    expect(result.status, UpdateCheckStatus.available);
+    expect(result.latest, '1.0.1');
+    expect(
+      result.url,
+      'https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.1',
+    );
+    expect(seen.map((r) => r.url.toString()), [
+      latestReleaseApi,
+      latestReleasePage,
+    ]);
+    expect(seen.last.followRedirects, isFalse);
+    expect(seen.last.headers['User-Agent'], startsWith('Compoise/'));
+    expect(seen.last.body, isEmpty);
+  });
+
+  test('the release page fallback is up to date or fails quietly', () async {
+    Future<UpdateCheckStatus> viaPage(http.Response page) => UpdateChecker(
+      currentVersion: '1.0.0+1',
+      client: MockClient(
+        (request) async => request.url.toString() == latestReleaseApi
+            ? throw const SocketException('reset')
+            : page,
+      ),
+    ).check().then((result) => result.status);
+    http.Response redirect(String location) =>
+        http.Response('', 302, headers: {'location': location});
+
+    expect(
+      await viaPage(redirect('/snow-moonlight1/Compoise/releases/tag/v1.0.0')),
+      UpdateCheckStatus.upToDate,
+    );
+    for (final page in [
+      // No release yet: GitHub sends the list instead of a tag.
+      redirect('https://github.com/snow-moonlight1/Compoise/releases'),
+      redirect(
+        'https://example.com/snow-moonlight1/Compoise/releases/tag/v9.0.0',
+      ),
+      redirect(
+        'https://github.com/snow-moonlight1/Compoise/releases/tag/nightly',
+      ),
+      http.Response('<html></html>', 200),
+      http.Response('', 429),
+    ]) {
+      expect(await viaPage(page), UpdateCheckStatus.failed);
+    }
+  });
+
   test('the automatic check is off by default and runs once a day', () async {
     var calls = 0;
     var now = DateTime(2026, 10, 20, 9);
