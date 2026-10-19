@@ -39,6 +39,16 @@ enum SyncConnectionProblem {
   unsupportedProvider,
 }
 
+/// Secure storage refused the provider secret.
+class SyncSecureStorageException implements Exception {
+  const SyncSecureStorageException(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => 'SyncSecureStorageException: $cause';
+}
+
 class SyncController extends ChangeNotifier {
   SyncController({
     required this.engine,
@@ -88,6 +98,11 @@ class SyncController extends ChangeNotifier {
   Timer? _retryTimer;
   Timer? _periodicTimer;
   Future<void> _absorbing = Future.value();
+  final List<VoidCallback> _disposeHooks = [];
+
+  /// Runs [hook] when the controller is disposed, for listeners the app
+  /// attached to it.
+  void onDispose(VoidCallback hook) => _disposeHooks.add(hook);
 
   SyncProviderConfig? get config => _config;
   SyncConnectionProblem? get problem => _problem;
@@ -118,6 +133,9 @@ class SyncController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _cancelTimers();
+    for (final hook in _disposeHooks) {
+      hook();
+    }
     if (_started) {
       engine.removeListener(_relay);
       source.removeListener(_onLibraryChanged);
@@ -187,7 +205,7 @@ class SyncController extends ChangeNotifier {
     }
     final remote = remoteFactory(config, secret);
     final previousConfig = _config;
-    await secrets.provider.write(secret);
+    await _writeSecret(secret);
     await localStore.saveProvider(config.encode());
     _config = config;
     engine.deviceName = config.deviceName;
@@ -225,12 +243,20 @@ class SyncController extends ChangeNotifier {
   /// Replaces the provider secret after the provider rejected it, for
   /// example a changed WebDAV password.
   Future<SyncReport?> updateSecret(String secret) async {
-    await secrets.provider.write(secret);
+    await _writeSecret(secret);
     if (!await _attach()) {
       _notify();
       return null;
     }
     return syncNow();
+  }
+
+  Future<void> _writeSecret(String secret) async {
+    try {
+      await secrets.provider.write(secret);
+    } catch (error) {
+      throw SyncSecureStorageException(error);
+    }
   }
 
   Future<void> renameDevice(String name) async {

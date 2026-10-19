@@ -15,6 +15,7 @@ import '../services/linux_test_notification.dart';
 import '../services/linux_autostart.dart';
 import '../shortcuts.dart';
 import '../storage.dart';
+import '../sync/sync_controller.dart';
 import '../theme.dart';
 import '../ui/font_policy.dart';
 import '../ui/songti_font.dart';
@@ -27,6 +28,7 @@ import 'settings_backup_flow.dart';
 import 'settings_desktop.dart';
 import 'settings_model_request.dart';
 import 'settings_maintenance.dart';
+import 'settings_sync.dart';
 import 'android_reminder_setup_screen.dart';
 
 enum _SettingsPanel { assistant, font }
@@ -213,6 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     final policy = PlatformUiPolicy.of(context);
     final preset = getAIProviderPreset(store.aiConfig.provider);
+    final sync = context.watch<SyncController?>();
 
     _models.syncWithLiveConfig(store);
 
@@ -445,6 +448,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
 
+            if (sync != null) ...[
+              _sectionTitle(theme, t['syncTitle']!, Icons.sync),
+              _navRow(
+                key: const ValueKey('settings-sync-row'),
+                title: t['syncTitle']!,
+                subtitle: syncStatusText(context, sync, t),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SyncSettingsScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             _sectionTitle(
               theme,
               t['dataManagement']!,
@@ -510,7 +527,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 (value) async {
                   store.updateSettings((s) => s..closeToTray = value);
                   final result = await applyDesktopSettings(store);
-                  if (context.mounted && value && !result.closeToTrayEffective) {
+                  if (context.mounted &&
+                      value &&
+                      !result.closeToTrayEffective) {
                     showAppNotice(context, t['desktopTrayUnavailable']!);
                   }
                 },
