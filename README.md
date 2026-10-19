@@ -121,6 +121,7 @@ lib/                 Flutter 应用：界面、数据模型和业务逻辑
   screenshot_import/ 截图识别流程
   ocr/               OCR 原生库接口与模型下载
   services/          提醒、桌面外壳等平台服务
+  sync/              可选同步（开发中）
   experiments/       未接入正式应用的实验代码
 native/ocr/          OCR 原生库（C++，ncnn + PP-OCRv5）
 android/ windows/ linux/   各平台工程
