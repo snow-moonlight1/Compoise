@@ -15,6 +15,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../diagnostics/app_log.dart';
+
 import 'sync_crypto.dart';
 import 'sync_files.dart';
 import 'sync_library.dart';
@@ -713,6 +715,8 @@ class SyncEngine extends ChangeNotifier {
     try {
       return await _round(meta, _remote!);
     } on SyncRemoteException catch (error) {
+      // The status only says what kind; this says which request and why.
+      AppLog.warn('sync', 'Round failed (${error.kind.name}) ${error.message}');
       _setStatus(
         _with(
           error.kind == SyncRemoteFailure.auth ||
@@ -841,8 +845,14 @@ class SyncEngine extends ChangeNotifier {
       }
 
       final own = _ownFile;
+      // Right after joining, a file under this device's name is a copy from
+      // an earlier membership: the local state that matched it was cleared.
+      // Merge it like any other device's, or the first upload would replace
+      // what may be the only copy of this library.
+      final mergeOwn = meta.joinMode != null;
       for (final entry in entries) {
-        if (entry.name == own || deviceIdOfFile(entry.name) == null) continue;
+        if (deviceIdOfFile(entry.name) == null) continue;
+        if (entry.name == own && !mergeOwn) continue;
         if (meta.peers[entry.name]?.version == entry.version) continue;
         if (blobs[entry.name]?.version == entry.version) continue;
         try {
@@ -907,6 +917,7 @@ class SyncEngine extends ChangeNotifier {
       await localStore.saveState(output.state);
       await localStore.savePending(null);
       for (final peer in output.peers) {
+        if (peer.name == own) continue;
         meta.peers[peer.name] = SyncPeerRecord(
           // An unreadable file may have been caught mid-upload; an empty
           // version makes the next round download it again.

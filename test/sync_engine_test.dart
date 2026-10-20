@@ -193,6 +193,56 @@ void main() {
     expect(a.host.hasTask('local'), isFalse);
   });
 
+  test('rejoining after the library was lost restores it from this device\'s '
+      'own file', () async {
+    final a = await _device(remote, 'A', clock: clock);
+    a.host.addTask('t1', 'Only copy');
+    a.host.addTask('t2', 'Deleted while joined');
+    await a.engine.createVault(remote, provider: 'memory');
+    a.host.removeTask('t2');
+    await a.engine.sync();
+    final own = deviceFileName(a.engine.deviceId);
+    await a.engine.disconnect();
+
+    // For example an old backup restored while sync was off: the device id
+    // stays, the library is back to the empty starter board.
+    a.host.removeTask('t1');
+    await a.engine.joinVault(remote, provider: 'memory');
+    expect(a.engine.status.phase, SyncPhase.idle);
+    expect(a.host.hasTask('t1'), isTrue);
+    expect(a.host.hasTask('t2'), isFalse, reason: 'tombstone kept');
+    expect(a.engine.devices.map((d) => d.isThisDevice), [true]);
+    expect(a.engine.status.unreadablePeers, 0);
+
+    // The uploaded file still holds everything, for any device.
+    expect(remote.files.keys, contains(own));
+    final b = await _device(remote, 'B', clock: clock);
+    await b.engine.joinVault(remote, provider: 'memory');
+    expect(b.host.hasTask('t1'), isTrue);
+    expect(b.host.hasTask('t2'), isFalse);
+
+    // Later rounds treat the file as this device's own again.
+    final reads = remote.log.where((op) => op == 'read $own').length;
+    a.host.addTask('t3', 'After rejoining');
+    await a.engine.sync();
+    expect(remote.log.where((op) => op == 'read $own').length, reads);
+  });
+
+  test(
+    'a merge rejoin keeps local additions and the earlier own file',
+    () async {
+      final a = await _device(remote, 'A', clock: clock);
+      a.host.addTask('t1', 'From before');
+      await a.engine.createVault(remote, provider: 'memory');
+      await a.engine.disconnect();
+      a.host.removeTask('t1');
+      a.host.addTask('t2', 'Added while off');
+      await a.engine.joinVault(remote, provider: 'memory');
+      expect(a.host.hasTask('t1'), isTrue);
+      expect(a.host.hasTask('t2'), isTrue);
+    },
+  );
+
   test(
     'a pristine device replaces automatically; an empty vault never wipes',
     () async {
