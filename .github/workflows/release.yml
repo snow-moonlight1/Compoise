@@ -84,6 +84,12 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: python3 scripts/check_build_number.py --tag "$TAG"
 
+      - name: Require a complete changelog entry
+        if: steps.v.outputs.formal == 'true'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 scripts/changelog_notes.py check --tag "$TAG"
+
       - name: Select platforms
         id: p
         shell: bash
@@ -538,6 +544,10 @@ jobs:
 
           License: GPL-3.0-only.
           NOTES
+          # The notes open with this version's CHANGELOG entry (What's new).
+          python3 scripts/changelog_notes.py notes --tag "$TAG" > whats-new.md
+          cat whats-new.md notes.md > notes-full.md
+          mv notes-full.md notes.md
 
       - name: Create draft release
         env:

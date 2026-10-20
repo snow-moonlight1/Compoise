@@ -6,7 +6,9 @@
 
 1. 在 `pubspec.yaml` 中把 `version` 改成新版本，格式为 `X.Y.Z+N`：`X.Y.Z` 是对外版本号，`N` 是 Android 的 versionCode，每次发版都要加一。
    同时把 `lib/app_version.dart` 里的 `appVersion` 和 `appBuildNumber` 改成一样的值（设置页、诊断信息和检查更新用它）；`test/update_check_test.dart` 会在两者不一致时失败。
-2. 在 [CHANGELOG](../CHANGELOG.md) 中把 `Unreleased` 下的内容移到新版本条目，写上日期。
+2. 在 [CHANGELOG](../CHANGELOG.md) 中把 `Unreleased` 下的内容移到新版本条目 `## [X.Y.Z] - YYYY-MM-DD`，`Unreleased` 留空。条目先写中文小节（`### 新增`、`### 变更`、`### 修复`、`### 维护`、`### 已知限制` 等），再写对应的英文小节（`### Added`、`### Changed`、`### Fixed`、`### Maintenance`、`### Known limitations` 等），每个小节至少一条；文件末尾补上 `[X.Y.Z]` 链接，并把 `[Unreleased]` 链接改成从 `vX.Y.Z` 开始比较。
+   这个条目会原样放在 Release 说明顶部（“更新 / What's new”），所以要写全用户能感知的变化和已知限制，不只写主要功能。平时合并用户能看到的改动时就补进 `Unreleased`，发版时只需整理。
+   `scripts/changelog_notes.py check` 检查 `pubspec.yaml` 版本对应的条目：有日期、是最新一条、中英文小节都有内容、链接齐全。PR 检查每次都跑它，所以改了版本号却没写条目的 PR 不能合并；打正式标签时还会要求 `Unreleased` 已经清空。
 3. 通过 PR 合并到 `main`，确认 CI 是绿的。
 
 ## 2. 打标签
@@ -31,12 +33,12 @@ python3 scripts/check_build_number.py --tag v1.1.0
 
 依次运行这些步骤：
 
-1. **preflight**：检查版本号、Flutter 版本，运行 `flutter analyze` 和 `flutter test`。
+1. **preflight**：检查版本号、更新日志条目（`scripts/changelog_notes.py check --tag`）和 Flutter 版本，运行 `flutter analyze` 和 `flutter test`。
 2. 三个平台并行构建，每个平台都会先编译 ncnn 和 OCR 原生库：
    - **build-android**：生成 armeabi-v7a、arm64-v8a 和 universal（含 x86_64）三个 APK。用仓库 secret 中的发布证书签名，并核对证书指纹。
    - **build-windows**：生成 x64 便携 ZIP 和 NSIS 安装程序。
    - **build-linux**：生成 x64 的 DEB、RPM 和 AppImage。
-3. **publish**：汇总文件，写入 `RELEASE_METADATA.txt` 和 `SHA256SUMS.txt`，生成中英双语的发布说明，创建草稿 Release。
+3. **publish**：汇总文件，写入 `RELEASE_METADATA.txt` 和 `SHA256SUMS.txt`，生成中英双语的发布说明，创建草稿 Release。发布说明顶部是 CHANGELOG 里这个版本的条目（`scripts/changelog_notes.py notes`），下面是固定的功能介绍和下载指引；`-ci` 标签用同版本的条目或 `Unreleased`，都没有时省略。
 
 产物共 10 个文件：
 

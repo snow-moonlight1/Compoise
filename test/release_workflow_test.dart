@@ -372,4 +372,33 @@ void main() {
     expect(text('docs/release-process.md').contains('GPL-3.0-only'), isTrue);
     expect(pubspec.contains('license:'), isFalse);
   });
+
+  test('release notes open with the CHANGELOG entry the checks require', () {
+    final preflight = release.substring(
+      release.indexOf('  preflight:'),
+      release.indexOf('  build-windows:'),
+    );
+    expect(
+      preflight.contains(
+        'python3 scripts/changelog_notes.py check --tag "\$TAG"',
+      ),
+      isTrue,
+    );
+    final notes = release.substring(
+      release.indexOf('- name: Write release notes'),
+    );
+    expect(
+      notes.contains(
+        'python3 scripts/changelog_notes.py notes --tag "\$TAG" > whats-new.md',
+      ),
+      isTrue,
+    );
+    expect(notes.contains('cat whats-new.md notes.md > notes-full.md'), isTrue);
+    expect(
+      text(
+        '.github/workflows/pr.yml',
+      ).contains('python3 scripts/changelog_notes.py check\n'),
+      isTrue,
+    );
+  });
 }
