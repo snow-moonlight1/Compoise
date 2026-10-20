@@ -14,4 +14,5 @@
 - [ ] 默认、漫画描边和拟态三种风格下都检查过，没有文字被裁切 / Checked default, comic outline and neumorphic styles for clipped text
 - [ ] 手机和桌面的行为只按需改动 / Mobile and desktop behavior changed only where intended
 - [ ] 数据或备份格式有变化时，已更新 docs 和测试 / Docs and tests updated if the data or backup format changed
+- [ ] 用户能看到的变化已写进 CHANGELOG 的 Unreleased（中文和英文）/ User-visible changes added under Unreleased in CHANGELOG (zh and en)
 - [ ] 没有提交密钥、签名材料或真实数据 / No keys, signing material or real data committed

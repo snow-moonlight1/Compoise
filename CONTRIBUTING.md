@@ -63,12 +63,13 @@ Center neumorphic labelled fields on the review page
 - **测试**：用描述行为的名字，例如 `screenshot_status_bar_test.dart`；测试里只用合成数据。
 - **数据格式**：改动本地数据或备份格式时，同步更新 [备份格式](docs/backup-format.md)和[本地存储](docs/local-storage.md)，并补充往返测试。
 - **依赖**：新增依赖或素材前，确认它的许可证与 GPL-3.0-only 兼容，并在 PR 里说明来源。
+- **更新日志**：用户能看到的改动（新功能、行为变化、修复、新的限制），在 [CHANGELOG](CHANGELOG.md) 的 `Unreleased` 下各补一条中文和英文。
 
 ## 发布版本
 
 维护者负责发版，流程详见[发布流程](docs/release-process.md)：
 
-1. 把 `pubspec.yaml` 的 `version` 改成新版本（如 `1.1.0+2`），并在 [CHANGELOG](CHANGELOG.md) 里补上这个版本的条目，然后合并到 `main`。
+1. 把 `pubspec.yaml` 的 `version` 改成新版本（如 `1.1.0+2`），并在 [CHANGELOG](CHANGELOG.md) 里把 `Unreleased` 整理成这个版本的条目（先中文、后英文），然后合并到 `main`。这个条目就是 Release 说明顶部的“更新 / What's new”，没有它 CI 会拒绝。
 2. 在 `main` 上打标签并推送：
 
    ```sh

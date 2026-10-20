@@ -74,6 +74,11 @@ jobs:
       - name: Release version guard regressions
         run: python3 -m unittest discover -s scripts/tests -p test_check_build_number.py
 
+      - name: Changelog entry for the pubspec version
+        run: |
+          python3 -m unittest discover -s scripts/tests -p test_changelog_notes.py
+          python3 scripts/changelog_notes.py check
+
       - name: Windows candidate audit regressions
         run: python3 -m unittest discover -s scripts/tests -p test_wp28_r2_candidate_audit.py
 
