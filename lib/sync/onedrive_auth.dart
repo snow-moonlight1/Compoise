@@ -230,7 +230,7 @@ class OneDriveAuth {
       if (access is! String || access.isEmpty || refresh is! String) {
         throw const SyncRemoteException(
           SyncRemoteFailure.protocol,
-          'token: HTTP 200 incomplete',
+          'login: HTTP 200 incomplete',
         );
       }
       final expiresIn = switch (body['expires_in']) {
@@ -288,7 +288,7 @@ SyncRemoteException tokenFailure(
     },
   };
   final detail = [
-    'token: HTTP $status',
+    'login: HTTP $status',
     if (code != null) code,
     if (number != null) 'AADSTS$number',
   ].join(' ');

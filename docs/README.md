@@ -11,6 +11,7 @@
 | [截图识别导入](ocr.md) | OCR 流程、识别规则、模型下载和隐私边界 |
 | [备份格式](backup-format.md) | JSON 备份的结构、导入检查和多卷恢复 |
 | [本地存储](local-storage.md) | 设备内的数据保存、启动恢复和修改数据模型的步骤 |
+| [同步](sync.md) | 可选同步的文件格式、加密、合并规则、OneDrive 和 WebDAV |
 | [AI 服务商](ai-providers.md) | 预设、自定义端点、连接测试和请求行为 |
 | [提醒](reminders.md) | 提醒调度和各平台的限制 |
 | [发布流程](release-process.md) | 版本号、打标签、CI 打包、草稿测试和发布 |

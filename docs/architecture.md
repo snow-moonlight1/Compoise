@@ -27,7 +27,7 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 | `lib/task_commands.dart`、`task_query.dart`、`task_filter.dart`、`task_stats.dart` | 任务的修改、读取、筛选和统计 |
 | `lib/planned_policy.dart`、`lib/deadline_policy.dart`、`lib/calendar_dates.dart` | 今天待办、截止时间和紧急性规则，见[任务与日程](tasks-and-schedule.md) |
 | `lib/planner/` | 日程页：日视图、周视图、任务池、日程编辑 |
-| `lib/screens/` | 页面：四象限首页、今天、已完成、搜索、设置（含“帮助与关于”里的检查更新和诊断导出，`settings_maintenance.dart`）、引导、Android 提醒设置、启动恢复 |
+| `lib/screens/` | 页面：四象限首页、今天、已完成、搜索、设置（含“帮助与关于”里的检查更新和诊断导出，`settings_maintenance.dart`；同步设置页 `settings_sync.dart`）、引导、Android 提醒设置、启动恢复 |
 | `lib/widgets/` | 可复用组件：任务卡片、详情面板、输入面板，以及统一的提示 `app_notice.dart` 等 |
 | `lib/screenshot_import/`、`lib/import_preview/`、`lib/ocr/` | 截图识别：选图、OCR、整理成草稿、校对页，见[截图识别导入](ocr.md) |
 | `lib/ai_service.dart`、`ai_presets.dart`、`ai_capabilities.dart`、`model_discovery.dart` | AI 请求、服务商预设、模型能力和模型列表，见 [AI 服务商](ai-providers.md) |
@@ -37,7 +37,7 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 | `lib/ui/` | 平台交互策略（`platform_ui_policy.dart`）、动画策略、字体策略 |
 | `lib/theme.dart` | 主题，包括漫画描边和拟态两种可选风格 |
 | `lib/l10n.dart` | English、简体中文、日本語文案 |
-| `lib/sync/` | 可选同步：按字段合并的同步状态、加密信封、文件格式、同步引擎、调度控制器和 WebDAV 传输，见[同步说明](sync.md) |
+| `lib/sync/` | 可选同步：按字段合并的同步状态、加密信封、文件格式、同步引擎、调度控制器；OneDrive 登录（`onedrive_auth.dart`、`oauth_browser.dart`）和传输（`onedrive_remote.dart`），WebDAV 传输（`webdav_remote.dart`），见[同步说明](sync.md) |
 | `lib/experiments/` | 尚未接入正式应用的实验（开发模式、托管 AI、拟态组件样板），正式界面不引用它们 |
 | `native/ocr/` | OCR 原生库（C++，ncnn + PP-OCRv5），通过 FFI 调用 |
 
@@ -45,13 +45,13 @@ Store（lib/storage.dart）── 任务命令、查询、筛选、统计（lib/
 
 - 任务板、任务、子项、日程和普通设置保存在本机 SharedPreferences，用双槽快照原子提交，详见[本地存储](local-storage.md)。
 - API 密钥通过 `flutter_secure_storage` 保存在系统安全存储中。
-- 没有账号，也没有自动云同步。用户可以用 JSON 文件备份和转移数据，详见[备份格式](backup-format.md)。
+- 没有方寸账号。同步是可选功能，默认关闭；开启后通过用户自己的 OneDrive 或 WebDAV 交换数据，可设同步密码加密，详见[同步说明](sync.md)。用户也可以用 JSON 文件备份和转移数据，详见[备份格式](backup-format.md)。
 
 ## 平台
 
 | 平台 | 说明 |
 | --- | --- |
-| Android | `applicationId` 和命名空间都是 `com.compoise.app`。提醒使用通知和闹钟调度，开机后恢复；`ReminderSettingsBridge.kt` 读取通知、精确闹钟、电池优化和厂商自启动状态，并打开对应的系统设置。截图通过系统文件选择器（SAF）读取。 |
+| Android | `applicationId` 和命名空间都是 `com.compoise.app`。提醒使用通知和闹钟调度，开机后恢复；`ReminderSettingsBridge.kt` 读取通知、精确闹钟、电池优化和厂商自启动状态，并打开对应的系统设置。截图通过系统文件选择器（SAF）读取。`OAuthBridge.kt` 打开系统浏览器登录 OneDrive，并接收 `com.compoise.app://oauth` 回调。 |
 | Windows | runner 承接托盘、单实例、全局快捷键、关闭到托盘和窗口生命周期。数据目录为 `%APPDATA%\Compoise\Compoise`。 |
 | Linux | GTK 窗口，密钥通过 Secret Service 保存，文件选择依赖 zenity 或 kdialog。设置里可以发送测试通知，应用运行时可定时提醒、汇总错过的提醒，支持托盘和可选登录启动；没有全局快捷键。 |
 

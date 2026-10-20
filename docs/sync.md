@@ -15,7 +15,7 @@ v1.2.0 起可以选择开启同步。本文说明同步的数据格式、合并�
 
 | 位置 | 状态 | 说明 |
 | --- | --- | --- |
-| OneDrive | 已完成（待真实账户实测） | 用个人 Microsoft 账户登录，使用 OneDrive 的“应用/Compoise”文件夹，方寸看不到网盘里的其他文件 |
+| OneDrive | 已完成（推荐） | 用个人 Microsoft 账户登录，使用 OneDrive 的“应用/Compoise”文件夹，方寸看不到网盘里的其他文件 |
 | 华为云空间 | v1.2.0 不做 | 原因见 [v1.2.0 执行记录](v1.2.0-execution.md#华为云空间) |
 | WebDAV | 已完成（高级选项） | 坚果云、Nextcloud、群晖等；需要填写地址、账号和应用密码 |
 
@@ -142,7 +142,7 @@ dev-<设备ID>.cps      每台设备一个文件：这台设备合并后的完�
 - 刷新令牌、访问令牌和过期时间存在系统安全存储（`compoise-sync-provider-secret`），不写文件。访问令牌过期前 5 分钟内，或 Graph 返回 401 时刷新一次；微软返回新的刷新令牌时立即保存。刷新令牌失效时提示重新登录。在微软账户里撤销授权后，已经拿到的访问令牌在过期前（通常不超过 1 小时）仍然能用，这段时间同步照常；令牌过期、刷新被拒绝后才提示重新登录。重新登录时比较 ID 令牌里的账号 ID，换成别的账号会被拒绝（它的应用文件夹是另一份数据），要换账号请先断开。
 - 文件放在 Graph 的 `me/drive/special/approot`（OneDrive 里显示为“应用/Compoise”），按文件名读写。列目录时跟随分页链接，但只接受 `graph.microsoft.com` 的链接；下载走 Graph 重定向到的预授权链接，不带访问令牌；4 MB 以内直接上传，更大的文件用上传会话分片（每片 3.2 MB，同样不带访问令牌）；新建 `vault.json` 用 `conflictBehavior=fail`，已存在时报冲突。版本号用 eTag。
 - 被限频（429、509，或带 Retry-After 的 503）时按服务器要求等待。
-- 日志只记录请求类型、HTTP 状态和错误代码（例如 `token: HTTP 400 invalid_grant AADSTS70008`），不记录账号、链接和令牌。
+- 日志只记录请求类型、HTTP 状态和错误代码（例如 `login: HTTP 400 invalid_grant AADSTS70008`）；网络连不上时记录请求方法、服务器主机名和原因（例如 `PUT dav.jianguoyun.com: connection reset`）。不记录账号、路径、链接和令牌。
 
 ## WebDAV
 
