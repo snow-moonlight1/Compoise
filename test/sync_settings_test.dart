@@ -5,17 +5,21 @@ import 'package:compoise/models.dart';
 import 'package:compoise/screens/settings_screen.dart';
 import 'package:compoise/screens/settings_sync.dart';
 import 'package:compoise/storage.dart';
+import 'package:compoise/sync/onedrive_auth.dart';
+import 'package:compoise/sync/onedrive_remote.dart';
 import 'package:compoise/sync/sync_controller.dart';
 import 'package:compoise/sync/sync_engine.dart';
 import 'package:compoise/sync/sync_local.dart';
 import 'package:compoise/sync/sync_provider.dart';
 import 'package:compoise/sync/webdav_remote.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers.dart';
+import 'onedrive_fake.dart';
 import 'sync_controller_fakes.dart';
 import 'webdav_fake.dart';
 
@@ -38,18 +42,28 @@ class UiRig {
       source: host,
       localStore: local,
       secrets: SyncSecrets(vaultKey: MemoryCredentials(), provider: secret),
-      remoteFactory: (config, value) => WebDavRemote(
-        baseUrl: normalizeWebDavUrl(config.webdav!.url)!,
-        username: config.webdav!.username,
-        password: value,
-        client: server.client,
-      ),
+      remoteFactory: (config, value, save) => switch (config.kind) {
+        SyncProviderKind.onedrive => OneDriveRemote(
+          tokens: OneDriveTokens.decode(value),
+          saveTokens: save,
+          client: graph.client,
+        ),
+        _ => WebDavRemote(
+          baseUrl: normalizeWebDavUrl(config.webdav!.url)!,
+          username: config.webdav!.username,
+          password: value,
+          client: server.client,
+        ),
+      },
+      oneDrive: browser.authorizer(),
       timer: timers.call,
     );
   }
 
   final Store store;
   final server = FakeDavServer(root: '/dav/');
+  final graph = FakeGraphServer();
+  late final browser = FakeBrowser(graph);
   final host = SourceHost();
   final local = MemorySyncLocalStore();
   final secret = MemoryCredentials();
@@ -171,6 +185,27 @@ Future<void> _connect(WidgetTester tester, UiRig rig) => _wait(
       ),
     ),
     'secret',
+  ),
+);
+
+/// Frames while the sign-in dialog's spinner runs; `pumpAndSettle` would
+/// never return.
+Future<void> _frames(WidgetTester tester, [int count = 8]) async {
+  for (var i = 0; i < count; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+Future<void> _connectOneDrive(WidgetTester tester, UiRig rig) => _wait(
+  tester,
+  rig.controller.connect(
+    const SyncProviderConfig(
+      kind: SyncProviderKind.onedrive,
+      deviceName: 'Phone',
+      account: 'me@outlook.com',
+      accountId: 'user-1',
+    ),
+    rig.graph.tokens().encode(),
   ),
 );
 
@@ -418,5 +453,156 @@ void main() {
       tester.widget<Text>(find.byKey(const ValueKey('sync-found-vault'))).data,
       en['syncFoundVaultNoDevices'],
     );
+  });
+
+  testWidgets(
+    'OneDrive setup signs in, creates a vault and shows the account',
+    (tester) async {
+      final rig = await _rig(tester);
+      await tester.pumpWidget(rig.app(const SyncSettingsScreen()));
+      await tester.pumpAndSettle();
+      await _tapAndSettle(
+        tester,
+        find.byKey(const ValueKey('sync-choose-onedrive')),
+      );
+      expect(find.text(en['syncOnedriveIntro']!), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('sync-device-name')),
+        'Laptop',
+      );
+      await tester.tap(find.byKey(const ValueKey('sync-onedrive-sign-in')));
+      await _frames(tester);
+      expect(
+        find.byKey(const ValueKey('sync-onedrive-dialog')),
+        findsOneWidget,
+      );
+      expect(find.text(en['syncOnedriveBrowserOpened']!), findsOneWidget);
+      expect(rig.browser.opened?.host, 'login.microsoftonline.com');
+
+      rig.browser.approve();
+      await _frames(tester);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('sync-onedrive-dialog')), findsNothing);
+      expect(find.text('Signed in as me@outlook.com'), findsOneWidget);
+      expect(find.byKey(const ValueKey('sync-new-vault')), findsOneWidget);
+      expect(rig.secret.value, isNull, reason: 'nothing saved before start');
+
+      await _tapAndWait(
+        tester,
+        find.byKey(const ValueKey('sync-start')),
+        () => rig.controller.joined,
+      );
+      expect(find.byKey(const ValueKey('sync-dashboard')), findsOneWidget);
+      final config = rig.controller.config!;
+      expect(config.kind, SyncProviderKind.onedrive);
+      expect(config.deviceName, 'Laptop');
+      expect(config.account, 'me@outlook.com');
+      expect(config.accountId, 'user-1');
+      final saved = OneDriveTokens.decode(rig.secret.value)!;
+      expect(rig.graph.refreshTokens, contains(saved.refreshToken));
+      expect(rig.graph.files.keys, contains('vault.json'));
+      expect(find.text('me@outlook.com · Apps/Compoise'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('sync-status-text')))
+            .data,
+        startsWith('Synced'),
+      );
+    },
+  );
+
+  testWidgets('a cancelled or declined OneDrive sign-in saves nothing', (
+    tester,
+  ) async {
+    final rig = await _rig(tester);
+    rig.browser.opens = false;
+    await tester.pumpWidget(rig.app(const OneDriveSetupScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('sync-onedrive-sign-in')));
+    await _frames(tester);
+    expect(find.text(en['syncOnedriveBrowserFailed']!), findsOneWidget);
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('sync-onedrive-copy-link')));
+    await _frames(tester);
+    expect(copied, rig.browser.opened.toString());
+    await tester.tap(find.byKey(const ValueKey('sync-onedrive-cancel')));
+    await _frames(tester);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('sync-onedrive-dialog')), findsNothing);
+    expect(find.byKey(const ValueKey('sync-setup-error')), findsNothing);
+    expect(rig.browser.listener!.closed, isTrue);
+
+    rig.browser.opens = true;
+    await tester.tap(find.byKey(const ValueKey('sync-onedrive-sign-in')));
+    await _frames(tester);
+    rig.browser.deny();
+    await _frames(tester);
+    await tester.pumpAndSettle();
+    expect(find.text(en['syncOnedriveDenied']!), findsOneWidget);
+    expect(find.byKey(const ValueKey('sync-onedrive-sign-in')), findsOneWidget);
+    expect(rig.secret.value, isNull);
+    expect(rig.local.provider, isNull);
+    expect(rig.graph.redeemCount, 0);
+  });
+
+  testWidgets('an expired OneDrive sign-in is renewed from the dashboard', (
+    tester,
+  ) async {
+    final rig = await _rig(tester);
+    await _connectOneDrive(tester, rig);
+    rig.graph.revokeSignIn();
+    await _wait(tester, rig.controller.syncNow());
+    expect(rig.controller.status.issue, SyncIssue.auth);
+    await tester.pumpWidget(rig.app(const SyncSettingsScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text(en['syncIssueAuthOnedrive']!), findsOneWidget);
+    expect(find.byKey(const ValueKey('sync-action-input')), findsNothing);
+
+    // Another account is refused: its app folder holds other data.
+    final before = rig.secret.value;
+    await tester.tap(find.byKey(const ValueKey('sync-onedrive-reauth')));
+    await _frames(tester);
+    rig.browser.approve(account: 'other@outlook.com', id: 'user-2');
+    await _frames(tester);
+    expect(
+      find.text(
+        en['syncOnedriveOtherAccount']!.replaceAll(
+          '{account}',
+          'me@outlook.com',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(rig.secret.value, before);
+    await tester.pumpAndSettle(const Duration(seconds: 5));
+
+    await tester.tap(find.byKey(const ValueKey('sync-onedrive-reauth')));
+    await _frames(tester);
+    rig.browser.approve();
+    for (var i = 0; i < 100 && rig.controller.status.issue != null; i++) {
+      await _step(tester);
+    }
+    await tester.pumpAndSettle();
+    expect(rig.controller.status.phase, SyncPhase.idle);
+    expect(rig.controller.status.issue, isNull);
+    expect(find.byKey(const ValueKey('sync-onedrive-reauth')), findsNothing);
+    final saved = OneDriveTokens.decode(rig.secret.value)!;
+    expect(rig.graph.refreshTokens, contains(saved.refreshToken));
   });
 }

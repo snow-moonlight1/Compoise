@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
     private var timeZone: DeviceTimeZoneBridge? = null
     private var ocrAssets: OcrAssetsBridge? = null
     private var reminderSettings: ReminderSettingsBridge? = null
+    private var oauth: OAuthBridge? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         quickCapture = QuickCaptureBridge(MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/quick_capture"))
@@ -24,6 +25,9 @@ class MainActivity : FlutterActivity() {
             MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.compoise/ocr_assets"))
         reminderSettings = ReminderSettingsBridge(this,
             MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/reminder_settings"))
+        oauth = OAuthBridge(this,
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/oauth"))
+        oauth?.accept(intent)
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (reminderSettings?.onActivityResult(requestCode) != true &&
@@ -47,12 +51,15 @@ class MainActivity : FlutterActivity() {
         ocrAssets = null
         reminderSettings?.destroy()
         reminderSettings = null
+        oauth?.destroy()
+        oauth = null
         super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (oauth?.accept(intent) == true) return
         quickCapture?.accept(intent)
     }
 }

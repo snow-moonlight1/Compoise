@@ -6,6 +6,8 @@ import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import '../credential_store.dart';
+import 'onedrive_auth.dart';
+import 'onedrive_remote.dart';
 import 'sync_engine.dart';
 import 'sync_remote.dart';
 import 'webdav_remote.dart';
@@ -19,6 +21,7 @@ class SyncProviderConfig {
     required this.deviceName,
     this.webdav,
     this.account,
+    this.accountId,
   });
 
   final SyncProviderKind kind;
@@ -30,12 +33,17 @@ class SyncProviderConfig {
   /// Account label for display, for example the OneDrive e-mail address.
   final String? account;
 
+  /// Identifies the signed-in account, so that signing in again with a
+  /// different one is noticed. Not shown.
+  final String? accountId;
+
   SyncProviderConfig copyWith({String? deviceName, String? account}) =>
       SyncProviderConfig(
         kind: kind,
         deviceName: deviceName ?? this.deviceName,
         webdav: webdav,
         account: account ?? this.account,
+        accountId: accountId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -44,6 +52,7 @@ class SyncProviderConfig {
     'deviceName': deviceName,
     if (webdav != null) 'webdav': webdav!.toJson(),
     if (account != null) 'account': account,
+    if (accountId != null) 'accountId': accountId,
   };
 
   static SyncProviderConfig? fromJson(Object? raw) {
@@ -56,11 +65,13 @@ class SyncProviderConfig {
     final webdav = WebDavSettings.fromJson(raw['webdav']);
     if (kind == SyncProviderKind.webdav && webdav == null) return null;
     final account = raw['account'];
+    final accountId = raw['accountId'];
     return SyncProviderConfig(
       kind: kind,
       deviceName: deviceName,
       webdav: webdav,
       account: account is String ? account : null,
+      accountId: accountId is String ? accountId : null,
     );
   }
 
@@ -99,12 +110,25 @@ String syncPlatformLabel(String platform) => switch (platform) {
   _ => platform,
 };
 
-/// Builds the transport for [config]. [secret] is the provider secret from
-/// secure storage: the WebDAV password, or an OAuth token bundle.
-typedef SyncRemoteFactory =
-    SyncRemote Function(SyncProviderConfig config, String secret);
+/// Stores a replacement provider secret, for example the token bundle after
+/// OneDrive issued a new refresh token.
+typedef SyncSecretSaver = Future<void> Function(String secret);
 
-SyncRemote defaultSyncRemoteFactory(SyncProviderConfig config, String secret) {
+/// Builds the transport for [config]. [secret] is the provider secret from
+/// secure storage: the WebDAV password, or an OAuth token bundle, which the
+/// transport hands back to [saveSecret] when it changes.
+typedef SyncRemoteFactory =
+    SyncRemote Function(
+      SyncProviderConfig config,
+      String secret,
+      SyncSecretSaver saveSecret,
+    );
+
+SyncRemote defaultSyncRemoteFactory(
+  SyncProviderConfig config,
+  String secret,
+  SyncSecretSaver saveSecret,
+) {
   switch (config.kind) {
     case SyncProviderKind.webdav:
       final settings = config.webdav!;
@@ -114,6 +138,12 @@ SyncRemote defaultSyncRemoteFactory(SyncProviderConfig config, String secret) {
         password: secret,
       );
     case SyncProviderKind.onedrive:
+      // An unreadable bundle fails with an auth error, which asks the user
+      // to sign in again.
+      return OneDriveRemote(
+        tokens: OneDriveTokens.decode(secret),
+        saveTokens: saveSecret,
+      );
     case SyncProviderKind.huawei:
       throw UnsupportedError('${config.kind.name} is not available yet');
   }

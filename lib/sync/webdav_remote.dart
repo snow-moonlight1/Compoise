@@ -8,13 +8,12 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io'
-    show HandshakeException, HttpDate, HttpException, SocketException;
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
+import 'sync_http.dart';
 import 'sync_remote.dart';
 
 /// The non-secret half of a WebDAV connection. The password lives in secure
@@ -113,25 +112,12 @@ class WebDavRemote implements SyncRemote {
       ..headers['Authorization'] = _auth
       ..headers.addAll(headers);
     if (body != null) request.bodyBytes = body;
-    try {
-      final streamed = await _client.send(request).timeout(timeout);
-      return await http.Response.fromStream(streamed).timeout(timeout);
-    } on TimeoutException {
-      throw const SyncRemoteException(SyncRemoteFailure.network, 'timeout');
-    } on SocketException catch (error) {
-      throw SyncRemoteException(SyncRemoteFailure.network, error.message);
-    } on HandshakeException catch (error) {
-      throw SyncRemoteException(SyncRemoteFailure.network, error.message);
-    } on HttpException catch (error) {
-      throw SyncRemoteException(SyncRemoteFailure.network, error.message);
-    } on http.ClientException catch (error) {
-      throw SyncRemoteException(SyncRemoteFailure.network, error.message);
-    }
+    return sendSyncRequest(_client, request, timeout);
   }
 
   static SyncRemoteException _failure(http.Response response, String what) {
     final status = response.statusCode;
-    final retryAfter = _retryAfter(response.headers['retry-after']);
+    final retryAfter = parseRetryAfter(response.headers['retry-after']);
     final kind = switch (status) {
       401 => SyncRemoteFailure.auth,
       403 => SyncRemoteFailure.forbidden,
@@ -143,26 +129,6 @@ class WebDavRemote implements SyncRemote {
       _ => SyncRemoteFailure.protocol,
     };
     return SyncRemoteException(kind, '$what: HTTP $status', retryAfter);
-  }
-
-  static Duration? _retryAfter(String? header) {
-    if (header == null) return null;
-    const cap = Duration(hours: 1);
-    final seconds = int.tryParse(header.trim());
-    if (seconds != null) {
-      return seconds <= 0
-          ? Duration.zero
-          : (seconds > cap.inSeconds ? cap : Duration(seconds: seconds));
-    }
-    try {
-      final wait = HttpDate.parse(header).difference(DateTime.now().toUtc());
-      if (wait.isNegative) return Duration.zero;
-      return wait > cap ? cap : wait;
-    } on HttpException {
-      return null;
-    } on FormatException {
-      return null;
-    }
   }
 
   static const _propfindBody =
