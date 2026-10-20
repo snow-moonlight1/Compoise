@@ -8,51 +8,59 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [1.2.0] - 2026-10-20
 
+这一版加入可选同步：用你自己的 OneDrive 或 WebDAV 网盘在设备之间同步任务，不需要方寸账号。This release adds optional sync between your devices through your own OneDrive or WebDAV storage, with no Compoise account.
+
 ### 新增
 
-- 可选同步，默认关闭，不需要方寸账号或服务器。任务库放在你自己的存储里：
-  - OneDrive 个人账户，在系统浏览器里登录。方寸只能访问它自己的应用文件夹（应用/Compoise）。
-  - WebDAV（高级选项），例如坚果云、Nextcloud 或群晖。
-- 可选的同步密码，对同步文件端到端加密（Argon2id 和 AES-256-GCM）。不设密码时文件只做压缩，存储服务商能看到内容。
-- 按字段合并：两台设备改了同一个任务的不同字段，两边的修改都会保留；删掉的任务不会再出现。
-- 设置 → 同步里可以看到同步库里的设备，给它们改名或移除。
-- 修改后、打开应用和回到前台时自动同步，另有定时同步；连续失败后会等更久再试。随时可以点“立即同步”。
+- **可选同步**（设置 → 同步，默认关闭）：任务板、任务、子任务、日程，以及语言、主题、紧急提醒天数等设置，会在你的设备之间同步。方寸没有自己的服务器，数据只放在你自己的网盘里。
+- **OneDrive（推荐）**：点“登录 Microsoft 账号”，在浏览器里登录并同意授权即可，不用自己申请任何密钥。方寸只能读写 OneDrive 里的“应用/Compoise”文件夹，看不到网盘里的其他文件。
+- **WebDAV（高级）**：坚果云、Nextcloud、群晖等支持 WebDAV 的网盘或 NAS，填写服务器地址、用户名和密码即可。坚果云要用第三方应用密码，设置页里有说明；地址用 http 时会提醒密码和文件以明文传输。
+- **同步密码（可选）**：设置后，网盘里的同步文件会被加密（Argon2id 和 AES-256-GCM），只有输入同一密码的设备能读取。之后可以修改或取消密码，其他设备会提示输入新密码或确认。忘记密码无法找回，但可以在任一已连接的设备上重新设置。
+- **加入已有的同步**：第二台设备连接同一个位置时，会找到已有的同步数据（加密时要输入同步密码），本机现有的任务和它合并，两边的任务都保留。
+- **合并**：按字段合并，两台设备改了同一个任务的不同地方，两边的修改都保留；删掉的任务不会在别的设备上重新出现。离线时的修改按实际修改时间参与合并。
+- **自动同步**：修改后、打开应用、回到前台和切到后台时同步，前台时每 10 分钟也同步一次；断网或服务器出错时自动延后重试，不打断操作。随时可以点“立即同步”。
+- **状态和提示**：设置页显示上次同步时间；出问题时说明原因（例如登录失效、连不上服务器、网盘空间不足、请求被限制），并直接给出“重新登录”“输入新密码”等操作。
+- **设备管理**：查看同步里的设备（名称、平台、最后上传时间），修改本机名称，移除不再使用的设备。
+- **断开同步**：本机停止同步，任务保持不变；可以选择同时删除网盘里本机的同步文件。
 
 ### 变更
 
-- GitHub 接口拒绝或出错时（例如共享网络用完了每小时的查询次数），检查更新改为访问 github.com 上的发布页。
-- 诊断日志也记录同步状态和失败原因：失败类型、HTTP 状态和错误代码、请求方法和服务器主机名。仍然不记录路径、账号、令牌和任务内容。
+- 检查更新更可靠：GitHub 接口拒绝或出错时（例如同一网络的查询次数用完），改为访问 github.com 上的发布页读取最新版本。
+- 诊断日志也记录同步状态和失败原因（失败类型、HTTP 状态和错误代码、请求方法和服务器主机名），方便排查问题；仍然不记录路径、账号、令牌和任务内容。
 
 ### 已知限制
 
 - 一次只能连接一个同步位置。
-- 不支持华为云空间，也不支持 OneDrive 的工作或学校账户。
-- 同一个字段在两台设备上同时修改时，保留较晚的一份，没有让你选择的界面。
-- API 密钥、网盘登录令牌和只属于本机的设置（视图模式、字号、窗口位置、快捷键等）不同步。
-- Linux 需要可用的系统钥匙串来保存同步的登录信息和密钥。
+- OneDrive 只支持个人 Microsoft 账户（outlook.com、hotmail.com、live.com 等），不支持工作或学校账户。
+- 同一处在两台设备上同时修改时，保留较晚的修改，没有让你选择的界面。
+- 不会同步：AI 服务的密钥和配置、网盘的登录信息、字体大小、视图模式、窗口和桌面设置。
+- Linux 需要可用的系统钥匙串，才能保存同步的登录信息和密码。
 
 ### Added
 
-- Optional sync, off by default and without a Compoise account or server. Your library goes to storage you already own:
-  - OneDrive personal accounts, signed in through the system browser. Compoise can only reach its own app folder (Apps/Compoise).
-  - WebDAV as an advanced option, for example Nutstore (坚果云), Nextcloud or Synology.
-- An optional sync password encrypts the synced files end to end (Argon2id and AES-256-GCM). Without it the files are only compressed, so the storage provider can read them.
-- Changes merge field by field: edits to different fields of the same task are both kept, and deleted tasks do not come back.
-- Settings → Sync shows the devices in the library and lets you rename or remove them.
-- Sync runs on its own after changes, when the app opens or returns to the foreground, and on a timer, and waits longer after repeated failures. "Sync now" is always available.
+- **Optional sync** (Settings → Sync, off by default): boards, tasks, subtasks, schedules, and settings such as language, theme and the urgency threshold are synced between your devices. Compoise runs no server; the data stays in your own storage.
+- **OneDrive (recommended)**: tap "Sign in with Microsoft", sign in and allow access in the browser. There are no keys to set up. Compoise can only read and write its own Apps/Compoise folder and cannot see the rest of your files.
+- **WebDAV (advanced)**: Nutstore, Nextcloud, Synology and other WebDAV storage or NAS, with a server address, user name and password. Nutstore needs a third-party app password, which the settings page explains. An http address shows a warning that the password and files travel unencrypted.
+- **Sync password (optional)**: the synced files are encrypted (Argon2id and AES-256-GCM) so only devices with the same password can read them. You can change or remove the password later; other devices ask for the new password or a confirmation. A forgotten password cannot be recovered, but it can be set again on any connected device.
+- **Joining an existing sync**: a second device that connects to the same location finds the existing data (asking for the sync password if it is encrypted) and merges it with its own tasks; both sides are kept.
+- **Merging**: changes merge field by field, so edits to different parts of the same task on two devices are both kept, and deleted tasks do not come back on another device. Offline edits merge by the time they were made.
+- **Automatic sync**: after edits, when the app opens, returns to the foreground or goes to the background, and every 10 minutes in the foreground. After network or server errors it retries later on its own without interrupting you. "Sync now" is always available.
+- **Status and fixes**: the settings page shows the last sync time. When something goes wrong it says why (for example an expired sign-in, an unreachable server, a full storage quota or rate limiting) and offers the next step, such as "Sign in again" or entering the new password.
+- **Devices**: see the devices in the sync (name, platform, last upload), rename this device and remove devices you no longer use.
+- **Disconnect**: this device stops syncing and keeps its tasks; you can also delete this device's file from the storage.
 
 ### Changed
 
-- The update check asks the release page on github.com when the GitHub API refuses or fails, for example after its hourly limit on a shared network.
-- The diagnostics log also records sync status and failures: the failure type, HTTP status and error codes, and the request method and server host name. It still leaves out paths, accounts, tokens and task content.
+- More reliable update check: when the GitHub API refuses or fails (for example after too many requests from the same network), the app reads the latest version from the release page on github.com.
+- The diagnostics log also records sync status and failures (failure type, HTTP status and error codes, request method and server host name) to help with bug reports. It still leaves out paths, accounts, tokens and task content.
 
 ### Known limitations
 
 - One sync location at a time.
-- Huawei Cloud and OneDrive work or school accounts are not supported.
-- When the same field changes on two devices at once, the later edit wins; there is no screen to choose between them.
-- API keys, storage sign-in tokens and device-only settings (view mode, font size, window position, hotkeys and similar) are not synced.
-- On Linux, saving the sync sign-in and key needs a working system keyring.
+- OneDrive supports personal Microsoft accounts (outlook.com, hotmail.com, live.com and similar), not work or school accounts.
+- When the same item changes on two devices at once, the later edit wins; there is no screen to choose between them.
+- Not synced: AI service keys and configuration, storage sign-in details, font size, view mode, window and desktop settings.
+- On Linux, saving the sync sign-in and password needs a working system keyring.
 
 ## [1.1.0] - 2026-10-19
 
