@@ -608,6 +608,45 @@ const Map<Language, Map<String, String>> _dicts = {
         'Synced: boards, tasks, subtasks, schedules, and settings such as language, theme and the urgency threshold. Not synced: AI service keys and configuration, font size, view mode, window and desktop settings.',
     'syncConflictNote':
         'When two devices change the same item at the same time, the later change is kept.',
+    'syncOnedriveDesc':
+        'Recommended: sign in with a Microsoft account. Compoise only uses its own folder, Apps/Compoise',
+    'syncOnedriveIntro':
+        'Sign in to your Microsoft account in the browser and allow access. Compoise can only read and write its own folder in your OneDrive (Apps/Compoise) and cannot see your other files.',
+    'syncOnedriveFolder': 'Apps/Compoise',
+    'syncOnedriveSignIn': 'Sign in with Microsoft',
+    'syncOnedriveSignInAgain': 'Sign in again',
+    'syncOnedriveSwitchAccount': 'Use another account',
+    'syncOnedriveSignedIn': 'Signed in as {account}',
+    'syncOnedriveAccountUnknown': 'Microsoft account',
+    'syncOnedriveSignInTitle': 'Sign in to Microsoft',
+    'syncOnedriveBrowserOpened':
+        'The sign-in page is open in your browser. Sign in, allow access, then come back here.',
+    'syncOnedriveBrowserFailed':
+        'The browser could not be opened. Copy the link and open it in a browser on this device.',
+    'syncOnedriveWaiting': 'Waiting for the sign-in…',
+    'syncOnedriveBrowserDone':
+        'Signed in. You can close this page and return to Compoise.',
+    'syncOnedriveDenied':
+        'Access was not allowed, so Compoise cannot use OneDrive.',
+    'syncOnedriveTimedOut': 'The sign-in took too long. Try again.',
+    'syncOnedriveSignInFailed': 'The sign-in did not finish. Try again.',
+    'syncOnedriveOtherAccount':
+        'That is a different Microsoft account. Sign in with {account}, or disconnect and set up sync again.',
+    'syncErrorAuthOnedrive': 'Microsoft refused the sign-in. Sign in again.',
+    'syncErrorNetworkOnedrive': 'Cannot reach OneDrive. Check the network.',
+    'syncErrorNotFoundOnedrive':
+        'The file was not found in OneDrive. Try again later.',
+    'syncErrorProtocolOnedrive':
+        "OneDrive's answer was not understood. Try again later.",
+    'syncErrorServerOnedrive': 'OneDrive had a problem. Try again later.',
+    'syncErrorRateLimitedOnedrive':
+        'OneDrive is limiting requests. Try again later.',
+    'syncErrorSecureStorageOnedrive':
+        'The system keychain is not available, so the sign-in cannot be saved',
+    'syncIssueAuthOnedrive':
+        'The Microsoft sign-in has expired. Sign in again.',
+    'syncProblemSignInOnedrive':
+        'Sign in to your Microsoft account again to continue',
     'syncWebdavUrl': 'Server address',
     'syncWebdavUser': 'Username',
     'syncWebdavPassword': 'Password',
@@ -1638,6 +1677,34 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncWhatSyncs':
         '会同步：任务板、任务、子任务、日程，以及语言、主题、紧急提醒天数等设置。不会同步：AI 服务的密钥和配置、字体大小、视图模式、窗口和桌面设置。',
     'syncConflictNote': '两台设备同时修改同一项时，保留较晚的修改。',
+    'syncOnedriveDesc': '推荐：用 Microsoft 账号登录，方寸只使用其中的“应用/Compoise”文件夹',
+    'syncOnedriveIntro':
+        '在浏览器里登录 Microsoft 账号并同意授权。方寸只能读写你 OneDrive 里属于它的文件夹（应用/Compoise），看不到网盘里的其他文件。',
+    'syncOnedriveFolder': '应用/Compoise',
+    'syncOnedriveSignIn': '登录 Microsoft 账号',
+    'syncOnedriveSignInAgain': '重新登录',
+    'syncOnedriveSwitchAccount': '换个账号',
+    'syncOnedriveSignedIn': '已登录：{account}',
+    'syncOnedriveAccountUnknown': 'Microsoft 账号',
+    'syncOnedriveSignInTitle': '登录 Microsoft 账号',
+    'syncOnedriveBrowserOpened': '已在浏览器中打开登录页面。登录并同意授权后，回到这里。',
+    'syncOnedriveBrowserFailed': '无法自动打开浏览器。请复制链接，在这台设备的浏览器里打开。',
+    'syncOnedriveWaiting': '正在等待登录…',
+    'syncOnedriveBrowserDone': '已登录，可以关闭这个页面，回到方寸。',
+    'syncOnedriveDenied': '没有同意授权，方寸无法使用 OneDrive。',
+    'syncOnedriveTimedOut': '登录等待超时，请重试。',
+    'syncOnedriveSignInFailed': '登录没有完成，请重试。',
+    'syncOnedriveOtherAccount':
+        '这是另一个 Microsoft 账号。请用 {account} 登录，或者断开同步后重新设置。',
+    'syncErrorAuthOnedrive': 'Microsoft 拒绝了登录，请重新登录',
+    'syncErrorNetworkOnedrive': '连接不上 OneDrive，请检查网络',
+    'syncErrorNotFoundOnedrive': 'OneDrive 里找不到这个文件，请稍后再试',
+    'syncErrorProtocolOnedrive': 'OneDrive 的回应无法识别，请稍后再试',
+    'syncErrorServerOnedrive': 'OneDrive 出错了，请稍后再试',
+    'syncErrorRateLimitedOnedrive': 'OneDrive 暂时限制了请求，请稍后再试',
+    'syncErrorSecureStorageOnedrive': '系统钥匙串不可用，无法保存登录信息',
+    'syncIssueAuthOnedrive': 'Microsoft 账号的登录已失效，请重新登录',
+    'syncProblemSignInOnedrive': '需要重新登录 Microsoft 账号才能继续',
     'syncWebdavUrl': '服务器地址',
     'syncWebdavUser': '用户名',
     'syncWebdavPassword': '密码',
@@ -2583,6 +2650,36 @@ const Map<Language, Map<String, String>> _dicts = {
     'syncWhatSyncs':
         '同期するもの：ボード、タスク、サブタスク、予定、および言語・テーマ・緊急の目安日数などの設定。同期しないもの：AI サービスのキーと設定、文字サイズ、表示モード、ウィンドウとデスクトップの設定。',
     'syncConflictNote': '2 台の端末で同じ項目を同時に変更した場合は、後の変更が残ります。',
+    'syncOnedriveDesc':
+        'おすすめ：Microsoft アカウントでサインインします。使うのは専用の「アプリ/Compoise」フォルダーだけです',
+    'syncOnedriveIntro':
+        'ブラウザーで Microsoft アカウントにサインインし、アクセスを許可してください。Compoise が読み書きできるのは OneDrive 内の専用フォルダー（アプリ/Compoise）だけで、ほかのファイルは見えません。',
+    'syncOnedriveFolder': 'アプリ/Compoise',
+    'syncOnedriveSignIn': 'Microsoft でサインイン',
+    'syncOnedriveSignInAgain': 'もう一度サインイン',
+    'syncOnedriveSwitchAccount': '別のアカウントを使う',
+    'syncOnedriveSignedIn': '{account} でサインイン済み',
+    'syncOnedriveAccountUnknown': 'Microsoft アカウント',
+    'syncOnedriveSignInTitle': 'Microsoft にサインイン',
+    'syncOnedriveBrowserOpened':
+        'ブラウザーでサインインページを開きました。サインインしてアクセスを許可したら、ここに戻ってください。',
+    'syncOnedriveBrowserFailed': 'ブラウザーを開けませんでした。リンクをコピーして、この端末のブラウザーで開いてください。',
+    'syncOnedriveWaiting': 'サインインを待っています…',
+    'syncOnedriveBrowserDone': 'サインインしました。このページを閉じて Compoise に戻ってください。',
+    'syncOnedriveDenied': 'アクセスが許可されなかったため、OneDrive を使えません。',
+    'syncOnedriveTimedOut': 'サインインの待ち時間を過ぎました。もう一度お試しください。',
+    'syncOnedriveSignInFailed': 'サインインが完了しませんでした。もう一度お試しください。',
+    'syncOnedriveOtherAccount':
+        '別の Microsoft アカウントです。{account} でサインインするか、切断してから設定し直してください。',
+    'syncErrorAuthOnedrive': 'Microsoft にサインインを拒否されました。もう一度サインインしてください',
+    'syncErrorNetworkOnedrive': 'OneDrive に接続できません。ネットワークを確認してください',
+    'syncErrorNotFoundOnedrive': 'OneDrive にファイルが見つかりません。しばらくしてからお試しください',
+    'syncErrorProtocolOnedrive': 'OneDrive の応答を解釈できません。しばらくしてからお試しください',
+    'syncErrorServerOnedrive': 'OneDrive でエラーが発生しました。しばらくしてからお試しください',
+    'syncErrorRateLimitedOnedrive': 'OneDrive がリクエストを制限しています。しばらくしてからお試しください',
+    'syncErrorSecureStorageOnedrive': 'システムのキーチェーンを使えないため、サインイン情報を保存できません',
+    'syncIssueAuthOnedrive': 'Microsoft アカウントのサインインが切れました。もう一度サインインしてください',
+    'syncProblemSignInOnedrive': '続けるには Microsoft アカウントにもう一度サインインしてください',
     'syncWebdavUrl': 'サーバーのアドレス',
     'syncWebdavUser': 'ユーザー名',
     'syncWebdavPassword': 'パスワード',

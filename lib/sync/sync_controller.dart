@@ -12,6 +12,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import 'oauth_browser.dart';
+import 'onedrive_auth.dart';
 import 'sync_engine.dart';
 import 'sync_local.dart';
 import 'sync_provider.dart';
@@ -56,6 +58,7 @@ class SyncController extends ChangeNotifier {
     required this.localStore,
     required this.secrets,
     this.remoteFactory = defaultSyncRemoteFactory,
+    OneDriveAuthorizer? oneDrive,
     SyncTimerFactory? timer,
     DateTime Function()? now,
     this.absorbDelay = const Duration(seconds: 4),
@@ -65,7 +68,8 @@ class SyncController extends ChangeNotifier {
     this.resumeInterval = const Duration(minutes: 1),
     this.firstRetry = const Duration(seconds: 30),
     this.maxRetry = const Duration(minutes: 15),
-  }) : _timer = timer ?? _realTimer,
+  }) : oneDrive = oneDrive ?? platformOneDriveAuthorizer(),
+       _timer = timer ?? _realTimer,
        _now = now ?? DateTime.now;
 
   final SyncEngine engine;
@@ -73,6 +77,9 @@ class SyncController extends ChangeNotifier {
   final SyncLocalStore localStore;
   final SyncSecrets secrets;
   final SyncRemoteFactory remoteFactory;
+
+  /// The browser sign-in for OneDrive.
+  final OneDriveAuthorizer oneDrive;
   final SyncTimerFactory _timer;
   final DateTime Function() _now;
 
@@ -176,7 +183,7 @@ class SyncController extends ChangeNotifier {
       return false;
     }
     try {
-      engine.attach(remoteFactory(config, secret));
+      engine.attach(remoteFactory(config, secret, _keepSecret));
     } on UnsupportedError {
       _problem = SyncConnectionProblem.unsupportedProvider;
       return false;
@@ -190,7 +197,7 @@ class SyncController extends ChangeNotifier {
   /// Checks the connection and reports what the folder holds. Throws
   /// [SyncRemoteException] when the provider refuses.
   Future<RemoteVaultInfo> probe(SyncProviderConfig config, String secret) =>
-      engine.inspect(remoteFactory(config, secret));
+      engine.inspect(remoteFactory(config, secret, _dropSecret));
 
   /// Creates a vault in an empty folder or joins the one there, then runs
   /// the first round. Setup errors are rethrown with nothing saved.
@@ -203,7 +210,7 @@ class SyncController extends ChangeNotifier {
     if (engine.joined) {
       throw const SyncSetupException(SyncSetupError.alreadyJoined);
     }
-    final remote = remoteFactory(config, secret);
+    final remote = remoteFactory(config, secret, _keepSecret);
     final previousConfig = _config;
     await _writeSecret(secret);
     await localStore.saveProvider(config.encode());
@@ -250,6 +257,12 @@ class SyncController extends ChangeNotifier {
     }
     return syncNow();
   }
+
+  /// A transport replaced its secret, for example with a new refresh token.
+  Future<void> _keepSecret(String secret) => _writeSecret(secret);
+
+  /// A connection check keeps nothing.
+  static Future<void> _dropSecret(String secret) async {}
 
   Future<void> _writeSecret(String secret) async {
     try {

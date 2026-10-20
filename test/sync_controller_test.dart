@@ -56,7 +56,7 @@ class Rig {
       source: host,
       localStore: local,
       secrets: SyncSecrets(vaultKey: MemoryCredentials(), provider: secret),
-      remoteFactory: (config, value) {
+      remoteFactory: (config, value, _) {
         secretsSeen.add(value);
         return remote;
       },

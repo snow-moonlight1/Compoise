@@ -5,10 +5,12 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../diagnostics/app_log.dart';
 import '../storage.dart';
+import '../sync/onedrive_auth.dart';
 import '../sync/sync_controller.dart';
 import '../sync/sync_engine.dart';
 import '../sync/sync_provider.dart';
@@ -44,7 +46,15 @@ String syncRelativeTime(
       '${material.formatTimeOfDay(TimeOfDay.fromDateTime(at))}';
 }
 
-String? _issueText(SyncIssue? issue, Map<String, String> t) => switch (issue) {
+/// [key], or its OneDrive wording when there is one.
+String _say(Map<String, String> t, String key, SyncProviderKind? kind) =>
+    (kind == SyncProviderKind.onedrive ? t['${key}Onedrive'] : null) ?? t[key]!;
+
+String? _issueText(
+  SyncIssue? issue,
+  Map<String, String> t, [
+  SyncProviderKind? kind,
+]) => switch (issue) {
   null => null,
   SyncIssue.vaultMissing => t['syncIssueVaultMissing'],
   SyncIssue.vaultReplaced => t['syncIssueVaultReplaced'],
@@ -55,23 +65,30 @@ String? _issueText(SyncIssue? issue, Map<String, String> t) => switch (issue) {
   SyncIssue.pendingRestore => t['syncIssuePendingRestore'],
   SyncIssue.busy => t['syncIssueBusy'],
   SyncIssue.localWrite => t['syncIssueLocalWrite'],
-  SyncIssue.network => t['syncErrorNetwork'],
-  SyncIssue.auth => t['syncIssueAuth'],
+  SyncIssue.network => _say(t, 'syncErrorNetwork', kind),
+  SyncIssue.auth => _say(t, 'syncIssueAuth', kind),
   SyncIssue.forbidden => t['syncErrorForbidden'],
   SyncIssue.quota => t['syncErrorQuota'],
-  SyncIssue.rateLimited => t['syncErrorRateLimited'],
-  SyncIssue.server => t['syncErrorServer'],
-  SyncIssue.protocol => t['syncErrorProtocol'],
+  SyncIssue.rateLimited => _say(t, 'syncErrorRateLimited', kind),
+  SyncIssue.server => _say(t, 'syncErrorServer', kind),
+  SyncIssue.protocol => _say(t, 'syncErrorProtocol', kind),
 };
 
-String? _problemText(SyncConnectionProblem? problem, Map<String, String> t) =>
-    switch (problem) {
-      null => null,
-      SyncConnectionProblem.missingSettings => t['syncProblemSettings'],
-      SyncConnectionProblem.missingSecret => t['syncProblemSignIn'],
-      SyncConnectionProblem.secureStorage => t['syncErrorSecureStorage'],
-      SyncConnectionProblem.unsupportedProvider => t['syncProblemUnsupported'],
-    };
+String? _problemText(
+  SyncConnectionProblem? problem,
+  Map<String, String> t, [
+  SyncProviderKind? kind,
+]) => switch (problem) {
+  null => null,
+  SyncConnectionProblem.missingSettings => t['syncProblemSettings'],
+  SyncConnectionProblem.missingSecret => _say(t, 'syncProblemSignIn', kind),
+  SyncConnectionProblem.secureStorage => _say(
+    t,
+    'syncErrorSecureStorage',
+    kind,
+  ),
+  SyncConnectionProblem.unsupportedProvider => t['syncProblemUnsupported'],
+};
 
 /// The status line under the settings row and on the sync page.
 String syncStatusText(
@@ -80,7 +97,8 @@ String syncStatusText(
   Map<String, String> t,
 ) {
   if (!sync.joined) return t['syncOff']!;
-  final problem = _problemText(sync.problem, t);
+  final kind = sync.config?.kind;
+  final problem = _problemText(sync.problem, t, kind);
   if (problem != null) return problem;
   final status = sync.status;
   switch (status.phase) {
@@ -91,12 +109,12 @@ String syncStatusText(
     case SyncPhase.needsPassword:
       return t['syncStatusNeedsPassword']!;
     case SyncPhase.needsAttention:
-      return _issueText(status.issue, t) ?? t['syncErrorGeneric']!;
+      return _issueText(status.issue, t, kind) ?? t['syncErrorGeneric']!;
     case SyncPhase.error:
-      final issue = _issueText(status.issue, t) ?? t['syncErrorGeneric']!;
+      final issue = _issueText(status.issue, t, kind) ?? t['syncErrorGeneric']!;
       return '$issue · ${t['syncStatusRetry']}';
     case SyncPhase.idle:
-      final issue = _issueText(status.issue, t);
+      final issue = _issueText(status.issue, t, kind);
       if (issue != null) return issue;
       final last = status.lastSuccessAt;
       if (last == null) return t['syncStatusWaiting']!;
@@ -106,20 +124,35 @@ String syncStatusText(
   }
 }
 
-/// Plain-language text for a failed setup or sync action.
-String syncErrorText(Object error, Map<String, String> t) {
-  if (error is SyncSecureStorageException) return t['syncErrorSecureStorage']!;
+/// Plain-language text for a failed setup or sync action. [kind] picks the
+/// OneDrive wording where it differs from a WebDAV server's.
+String syncErrorText(
+  Object error,
+  Map<String, String> t, {
+  SyncProviderKind? kind,
+}) {
+  if (error is SyncSecureStorageException) {
+    return _say(t, 'syncErrorSecureStorage', kind);
+  }
+  if (error is OneDriveSignInException) {
+    return switch (error.kind) {
+      OneDriveSignInError.denied => t['syncOnedriveDenied']!,
+      OneDriveSignInError.timedOut => t['syncOnedriveTimedOut']!,
+      OneDriveSignInError.cancelled ||
+      OneDriveSignInError.failed => t['syncOnedriveSignInFailed']!,
+    };
+  }
   if (error is SyncRemoteException) {
     return switch (error.kind) {
-      SyncRemoteFailure.network => t['syncErrorNetwork']!,
-      SyncRemoteFailure.auth => t['syncErrorAuth']!,
+      SyncRemoteFailure.network => _say(t, 'syncErrorNetwork', kind),
+      SyncRemoteFailure.auth => _say(t, 'syncErrorAuth', kind),
       SyncRemoteFailure.forbidden => t['syncErrorForbidden']!,
-      SyncRemoteFailure.notFound => t['syncErrorNotFound']!,
+      SyncRemoteFailure.notFound => _say(t, 'syncErrorNotFound', kind),
       SyncRemoteFailure.quota => t['syncErrorQuota']!,
-      SyncRemoteFailure.rateLimited => t['syncErrorRateLimited']!,
-      SyncRemoteFailure.server => t['syncErrorServer']!,
+      SyncRemoteFailure.rateLimited => _say(t, 'syncErrorRateLimited', kind),
+      SyncRemoteFailure.server => _say(t, 'syncErrorServer', kind),
       SyncRemoteFailure.conflict ||
-      SyncRemoteFailure.protocol => t['syncErrorProtocol']!,
+      SyncRemoteFailure.protocol => _say(t, 'syncErrorProtocol', kind),
     };
   }
   if (error is SyncSetupException) {
@@ -139,13 +172,23 @@ String syncErrorText(Object error, Map<String, String> t) {
 }
 
 /// A log line for a failed setup step: the kind of failure and, for an HTTP
-/// answer, the request and status. Never addresses, names or passwords.
+/// answer, the request, status and provider error code. Never addresses,
+/// names, passwords or tokens.
 String syncErrorLabel(Object error) {
   if (error is SyncRemoteException) {
-    final status = RegExp(r'^\w+: HTTP \d{3}$').hasMatch(error.message)
+    final status =
+        RegExp(
+          r'^\w+: HTTP \d{3}( [A-Za-z_]{1,40})?( AADSTS\d{1,9})?$',
+        ).hasMatch(error.message)
         ? ' (${error.message})'
         : '';
     return 'remote ${error.kind.name}$status';
+  }
+  if (error is OneDriveSignInException) {
+    final detail = RegExp(r'^[a-z_]{1,40}$').hasMatch(error.detail)
+        ? ' ${error.detail}'
+        : '';
+    return 'sign-in ${error.kind.name}$detail';
   }
   if (error is SyncSetupException) return 'setup ${error.kind.name}';
   return '${error.runtimeType}';
@@ -199,6 +242,19 @@ class _SyncIntro extends StatelessWidget {
         Text(t['syncChooseLocation']!, style: theme.textTheme.titleSmall),
         const SizedBox(height: 4),
         ListTile(
+          key: const ValueKey('sync-choose-onedrive'),
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.cloud_outlined),
+          title: const Text('OneDrive'),
+          subtitle: Text(t['syncOnedriveDesc']!),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const OneDriveSetupScreen(),
+            ),
+          ),
+        ),
+        ListTile(
           key: const ValueKey('sync-choose-webdav'),
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.dns_outlined),
@@ -218,85 +274,31 @@ class _SyncIntro extends StatelessWidget {
   }
 }
 
-/// Address, account and the first round for a WebDAV folder.
-class WebDavSetupScreen extends StatefulWidget {
-  const WebDavSetupScreen({super.key});
-
-  @override
-  State<WebDavSetupScreen> createState() => _WebDavSetupScreenState();
-}
-
-class _WebDavSetupScreenState extends State<WebDavSetupScreen> {
-  final _url = TextEditingController();
-  final _user = TextEditingController();
-  final _secret = TextEditingController();
-  final _device = TextEditingController(text: defaultSyncDeviceName());
+/// The second half of every setup: what the folder holds, the optional sync
+/// password, and the first round.
+mixin _JoinFlow<T extends StatefulWidget> on State<T> {
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   RemoteVaultInfo? _info;
-  SyncProviderConfig? _probed;
   String? _error;
   bool _busy = false;
   bool _usePassword = false;
 
-  @override
-  void dispose() {
-    for (final controller in [
-      _url,
-      _user,
-      _secret,
-      _device,
-      _password,
-      _confirm,
-    ]) {
-      controller.dispose();
-    }
-    super.dispose();
+  SyncProviderKind get _kind;
+
+  /// Saves the connection and runs the first round.
+  Future<void> _connect(SyncController sync, String? password);
+
+  void _disposeJoin() {
+    _password.dispose();
+    _confirm.dispose();
   }
 
-  void _edited(String _) {
-    if (_info == null && _error == null) return;
-    setState(() {
-      _info = null;
-      _probed = null;
-      _error = null;
-    });
-  }
-
-  SyncProviderConfig? _config(Map<String, String> t) {
-    final url = normalizeWebDavUrl(_url.text);
-    if (url == null) {
-      setState(() => _error = t['syncWebdavUrlInvalid']);
-      return null;
-    }
-    final name = _device.text.trim();
-    return SyncProviderConfig(
-      kind: SyncProviderKind.webdav,
-      deviceName: name.isEmpty ? defaultSyncDeviceName() : name,
-      webdav: WebDavSettings(url: url.toString(), username: _user.text.trim()),
-    );
-  }
-
-  Future<void> _probe(SyncController sync, Map<String, String> t) async {
-    final config = _config(t);
-    if (config == null) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final info = await sync.probe(config, _secret.text);
-      if (!mounted) return;
-      setState(() {
-        _info = info;
-        _probed = config;
-      });
-    } catch (error) {
-      AppLog.warn('sync', 'Connection check failed: ${syncErrorLabel(error)}');
-      if (mounted) setState(() => _error = syncErrorText(error, t));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  void _resetJoin() {
+    _info = null;
+    _usePassword = false;
+    _password.clear();
+    _confirm.clear();
   }
 
   Future<void> _start(SyncController sync, Map<String, String> t) async {
@@ -323,123 +325,16 @@ class _WebDavSetupScreenState extends State<WebDavSetupScreen> {
       _error = null;
     });
     try {
-      await sync.connect(_probed!, _secret.text, password: password);
+      await _connect(sync, password);
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       AppLog.warn('sync', 'Setup failed: ${syncErrorLabel(error)}');
-      if (mounted) setState(() => _error = syncErrorText(error, t));
+      if (mounted) {
+        setState(() => _error = syncErrorText(error, t, kind: _kind));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.watch<Store>().t;
-    final sync = context.read<SyncController?>()!;
-    final theme = Theme.of(context);
-    final url = normalizeWebDavUrl(_url.text);
-    final insecure = url != null && isInsecureWebDavUrl(url);
-    final info = _info;
-    return Scaffold(
-      appBar: AppBar(title: const Text('WebDAV')),
-      body: SafeArea(
-        top: false,
-        child: AutofillGroup(
-          child: ListView(
-            key: const ValueKey('sync-webdav-setup'),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-            children: [
-              TextField(
-                key: const ValueKey('sync-webdav-url'),
-                controller: _url,
-                enabled: !_busy,
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                autofillHints: const [AutofillHints.url],
-                decoration: InputDecoration(
-                  labelText: t['syncWebdavUrl'],
-                  hintText: 'https://dav.jianguoyun.com/dav/',
-                ),
-                onChanged: (value) {
-                  _edited(value);
-                  setState(() {});
-                },
-              ),
-              if (insecure) ...[
-                const SizedBox(height: 6),
-                Text(
-                  t['syncWebdavInsecure']!,
-                  key: const ValueKey('sync-webdav-insecure'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('sync-webdav-user'),
-                controller: _user,
-                enabled: !_busy,
-                autocorrect: false,
-                autofillHints: const [AutofillHints.username],
-                decoration: InputDecoration(labelText: t['syncWebdavUser']),
-                onChanged: _edited,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('sync-webdav-password'),
-                controller: _secret,
-                enabled: !_busy,
-                obscureText: true,
-                autocorrect: false,
-                enableSuggestions: false,
-                autofillHints: const [AutofillHints.password],
-                decoration: InputDecoration(
-                  labelText: t['syncWebdavPassword'],
-                  helperText: t['syncWebdavPasswordHint'],
-                  helperMaxLines: 3,
-                ),
-                onChanged: _edited,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('sync-device-name'),
-                controller: _device,
-                enabled: !_busy,
-                maxLength: 64,
-                decoration: InputDecoration(
-                  labelText: t['syncDeviceName'],
-                  helperText: t['syncDeviceNameHint'],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                t['syncWebdavFolderNote']!,
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              if (info == null)
-                FilledButton(
-                  key: const ValueKey('sync-webdav-connect'),
-                  onPressed: _busy ? null : () => _probe(sync, t),
-                  child: Text(_busy ? t['syncWorking']! : t['syncConnect']!),
-                )
-              else
-                ..._joinStep(info, sync, t, theme),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  key: const ValueKey('sync-setup-error'),
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   List<Widget> _joinStep(
@@ -514,6 +409,464 @@ class _WebDavSetupScreenState extends State<WebDavSetupScreen> {
       ),
     ];
   }
+
+  Widget _errorLine(ThemeData theme) => Padding(
+    padding: const EdgeInsets.only(top: 12),
+    child: Text(
+      _error!,
+      key: const ValueKey('sync-setup-error'),
+      style: TextStyle(color: theme.colorScheme.error),
+    ),
+  );
+}
+
+String _deviceNameOf(TextEditingController controller) {
+  final name = controller.text.trim();
+  return name.isEmpty ? defaultSyncDeviceName() : name;
+}
+
+/// Address, account and the first round for a WebDAV folder.
+class WebDavSetupScreen extends StatefulWidget {
+  const WebDavSetupScreen({super.key});
+
+  @override
+  State<WebDavSetupScreen> createState() => _WebDavSetupScreenState();
+}
+
+class _WebDavSetupScreenState extends State<WebDavSetupScreen>
+    with _JoinFlow<WebDavSetupScreen> {
+  final _url = TextEditingController();
+  final _user = TextEditingController();
+  final _secret = TextEditingController();
+  final _device = TextEditingController(text: defaultSyncDeviceName());
+  SyncProviderConfig? _probed;
+
+  @override
+  SyncProviderKind get _kind => SyncProviderKind.webdav;
+
+  @override
+  void dispose() {
+    for (final controller in [_url, _user, _secret, _device]) {
+      controller.dispose();
+    }
+    _disposeJoin();
+    super.dispose();
+  }
+
+  void _edited(String _) {
+    if (_info == null && _error == null) return;
+    setState(() {
+      _info = null;
+      _probed = null;
+      _error = null;
+    });
+  }
+
+  SyncProviderConfig? _config(Map<String, String> t) {
+    final url = normalizeWebDavUrl(_url.text);
+    if (url == null) {
+      setState(() => _error = t['syncWebdavUrlInvalid']);
+      return null;
+    }
+    return SyncProviderConfig(
+      kind: SyncProviderKind.webdav,
+      deviceName: _deviceNameOf(_device),
+      webdav: WebDavSettings(url: url.toString(), username: _user.text.trim()),
+    );
+  }
+
+  Future<void> _probe(SyncController sync, Map<String, String> t) async {
+    final config = _config(t);
+    if (config == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final info = await sync.probe(config, _secret.text);
+      if (!mounted) return;
+      setState(() {
+        _info = info;
+        _probed = config;
+      });
+    } catch (error) {
+      AppLog.warn('sync', 'Connection check failed: ${syncErrorLabel(error)}');
+      if (mounted) setState(() => _error = syncErrorText(error, t));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The checked connection, with the device name as it is now.
+  @override
+  Future<void> _connect(SyncController sync, String? password) => sync.connect(
+    _probed!.copyWith(deviceName: _deviceNameOf(_device)),
+    _secret.text,
+    password: password,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.watch<Store>().t;
+    final sync = context.read<SyncController?>()!;
+    final theme = Theme.of(context);
+    final url = normalizeWebDavUrl(_url.text);
+    final insecure = url != null && isInsecureWebDavUrl(url);
+    final info = _info;
+    return Scaffold(
+      appBar: AppBar(title: const Text('WebDAV')),
+      body: SafeArea(
+        top: false,
+        child: AutofillGroup(
+          child: ListView(
+            key: const ValueKey('sync-webdav-setup'),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            children: [
+              TextField(
+                key: const ValueKey('sync-webdav-url'),
+                controller: _url,
+                enabled: !_busy,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                autofillHints: const [AutofillHints.url],
+                decoration: InputDecoration(
+                  labelText: t['syncWebdavUrl'],
+                  hintText: 'https://dav.jianguoyun.com/dav/',
+                ),
+                onChanged: (value) {
+                  _edited(value);
+                  setState(() {});
+                },
+              ),
+              if (insecure) ...[
+                const SizedBox(height: 6),
+                Text(
+                  t['syncWebdavInsecure']!,
+                  key: const ValueKey('sync-webdav-insecure'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('sync-webdav-user'),
+                controller: _user,
+                enabled: !_busy,
+                autocorrect: false,
+                autofillHints: const [AutofillHints.username],
+                decoration: InputDecoration(labelText: t['syncWebdavUser']),
+                onChanged: _edited,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('sync-webdav-password'),
+                controller: _secret,
+                enabled: !_busy,
+                obscureText: true,
+                autocorrect: false,
+                enableSuggestions: false,
+                autofillHints: const [AutofillHints.password],
+                decoration: InputDecoration(
+                  labelText: t['syncWebdavPassword'],
+                  helperText: t['syncWebdavPasswordHint'],
+                  helperMaxLines: 3,
+                ),
+                onChanged: _edited,
+              ),
+              const SizedBox(height: 12),
+              _DeviceNameField(controller: _device, enabled: !_busy, t: t),
+              const SizedBox(height: 4),
+              Text(
+                t['syncWebdavFolderNote']!,
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              if (info == null)
+                FilledButton(
+                  key: const ValueKey('sync-webdav-connect'),
+                  onPressed: _busy ? null : () => _probe(sync, t),
+                  child: Text(_busy ? t['syncWorking']! : t['syncConnect']!),
+                )
+              else
+                ..._joinStep(info, sync, t, theme),
+              if (_error != null) _errorLine(theme),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceNameField extends StatelessWidget {
+  const _DeviceNameField({
+    required this.controller,
+    required this.enabled,
+    required this.t,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final Map<String, String> t;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    key: const ValueKey('sync-device-name'),
+    controller: controller,
+    enabled: enabled,
+    maxLength: 64,
+    decoration: InputDecoration(
+      labelText: t['syncDeviceName'],
+      helperText: t['syncDeviceNameHint'],
+    ),
+  );
+}
+
+/// Microsoft sign-in in the browser, then the same join step as WebDAV.
+class OneDriveSetupScreen extends StatefulWidget {
+  const OneDriveSetupScreen({super.key});
+
+  @override
+  State<OneDriveSetupScreen> createState() => _OneDriveSetupScreenState();
+}
+
+class _OneDriveSetupScreenState extends State<OneDriveSetupScreen>
+    with _JoinFlow<OneDriveSetupScreen> {
+  final _device = TextEditingController(text: defaultSyncDeviceName());
+  OneDriveTokenResult? _signedIn;
+
+  @override
+  SyncProviderKind get _kind => SyncProviderKind.onedrive;
+
+  @override
+  void dispose() {
+    _device.dispose();
+    _disposeJoin();
+    super.dispose();
+  }
+
+  SyncProviderConfig _config() => SyncProviderConfig(
+    kind: SyncProviderKind.onedrive,
+    deviceName: _deviceNameOf(_device),
+    account: _signedIn!.account.label,
+    accountId: _signedIn!.account.id,
+  );
+
+  Future<void> _signIn(SyncController sync, Map<String, String> t) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final result = await runOneDriveSignIn(context, sync, t);
+      if (!mounted || result == null) return;
+      setState(() {
+        _signedIn = result;
+        _resetJoin();
+      });
+      await _probe(sync, t);
+    } catch (error) {
+      AppLog.warn('sync', 'OneDrive sign-in failed: ${syncErrorLabel(error)}');
+      if (mounted) {
+        setState(() => _error = syncErrorText(error, t, kind: _kind));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// What the app folder holds.
+  Future<void> _probe(SyncController sync, Map<String, String> t) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final info = await sync.probe(_config(), _signedIn!.tokens.encode());
+      if (mounted) setState(() => _info = info);
+    } catch (error) {
+      AppLog.warn('sync', 'Connection check failed: ${syncErrorLabel(error)}');
+      if (mounted) {
+        setState(() => _error = syncErrorText(error, t, kind: _kind));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Future<void> _connect(SyncController sync, String? password) =>
+      sync.connect(_config(), _signedIn!.tokens.encode(), password: password);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.watch<Store>().t;
+    final sync = context.read<SyncController?>()!;
+    final theme = Theme.of(context);
+    final signedIn = _signedIn;
+    final info = _info;
+    return Scaffold(
+      appBar: AppBar(title: const Text('OneDrive')),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          key: const ValueKey('sync-onedrive-setup'),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          children: [
+            Text(t['syncOnedriveIntro']!, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 16),
+            _DeviceNameField(controller: _device, enabled: !_busy, t: t),
+            const SizedBox(height: 8),
+            if (signedIn == null)
+              FilledButton.icon(
+                key: const ValueKey('sync-onedrive-sign-in'),
+                icon: const Icon(Icons.login, size: 18),
+                label: Text(
+                  _busy ? t['syncWorking']! : t['syncOnedriveSignIn']!,
+                ),
+                onPressed: _busy ? null : () => _signIn(sync, t),
+              )
+            else ...[
+              ListTile(
+                key: const ValueKey('sync-onedrive-account'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.account_circle_outlined),
+                title: Text(
+                  _fill(t['syncOnedriveSignedIn']!, {
+                    'account':
+                        signedIn.account.label ??
+                        t['syncOnedriveAccountUnknown']!,
+                  }),
+                ),
+                subtitle: Text(t['syncOnedriveFolder']!),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  key: const ValueKey('sync-onedrive-switch'),
+                  onPressed: _busy ? null : () => _signIn(sync, t),
+                  child: Text(t['syncOnedriveSwitchAccount']!),
+                ),
+              ),
+              if (info == null)
+                FilledButton(
+                  key: const ValueKey('sync-onedrive-check'),
+                  onPressed: _busy ? null : () => _probe(sync, t),
+                  child: Text(_busy ? t['syncWorking']! : t['syncConnect']!),
+                )
+              else
+                ..._joinStep(info, sync, t, theme),
+            ],
+            if (_error != null) _errorLine(theme),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the Microsoft sign-in page in the browser and waits for it in a
+/// dialog. Null when the user cancels; sign-in and token errors are thrown.
+Future<OneDriveTokenResult?> runOneDriveSignIn(
+  BuildContext context,
+  SyncController sync,
+  Map<String, String> t,
+) async {
+  final attempt = await sync.oneDrive.begin(
+    donePage: t['syncOnedriveBrowserDone']!,
+  );
+  if (!context.mounted) {
+    attempt.cancel();
+    return null;
+  }
+  final outcome = await showDialog<Object>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _OneDriveSignInDialog(attempt: attempt, t: t),
+  );
+  if (outcome is OneDriveTokenResult) return outcome;
+  attempt.cancel();
+  if (outcome == null ||
+      (outcome is OneDriveSignInException &&
+          outcome.kind == OneDriveSignInError.cancelled)) {
+    return null;
+  }
+  throw outcome;
+}
+
+class _OneDriveSignInDialog extends StatefulWidget {
+  const _OneDriveSignInDialog({required this.attempt, required this.t});
+
+  final OneDriveSignIn attempt;
+  final Map<String, String> t;
+
+  @override
+  State<_OneDriveSignInDialog> createState() => _OneDriveSignInDialogState();
+}
+
+class _OneDriveSignInDialogState extends State<_OneDriveSignInDialog> {
+  @override
+  void initState() {
+    super.initState();
+    widget.attempt.result.then(
+      (result) {
+        if (mounted) Navigator.of(context).pop(result);
+      },
+      onError: (Object error) {
+        if (mounted) Navigator.of(context).pop(error);
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final attempt = widget.attempt;
+    return AlertDialog(
+      key: const ValueKey('sync-onedrive-dialog'),
+      title: Text(t['syncOnedriveSignInTitle']!),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            attempt.browserOpened
+                ? t['syncOnedriveBrowserOpened']!
+                : t['syncOnedriveBrowserFailed']!,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(t['syncOnedriveWaiting']!)),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('sync-onedrive-copy-link'),
+          onPressed: () async {
+            await Clipboard.setData(
+              ClipboardData(text: attempt.url.toString()),
+            );
+            if (context.mounted) showAppNotice(context, t['linkCopied']!);
+          },
+          child: Text(t['copyLink']!),
+        ),
+        TextButton(
+          key: const ValueKey('sync-onedrive-cancel'),
+          onPressed: attempt.cancel,
+          child: Text(t['cancel']!),
+        ),
+      ],
+    );
+  }
 }
 
 class _SyncDashboard extends StatefulWidget {
@@ -546,7 +899,48 @@ class _SyncDashboardState extends State<_SyncDashboard> {
       await action();
       _input.clear();
     } catch (error) {
-      if (mounted) showAppNotice(context, syncErrorText(error, t));
+      if (mounted) {
+        showAppNotice(
+          context,
+          syncErrorText(error, t, kind: sync.config?.kind),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Signs in to the same Microsoft account again after the sign-in expired
+  /// or secure storage lost it.
+  Future<void> _signInAgain() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final result = await runOneDriveSignIn(context, sync, t);
+      if (result == null) return;
+      final config = sync.config;
+      final expected = config?.accountId;
+      final actual = result.account.id;
+      if (expected != null && actual != null && expected != actual) {
+        if (mounted) {
+          showAppNotice(
+            context,
+            _fill(t['syncOnedriveOtherAccount']!, {
+              'account': config?.account ?? t['syncOnedriveAccountUnknown']!,
+            }),
+          );
+        }
+        return;
+      }
+      await sync.updateSecret(result.tokens.encode());
+    } catch (error) {
+      AppLog.warn('sync', 'OneDrive sign-in failed: ${syncErrorLabel(error)}');
+      if (mounted) {
+        showAppNotice(
+          context,
+          syncErrorText(error, t, kind: SyncProviderKind.onedrive),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -581,6 +975,14 @@ class _SyncDashboardState extends State<_SyncDashboard> {
     if (problem == SyncConnectionProblem.missingSecret ||
         problem == SyncConnectionProblem.secureStorage ||
         status.issue == SyncIssue.auth) {
+      if (sync.config?.kind == SyncProviderKind.onedrive) {
+        return FilledButton.icon(
+          key: const ValueKey('sync-onedrive-reauth'),
+          icon: const Icon(Icons.login, size: 18),
+          label: Text(t['syncOnedriveSignInAgain']!),
+          onPressed: _busy ? null : _signInAgain,
+        );
+      }
       return field(
         t['syncWebdavPassword']!,
         t['syncUpdatePassword']!,
@@ -720,9 +1122,15 @@ class _SyncDashboardState extends State<_SyncDashboard> {
     final config = sync.config;
     final status = sync.status;
     final action = _action();
-    final location = config?.webdav == null
-        ? null
-        : '${config!.webdav!.username} · ${config.webdav!.url}';
+    final location = switch (config?.kind) {
+      SyncProviderKind.onedrive => [
+        if (config?.account != null) config!.account!,
+        t['syncOnedriveFolder']!,
+      ].join(' · '),
+      _ when config?.webdav != null =>
+        '${config!.webdav!.username} · ${config.webdav!.url}',
+      _ => null,
+    };
     final syncing = status.phase == SyncPhase.syncing;
     final encrypted = sync.engine.encrypted;
     return ListView(
