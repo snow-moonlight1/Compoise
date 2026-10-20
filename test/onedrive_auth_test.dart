@@ -179,10 +179,10 @@ void main() {
     test('failures are classified and labelled without personal data', () {
       final expired = tokenFailure(400, 'invalid_grant', [70008]);
       expect(expired.kind, SyncRemoteFailure.auth);
-      expect(expired.message, 'token: HTTP 400 invalid_grant AADSTS70008');
+      expect(expired.message, 'login: HTTP 400 invalid_grant AADSTS70008');
       expect(
         syncErrorLabel(expired),
-        'remote auth (token: HTTP 400 invalid_grant AADSTS70008)',
+        'remote auth (login: HTTP 400 invalid_grant AADSTS70008)',
       );
       expect(
         tokenFailure(400, 'interaction_required', null).kind,
@@ -202,7 +202,7 @@ void main() {
       expect(limited.retryAfter, const Duration(seconds: 7));
       expect(
         tokenFailure(400, 'Some Address <a@b.c>', null).message,
-        'token: HTTP 400',
+        'login: HTTP 400',
       );
     });
 

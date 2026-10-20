@@ -29,6 +29,12 @@
 
 - 诊断日志不在 SharedPreferences，而是应用支持目录下的 `logs/compoise.log`，每个文件最多约 256 KB，最多保留 3 个（`lib/diagnostics/app_log.dart`）。
 
+## 同步数据
+
+- 开启同步后，同步用的状态放在应用支持目录的 `sync/` 下，不在 SharedPreferences，不进快照，也不进 JSON 备份：`sync-meta.json`（设备 ID 和所在同步库）、`sync-state.json`（合并后的同步状态）、`sync-pending.json`（一轮同步写回任务库时短暂存在）、`sync-provider.json`（同步位置、WebDAV 地址和用户名或 OneDrive 账号名，不含密码和令牌）。
+- 同步密码推导出的密钥（`compoise-sync-vault-key`）和 WebDAV 密码或 OneDrive 登录令牌（`compoise-sync-provider-secret`）和 API 密钥一样放在系统安全存储里。断开同步时删除。
+- 同步结果写回任务库时走同一套快照提交，失败整体回滚。`sync/` 里的文件丢失或损坏不会丢任务，下一轮会以本机任务库为基线重新合并。详见[同步说明](sync.md#本机文件)。
+
 ## 启动恢复
 
 - 提交槽或启动时读到的数据损坏（JSON 无效、ID 重复、时区无效、引用了不存在的对象等）时，应用进入恢复页面，原始数据保持不动。只有用户明确选择丢弃，才会清理这些数据。

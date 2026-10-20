@@ -6,6 +6,23 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-20
+
+### Added
+
+- Optional sync, off by default and without a Compoise account or server. Your library goes to storage you already own:
+  - OneDrive personal accounts, signed in through the system browser. Compoise can only reach its own app folder (Apps/Compoise).
+  - WebDAV as an advanced option, for example Nutstore (坚果云), Nextcloud or Synology.
+- An optional sync password encrypts the synced files end to end (Argon2id and AES-256-GCM). Without it the files are only compressed, so the storage provider can read them.
+- Changes merge field by field: edits to different fields of the same task are both kept, and deleted tasks do not come back.
+- Settings → Sync shows the devices in the library and lets you rename or remove them.
+- Sync runs on its own after changes, when the app opens or returns to the foreground, and on a timer, and waits longer after repeated failures. "Sync now" is always available.
+
+### Changed
+
+- The update check asks the release page on github.com when the GitHub API refuses or fails, for example after its hourly limit on a shared network.
+- The diagnostics log also records sync status and failures: the failure type, HTTP status and error codes, and the request method and server host name. It still leaves out paths, accounts, tokens and task content.
+
 ## [1.1.0] - 2026-10-19
 
 ### Added
@@ -70,8 +87,8 @@ First public release. 首个公开版本。
 - The Linux version does not deliver scheduled reminder notifications, and it has no tray icon or global hotkey.
 - Windows ARM64 is not built yet.
 
-[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.2.0
+[1.1.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.1.0
 [1.0.1]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.1
 [1.0.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.0
-
-[1.1.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.1.0

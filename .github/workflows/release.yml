@@ -484,7 +484,8 @@ jobs:
           - **日程页**：日/周视图，把任务拖到时间线安排时间
           - **截图本地识别**：从截图识别文字并导入为任务；识别在本机完成，首次使用需下载约 11 MB 模型
           - **可选 AI（自备密钥）**：分类、分组与拆解；普通待办可离线使用
-          - **手动备份**：通过 JSON 导入/导出
+          - **可选同步**：通过自己的 OneDrive 或 WebDAV（坚果云等）在设备间同步，可设同步密码端到端加密，不需要方寸账号；默认关闭
+          - **备份**：通过 JSON 导入/导出
 
           ### 下载指引
 
@@ -516,7 +517,8 @@ jobs:
           - **Planner**: day/week views; drag tasks onto the timeline
           - **Screenshot import (on-device OCR)**: turn screenshot text into tasks locally; first use downloads an ~11 MB model
           - **Optional AI (bring your own key)**: classify, group, and break down tasks; everyday todos work offline
-          - **Manual backup**: import/export via JSON
+          - **Optional sync**: sync between devices through your own OneDrive or WebDAV storage (such as Nutstore), with an optional sync password for end-to-end encryption; no Compoise account; off by default
+          - **Backup**: import/export via JSON
 
           ### Which file to download
 

@@ -207,7 +207,7 @@ void main() {
       rig.graph.revokeSignIn();
       final error = await _failure(rig.remote.list());
       expect(error.kind, SyncRemoteFailure.auth);
-      expect(error.message, 'token: HTTP 400 invalid_grant AADSTS70008');
+      expect(error.message, 'login: HTTP 400 invalid_grant AADSTS70008');
       expect(rig.saved, isEmpty);
     });
 

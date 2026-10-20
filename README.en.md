@@ -44,6 +44,7 @@ These previews show the Android layout with sample tasks. A [static matrix scree
 | Search and review | Search tasks and notes, filter them, and look back at completed tasks. |
 | Appearance | 简体中文, English and 日本語. Theme colors, font size, reduced motion, and optional comic outline and neumorphic styles. |
 | Desktop | Keyboard shortcuts, mouse drag and drop, and context menus. On Windows there is also a tray icon and a global hotkey. |
+| Sync | Optional. Sync through your own OneDrive or WebDAV storage (such as Nutstore), with an optional sync password for end-to-end encryption. No Compoise account. |
 | Backup | Export and import JSON files to move your data between devices. |
 
 ## Download
@@ -76,7 +77,7 @@ sudo apt install libgtk-3-0 libsecret-1-0 libayatana-appindicator3-1 zenity font
 
 - AI is bring-your-own-key. Pick a provider preset, or enter the address, model and key of any compatible service. Three protocols are supported: OpenAI Compatible, OpenAI Responses and Anthropic Messages.
 - Task text is sent to your provider only when you classify, group or break down tasks, and the provider bills you for it. There is no Compoise relay server.
-- Tasks, boards and settings stay on your device. There is no account and no automatic cloud sync.
+- Tasks, boards and settings stay on your device, and there is no Compoise account. Sync is off by default. When you turn it on, data goes only to your own OneDrive app folder or WebDAV server, and a sync password can encrypt it.
 - The API key is kept in the system's secure storage. Backups leave it out by default. If you choose to include it, the key is stored in the backup file as plain text.
 - Screenshot recognition runs entirely on your device. Images are never uploaded.
 
@@ -118,6 +119,7 @@ lib/                 Flutter app: UI, data model and logic
   screenshot_import/ screenshot recognition flow
   ocr/               OCR library binding and model download
   services/          reminders, desktop shell and other platform services
+  sync/              optional sync (OneDrive, WebDAV)
   experiments/       experiments not wired into the app
 native/ocr/          OCR native library (C++, ncnn + PP-OCRv5)
 android/ windows/ linux/   platform projects
