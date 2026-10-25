@@ -312,79 +312,71 @@ void main() {
     return store;
   }
 
-  test(
-    'keeps a record at the content budget inside the file ceiling',
-    () async {
-      // Migrated from RF-R04: this exact shape exported fine and could not be
-      // read back, because the JSON around 4 MiB of notes is already over 4 MiB.
-      SharedPreferences.setMockInitialValues({});
-      final store = Store();
-      await store.init();
-      final task = store.newTask('Large valid notes')
-        ..notesMarkdown = 'x' * ImportPreflight.maxBytes;
-      store.addTasks([task]);
-      final backup = store.exportJson();
-      Object? error;
-      try {
-        ImportPreflight.decode(Uint8List.fromList(utf8.encode(backup)));
-      } catch (e) {
-        error = e;
-      }
-      await store.flush();
-      store.dispose();
-      expect(error, isNull);
+  test('keeps a record at the content budget inside the file ceiling', () async {
+    // Migrated from RF-R04: this exact shape exported fine and could not be
+    // read back, because the JSON around 4 MiB of notes is already over 4 MiB.
+    SharedPreferences.setMockInitialValues({});
+    final store = Store();
+    await store.init();
+    final task = store.newTask('Large valid notes')
+      ..notesMarkdown = 'x' * ImportPreflight.maxBytes;
+    store.addTasks([task]);
+    final backup = store.exportJson();
+    Object? error;
+    try {
+      ImportPreflight.decode(Uint8List.fromList(utf8.encode(backup)));
+    } catch (e) {
+      error = e;
+    }
+    await store.flush();
+    store.dispose();
+    expect(error, isNull);
 
-      // And the whole round trip: preflight and restore into an empty library.
-      final target = fresh();
-      await target.init();
-      final payload = ImportPreflight.decode(
-        Uint8List.fromList(utf8.encode(backup)),
-      );
-      final plan = target.previewImport(payload, 'overwrite');
-      expect(plan.conflicts, 0);
-      expect((await target.applyImport(plan)).success, isTrue);
-      expect(
-        target.tasks.single.notesMarkdown,
-        hasLength(ImportPreflight.maxBytes),
-      );
-    },
-  );
+    // And the whole round trip: preflight and restore into an empty library.
+    final target = fresh();
+    await target.init();
+    final payload = ImportPreflight.decode(
+      Uint8List.fromList(utf8.encode(backup)),
+    );
+    final plan = target.previewImport(payload, 'overwrite');
+    expect(plan.conflicts, 0);
+    expect((await target.applyImport(plan)).success, isTrue);
+    expect(
+      target.tasks.single.notesMarkdown,
+      hasLength(ImportPreflight.maxBytes),
+    );
+  });
 
-  test(
-    'file ceiling is checked before, at and one over the limit',
-    () async {
-      final document = _doc(notes: 'x' * 1024);
-      final ceiling = ImportPreflight.maxFileBytes;
-      for (final size in [ceiling - 1, ceiling]) {
-        final bytes = Uint8List.fromList(
-          utf8.encode(_paddedTo(document, size)),
-        );
-        expect(bytes, hasLength(size));
-        final plan = ImportPreflight.inspect(
-          ImportPreflight.decode(bytes),
-          'merge',
-          currentBoards: const [],
-          currentTasks: const [],
-          revision: 0,
-        );
-        expect(plan.tasks, hasLength(1));
-      }
-      final over = Uint8List.fromList(
-        utf8.encode(_paddedTo(document, ceiling + 1)),
+  test('file ceiling is checked before, at and one over the limit', () async {
+    final document = _doc(notes: 'x' * 1024);
+    final ceiling = ImportPreflight.maxFileBytes;
+    for (final size in [ceiling - 1, ceiling]) {
+      final bytes = Uint8List.fromList(utf8.encode(_paddedTo(document, size)));
+      expect(bytes, hasLength(size));
+      final plan = ImportPreflight.inspect(
+        ImportPreflight.decode(bytes),
+        'merge',
+        currentBoards: const [],
+        currentTasks: const [],
+        revision: 0,
       );
-      final error = _rejection(() => ImportPreflight.decode(over));
-      expect(error.copy, 'importErrorTooLarge');
-      // The same document one byte smaller still preflights cleanly.
-      final store = await open();
-      expect(
-        () => store.previewImport(
-          ImportPreflight.decode(Uint8List.fromList(utf8.encode(document))),
-          'merge',
-        ),
-        returnsNormally,
-      );
-    },
-  );
+      expect(plan.tasks, hasLength(1));
+    }
+    final over = Uint8List.fromList(
+      utf8.encode(_paddedTo(document, ceiling + 1)),
+    );
+    final error = _rejection(() => ImportPreflight.decode(over));
+    expect(error.copy, 'importErrorTooLarge');
+    // The same document one byte smaller still preflights cleanly.
+    final store = await open();
+    expect(
+      () => store.previewImport(
+        ImportPreflight.decode(Uint8List.fromList(utf8.encode(document))),
+        'merge',
+      ),
+      returnsNormally,
+    );
+  });
 
   test('limits count UTF-8 bytes, so CJK text costs three times more', () {
     final chars = 3 * 1024 * 1024 + 1;
@@ -400,209 +392,192 @@ void main() {
     expect(ja, 3 * '四半期の経費精算'.length);
   });
 
-  test(
-    'accepts a library at the record caps and rejects one more',
-    () async {
-      const caps = ImportPreflight.maxTasks ~/ ImportPreflight.maxBoards;
-      final atCaps = _atCaps(
-        boards: ImportPreflight.maxBoards,
-        tasksPerBoard: caps,
-        subtasksPerTask:
-            ImportPreflight.maxSubtasks ~/ ImportPreflight.maxTasks,
-      );
-      final bytes = utf8.encode(jsonEncode(atCaps)).length;
-      expect(bytes, lessThan(ImportPreflight.maxFileBytes));
-      final empty = <Board>[];
-      final plan = ImportPreflight.inspect(
-        atCaps,
+  test('accepts a library at the record caps and rejects one more', () async {
+    const caps = ImportPreflight.maxTasks ~/ ImportPreflight.maxBoards;
+    final atCaps = _atCaps(
+      boards: ImportPreflight.maxBoards,
+      tasksPerBoard: caps,
+      subtasksPerTask: ImportPreflight.maxSubtasks ~/ ImportPreflight.maxTasks,
+    );
+    final bytes = utf8.encode(jsonEncode(atCaps)).length;
+    expect(bytes, lessThan(ImportPreflight.maxFileBytes));
+    final empty = <Board>[];
+    final plan = ImportPreflight.inspect(
+      atCaps,
+      'overwrite',
+      currentBoards: empty,
+      currentTasks: const [],
+      revision: 0,
+    );
+    expect(plan.boards, hasLength(ImportPreflight.maxBoards));
+    expect(plan.tasks, hasLength(ImportPreflight.maxTasks));
+
+    final oneMoreBoard = _rejection(
+      () => ImportPreflight.inspect(
+        _atCaps(
+          boards: ImportPreflight.maxBoards + 1,
+          tasksPerBoard: 1,
+          subtasksPerTask: 0,
+        ),
         'overwrite',
         currentBoards: empty,
         currentTasks: const [],
         revision: 0,
-      );
-      expect(plan.boards, hasLength(ImportPreflight.maxBoards));
-      expect(plan.tasks, hasLength(ImportPreflight.maxTasks));
+      ),
+    );
+    expect(oneMoreBoard.copy, 'importErrorTooManyRecords');
+    final oneMoreTask = _rejection(
+      () => ImportPreflight.inspect(
+        _atCaps(
+          boards: 1,
+          tasksPerBoard: ImportPreflight.maxTasks + 1,
+          subtasksPerTask: 0,
+        ),
+        'overwrite',
+        currentBoards: empty,
+        currentTasks: const [],
+        revision: 0,
+      ),
+    );
+    expect(oneMoreTask.copy, 'importErrorTooManyRecords');
+    final oneMoreSubtask = _rejection(
+      () => ImportPreflight.inspect(
+        _atCaps(
+          boards: 1,
+          tasksPerBoard: 1,
+          subtasksPerTask: ImportPreflight.maxSubtasks + 1,
+        ),
+        'overwrite',
+        currentBoards: empty,
+        currentTasks: const [],
+        revision: 0,
+      ),
+    );
+    expect(oneMoreSubtask.copy, 'importErrorTooManyRecords');
+  });
 
-      final oneMoreBoard = _rejection(
-        () => ImportPreflight.inspect(
-          _atCaps(
-            boards: ImportPreflight.maxBoards + 1,
-            tasksPerBoard: 1,
-            subtasksPerTask: 0,
-          ),
-          'overwrite',
-          currentBoards: empty,
-          currentTasks: const [],
-          revision: 0,
-        ),
-      );
-      expect(oneMoreBoard.copy, 'importErrorTooManyRecords');
-      final oneMoreTask = _rejection(
-        () => ImportPreflight.inspect(
-          _atCaps(
-            boards: 1,
-            tasksPerBoard: ImportPreflight.maxTasks + 1,
-            subtasksPerTask: 0,
-          ),
-          'overwrite',
-          currentBoards: empty,
-          currentTasks: const [],
-          revision: 0,
-        ),
-      );
-      expect(oneMoreTask.copy, 'importErrorTooManyRecords');
-      final oneMoreSubtask = _rejection(
-        () => ImportPreflight.inspect(
-          _atCaps(
-            boards: 1,
-            tasksPerBoard: 1,
-            subtasksPerTask: ImportPreflight.maxSubtasks + 1,
-          ),
-          'overwrite',
-          currentBoards: empty,
-          currentTasks: const [],
-          revision: 0,
-        ),
-      );
-      expect(oneMoreSubtask.copy, 'importErrorTooManyRecords');
-    },
-  );
-
-  test(
-    'repeated legal merges cannot walk past the supported library',
-    () async {
-      const full = ImportPreflight.maxBoards - 1;
-      final boards = [
-        for (var b = 0; b < full; b++)
-          Board(id: 'b$b', name: 'B$b', createdAt: 1),
-      ];
-      final tasks = _library(boards: full, tasks: 1, subtasks: 0);
-      // Two new boards would land on 501: each merge was legal, the library is
-      // not, and a library past the caps is one no backup can carry.
-      final tooMany = _rejection(
-        () => ImportPreflight.inspect(
-          _atCaps(
-            boards: 2,
-            tasksPerBoard: 1,
-            subtasksPerTask: 0,
-            prefix: 'new',
-          ),
-          'merge',
-          currentBoards: boards,
-          currentTasks: tasks,
-          revision: 0,
-        ),
-      );
-      expect(tooMany.copy, 'importErrorTooManyRecords');
-      // One board fills the library exactly and stays legal.
-      final fills = ImportPreflight.inspect(
-        _atCaps(boards: 1, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'new'),
+  test('repeated legal merges cannot walk past the supported library', () async {
+    const full = ImportPreflight.maxBoards - 1;
+    final boards = [
+      for (var b = 0; b < full; b++)
+        Board(id: 'b$b', name: 'B$b', createdAt: 1),
+    ];
+    final tasks = _library(boards: full, tasks: 1, subtasks: 0);
+    // Two new boards would land on 501: each merge was legal, the library is
+    // not, and a library past the caps is one no backup can carry.
+    final tooMany = _rejection(
+      () => ImportPreflight.inspect(
+        _atCaps(boards: 2, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'new'),
         'merge',
         currentBoards: boards,
         currentTasks: tasks,
         revision: 0,
-      );
-      expect(fills.boards, hasLength(ImportPreflight.maxBoards));
-      Map<String, dynamic> extraTask({List<Map<String, String>>? children}) => {
-        'version': 2,
-        'boards': [],
-        'tasks': [
-          {
-            'id': 'extra',
-            'boardId': 'b0',
-            'title': 'T',
-            'quadrant': 1,
-            'createdAt': 1,
-            if (children != null) 'subtasks': children,
-          },
-        ],
-      };
-      // Task and subtask totals are counted over the resulting library too.
-      final nearFullTasks = _library(
-        boards: 1,
-        tasks: ImportPreflight.maxTasks,
-        subtasks: 0,
-      );
-      expect(
-        _rejection(
-          () => ImportPreflight.inspect(
-            extraTask(),
-            'merge',
-            currentBoards: [Board(id: 'b0', name: 'B', createdAt: 1)],
-            currentTasks: nearFullTasks,
-            revision: 0,
-          ),
-        ).copy,
-        'importErrorTooManyRecords',
-      );
-      final nearFullSubtasks = _library(
-        boards: 1,
-        tasks: ImportPreflight.maxTasks,
-        subtasks: 5,
-      );
-      expect(
-        _rejection(
-          () => ImportPreflight.inspect(
-            extraTask(
-              children: [
-                {'id': 's', 'title': 'S'},
-              ],
-            ),
-            'merge',
-            currentBoards: [Board(id: 'b0', name: 'B', createdAt: 1)],
-            currentTasks: nearFullSubtasks,
-            revision: 0,
-          ),
-        ).copy,
-        'importErrorTooManyRecords',
-      );
-
-      // Through the store: the refused merge leaves the library untouched, and a
-      // plan confirmed while there was still room is refused when it is committed
-      // against the live library.
-      final store = await open(
-        seed: {
-          'compoise-boards': jsonEncode([
-            for (var b = 0; b < 499; b++)
-              {'id': 'b$b', 'name': 'B$b', 'createdAt': 1},
-          ]),
-          'compoise-tasks': jsonEncode([]),
-          'compoise-active-board': 'b0',
-          'compoise-has-seen-onboarding': true,
+      ),
+    );
+    expect(tooMany.copy, 'importErrorTooManyRecords');
+    // One board fills the library exactly and stays legal.
+    final fills = ImportPreflight.inspect(
+      _atCaps(boards: 1, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'new'),
+      'merge',
+      currentBoards: boards,
+      currentTasks: tasks,
+      revision: 0,
+    );
+    expect(fills.boards, hasLength(ImportPreflight.maxBoards));
+    Map<String, dynamic> extraTask({List<Map<String, String>>? children}) => {
+      'version': 2,
+      'boards': [],
+      'tasks': [
+        {
+          'id': 'extra',
+          'boardId': 'b0',
+          'title': 'T',
+          'quadrant': 1,
+          'createdAt': 1,
+          if (children != null) 'subtasks': children,
         },
-      );
-      expect(store.boards, hasLength(499));
-      final fillsLast = store.previewImport(
-        _atCaps(boards: 1, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'm1'),
-        'merge',
-      );
-      final previewedTogether = store.previewImport(
-        _atCaps(boards: 1, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'm2'),
-        'merge',
-      );
-      expect((await store.applyImport(fillsLast)).success, isTrue);
-      expect(store.boards, hasLength(500));
-      expect((await store.applyImport(previewedTogether)).success, isFalse);
-      expect(store.boards, hasLength(500));
-      expect(
-        () => store.previewImport(
-          _atCaps(
-            boards: 1,
-            tasksPerBoard: 1,
-            subtasksPerTask: 0,
-            prefix: 'm3',
+      ],
+    };
+    // Task and subtask totals are counted over the resulting library too.
+    final nearFullTasks = _library(
+      boards: 1,
+      tasks: ImportPreflight.maxTasks,
+      subtasks: 0,
+    );
+    expect(
+      _rejection(
+        () => ImportPreflight.inspect(
+          extraTask(),
+          'merge',
+          currentBoards: [Board(id: 'b0', name: 'B', createdAt: 1)],
+          currentTasks: nearFullTasks,
+          revision: 0,
+        ),
+      ).copy,
+      'importErrorTooManyRecords',
+    );
+    final nearFullSubtasks = _library(
+      boards: 1,
+      tasks: ImportPreflight.maxTasks,
+      subtasks: 5,
+    );
+    expect(
+      _rejection(
+        () => ImportPreflight.inspect(
+          extraTask(
+            children: [
+              {'id': 's', 'title': 'S'},
+            ],
           ),
           'merge',
+          currentBoards: [Board(id: 'b0', name: 'B', createdAt: 1)],
+          currentTasks: nearFullSubtasks,
+          revision: 0,
         ),
-        throwsFormatException,
-      );
-      final prefs = await SharedPreferences.getInstance();
-      expect(
-        (jsonDecode(prefs.getString('compoise-boards')!) as List).length,
-        500,
-      );
-    },
-  );
+      ).copy,
+      'importErrorTooManyRecords',
+    );
+
+    // Through the store: the refused merge leaves the library untouched, and a
+    // plan confirmed while there was still room is refused when it is committed
+    // against the live library.
+    final store = await open(
+      seed: {
+        'compoise-boards': jsonEncode([
+          for (var b = 0; b < 499; b++)
+            {'id': 'b$b', 'name': 'B$b', 'createdAt': 1},
+        ]),
+        'compoise-tasks': jsonEncode([]),
+        'compoise-active-board': 'b0',
+        'compoise-has-seen-onboarding': true,
+      },
+    );
+    expect(store.boards, hasLength(499));
+    final fillsLast = store.previewImport(
+      _atCaps(boards: 1, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'm1'),
+      'merge',
+    );
+    final previewedTogether = store.previewImport(
+      _atCaps(boards: 1, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'm2'),
+      'merge',
+    );
+    expect((await store.applyImport(fillsLast)).success, isTrue);
+    expect(store.boards, hasLength(500));
+    expect((await store.applyImport(previewedTogether)).success, isFalse);
+    expect(store.boards, hasLength(500));
+    expect(
+      () => store.previewImport(
+        _atCaps(boards: 1, tasksPerBoard: 1, subtasksPerTask: 0, prefix: 'm3'),
+        'merge',
+      ),
+      throwsFormatException,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      (jsonDecode(prefs.getString('compoise-boards')!) as List).length,
+      500,
+    );
+  });
 
   test('a too big library exports parts that restore in order', () async {
     SharedPreferences.setMockInitialValues({});
@@ -771,56 +746,53 @@ void main() {
     expect(_taskCanon(restoredCrowded), _taskCanon(crowded));
   });
 
-  test(
-    'volumes that restore one at a time still add up past the cap',
-    () async {
-      // What was measured on a real 10,599-task library: export reported a
-      // recoverable two-volume set, the first volume restored 7,066 tasks and the
-      // second was refused by the result-library gate. Each volume is inside the
-      // cap on its own, which is exactly why a per-volume export self check
-      // cannot see this: only the whole library can.
-      const total = 10599;
-      const firstVolume = 7066;
-      final note = _cjk * 170;
-      final first = _volume(tasks: firstVolume, note: note);
-      final second = _volume(
-        tasks: total - firstVolume,
-        note: note,
-        offset: firstVolume,
-      );
+  test('volumes that restore one at a time still add up past the cap', () async {
+    // What was measured on a real 10,599-task library: export reported a
+    // recoverable two-volume set, the first volume restored 7,066 tasks and the
+    // second was refused by the result-library gate. Each volume is inside the
+    // cap on its own, which is exactly why a per-volume export self check
+    // cannot see this: only the whole library can.
+    const total = 10599;
+    const firstVolume = 7066;
+    final note = _cjk * 170;
+    final first = _volume(tasks: firstVolume, note: note);
+    final second = _volume(
+      tasks: total - firstVolume,
+      note: note,
+      offset: firstVolume,
+    );
 
-      // Both files pass the gate on their own, so an export that only validates
-      // one volume at a time would hand them out as a working backup.
-      for (final document in [first, second]) {
-        expect(
-          utf8.encode(document).length,
-          lessThan(ImportPreflight.maxFileBytes),
-        );
-        expect(
-          () => ImportPreflight.inspect(
-            _payload(document),
-            'merge',
-            currentBoards: const [],
-            currentTasks: const [],
-            revision: 0,
-          ),
-          returnsNormally,
-        );
-      }
-
-      // Restoring them in the order the settings screen prints is refused on the
-      // second one, and the refusal drops nothing.
-      final store = await open();
-      final applied = store.previewImport(_payload(first), 'overwrite');
-      expect((await store.applyImport(applied)).success, isTrue);
-      expect(store.tasks, hasLength(firstVolume));
-      final refused = _rejection(
-        () => store.previewImport(_payload(second), 'merge'),
+    // Both files pass the gate on their own, so an export that only validates
+    // one volume at a time would hand them out as a working backup.
+    for (final document in [first, second]) {
+      expect(
+        utf8.encode(document).length,
+        lessThan(ImportPreflight.maxFileBytes),
       );
-      expect(refused.copy, 'importErrorTooManyRecords');
-      expect(store.tasks, hasLength(firstVolume));
-    },
-  );
+      expect(
+        () => ImportPreflight.inspect(
+          _payload(document),
+          'merge',
+          currentBoards: const [],
+          currentTasks: const [],
+          revision: 0,
+        ),
+        returnsNormally,
+      );
+    }
+
+    // Restoring them in the order the settings screen prints is refused on the
+    // second one, and the refusal drops nothing.
+    final store = await open();
+    final applied = store.previewImport(_payload(first), 'overwrite');
+    expect((await store.applyImport(applied)).success, isTrue);
+    expect(store.tasks, hasLength(firstVolume));
+    final refused = _rejection(
+      () => store.previewImport(_payload(second), 'merge'),
+    );
+    expect(refused.copy, 'importErrorTooManyRecords');
+    expect(store.tasks, hasLength(firstVolume));
+  });
 
   test(
     'an over-cap library exports as a recovery archive and restores',
@@ -1222,56 +1194,53 @@ void main() {
     expect(store.tasks, hasLength(8));
   });
 
-  test(
-    'splitting keeps the credential choice to exactly one part',
-    () async {
-      SharedPreferences.setMockInitialValues({});
-      const sentinel = 'SYNTHETIC_RF04_SENTINEL_INVALID';
-      final credential = _Credential();
-      final store = Store(credentialStore: credential);
-      await store.init();
-      addTearDown(store.dispose);
-      expect(await store.updateAIConfig(AIConfig(apiKey: sentinel)), isTrue);
-      final notes = _cjk * 440000;
-      store.createBoard('A');
-      final aId = store.boards.last.id;
-      store.addTasks([
-        for (var i = 0; i < 8; i++)
-          Task(
-            id: 'a$i',
-            boardId: aId,
-            title: 'A$i',
-            quadrant: 1,
-            createdAt: 1,
-            notesMarkdown: notes,
-          ),
-      ]);
+  test('splitting keeps the credential choice to exactly one part', () async {
+    SharedPreferences.setMockInitialValues({});
+    const sentinel = 'SYNTHETIC_RF04_SENTINEL_INVALID';
+    final credential = _Credential();
+    final store = Store(credentialStore: credential);
+    await store.init();
+    addTearDown(store.dispose);
+    expect(await store.updateAIConfig(AIConfig(apiKey: sentinel)), isTrue);
+    final notes = _cjk * 440000;
+    store.createBoard('A');
+    final aId = store.boards.last.id;
+    store.addTasks([
+      for (var i = 0; i < 8; i++)
+        Task(
+          id: 'a$i',
+          boardId: aId,
+          title: 'A$i',
+          quadrant: 1,
+          createdAt: 1,
+          notesMarkdown: notes,
+        ),
+    ]);
 
-      final defaultBundle = await store.exportBackup();
-      expect(defaultBundle.status, BackupStatus.split);
-      expect(
-        defaultBundle.parts.any((part) => part.json.contains('customApiKey')),
-        isFalse,
-      );
+    final defaultBundle = await store.exportBackup();
+    expect(defaultBundle.status, BackupStatus.split);
+    expect(
+      defaultBundle.parts.any((part) => part.json.contains('customApiKey')),
+      isFalse,
+    );
 
-      final withKey = await store.exportBackup(includeCredential: true);
-      expect(withKey.status, BackupStatus.split);
-      expect(
-        withKey.parts.where((part) => part.json.contains(sentinel)),
-        hasLength(1),
-      );
-      final firstConfig =
-          jsonDecode(withKey.parts.first.json)['aiConfig']
-              as Map<String, dynamic>;
-      expect(firstConfig['customApiKey'], sentinel);
-      expect(
-        withKey.parts.skip(1).every((part) => !part.json.contains(sentinel)),
-        isTrue,
-      );
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('compoise-config'), isNot(contains(sentinel)));
-    },
-  );
+    final withKey = await store.exportBackup(includeCredential: true);
+    expect(withKey.status, BackupStatus.split);
+    expect(
+      withKey.parts.where((part) => part.json.contains(sentinel)),
+      hasLength(1),
+    );
+    final firstConfig =
+        jsonDecode(withKey.parts.first.json)['aiConfig']
+            as Map<String, dynamic>;
+    expect(firstConfig['customApiKey'], sentinel);
+    expect(
+      withKey.parts.skip(1).every((part) => !part.json.contains(sentinel)),
+      isTrue,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('compoise-config'), isNot(contains(sentinel)));
+  });
 
   test('explicit export waits for the latest credential', () async {
     SharedPreferences.setMockInitialValues({});

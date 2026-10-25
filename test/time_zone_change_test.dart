@@ -220,8 +220,6 @@ void main() {
     await c2Finish(tester, store);
   });
 
-
-
   test(
     'a DST fold or gap in the opened form is not re-resolved by a zone change',
     () async {

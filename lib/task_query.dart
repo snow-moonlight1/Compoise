@@ -6,27 +6,13 @@ import 'task_tags.dart';
 export 'deadline_policy.dart' show calendarDaysLeft, isDeadlineUrgent;
 
 /// Scope of boards to include in task search.
-enum TaskScopeFilter {
-  currentBoard,
-  allBoards,
-}
+enum TaskScopeFilter { currentBoard, allBoards }
 
 /// Completion status filter for task search.
-enum TaskStatusFilter {
-  all,
-  incomplete,
-  completed,
-}
+enum TaskStatusFilter { all, incomplete, completed }
 
 /// Deadline calendar filter for task search.
-enum TaskDateFilter {
-  all,
-  today,
-  thisWeek,
-  thisMonth,
-  overdue,
-  noDate,
-}
+enum TaskDateFilter { all, today, thisWeek, thisMonth, overdue, noDate }
 
 /// Represents a single search result match, either a parent task or a child subtask.
 class TaskSearchResult {
@@ -59,10 +45,9 @@ class TaskSearchResult {
       isSubtaskMatch ? matchedSubtask!.completed : task.completed;
 
   /// Deadline associated with this hit.
-  int? get deadline =>
-      isSubtaskMatch
-          ? (matchedSubtask!.deadline ?? task.deadline)
-          : task.deadline;
+  int? get deadline => isSubtaskMatch
+      ? (matchedSubtask!.deadline ?? task.deadline)
+      : task.deadline;
 }
 
 /// Checks if [deadline] satisfies [filter] relative to [now].
@@ -121,7 +106,8 @@ List<TaskSearchResult> queryTasks({
   final seenKeys = <String>{};
 
   for (final task in tasks) {
-    if (scope == TaskScopeFilter.currentBoard && task.boardId != activeBoardId) {
+    if (scope == TaskScopeFilter.currentBoard &&
+        task.boardId != activeBoardId) {
       continue;
     }
     final board = boardMap[task.boardId];

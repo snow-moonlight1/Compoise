@@ -111,48 +111,44 @@ void main() {
     store.dispose();
   });
 
-  testWidgets(
-    'completion rate is opt-in, persisted, and home-more only',
-    (tester) async {
-      final (store, _) = await makeStore();
-      expect(store.settings.showCompletionRate, isFalse);
-      store.addTasks([
-        store.newTask('Done')..completed = true,
-        store.newTask('Open', quadrant: 2),
-      ]);
-      await pumpHome(tester, store, platform: TargetPlatform.windows);
-      await tester.tap(find.byKey(const ValueKey('more-btn')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
-      Navigator.of(
-        tester.element(find.byKey(const ValueKey('more-panel'))),
-      ).pop();
-      await tester.pumpAndSettle();
+  testWidgets('completion rate is opt-in, persisted, and home-more only', (
+    tester,
+  ) async {
+    final (store, _) = await makeStore();
+    expect(store.settings.showCompletionRate, isFalse);
+    store.addTasks([
+      store.newTask('Done')..completed = true,
+      store.newTask('Open', quadrant: 2),
+    ]);
+    await pumpHome(tester, store, platform: TargetPlatform.windows);
+    await tester.tap(find.byKey(const ValueKey('more-btn')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('more-panel'))),
+    ).pop();
+    await tester.pumpAndSettle();
 
-      store.updateSettings((s) => s..showCompletionRate = true);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-btn')));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('completion-rate-text')),
-        findsOneWidget,
-      );
-      expect(find.textContaining('2'), findsWidgets);
-      Navigator.of(
-        tester.element(find.byKey(const ValueKey('more-panel'))),
-      ).pop();
-      await tester.pumpAndSettle();
+    store.updateSettings((s) => s..showCompletionRate = true);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('more-btn')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('completion-rate-text')), findsOneWidget);
+    expect(find.textContaining('2'), findsWidgets);
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('more-panel'))),
+    ).pop();
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('more-btn')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('completed-btn')));
-      await tester.pumpAndSettle();
-      expect(find.byType(CompletedScreen), findsOneWidget);
-      expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
-      await tester.pumpWidget(const SizedBox());
-      store.dispose();
-    },
-  );
+    await tester.tap(find.byKey(const ValueKey('more-btn')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('completed-btn')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CompletedScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('completion-rate-text')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    store.dispose();
+  });
 
   testWidgets('missing backup field stays off and settings can enable', (
     tester,

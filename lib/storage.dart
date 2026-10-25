@@ -941,9 +941,14 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       _copyTaskFields(updated, live);
       updated = live;
     }
-    if (oldTask.completed && !updated.completed && updated.countProgress?.reached == true) {
+    if (oldTask.completed &&
+        !updated.completed &&
+        updated.countProgress?.reached == true) {
       final progress = updated.countProgress!;
-      updated.countProgress = CountProgress(value:progress.value-1,target:progress.target);
+      updated.countProgress = CountProgress(
+        value: progress.value - 1,
+        target: progress.target,
+      );
     }
     if (updated.countProgress?.reached == true) {
       updated.completed = true;
@@ -2355,8 +2360,10 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
       overlaySettings(settings.toJson(), library.settings),
       defaultLanguage: settings.language,
     );
-    nextSettings.urgencyThresholdDays = nextSettings.urgencyThresholdDays
-        .clamp(1, 14);
+    nextSettings.urgencyThresholdDays = nextSettings.urgencyThresholdDays.clamp(
+      1,
+      14,
+    );
     return (
       boards: boards,
       tasks: tasks,

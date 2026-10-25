@@ -6,6 +6,16 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [Unreleased]
 
+### 修复
+
+- 添加任务时不小心点到空白处关掉了窗口，没写完的文字会保留，下次打开还在；添加成功后清空。文字只存在本机，不进入备份。
+- 手动添加时在一行里按回车换到下一行，键盘不再先收起再弹出，窗口不再跳动。
+
+### Fixed
+
+- Unsent text in the add-task sheet is kept when the sheet is closed by accident and comes back next time; it is cleared once the task is added. It stays on this device and is not part of backups.
+- Pressing Enter in a manual task line no longer hides and reshows the keyboard, so the sheet no longer jumps.
+
 ## [1.2.0] - 2026-10-20
 
 这一版加入可选同步：用你自己的 OneDrive 或 WebDAV 网盘在设备之间同步任务，不需要方寸账号。This release adds optional sync between your devices through your own OneDrive or WebDAV storage, with no Compoise account.

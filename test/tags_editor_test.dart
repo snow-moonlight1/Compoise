@@ -31,10 +31,7 @@ void main() {
   }
 
   Future<void> type(WidgetTester tester, String text) async {
-    await tester.enterText(
-      find.byKey(const ValueKey('task-tag-input')),
-      text,
-    );
+    await tester.enterText(find.byKey(const ValueKey('task-tag-input')), text);
     await tester.pump();
   }
 
@@ -58,10 +55,7 @@ void main() {
       expect(find.byKey(const ValueKey('task-tags-list')), findsOneWidget);
       expect(chip('Work'), findsOneWidget);
       expect(chip('家庭'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('task-tag-input')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('task-tag-input')), findsOneWidget);
     });
 
     testWidgets('an empty draft is just the input', (tester) async {

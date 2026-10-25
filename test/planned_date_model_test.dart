@@ -54,10 +54,7 @@ void main() {
 
     test('a record that carries both dates keeps them separate', () {
       final task = Task.fromJson(
-        _taskJson({
-          'deadline': 1772294399000,
-          'plannedDate': 1772000000000,
-        }),
+        _taskJson({'deadline': 1772294399000, 'plannedDate': 1772000000000}),
       );
       expect(task.deadline, 1772294399000);
       expect(task.plannedDate, 1772000000000);
@@ -127,46 +124,61 @@ void main() {
       expect(store.tasks.single.plannedDate, plan);
     });
 
-    test('retired planned-date bytes are preserved when saving existing data', () async {
-      final (store, _) = await makeStore(
-        boards: [Board(id: 'b-1', name: 'Board', createdAt: 1000)],
-        tasks: [_task()],
-      );
-      addTearDown(store.dispose);
+    test(
+      'retired planned-date bytes are preserved when saving existing data',
+      () async {
+        final (store, _) = await makeStore(
+          boards: [Board(id: 'b-1', name: 'Board', createdAt: 1000)],
+          tasks: [_task()],
+        );
+        addTearDown(store.dispose);
 
-      store.updateTask(Task.fromJson(store.tasks.single.toJson())..plannedDate = plannedDayMs(DateTime(2026, 3, 5)));
-      expect(store.tasks.single.plannedDate, plannedDayMs(DateTime(2026, 3, 5)));
-      expect((await store.flush()).success, isTrue);
+        store.updateTask(
+          Task.fromJson(store.tasks.single.toJson())
+            ..plannedDate = plannedDayMs(DateTime(2026, 3, 5)),
+        );
+        expect(
+          store.tasks.single.plannedDate,
+          plannedDayMs(DateTime(2026, 3, 5)),
+        );
+        expect((await store.flush()).success, isTrue);
 
-      final reopened = Store();
-      await reopened.init();
-      addTearDown(reopened.dispose);
-      expect(reopened.tasks.single.plannedDate, plannedDayMs(DateTime(2026, 3, 5)));
-    });
+        final reopened = Store();
+        await reopened.init();
+        addTearDown(reopened.dispose);
+        expect(
+          reopened.tasks.single.plannedDate,
+          plannedDayMs(DateTime(2026, 3, 5)),
+        );
+      },
+    );
   });
 
   group('import preflight', () {
-    test('a planned backup re-imports without an unknown-field warning', () async {
-      final (store, _) = await makeStore(
-        boards: [Board(id: 'b-1', name: 'Board', createdAt: 1000)],
-        tasks: [_task(plannedDate: plannedDayMs(DateTime(2026, 3, 5))!)],
-      );
-      addTearDown(store.dispose);
+    test(
+      'a planned backup re-imports without an unknown-field warning',
+      () async {
+        final (store, _) = await makeStore(
+          boards: [Board(id: 'b-1', name: 'Board', createdAt: 1000)],
+          tasks: [_task(plannedDate: plannedDayMs(DateTime(2026, 3, 5))!)],
+        );
+        addTearDown(store.dispose);
 
-      final plan = store.previewImport(
-        jsonOf(store.exportJson()),
-        'overwrite',
-      );
-      expect(
-        plan.warnings.where((warning) => warning.contains('plannedDate')),
-        isEmpty,
-      );
-      expect((await store.applyImport(plan)).success, isTrue);
-      expect(
-        store.tasks.single.plannedDate,
-        plannedDayMs(DateTime(2026, 3, 5)),
-      );
-    });
+        final plan = store.previewImport(
+          jsonOf(store.exportJson()),
+          'overwrite',
+        );
+        expect(
+          plan.warnings.where((warning) => warning.contains('plannedDate')),
+          isEmpty,
+        );
+        expect((await store.applyImport(plan)).success, isTrue);
+        expect(
+          store.tasks.single.plannedDate,
+          plannedDayMs(DateTime(2026, 3, 5)),
+        );
+      },
+    );
 
     test('a legacy file with no plan imports as unplanned', () async {
       final (store, _) = await makeStore();
@@ -176,32 +188,42 @@ void main() {
         'boards': [
           {'id': 'b-9', 'name': 'Imported', 'createdAt': 1000},
         ],
-        'tasks': [_taskJson({'id': 'old', 'boardId': 'b-9'})],
+        'tasks': [
+          _taskJson({'id': 'old', 'boardId': 'b-9'}),
+        ],
       }, 'merge');
 
       expect((await store.applyImport(plan)).success, isTrue);
       expect(store.tasks.single.plannedDate, isNull);
     });
 
-    test('a bad plan timestamp is refused before anything is written', () async {
-      final (store, _) = await makeStore(
-        boards: [Board(id: 'b-1', name: 'Board', createdAt: 1000)],
-        tasks: [_task(plannedDate: plannedDayMs(DateTime(2026, 3, 5))!)],
-      );
-      addTearDown(store.dispose);
+    test(
+      'a bad plan timestamp is refused before anything is written',
+      () async {
+        final (store, _) = await makeStore(
+          boards: [Board(id: 'b-1', name: 'Board', createdAt: 1000)],
+          tasks: [_task(plannedDate: plannedDayMs(DateTime(2026, 3, 5))!)],
+        );
+        addTearDown(store.dispose);
 
-      expect(
-        () => store.previewImport({
-          'version': 2,
-          'boards': [
-            {'id': 'b-1', 'name': 'Board', 'createdAt': 1000},
-          ],
-          'tasks': [_taskJson({'plannedDate': 'tomorrow'})],
-        }, 'merge'),
-        throwsA(isA<FormatException>()),
-      );
-      expect(store.tasks.single.plannedDate, plannedDayMs(DateTime(2026, 3, 5)));
-    });
+        expect(
+          () => store.previewImport({
+            'version': 2,
+            'boards': [
+              {'id': 'b-1', 'name': 'Board', 'createdAt': 1000},
+            ],
+            'tasks': [
+              _taskJson({'plannedDate': 'tomorrow'}),
+            ],
+          }, 'merge'),
+          throwsA(isA<FormatException>()),
+        );
+        expect(
+          store.tasks.single.plannedDate,
+          plannedDayMs(DateTime(2026, 3, 5)),
+        );
+      },
+    );
 
     test('two same-id tasks differing only by plan are a conflict', () async {
       final (store, _) = await makeStore(
@@ -210,10 +232,7 @@ void main() {
       );
       addTearDown(store.dispose);
 
-      final plan = store.previewImport(
-        jsonOf(store.exportJson()),
-        'merge',
-      );
+      final plan = store.previewImport(jsonOf(store.exportJson()), 'merge');
       // Same id and identical content: a skip, not a conflict.
       expect(plan.conflicts, 0);
       expect(plan.skipped, greaterThan(0));

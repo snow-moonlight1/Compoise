@@ -61,11 +61,10 @@ class StrikeThroughPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final p = progress.clamp(0.0, 1.0);
     if (p <= 0 || boxes.isEmpty) return;
-    final paint =
-        Paint()
-          ..color = color
-          ..strokeWidth = thickness
-          ..style = PaintingStyle.stroke;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = thickness
+      ..style = PaintingStyle.stroke;
     final widths = segmentWidths;
     for (var i = 0; i < boxes.length; i++) {
       final box = boxes[i];
@@ -147,8 +146,7 @@ class AnimatedStrikeThroughText extends StatefulWidget {
       _AnimatedStrikeThroughTextState();
 }
 
-class _AnimatedStrikeThroughTextState
-    extends State<AnimatedStrikeThroughText>
+class _AnimatedStrikeThroughTextState extends State<AnimatedStrikeThroughText>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -160,7 +158,16 @@ class _AnimatedStrikeThroughTextState
   /// Cache identity for [_boxes]. It carries the [TextScaler] itself, not
   /// `scaler.scale(1.0)`: two non-linear scalers can agree at 1 dp and still
   /// lay out a 16 dp glyph at different widths.
-  (String, TextStyle, int?, TextOverflow, Locale?, TextDirection, double, TextScaler)?
+  (
+    String,
+    TextStyle,
+    int?,
+    TextOverflow,
+    Locale?,
+    TextDirection,
+    double,
+    TextScaler,
+  )?
   _layoutKey;
 
   @override
@@ -228,11 +235,10 @@ class _AnimatedStrikeThroughTextState
         baseOffset: 0,
         extentOffset: widget.text.length,
       );
-      boxes =
-          painter
-              .getBoxesForSelection(selection)
-              .where((box) => box.right > box.left)
-              .toList();
+      boxes = painter
+          .getBoxesForSelection(selection)
+          .where((box) => box.right > box.left)
+          .toList();
     } finally {
       painter.dispose();
     }
@@ -246,14 +252,14 @@ class _AnimatedStrikeThroughTextState
     final reduceMotion = MotionPolicy.reduceMotionOf(context);
     return OrphanSqueeze(
       child: AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final raw = reduceMotion
-            ? (widget.completed ? 1.0 : 0.0)
-            : _controller.value;
-        return _buildText(context, Curves.easeOut.transform(raw));
-      },
-    ),
+        animation: _controller,
+        builder: (context, _) {
+          final raw = reduceMotion
+              ? (widget.completed ? 1.0 : 0.0)
+              : _controller.value;
+          return _buildText(context, Curves.easeOut.transform(raw));
+        },
+      ),
     );
   }
 

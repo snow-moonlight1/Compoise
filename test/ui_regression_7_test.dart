@@ -45,16 +45,13 @@ void main() {
 
   Finder focusMarker() => find.byKey(const ValueKey('focus-view-active'));
 
-  testWidgets('entering Q2 grows from its own matrix cell', (
-    tester,
-  ) async {
+  testWidgets('entering Q2 grows from its own matrix cell', (tester) async {
     final store = await pumpMatrix(
       tester,
-      seed:
-          (store) => [
-            store.newTask('A', quadrant: qDo),
-            store.newTask('B', quadrant: qPlan),
-          ],
+      seed: (store) => [
+        store.newTask('A', quadrant: qDo),
+        store.newTask('B', quadrant: qPlan),
+      ],
     );
     final initial = paneRect(tester, qPlan);
     await tester.tap(find.byKey(const ValueKey('quadrant-header-2')));
@@ -133,16 +130,13 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('switching focus moves both panes continuously', (
-    tester,
-  ) async {
+  testWidgets('switching focus moves both panes continuously', (tester) async {
     final store = await pumpMatrix(
       tester,
-      seed:
-          (store) => [
-            store.newTask('A', quadrant: qDo),
-            store.newTask('C', quadrant: qDelegate),
-          ],
+      seed: (store) => [
+        store.newTask('A', quadrant: qDo),
+        store.newTask('C', quadrant: qDelegate),
+      ],
     );
     await tester.tap(find.byKey(const ValueKey('quadrant-header-1')));
     await tester.pumpAndSettle();
@@ -169,9 +163,7 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('reduce motion jumps to the focused layout', (
-    tester,
-  ) async {
+  testWidgets('reduce motion jumps to the focused layout', (tester) async {
     final store = await pumpMatrix(
       tester,
       settings: AppSettings()..reduceMotion = true,
@@ -188,9 +180,7 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('100 interrupted enter/exit cycles leak nothing', (
-    tester,
-  ) async {
+  testWidgets('100 interrupted enter/exit cycles leak nothing', (tester) async {
     final store = await pumpMatrix(
       tester,
       seed: (store) => [store.newTask('A', quadrant: qDo)],
@@ -211,27 +201,22 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('scroll offset survives a focus round trip', (
-    tester,
-  ) async {
+  testWidgets('scroll offset survives a focus round trip', (tester) async {
     final store = await pumpMatrix(
       tester,
       size: const Size(390, 640),
-      seed:
-          (store) => [
-            for (var i = 0; i < 20; i++)
-              store.newTask('Task $i', quadrant: qDo),
-          ],
+      seed: (store) => [
+        for (var i = 0; i < 20; i++) store.newTask('Task $i', quadrant: qDo),
+      ],
     );
-    ScrollPosition position() =>
-        tester
-            .state<ScrollableState>(
-              find.descendant(
-                of: find.byKey(const ValueKey('q-pane-1')),
-                matching: find.byType(Scrollable),
-              ),
-            )
-            .position;
+    ScrollPosition position() => tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byKey(const ValueKey('q-pane-1')),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position;
     await tester.drag(
       find.byKey(const ValueKey('q-pane-1')),
       const Offset(0, -160),
@@ -252,9 +237,7 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('task rows are inert during the transition only', (
-    tester,
-  ) async {
+  testWidgets('task rows are inert during the transition only', (tester) async {
     final store = await pumpMatrix(
       tester,
       seed: (store) => [store.newTask('Task A', quadrant: qDo)],
@@ -279,24 +262,21 @@ void main() {
     final store = await pumpMatrix(
       tester,
       settings: AppSettings()..viewMode = ViewMode.list,
-      seed:
-          (store) => [
-            for (var i = 0; i < 20; i++)
-              store.newTask('Task $i', quadrant: qDo),
-          ],
+      seed: (store) => [
+        for (var i = 0; i < 20; i++) store.newTask('Task $i', quadrant: qDo),
+      ],
     );
     expect(find.byType(TaskListView), findsOneWidget);
     // The list is one scrollable. Quadrant sections are slivers inside it.
-    ScrollPosition position() =>
-        tester
-            .stateList<ScrollableState>(
-              find.descendant(
-                of: find.byType(TaskListView),
-                matching: find.byType(Scrollable),
-              ),
-            )
-            .first
-            .position;
+    ScrollPosition position() => tester
+        .stateList<ScrollableState>(
+          find.descendant(
+            of: find.byType(TaskListView),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .first
+        .position;
     // Scroll down so the last section header is reachable, then focus it.
     await tester.drag(find.byType(TaskListView), const Offset(0, -800));
     await tester.pumpAndSettle();

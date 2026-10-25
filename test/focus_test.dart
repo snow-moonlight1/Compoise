@@ -177,10 +177,16 @@ void main() {
     await tester.pump();
     expect(focused, 2);
 
-    final q1CardFocus = Focus.of(tester.element(find.descendant(
-      of: find.byKey(const ValueKey('focus-card-1')),
-      matching: find.byType(Text),
-    ).last));
+    final q1CardFocus = Focus.of(
+      tester.element(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('focus-card-1')),
+              matching: find.byType(Text),
+            )
+            .last,
+      ),
+    );
     q1CardFocus.requestFocus();
     await tester.pump();
     expect(q1CardFocus.hasFocus, isTrue);

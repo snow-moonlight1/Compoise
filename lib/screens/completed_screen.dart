@@ -68,9 +68,7 @@ class _CompletedScreenState extends State<CompletedScreen> {
     );
     if (!mounted) return;
     if (result != null) {
-      setState(
-        () => _applied = TaskFilterCriteria(scope: result.scope),
-      );
+      setState(() => _applied = TaskFilterCriteria(scope: result.scope));
     }
   }
 
@@ -100,10 +98,9 @@ class _CompletedScreenState extends State<CompletedScreen> {
     final activeBoardId = widget.initialBoardId ?? store.activeBoardId;
 
     final rawCompletedTasks = store.completedTasks(
-      boardId:
-          _applied.scope == TaskScopeFilter.currentBoard
-              ? activeBoardId
-              : null,
+      boardId: _applied.scope == TaskScopeFilter.currentBoard
+          ? activeBoardId
+          : null,
     );
     final completedTasks = sortCompletedTasks(rawCompletedTasks);
     final policy = PlatformUiPolicy.of(context);
@@ -111,16 +108,15 @@ class _CompletedScreenState extends State<CompletedScreen> {
     final activeCount = _applied.dimensionCount(TaskFilterKind.archive);
 
     return Scaffold(
-      bottomNavigationBar:
-          policy.isTouchLayout
-              ? FilterChromeBar(
-                activeCount: activeCount,
-                canClear: !_applied.isDefault,
-                onOpen: () => _openFilter(context),
-                onClear: _clearFilters,
-                expanded: true,
-              )
-              : null,
+      bottomNavigationBar: policy.isTouchLayout
+          ? FilterChromeBar(
+              activeCount: activeCount,
+              canClear: !_applied.isDefault,
+              onOpen: () => _openFilter(context),
+              onClear: _clearFilters,
+              expanded: true,
+            )
+          : null,
       body: SafeArea(
         bottom: !policy.isTouchLayout,
         child: LayoutBuilder(
@@ -134,10 +130,8 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   'archive-$activeBoardId#${store.boardEpoch(activeBoardId)}'
                   '#${_applied.scope.name}',
               idOf: (task) => task.id,
-              keepIfMissing:
-                  (task) => store.tasks.any(
-                    (candidate) => candidate.id == task.id,
-                  ),
+              keepIfMissing: (task) =>
+                  store.tasks.any((candidate) => candidate.id == task.id),
               reduceMotion: MotionPolicy.reduceMotionOf(context),
             );
             final detailTask = _detail.taskIn(store);
@@ -160,18 +154,17 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   currentBoardName: boardName,
                 ),
                 Expanded(
-                  child:
-                      entries.isEmpty
-                          ? _buildEmptyState(context, t, theme)
-                          : _buildList(
-                            context,
-                            store,
-                            t,
-                            theme,
-                            entries,
-                            activeBoardId,
-                            isWide,
-                          ),
+                  child: entries.isEmpty
+                      ? _buildEmptyState(context, t, theme)
+                      : _buildList(
+                          context,
+                          store,
+                          t,
+                          theme,
+                          entries,
+                          activeBoardId,
+                          isWide,
+                        ),
                 ),
               ],
             );
@@ -191,10 +184,9 @@ class _CompletedScreenState extends State<CompletedScreen> {
               separator: VerticalDivider(
                 width: 1,
                 thickness: 1,
-                color:
-                    theme.brightness == Brightness.light
-                        ? const Color(0xFFD5DAE1)
-                        : theme.colorScheme.outlineVariant,
+                color: theme.brightness == Brightness.light
+                    ? const Color(0xFFD5DAE1)
+                    : theme.colorScheme.outlineVariant,
               ),
               crossAxisAlignment: CrossAxisAlignment.center,
             );
@@ -202,7 +194,6 @@ class _CompletedScreenState extends State<CompletedScreen> {
         ),
       ),
     );
-
   }
 
   Widget _buildHeader(
@@ -454,14 +445,14 @@ class _CompletedScreenState extends State<CompletedScreen> {
                               child: Text(
                                 task.completedAt != null
                                     ? (t['completedAtTime'] ??
-                                            'Completed: {time}')
-                                        .replaceAll(
-                                          '{time}',
-                                          _formatCompletionTime(
-                                            task.completedAt!,
-                                            t,
-                                          ),
-                                        )
+                                              'Completed: {time}')
+                                          .replaceAll(
+                                            '{time}',
+                                            _formatCompletionTime(
+                                              task.completedAt!,
+                                              t,
+                                            ),
+                                          )
                                     : (t['timeUnknown'] ?? 'Time unknown'),
                                 key: ValueKey('completed-time-${task.id}'),
                                 style: theme.textTheme.labelSmall?.copyWith(
@@ -502,10 +493,9 @@ class _CompletedScreenState extends State<CompletedScreen> {
                                               ? Icons.check_circle_outline
                                               : Icons.radio_button_unchecked,
                                           size: 14,
-                                          color:
-                                              theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                         ),
                                         const SizedBox(width: 6),
                                         Expanded(
@@ -513,14 +503,12 @@ class _CompletedScreenState extends State<CompletedScreen> {
                                             s.title,
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                                  fontSize:
-                                                      TaskHierarchyStyle
-                                                          .childTitleSize,
-                                                  decoration:
-                                                      s.completed
-                                                          ? TextDecoration
-                                                              .lineThrough
-                                                          : null,
+                                                  fontSize: TaskHierarchyStyle
+                                                      .childTitleSize,
+                                                  decoration: s.completed
+                                                      ? TextDecoration
+                                                            .lineThrough
+                                                      : null,
                                                   color: theme
                                                       .colorScheme
                                                       .onSurface
@@ -561,29 +549,26 @@ class _CompletedScreenState extends State<CompletedScreen> {
                   onPressed: () async {
                     final confirmed = await showDialog<bool>(
                       context: context,
-                      builder:
-                          (ctx) => AlertDialog(
-                            title: Text(t['deleteCompletedTask'] ?? 'Delete'),
-                            content: Text(
-                              t['confirmDeleteCompletedTask'] ??
-                                  'Delete this completed task permanently?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: Text(t['cancelSelection'] ?? 'Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: Text(
-                                  t['delete'] ?? 'Delete',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.error,
-                                  ),
-                                ),
-                              ),
-                            ],
+                      builder: (ctx) => AlertDialog(
+                        title: Text(t['deleteCompletedTask'] ?? 'Delete'),
+                        content: Text(
+                          t['confirmDeleteCompletedTask'] ??
+                              'Delete this completed task permanently?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text(t['cancelSelection'] ?? 'Cancel'),
                           ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(
+                              t['delete'] ?? 'Delete',
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                     if (confirmed == true) {
                       store.deleteTask(task.id);

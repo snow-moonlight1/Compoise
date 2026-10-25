@@ -91,30 +91,25 @@ void main() {
     expect(AppSettings.fromJson(on.toJson()).reduceMotion, isTrue);
   });
 
-  test(
-    'reduceMotion round-trips through the store and storage',
-    () async {
-      final (store, _) = await makeStore();
-      expect(store.settings.reduceMotion, isFalse);
-      store.updateSettings((s) => s..reduceMotion = true);
-      expect(store.settings.reduceMotion, isTrue);
-      await store.flush();
-      final prefs = await SharedPreferences.getInstance();
-      final saved =
-          jsonDecode(prefs.getString('compoise-settings')!)
-              as Map<String, dynamic>;
-      expect(saved['reduceMotion'], isTrue);
-      final reloaded = Store();
-      await reloaded.init();
-      expect(reloaded.settings.reduceMotion, isTrue);
-      reloaded.dispose();
-      store.dispose();
-    },
-  );
+  test('reduceMotion round-trips through the store and storage', () async {
+    final (store, _) = await makeStore();
+    expect(store.settings.reduceMotion, isFalse);
+    store.updateSettings((s) => s..reduceMotion = true);
+    expect(store.settings.reduceMotion, isTrue);
+    await store.flush();
+    final prefs = await SharedPreferences.getInstance();
+    final saved =
+        jsonDecode(prefs.getString('compoise-settings')!)
+            as Map<String, dynamic>;
+    expect(saved['reduceMotion'], isTrue);
+    final reloaded = Store();
+    await reloaded.init();
+    expect(reloaded.settings.reduceMotion, isTrue);
+    reloaded.dispose();
+    store.dispose();
+  });
 
-  testWidgets('strikethrough grows over successive frames', (
-    tester,
-  ) async {
+  testWidgets('strikethrough grows over successive frames', (tester) async {
     final store = await pumpMatrix(
       tester,
       seed: (store) => [store.newTask('Draw me', quadrant: qDo)],
@@ -202,26 +197,23 @@ void main() {
     store.dispose();
   });
 
-  testWidgets(
-    'platform reduce-animation request also skips the animation',
-    (tester) async {
-      final store = await pumpMatrix(
-        tester,
-        systemReduceMotion: true,
-        seed: (store) => [store.newTask('System', quadrant: qDo)],
-      );
-      final id = store.tasks.first.id;
-      await tester.tap(find.byKey(ValueKey('complete-$id')));
-      await tester.pump();
-      expect(strikeProgress(tester, id), 1.0);
-      await tester.pumpWidget(const SizedBox());
-      store.dispose();
-    },
-  );
-
-  testWidgets('hideCompleted exits after the strikethrough', (
+  testWidgets('platform reduce-animation request also skips the animation', (
     tester,
   ) async {
+    final store = await pumpMatrix(
+      tester,
+      systemReduceMotion: true,
+      seed: (store) => [store.newTask('System', quadrant: qDo)],
+    );
+    final id = store.tasks.first.id;
+    await tester.tap(find.byKey(ValueKey('complete-$id')));
+    await tester.pump();
+    expect(strikeProgress(tester, id), 1.0);
+    await tester.pumpWidget(const SizedBox());
+    store.dispose();
+  });
+
+  testWidgets('hideCompleted exits after the strikethrough', (tester) async {
     final store = await pumpMatrix(
       tester,
       settings: AppSettings()..hideCompleted = true,
@@ -364,9 +356,7 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('settings expose the reduce animation switch', (
-    tester,
-  ) async {
+  testWidgets('settings expose the reduce animation switch', (tester) async {
     final (store, _) = await makeStore();
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));

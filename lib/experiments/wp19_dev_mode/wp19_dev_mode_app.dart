@@ -103,7 +103,7 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
                 unlocked.isEmpty
                     ? '本批不会解锁其他任务'
                     : '${Wp19Labels.unlocks} ${unlocked.length} ${Wp19Labels.countSuffix}：'
-                        '${_titlesOf(unlocked)}',
+                          '${_titlesOf(unlocked)}',
               ),
               const SizedBox(height: 8),
               const Text('批量操作记为一条意图，撤销一次即整批回退。'),
@@ -131,10 +131,8 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
     );
   }
 
-  String _titlesOf(List<String> ids) => [
-    for (final id in ids)
-      _session.view(id)?.source.title ?? id,
-  ].join('、');
+  String _titlesOf(List<String> ids) =>
+      [for (final id in ids) _session.view(id)?.source.title ?? id].join('、');
 
   Future<void> _export(BuildContext context) async {
     await showDialog<void>(
@@ -229,7 +227,11 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
       debugShowCheckedModeBanner: false,
       title: Wp19Labels.appTitle,
       theme: buildTheme(Brightness.light, ThemeColor.blue, platform: platform),
-      darkTheme: buildTheme(Brightness.dark, ThemeColor.blue, platform: platform),
+      darkTheme: buildTheme(
+        Brightness.dark,
+        ThemeColor.blue,
+        platform: platform,
+      ),
       themeMode: _dark ? ThemeMode.dark : ThemeMode.light,
       home: Builder(builder: _scaffold),
       builder: (context, child) => MediaQuery(
@@ -313,11 +315,7 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _header(),
-                _note(),
-                ..._groups(context),
-              ],
+              children: [_header(), _note(), ..._groups(context)],
             ),
           ),
         ),
@@ -339,8 +337,8 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
         _mode == _ViewMode.dev
             ? Wp19Labels.devNote
             : '${Wp19Labels.normalNote}\n'
-              '${Wp19Labels.hiddenBlockedHint}：$blockedCount '
-              '${Wp19Labels.countSuffix}',
+                  '${Wp19Labels.hiddenBlockedHint}：$blockedCount '
+                  '${Wp19Labels.countSuffix}',
         style: Theme.of(context).textTheme.bodySmall,
       ),
     );
@@ -577,9 +575,13 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
                           '${source.subtasks.length} ${Wp19Labels.subtasksOf}',
                         ),
                       if (source.deadline != null)
-                        _chip('${Wp19Labels.deadline} ${_day(source.deadline!)}'),
+                        _chip(
+                          '${Wp19Labels.deadline} ${_day(source.deadline!)}',
+                        ),
                       if (source.plannedDate != null)
-                        _chip('${Wp19Labels.planned} ${_day(source.plannedDate!)}'),
+                        _chip(
+                          '${Wp19Labels.planned} ${_day(source.plannedDate!)}',
+                        ),
                     ],
                   ),
                 ],
@@ -612,12 +614,12 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
                   onChanged: view.done
                       ? null
                       : (checked) => setState(() {
-                        if (checked == true) {
-                          _selection.add(source.id);
-                        } else {
-                          _selection.remove(source.id);
-                        }
-                      }),
+                          if (checked == true) {
+                            _selection.add(source.id);
+                          } else {
+                            _selection.remove(source.id);
+                          }
+                        }),
                 ),
                 Expanded(
                   child: Column(
@@ -642,7 +644,8 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
                             _chip(Wp19Labels.unresolvedBlocker, warn: true),
                         ],
                       ),
-                      if (readiness.reason == DevBlockReason.waitingOnBlockers ||
+                      if (readiness.reason ==
+                              DevBlockReason.waitingOnBlockers ||
                           readiness.reason == DevBlockReason.inCycle)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
@@ -690,7 +693,9 @@ class _Wp19DevModeAppState extends State<Wp19DevModeApp> {
                     view.done ? Icons.undo : Icons.check_circle_outline,
                     size: 18,
                   ),
-                  label: Text(view.done ? Wp19Labels.restore : Wp19Labels.complete),
+                  label: Text(
+                    view.done ? Wp19Labels.restore : Wp19Labels.complete,
+                  ),
                 ),
                 OutlinedButton.icon(
                   key: Key('wp19r-more-${source.id}'),

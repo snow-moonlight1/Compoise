@@ -133,7 +133,8 @@ class RenderOrphanSqueeze extends RenderShiftedBox {
     if (!constraints.hasBoundedWidth || constraints.maxWidth <= 0) {
       child.layout(constraints, parentUsesSize: true);
       size = constraints.constrain(child.size);
-      _origin = Alignment.center.alongSize(size) -
+      _origin =
+          Alignment.center.alongSize(size) -
           Alignment.center.alongSize(child.size);
       return;
     }

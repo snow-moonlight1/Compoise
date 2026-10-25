@@ -123,15 +123,17 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       } else {
         final generation = ++_scrollToTopGeneration;
         _scrollToTopAnimating = true;
-        _scrollController.animateTo(
-          0,
-          duration: MotionPolicy.scrollToTop,
-          curve: Curves.easeOut,
-        ).whenComplete(() {
-          if (generation == _scrollToTopGeneration) {
-            _scrollToTopAnimating = false;
-          }
-        });
+        _scrollController
+            .animateTo(
+              0,
+              duration: MotionPolicy.scrollToTop,
+              curve: Curves.easeOut,
+            )
+            .whenComplete(() {
+              if (generation == _scrollToTopGeneration) {
+                _scrollToTopAnimating = false;
+              }
+            });
       }
     });
   }
@@ -145,15 +147,15 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     final live = store.tasksIn(q);
     final entries = _exitRetention.sync(
       items: live,
-      epochKey: '${store.activeBoardId}#${store.boardEpoch(store.activeBoardId)}',
+      epochKey:
+          '${store.activeBoardId}#${store.boardEpoch(store.activeBoardId)}',
       idOf: (task) => task.id,
-      keepIfMissing:
-          (task) => store.tasks.any(
-            (t) =>
-                t.id == task.id &&
-                t.boardId == store.activeBoardId &&
-                t.quadrant == q,
-          ),
+      keepIfMissing: (task) => store.tasks.any(
+        (t) =>
+            t.id == task.id &&
+            t.boardId == store.activeBoardId &&
+            t.quadrant == q,
+      ),
       reduceMotion: MotionPolicy.reduceMotionOf(context),
     );
     final accent = Color(quadrantColors[q]!);
@@ -165,11 +167,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     };
 
     return DragTarget<Task>(
-      onWillAcceptWithDetails:
-          (details) =>
-              (!widget.selecting ||
-                  widget.selectedIds.contains(details.data.id)) &&
-              details.data.boardId == store.activeBoardId,
+      onWillAcceptWithDetails: (details) =>
+          (!widget.selecting || widget.selectedIds.contains(details.data.id)) &&
+          details.data.boardId == store.activeBoardId,
       onMove: (_) {
         if (!_hovering) setState(() => _hovering = true);
       },
@@ -201,84 +201,80 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                 ? accent.withValues(alpha: 0.10)
                 : Colors.transparent,
             border: highlighted
-                ? Border.all(
-                    color: accent.withValues(alpha: 0.55),
-                    width: 1.5,
-                  )
+                ? Border.all(color: accent.withValues(alpha: 0.55), width: 1.5)
                 : null,
           ),
           child: LayoutBuilder(
             builder: (context, box) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // A very short pane (large text in a narrow split) clips the
-              // header instead of overflowing the column.
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: box.maxHeight),
-                child: ClipRect(
-              child: InkWell(
-                key: ValueKey('quadrant-header-$q'),
-                onTap: widget.onQuadrantTap,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 8, 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: accent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: OrphanSqueeze(
-                          child: Text(
-                            t[titleKey]!,
-                            // Long English titles at 360dp with 1.3x
-                            // system text need a third line.
-                            maxLines: 3,
-                            overflow: TextOverflow.visible,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // A very short pane (large text in a narrow split) clips the
+                // header instead of overflowing the column.
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: box.maxHeight),
+                  child: ClipRect(
+                    child: InkWell(
+                      key: ValueKey('quadrant-header-$q'),
+                      onTap: widget.onQuadrantTap,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 8, 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: accent,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: OrphanSqueeze(
+                                child: Text(
+                                  t[titleKey]!,
+                                  // Long English titles at 360dp with 1.3x
+                                  // system text need a third line.
+                                  maxLines: 3,
+                                  overflow: TextOverflow.visible,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${live.length}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (widget.onQuadrantTap != null) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                widget.isFocused
+                                    ? Icons.close_fullscreen
+                                    : Icons.open_in_full,
+                                size: 14,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.45,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${live.length}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.55,
-                          ),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (widget.onQuadrantTap != null) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          widget.isFocused
-                              ? Icons.close_fullscreen
-                              : Icons.open_in_full,
-                          size: 14,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.45,
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-                ),
-              ),
-              Expanded(
-                child:
-                    entries.isEmpty
-                        ? Center(
+                Expanded(
+                  child: entries.isEmpty
+                      ? Center(
                           child: Text(
                             t['empty']!,
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -288,7 +284,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                             ),
                           ),
                         )
-                        : ListView.builder(
+                      : ListView.builder(
                           key: PageStorageKey('${store.activeBoardId}-$q'),
                           controller: _scrollController,
                           keyboardDismissBehavior:
@@ -314,9 +310,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                             );
                           },
                         ),
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -417,10 +413,9 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           showTaskEditSheet(context, task);
         }
       },
-      onEditSubtask:
-          widget.onEditSubtask == null
-              ? null
-              : (id) => widget.onEditSubtask!(task, id),
+      onEditSubtask: widget.onEditSubtask == null
+          ? null
+          : (id) => widget.onEditSubtask!(task, id),
       onDelete: () => _confirmDelete(context, task),
       onDecompose: () => _decomposeSingle(context, task),
       onDecomposeStart: () {},
@@ -448,28 +443,26 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     );
   }
 
-
   Future<void> _confirmDelete(BuildContext context, Task task) async {
     final store = context.read<Store>();
     final t = store.t;
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(t['deleteTaskTitle']!),
-            content: Text(t['deleteTaskConfirm']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(t['cancel']!),
-              ),
-              FilledButton(
-                style: dangerButtonStyle(context),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(t['confirm']!),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text(t['deleteTaskTitle']!),
+        content: Text(t['deleteTaskConfirm']!),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(t['cancel']!),
           ),
+          FilledButton(
+            style: dangerButtonStyle(context),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(t['confirm']!),
+          ),
+        ],
+      ),
     );
     if (ok == true && context.mounted) store.deleteTask(task.id);
   }

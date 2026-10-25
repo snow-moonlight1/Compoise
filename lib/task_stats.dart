@@ -28,7 +28,8 @@ class TaskStats {
   String get percentageText => '${(completionRate * 100).round()}%';
 
   /// Formatted subtask completion percentage string (e.g. "60%" or "0%").
-  String get subtaskPercentageText => '${(subtaskCompletionRate * 100).round()}%';
+  String get subtaskPercentageText =>
+      '${(subtaskCompletionRate * 100).round()}%';
 }
 
 /// Computes task and subtask statistics.
@@ -42,10 +43,9 @@ TaskStats computeTaskStats({
   DateTime? now,
 }) {
   final refNow = now ?? DateTime.now();
-  final scopedTasks =
-      boardId == null
-          ? tasks
-          : tasks.where((t) => t.boardId == boardId).toList();
+  final scopedTasks = boardId == null
+      ? tasks
+      : tasks.where((t) => t.boardId == boardId).toList();
 
   final totalTasks = scopedTasks.length;
   var completedTasks = 0;
@@ -76,8 +76,9 @@ TaskStats computeTaskStats({
   final incompleteTasks = totalTasks - completedTasks;
   // Zero tasks returns 0.0, preventing false 100% on empty boards.
   final completionRate = totalTasks == 0 ? 0.0 : (completedTasks / totalTasks);
-  final subtaskCompletionRate =
-      subtaskTotal == 0 ? 0.0 : (subtaskCompleted / subtaskTotal);
+  final subtaskCompletionRate = subtaskTotal == 0
+      ? 0.0
+      : (subtaskCompleted / subtaskTotal);
 
   return TaskStats(
     totalTasks: totalTasks,
@@ -162,8 +163,9 @@ CompletionHistoryStats computeCompletionHistoryStats({
   final refNow = now ?? DateTime.now();
   final todayMidnight = DateTime(refNow.year, refNow.month, refNow.day);
 
-  final scopedTasks =
-      tasks.where((t) => boardId == null || t.boardId == boardId).toList();
+  final scopedTasks = tasks
+      .where((t) => boardId == null || t.boardId == boardId)
+      .toList();
 
   // Create date buckets for the last [days] calendar days (chronological)
   final bucketList = <DailyCompletionBucket>[];
@@ -218,8 +220,9 @@ CompletionHistoryStats computeCompletionHistoryStats({
     }
   }
 
-  final updatedBuckets =
-      bucketList.map((b) => bucketMap[b.dateString]!).toList();
+  final updatedBuckets = bucketList
+      .map((b) => bucketMap[b.dateString]!)
+      .toList();
 
   final todayKey = _formatDateString(todayMidnight);
   final todayCount = bucketMap[todayKey]?.count ?? 0;

@@ -39,11 +39,13 @@ List<String> appliedFilterSummaryLabels({
   required Map<String, String> t,
   required String currentBoardName,
 }) {
-  final labels = <String>[scopeSummaryLabel(
-    criteria: criteria,
-    t: t,
-    currentBoardName: currentBoardName,
-  )];
+  final labels = <String>[
+    scopeSummaryLabel(
+      criteria: criteria,
+      t: t,
+      currentBoardName: currentBoardName,
+    ),
+  ];
   if (kind == TaskFilterKind.archive) return labels;
   if (criteria.quadrant != null) {
     labels.add(t['q${criteria.quadrant}'] ?? 'Q${criteria.quadrant}');
@@ -131,72 +133,67 @@ class FilterChromeBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.watch<Store>().t;
     final label = filterButtonLabel(t, activeCount);
-    final open =
-        compact
-            ? IconButton(
-              key: const ValueKey('filter-open-btn'),
-              tooltip: label,
-              onPressed: onOpen,
-              icon: Badge(
-                isLabelVisible: activeCount > 0,
-                label: Text('$activeCount'),
-                child: const Icon(Icons.filter_list),
+    final open = compact
+        ? IconButton(
+            key: const ValueKey('filter-open-btn'),
+            tooltip: label,
+            onPressed: onOpen,
+            icon: Badge(
+              isLabelVisible: activeCount > 0,
+              label: Text('$activeCount'),
+              child: const Icon(Icons.filter_list),
+            ),
+            style: IconButton.styleFrom(
+              minimumSize: const Size(
+                PlatformUiPolicy.minActionSize,
+                PlatformUiPolicy.minActionSize,
               ),
-              style: IconButton.styleFrom(
-                minimumSize: const Size(
-                  PlatformUiPolicy.minActionSize,
-                  PlatformUiPolicy.minActionSize,
-                ),
-                tapTargetSize: MaterialTapTargetSize.padded,
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
+          )
+        : TextButton.icon(
+            key: const ValueKey('filter-open-btn'),
+            onPressed: onOpen,
+            icon: const Icon(Icons.filter_list, size: 20),
+            label: Text(label),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(
+                PlatformUiPolicy.minActionSize,
+                PlatformUiPolicy.minActionSize,
               ),
-            )
-            : TextButton.icon(
-              key: const ValueKey('filter-open-btn'),
-              onPressed: onOpen,
-              icon: const Icon(Icons.filter_list, size: 20),
-              label: Text(label),
-              style: TextButton.styleFrom(
-                minimumSize: const Size(
-                  PlatformUiPolicy.minActionSize,
-                  PlatformUiPolicy.minActionSize,
-                ),
-                tapTargetSize: MaterialTapTargetSize.padded,
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
+          );
+    final clear = compact
+        ? IconButton(
+            key: const ValueKey('clear-filters-btn'),
+            tooltip: t['clearFilters'] ?? 'Clear filters',
+            onPressed: canClear ? onClear : null,
+            icon: const Icon(Icons.filter_alt_off_outlined),
+            style: IconButton.styleFrom(
+              minimumSize: const Size(
+                PlatformUiPolicy.minActionSize,
+                PlatformUiPolicy.minActionSize,
               ),
-            );
-    final clear =
-        compact
-            ? IconButton(
-              key: const ValueKey('clear-filters-btn'),
-              tooltip: t['clearFilters'] ?? 'Clear filters',
-              onPressed: canClear ? onClear : null,
-              icon: const Icon(Icons.filter_alt_off_outlined),
-              style: IconButton.styleFrom(
-                minimumSize: const Size(
-                  PlatformUiPolicy.minActionSize,
-                  PlatformUiPolicy.minActionSize,
-                ),
-                tapTargetSize: MaterialTapTargetSize.padded,
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
+          )
+        : TextButton(
+            key: const ValueKey('clear-filters-btn'),
+            onPressed: canClear ? onClear : null,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(
+                PlatformUiPolicy.minActionSize,
+                PlatformUiPolicy.minActionSize,
               ),
-            )
-            : TextButton(
-              key: const ValueKey('clear-filters-btn'),
-              onPressed: canClear ? onClear : null,
-              style: TextButton.styleFrom(
-                minimumSize: const Size(
-                  PlatformUiPolicy.minActionSize,
-                  PlatformUiPolicy.minActionSize,
-                ),
-                tapTargetSize: MaterialTapTargetSize.padded,
-              ),
-              child: Text(t['clearFilters'] ?? 'Clear filters'),
-            );
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
+            child: Text(t['clearFilters'] ?? 'Clear filters'),
+          );
     if (!expanded) {
       return Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          open,
-          if (canClear) clear,
-        ],
+        children: [open, if (canClear) clear],
       );
     }
     return Material(
@@ -263,11 +260,7 @@ Future<TaskFilterCriteria?> showTaskFilterEditor({
     final size = MediaQuery.sizeOf(ctx);
     final height = maxHeight.clamp(320.0, 560.0);
     final width = (size.width - 48).clamp(280.0, 420.0);
-    return SizedBox(
-      width: width,
-      height: height,
-      child: buildPanel(ctx),
-    );
+    return SizedBox(width: width, height: height, child: buildPanel(ctx));
   }
 
   if (width < PlatformUiPolicy.compactHeaderBreakpoint) {
@@ -276,7 +269,10 @@ Future<TaskFilterCriteria?> showTaskFilterEditor({
       builder: (ctx) {
         final maxHeight = MediaQuery.sizeOf(ctx).height * 0.8;
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
           child: wrapDesktopPanel(ctx, maxHeight: maxHeight),
         );
       },
@@ -438,170 +434,175 @@ class _TaskFilterPanelState extends State<TaskFilterPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                  _sectionTitle(theme, t['filterScope'] ?? t['boards'] ?? 'Board'),
-                  _optionTile(
-                    key: _scopeKey(TaskScopeFilter.currentBoard),
-                    title: currentBoardFilterLabel(t, widget.currentBoardName),
-                    selected: _draft.scope == TaskScopeFilter.currentBoard,
-                    onTap: () => setState(
-                      () => _draft = _draft.copyWith(
-                        scope: TaskScopeFilter.currentBoard,
-                      ),
+                    _sectionTitle(
+                      theme,
+                      t['filterScope'] ?? t['boards'] ?? 'Board',
                     ),
-                  ),
-                  _optionTile(
-                    key: _scopeKey(TaskScopeFilter.allBoards),
-                    title: t['allBoards'] ?? 'All Boards',
-                    selected: _draft.scope == TaskScopeFilter.allBoards,
-                    onTap: () => setState(
-                      () => _draft = _draft.copyWith(
-                        scope: TaskScopeFilter.allBoards,
-                      ),
-                    ),
-                  ),
-                  if (widget.kind == TaskFilterKind.search) ...[
-                    _sectionTitle(theme, t['filterQuadrant'] ?? 'Quadrant'),
                     _optionTile(
-                      key: const ValueKey('filter-q-all'),
-                      title: t['all'] ?? 'All',
-                      selected: _draft.quadrant == null,
+                      key: _scopeKey(TaskScopeFilter.currentBoard),
+                      title: currentBoardFilterLabel(
+                        t,
+                        widget.currentBoardName,
+                      ),
+                      selected: _draft.scope == TaskScopeFilter.currentBoard,
                       onTap: () => setState(
-                        () => _draft = _draft.copyWith(quadrant: () => null),
+                        () => _draft = _draft.copyWith(
+                          scope: TaskScopeFilter.currentBoard,
+                        ),
                       ),
                     ),
-                    for (final q in allQuadrants)
+                    _optionTile(
+                      key: _scopeKey(TaskScopeFilter.allBoards),
+                      title: t['allBoards'] ?? 'All Boards',
+                      selected: _draft.scope == TaskScopeFilter.allBoards,
+                      onTap: () => setState(
+                        () => _draft = _draft.copyWith(
+                          scope: TaskScopeFilter.allBoards,
+                        ),
+                      ),
+                    ),
+                    if (widget.kind == TaskFilterKind.search) ...[
+                      _sectionTitle(theme, t['filterQuadrant'] ?? 'Quadrant'),
                       _optionTile(
-                        key: ValueKey('filter-q-$q'),
-                        title: t['q$q'] ?? 'Q$q',
-                        selected: _draft.quadrant == q,
-                        leading: CircleAvatar(
-                          radius: 6,
-                          backgroundColor: Color(quadrantColors[q]!),
-                        ),
-                        onTap: () => setState(
-                          () => _draft = _draft.copyWith(quadrant: () => q),
-                        ),
-                      ),
-                    _sectionTitle(theme, t['filterStatus'] ?? 'Status'),
-                    _optionTile(
-                      key: const ValueKey('filter-status-all'),
-                      title: t['all'] ?? 'All',
-                      selected: _draft.status == TaskStatusFilter.all,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          status: TaskStatusFilter.all,
-                        ),
-                      ),
-                    ),
-                    _optionTile(
-                      key: const ValueKey('filter-status-incomplete'),
-                      title: t['incomplete'] ?? 'Incomplete',
-                      selected: _draft.status == TaskStatusFilter.incomplete,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          status: TaskStatusFilter.incomplete,
-                        ),
-                      ),
-                    ),
-                    _optionTile(
-                      key: const ValueKey('filter-status-completed'),
-                      title: t['completed'] ?? 'Completed',
-                      selected: _draft.status == TaskStatusFilter.completed,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          status: TaskStatusFilter.completed,
-                        ),
-                      ),
-                    ),
-                    _sectionTitle(theme, t['filterDate'] ?? 'Date'),
-                    _optionTile(
-                      key: const ValueKey('filter-date-all'),
-                      title: t['all'] ?? 'All',
-                      selected: _draft.date == TaskDateFilter.all,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          date: TaskDateFilter.all,
-                        ),
-                      ),
-                    ),
-                    _optionTile(
-                      key: const ValueKey('filter-date-today'),
-                      title: t['today'] ?? 'Today',
-                      selected: _draft.date == TaskDateFilter.today,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          date: TaskDateFilter.today,
-                        ),
-                      ),
-                    ),
-                    _optionTile(
-                      key: const ValueKey('filter-date-week'),
-                      title: t['thisWeek'] ?? 'This Week',
-                      selected: _draft.date == TaskDateFilter.thisWeek,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          date: TaskDateFilter.thisWeek,
-                        ),
-                      ),
-                    ),
-                    _optionTile(
-                      key: const ValueKey('filter-date-month'),
-                      title: t['thisMonth'] ?? 'This Month',
-                      selected: _draft.date == TaskDateFilter.thisMonth,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          date: TaskDateFilter.thisMonth,
-                        ),
-                      ),
-                    ),
-                    _optionTile(
-                      key: const ValueKey('filter-date-overdue'),
-                      title: t['overdue'] ?? 'Overdue',
-                      selected: _draft.date == TaskDateFilter.overdue,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          date: TaskDateFilter.overdue,
-                        ),
-                      ),
-                    ),
-                    _optionTile(
-                      key: const ValueKey('filter-date-nodate'),
-                      title: t['noDate'] ?? 'No Date',
-                      selected: _draft.date == TaskDateFilter.noDate,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          date: TaskDateFilter.noDate,
-                        ),
-                      ),
-                    ),
-                    if (availableTags.isNotEmpty) ...[
-                      _sectionTitle(theme, t['filterTags'] ?? 'Tags'),
-                      _optionTile(
-                        key: const ValueKey('filter-tag-all'),
+                        key: const ValueKey('filter-q-all'),
                         title: t['all'] ?? 'All',
-                        selected: _draft.tags.isEmpty,
+                        selected: _draft.quadrant == null,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(quadrant: () => null),
+                        ),
+                      ),
+                      for (final q in allQuadrants)
+                        _optionTile(
+                          key: ValueKey('filter-q-$q'),
+                          title: t['q$q'] ?? 'Q$q',
+                          selected: _draft.quadrant == q,
+                          leading: CircleAvatar(
+                            radius: 6,
+                            backgroundColor: Color(quadrantColors[q]!),
+                          ),
+                          onTap: () => setState(
+                            () => _draft = _draft.copyWith(quadrant: () => q),
+                          ),
+                        ),
+                      _sectionTitle(theme, t['filterStatus'] ?? 'Status'),
+                      _optionTile(
+                        key: const ValueKey('filter-status-all'),
+                        title: t['all'] ?? 'All',
+                        selected: _draft.status == TaskStatusFilter.all,
                         onTap: () => setState(
                           () => _draft = _draft.copyWith(
-                            tags: () => const [],
+                            status: TaskStatusFilter.all,
                           ),
                         ),
                       ),
-                      for (final tag in availableTags)
-                        _optionTile(
-                          key: ValueKey('filter-tag-$tag'),
-                          title: tag,
-                          selected: _draft.tags.contains(tag),
-                          onTap: () => setState(() {
-                            final next = List<String>.from(_draft.tags);
-                            if (!next.remove(tag)) next.add(tag);
-                            _draft = _draft.copyWith(
-                              tags: () => normalizeTags(next),
-                            );
-                          }),
+                      _optionTile(
+                        key: const ValueKey('filter-status-incomplete'),
+                        title: t['incomplete'] ?? 'Incomplete',
+                        selected: _draft.status == TaskStatusFilter.incomplete,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            status: TaskStatusFilter.incomplete,
+                          ),
                         ),
+                      ),
+                      _optionTile(
+                        key: const ValueKey('filter-status-completed'),
+                        title: t['completed'] ?? 'Completed',
+                        selected: _draft.status == TaskStatusFilter.completed,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            status: TaskStatusFilter.completed,
+                          ),
+                        ),
+                      ),
+                      _sectionTitle(theme, t['filterDate'] ?? 'Date'),
+                      _optionTile(
+                        key: const ValueKey('filter-date-all'),
+                        title: t['all'] ?? 'All',
+                        selected: _draft.date == TaskDateFilter.all,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            date: TaskDateFilter.all,
+                          ),
+                        ),
+                      ),
+                      _optionTile(
+                        key: const ValueKey('filter-date-today'),
+                        title: t['today'] ?? 'Today',
+                        selected: _draft.date == TaskDateFilter.today,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            date: TaskDateFilter.today,
+                          ),
+                        ),
+                      ),
+                      _optionTile(
+                        key: const ValueKey('filter-date-week'),
+                        title: t['thisWeek'] ?? 'This Week',
+                        selected: _draft.date == TaskDateFilter.thisWeek,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            date: TaskDateFilter.thisWeek,
+                          ),
+                        ),
+                      ),
+                      _optionTile(
+                        key: const ValueKey('filter-date-month'),
+                        title: t['thisMonth'] ?? 'This Month',
+                        selected: _draft.date == TaskDateFilter.thisMonth,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            date: TaskDateFilter.thisMonth,
+                          ),
+                        ),
+                      ),
+                      _optionTile(
+                        key: const ValueKey('filter-date-overdue'),
+                        title: t['overdue'] ?? 'Overdue',
+                        selected: _draft.date == TaskDateFilter.overdue,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            date: TaskDateFilter.overdue,
+                          ),
+                        ),
+                      ),
+                      _optionTile(
+                        key: const ValueKey('filter-date-nodate'),
+                        title: t['noDate'] ?? 'No Date',
+                        selected: _draft.date == TaskDateFilter.noDate,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            date: TaskDateFilter.noDate,
+                          ),
+                        ),
+                      ),
+                      if (availableTags.isNotEmpty) ...[
+                        _sectionTitle(theme, t['filterTags'] ?? 'Tags'),
+                        _optionTile(
+                          key: const ValueKey('filter-tag-all'),
+                          title: t['all'] ?? 'All',
+                          selected: _draft.tags.isEmpty,
+                          onTap: () => setState(
+                            () =>
+                                _draft = _draft.copyWith(tags: () => const []),
+                          ),
+                        ),
+                        for (final tag in availableTags)
+                          _optionTile(
+                            key: ValueKey('filter-tag-$tag'),
+                            title: tag,
+                            selected: _draft.tags.contains(tag),
+                            onTap: () => setState(() {
+                              final next = List<String>.from(_draft.tags);
+                              if (!next.remove(tag)) next.add(tag);
+                              _draft = _draft.copyWith(
+                                tags: () => normalizeTags(next),
+                              );
+                            }),
+                          ),
+                      ],
                     ],
                   ],
-                ],
                 ),
               ),
             ),

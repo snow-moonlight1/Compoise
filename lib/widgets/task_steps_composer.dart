@@ -204,7 +204,7 @@ class TaskStepsComposerState extends State<TaskStepsComposer> {
                       onKeyEvent: (_, event) => _key(i, event),
                       child: TextField(
                         key: ValueKey('task-step-$i'),
-                      onTap: () => _lastFocusedIndex = i,
+                        onTap: () => _lastFocusedIndex = i,
                         controller: row.controller,
                         focusNode: row.focus,
                         enabled: widget.enabled,
@@ -221,6 +221,11 @@ class TaskStepsComposerState extends State<TaskStepsComposer> {
                           border: InputBorder.none,
                         ),
                         onChanged: (_) => _changed(row),
+                        // With `next`, the default editing-complete action
+                        // moves focus to the next control, so the keyboard
+                        // hid and then came back when _focusRow focused the
+                        // new row. Keep focus here; _submitRow moves it.
+                        onEditingComplete: () {},
                         onSubmitted: widget.enabled
                             ? (_) => _submitRow(row)
                             : null,

@@ -24,10 +24,7 @@ void main() {
         expect(service.isApplyingSettings, isFalse);
 
         service.onExit = () => true;
-        expect(
-          await service.exitApplication(),
-          DesktopExitResult.completed,
-        );
+        expect(await service.exitApplication(), DesktopExitResult.completed);
 
         expect(h1.destroyCalls, 1);
         expect(rig.eventsAfter('H1:destroy-end'), isEmpty);
@@ -125,7 +122,10 @@ void main() {
           globalShortcut: 'Ctrl+Alt+N',
         );
         await _pump(times: 4);
-        expect(rig.hosts, hasLength(1)); // no factory call after host was nulled
+        expect(
+          rig.hosts,
+          hasLength(1),
+        ); // no factory call after host was nulled
 
         destroyGate.complete();
         expect(await exitFuture, DesktopExitResult.completed);
@@ -179,7 +179,10 @@ void main() {
         expect(service.isApplyingSettings, isFalse);
         expect(service.isTrayInitialized, isFalse);
         expect(service.registeredGlobalShortcut, isNull);
-        expect(host.registerCalls, 2); // the late result triggers no further ops
+        expect(
+          host.registerCalls,
+          2,
+        ); // the late result triggers no further ops
 
         // Post-exit retries complete as aborted without touching the host.
         final startSnapshot = host.startCalls;
@@ -214,10 +217,7 @@ void main() {
         );
         await _waitUntil(() => host.startCalls == 2);
 
-        expect(
-          await service.exitApplication(),
-          DesktopExitResult.cancelled,
-        );
+        expect(await service.exitApplication(), DesktopExitResult.cancelled);
         expect(host.destroyCalls, 0);
         expect(service.isExitInProgress, isFalse);
 
@@ -232,10 +232,7 @@ void main() {
 
         // A later, approved exit still runs exactly one destroy.
         service.onExit = () => true;
-        expect(
-          await service.exitApplication(),
-          DesktopExitResult.completed,
-        );
+        expect(await service.exitApplication(), DesktopExitResult.completed);
         expect(host.destroyCalls, 1);
         expect(service.isApplyingSettings, isFalse);
       },
@@ -348,10 +345,7 @@ void main() {
         host.destroyThrows = false;
         host.destroyGate = null;
         host.registerGate = null;
-        expect(
-          await service.exitApplication(),
-          DesktopExitResult.completed,
-        );
+        expect(await service.exitApplication(), DesktopExitResult.completed);
         expect(host.destroyCalls, 2);
         expect(service.isApplyingSettings, isFalse);
       },
@@ -394,7 +388,10 @@ void main() {
         expect(
           host
               .eventsAfter('H1:destroy-begin')
-              .where((e) => e.contains('start-begin') || e.contains('register-begin')),
+              .where(
+                (e) =>
+                    e.contains('start-begin') || e.contains('register-begin'),
+              ),
           isEmpty,
         );
 
@@ -407,10 +404,7 @@ void main() {
         expect(service.isApplyingSettings, isFalse);
 
         // Calls after a completed exit are inert.
-        expect(
-          await service.exitApplication(),
-          DesktopExitResult.completed,
-        );
+        expect(await service.exitApplication(), DesktopExitResult.completed);
         expect(host.destroyCalls, 1);
       },
     );
@@ -456,14 +450,8 @@ void main() {
         destroyGate.complete();
 
         expect(await exitFuture, DesktopExitResult.completed);
-        expect(
-          (await directRegister).kind,
-          DesktopShellResultKind.disabled,
-        );
-        expect(
-          (await directUnregister).kind,
-          DesktopShellResultKind.disabled,
-        );
+        expect((await directRegister).kind, DesktopShellResultKind.disabled);
+        expect((await directUnregister).kind, DesktopShellResultKind.disabled);
         expect(rig.hosts, hasLength(1));
 
         // Calls after a completed exit stay inert without a factory call.
@@ -502,9 +490,7 @@ class _FactoryRig {
   final List<String> events;
   final List<_ScriptedHost> hosts;
 
-  factory _FactoryRig.create({
-    void Function(_ScriptedHost host)? configure,
-  }) {
+  factory _FactoryRig.create({void Function(_ScriptedHost host)? configure}) {
     final events = <String>[];
     final hosts = <_ScriptedHost>[];
     final config = configure ?? ((_) {});
@@ -555,9 +541,7 @@ class _ScriptedHost implements DesktopShellHost {
   void _log(String message) => _events.add('H$serial:$message');
 
   @override
-  Future<DesktopShellResult> start(
-    DesktopShellHostCallbacks callbacks,
-  ) async {
+  Future<DesktopShellResult> start(DesktopShellHostCallbacks callbacks) async {
     startCalls++;
     this.callbacks = callbacks;
     _log('start-begin');

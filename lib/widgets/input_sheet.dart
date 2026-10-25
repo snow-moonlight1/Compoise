@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../ai_service.dart';
 import '../models.dart';
@@ -11,6 +12,35 @@ import 'batch_decompose_sheet.dart';
 import 'date_edit_fields.dart';
 import 'task_edit_draft.dart';
 import 'task_steps_composer.dart';
+
+/// The one unsent "add task" text, kept on this device only (not part of
+/// backups) so an accidental tap outside the sheet does not lose it.
+class InputDraft {
+  static const key = 'compoise-input-draft';
+
+  static Future<String?> load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final value = prefs.getString(key);
+      return value == null || value.trim().isEmpty ? null : value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> save(String text) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (text.trim().isEmpty) {
+        await prefs.remove(key);
+      } else {
+        await prefs.setString(key, text);
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> clear() => save('');
+}
 
 class InputSheet extends StatefulWidget {
   final InputModePref initialMode;
@@ -51,6 +81,49 @@ class _InputSheetState extends State<InputSheet> {
   DateTime? _selectedDeadline;
   int? _selectedReminderAt;
 
+  /// Draft handling is off when the sheet opens with preset text.
+  late final bool _useDraft = widget.initialText == null;
+  bool _draftLoaded = false;
+  bool _draftDone = false;
+
+  String get _draftText => _mode == InputModePref.single && !_batch
+      ? (_stepsKey.currentState?.text ?? _controller.text)
+      : _controller.text;
+
+  /// Last text seen; the steps composer is already gone during dispose.
+  String _lastDraft = '';
+
+  void _saveDraft() {
+    if (!_useDraft || !_draftLoaded || _draftDone) return;
+    final text = _draftText;
+    if (text == _lastDraft) return;
+    _lastDraft = text;
+    InputDraft.save(text);
+  }
+
+  void _finishDraft() {
+    if (!_useDraft) return;
+    _draftDone = true;
+    InputDraft.clear();
+  }
+
+  Future<void> _loadDraft() async {
+    final draft = await InputDraft.load();
+    if (!mounted) return;
+    if (draft != null && _draftText.isEmpty) {
+      if (_mode == InputModePref.single && !_batch) {
+        _stepsKey.currentState?.setText(draft);
+      } else {
+        _controller.value = TextEditingValue(
+          text: draft,
+          selection: TextSelection.collapsed(offset: draft.length),
+        );
+      }
+    }
+    _lastDraft = _draftText;
+    _draftLoaded = true;
+  }
+
   Task _place(Task task) {
     final quadrant = widget.quadrant;
     if (quadrant != null) task.quadrant = quadrant;
@@ -78,7 +151,9 @@ class _InputSheetState extends State<InputSheet> {
       _controller.text = widget.initialText!;
     }
     _controller.addListener(_reportDirty);
+    _controller.addListener(_saveDraft);
     _parentTitle.addListener(_reportDirty);
+    if (_useDraft) _loadDraft();
   }
 
   void _reportDirty() {
@@ -91,6 +166,7 @@ class _InputSheetState extends State<InputSheet> {
   @override
   void dispose() {
     _request?.cancel();
+    _controller.removeListener(_saveDraft);
     _controller.removeListener(_reportDirty);
     _controller.dispose();
     _parentTitle.removeListener(_reportDirty);
@@ -202,6 +278,7 @@ class _InputSheetState extends State<InputSheet> {
             onChanged: () {
               if (mounted) setState(() {});
               _reportDirty();
+              _saveDraft();
             },
           ),
         ] else ...[
@@ -485,6 +562,7 @@ class _InputSheetState extends State<InputSheet> {
           ),
         ]);
       }
+      _finishDraft();
       final result = await store.flush(waitForReminders: false);
       if (!mounted || _closed) return;
       setState(() => _busy = false);
@@ -551,6 +629,7 @@ class _InputSheetState extends State<InputSheet> {
           ),
       ];
       store.addTasks(tasks);
+      _finishDraft();
       _controller.clear();
       setState(() {
         _selectedDeadline = null;

@@ -4,12 +4,10 @@ library;
 import 'models.dart';
 
 /// Checks if quadrant is in the urgent dimension (Q1 or Q3).
-bool isUrgentQuadrant(int quadrant) =>
-    quadrant == qDo || quadrant == qDelegate;
+bool isUrgentQuadrant(int quadrant) => quadrant == qDo || quadrant == qDelegate;
 
 /// Checks if quadrant is in the important dimension (Q1 or Q2).
-bool isImportantQuadrant(int quadrant) =>
-    quadrant == qDo || quadrant == qPlan;
+bool isImportantQuadrant(int quadrant) => quadrant == qDo || quadrant == qPlan;
 
 /// Returns the urgent counterpart for a given quadrant, preserving importance.
 ///

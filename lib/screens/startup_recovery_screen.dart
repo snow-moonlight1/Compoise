@@ -48,21 +48,20 @@ class _StartupRecoveryScreenState extends State<StartupRecoveryScreen> {
     if (_busy) return;
     final approved = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(store.t['recoveryDiscard']!),
-            content: Text(store.t['recoveryConfirm']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(store.t['cancel']!),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(store.t['recoveryDiscard']!),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text(store.t['recoveryDiscard']!),
+        content: Text(store.t['recoveryConfirm']!),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(store.t['cancel']!),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(store.t['recoveryDiscard']!),
+          ),
+        ],
+      ),
     );
     if (approved != true || !mounted) return;
     setState(() => _busy = true);

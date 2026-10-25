@@ -70,24 +70,28 @@ ReminderPendingJob _filler(int i) => ReminderPendingJob(
   updatedAtMs: 1000 + i,
 );
 
-String _fillerKey(int i) => '${ReminderPendingKind.reschedule.name}:${1000 + i}';
+String _fillerKey(int i) =>
+    '${ReminderPendingKind.reschedule.name}:${1000 + i}';
 
 int _id(String taskId) => generateNotificationId(taskId);
-String _key(String taskId) => '${ReminderPendingKind.reschedule.name}:${_id(taskId)}';
+String _key(String taskId) =>
+    '${ReminderPendingKind.reschedule.name}:${_id(taskId)}';
 
 /// Brings the ledger exactly to its cap and returns the service.
 Future<InMemoryReminderService> _fullLedger(ReminderLedgerStore ledger) async {
   final service = InMemoryReminderService(ledgerStore: ledger);
   for (var i = 0; i < ReminderService.maxPendingJobs; i++) {
-    expect(await service.trackPendingJob(_filler(i)), ReminderLedgerUpdate.recorded);
+    expect(
+      await service.trackPendingJob(_filler(i)),
+      ReminderLedgerUpdate.recorded,
+    );
   }
   expect(service.pendingJobs, hasLength(ReminderService.maxPendingJobs));
   return service;
 }
 
-Widget _host() => Scaffold(
-  body: ListView(children: const [ReminderFailureBanner()]),
-);
+Widget _host() =>
+    Scaffold(body: ListView(children: const [ReminderFailureBanner()]));
 
 ValueKey<String> _row(String state) => ValueKey('reminder-ledger-$state');
 const ValueKey<String> _ledgerRetry = ValueKey('retry-reminder-ledger');
@@ -114,119 +118,146 @@ void main() {
   }
 
   group('a full ledger recovers the reminder it refused', () {
-    test('a freed slot puts the refused reminder back instead of forgetting it', () async {
-      final trigger = _nowMs() + 600000;
-      final tasks = [_task('t-new', reminderAt: trigger)];
-      final service = await _fullLedger(SeededLedger())
-        ..scheduleFault = StateError('synthetic schedule rejection');
+    test(
+      'a freed slot puts the refused reminder back instead of forgetting it',
+      () async {
+        final trigger = _nowMs() + 600000;
+        final tasks = [_task('t-new', reminderAt: trigger)];
+        final service = await _fullLedger(SeededLedger())
+          ..scheduleFault = StateError('synthetic schedule rejection');
 
-      // A reminder the user still expects arrives while the ledger is full.
-      final refused = await service.scheduleReminder(
-        boardId: 'b1',
-        taskId: 't-new',
-        title: 'Synthetic t-new',
-        triggerAtMs: trigger,
-      );
-      expect(refused.needsRetry, isTrue);
-      expect(service.ledgerIssue.value?.kind, ReminderLedgerIssueKind.overflow);
-      expect(service.refusedRecords, 1);
-      expect(
-        service.pendingJobs.containsKey(_key('t-new')),
-        isFalse,
-        reason: 'a full ledger refused the record, so it is not tracked yet',
-      );
+        // A reminder the user still expects arrives while the ledger is full.
+        final refused = await service.scheduleReminder(
+          boardId: 'b1',
+          taskId: 't-new',
+          title: 'Synthetic t-new',
+          triggerAtMs: trigger,
+        );
+        expect(refused.needsRetry, isTrue);
+        expect(
+          service.ledgerIssue.value?.kind,
+          ReminderLedgerIssueKind.overflow,
+        );
+        expect(service.refusedRecords, 1);
+        expect(
+          service.pendingJobs.containsKey(_key('t-new')),
+          isFalse,
+          reason: 'a full ledger refused the record, so it is not tracked yet',
+        );
 
-      // Capacity is released, then reconciliation runs again.
-      await service.clearPendingJob(_fillerKey(0));
-      final report = await service.reconcilePending(tasks);
+        // Capacity is released, then reconciliation runs again.
+        await service.clearPendingJob(_fillerKey(0));
+        final report = await service.reconcilePending(tasks);
 
-      expect(
-        service.ledgerIssue.value,
-        isNull,
-        reason: 'with capacity back, the full-ledger fact must not stay on screen',
-      );
-      expect(
-        service.pendingJobs.containsKey(_key('t-new')),
-        isTrue,
-        reason: 'the refused reminder is tracked again, not silently forgotten',
-      );
-      expect(report.retried, greaterThanOrEqualTo(1));
-      expect(service.scheduleFailures.value.values.map((p) => p.taskId), contains('t-new'));
+        expect(
+          service.ledgerIssue.value,
+          isNull,
+          reason:
+              'with capacity back, the full-ledger fact must not stay on screen',
+        );
+        expect(
+          service.pendingJobs.containsKey(_key('t-new')),
+          isTrue,
+          reason:
+              'the refused reminder is tracked again, not silently forgotten',
+        );
+        expect(report.retried, greaterThanOrEqualTo(1));
+        expect(
+          service.scheduleFailures.value.values.map((p) => p.taskId),
+          contains('t-new'),
+        );
 
-      // And once the channel works again the recovered record is really retried.
-      service.scheduleFault = null;
-      final recovered = await service.reconcilePending(tasks);
-      expect(recovered.recovered, 1);
-      expect(service.pendingJobs.containsKey(_key('t-new')), isFalse);
-      expect(service.scheduleFailures.value.isEmpty, isTrue);
-      expect(service.ledgerIssue.value, isNull);
-      expect(service.refusedRecords, 1, reason: 'the refusal was still counted once');
-    });
+        // And once the channel works again the recovered record is really retried.
+        service.scheduleFault = null;
+        final recovered = await service.reconcilePending(tasks);
+        expect(recovered.recovered, 1);
+        expect(service.pendingJobs.containsKey(_key('t-new')), isFalse);
+        expect(service.scheduleFailures.value.isEmpty, isTrue);
+        expect(service.ledgerIssue.value, isNull);
+        expect(
+          service.refusedRecords,
+          1,
+          reason: 'the refusal was still counted once',
+        );
+      },
+    );
 
-    test('a reconcile pass that frees slots hands them to the refused work', () async {
-      final trigger = _nowMs() + 600000;
-      final tasks = [_task('t-new', reminderAt: trigger)];
-      final service = await _fullLedger(SeededLedger())
-        ..scheduleFault = StateError('synthetic schedule rejection');
-      await service.scheduleReminder(
-        boardId: 'b1',
-        taskId: 't-new',
-        title: 'Synthetic t-new',
-        triggerAtMs: trigger,
-      );
-      expect(service.ledgerIssue.value?.kind, ReminderLedgerIssueKind.overflow);
+    test(
+      'a reconcile pass that frees slots hands them to the refused work',
+      () async {
+        final trigger = _nowMs() + 600000;
+        final tasks = [_task('t-new', reminderAt: trigger)];
+        final service = await _fullLedger(SeededLedger())
+          ..scheduleFault = StateError('synthetic schedule rejection');
+        await service.scheduleReminder(
+          boardId: 'b1',
+          taskId: 't-new',
+          title: 'Synthetic t-new',
+          triggerAtMs: trigger,
+        );
+        expect(
+          service.ledgerIssue.value?.kind,
+          ReminderLedgerIssueKind.overflow,
+        );
 
-      // This pass is the one that frees capacity: it drops the filler records,
-      // which no task backs any more. The refused reminder must get one of those
-      // slots instead of being left behind by the pass that freed them.
-      final report = await service.reconcilePending(tasks);
-      expect(report.dropped, ReminderService.maxPendingJobs);
-      expect(
-        service.pendingJobs.containsKey(_key('t-new')),
-        isTrue,
-        reason: 'a freed slot belongs to the refused reminder, not to nobody',
-      );
-      expect(service.ledgerIssue.value, isNull);
+        // This pass is the one that frees capacity: it drops the filler records,
+        // which no task backs any more. The refused reminder must get one of those
+        // slots instead of being left behind by the pass that freed them.
+        final report = await service.reconcilePending(tasks);
+        expect(report.dropped, ReminderService.maxPendingJobs);
+        expect(
+          service.pendingJobs.containsKey(_key('t-new')),
+          isTrue,
+          reason: 'a freed slot belongs to the refused reminder, not to nobody',
+        );
+        expect(service.ledgerIssue.value, isNull);
 
-      // And the next pass retries it like any other pending record.
-      service.scheduleFault = null;
-      final recovered = await service.reconcilePending(tasks);
-      expect(recovered.recovered, 1);
-      expect(service.pendingJobs, isEmpty);
-      expect(service.scheduleFailures.value, isEmpty);
-    });
+        // And the next pass retries it like any other pending record.
+        service.scheduleFault = null;
+        final recovered = await service.reconcilePending(tasks);
+        expect(recovered.recovered, 1);
+        expect(service.pendingJobs, isEmpty);
+        expect(service.scheduleFailures.value, isEmpty);
+      },
+    );
 
-    test('a refusal for a reminder the data no longer backs goes away with it', () async {
-      final trigger = _nowMs() + 600000;
-      final service = await _fullLedger(SeededLedger())
-        ..scheduleFault = StateError('synthetic schedule rejection');
-      await service.scheduleReminder(
-        boardId: 'b1',
-        taskId: 't-done',
-        title: 'Synthetic t-done',
-        triggerAtMs: trigger,
-      );
-      expect(service.ledgerIssue.value?.kind, ReminderLedgerIssueKind.overflow);
-      expect(service.refusedRecords, 1);
+    test(
+      'a refusal for a reminder the data no longer backs goes away with it',
+      () async {
+        final trigger = _nowMs() + 600000;
+        final service = await _fullLedger(SeededLedger())
+          ..scheduleFault = StateError('synthetic schedule rejection');
+        await service.scheduleReminder(
+          boardId: 'b1',
+          taskId: 't-done',
+          title: 'Synthetic t-done',
+          triggerAtMs: trigger,
+        );
+        expect(
+          service.ledgerIssue.value?.kind,
+          ReminderLedgerIssueKind.overflow,
+        );
+        expect(service.refusedRecords, 1);
 
-      // The user completed the task, so nothing backs the refused reminder.
-      final report = await service.reconcilePending([
-        _task('t-done', reminderAt: trigger, completed: true),
-      ]);
+        // The user completed the task, so nothing backs the refused reminder.
+        final report = await service.reconcilePending([
+          _task('t-done', reminderAt: trigger, completed: true),
+        ]);
 
-      expect(
-        service.ledgerIssue.value,
-        isNull,
-        reason: 'the refusal left with the reminder it belonged to',
-      );
-      expect(service.pendingJobs.containsKey(_key('t-done')), isFalse);
-      expect(service.scheduleFailures.value.isEmpty, isTrue);
-      expect(
-        report.retried,
-        0,
-        reason: 'a reminder the data no longer backs is not re-armed',
-      );
-    });
+        expect(
+          service.ledgerIssue.value,
+          isNull,
+          reason: 'the refusal left with the reminder it belonged to',
+        );
+        expect(service.pendingJobs.containsKey(_key('t-done')), isFalse);
+        expect(service.scheduleFailures.value.isEmpty, isTrue);
+        expect(
+          report.retried,
+          0,
+          reason: 'a reminder the data no longer backs is not re-armed',
+        );
+      },
+    );
 
     test('a full clear owns the refusals too', () async {
       final trigger = _nowMs() + 600000;
@@ -269,31 +300,42 @@ void main() {
       ],
     });
 
-    test('a clean write repairs the stored ledger and clears the damaged row', () async {
-      final ledger = SeededLedger(seed: damagedSeed());
-      final service = InMemoryReminderService(ledgerStore: ledger);
-      await service.loadPendingJobs();
-      expect(service.ledgerIssue.value?.kind, ReminderLedgerIssueKind.damaged);
-      expect(service.ledgerIssue.value?.count, 1);
-      expect(service.pendingJobs, hasLength(1), reason: 'the readable record loaded');
+    test(
+      'a clean write repairs the stored ledger and clears the damaged row',
+      () async {
+        final ledger = SeededLedger(seed: damagedSeed());
+        final service = InMemoryReminderService(ledgerStore: ledger);
+        await service.loadPendingJobs();
+        expect(
+          service.ledgerIssue.value?.kind,
+          ReminderLedgerIssueKind.damaged,
+        );
+        expect(service.ledgerIssue.value?.count, 1);
+        expect(
+          service.pendingJobs,
+          hasLength(1),
+          reason: 'the readable record loaded',
+        );
 
-      // Repairing means giving up the unreadable records and rewriting the
-      // ones this read could keep, so the stored bytes stop containing garbage.
-      expect(await service.retryPendingLedger(), isTrue);
-      expect(
-        service.ledgerIssue.value,
-        isNull,
-        reason: 'the explicit repair is the confirmation behind the skip notice',
-      );
-      expect(ledger.written, isNotNull);
-      expect(ledger.written, isNot(contains('not-a-kind')));
+        // Repairing means giving up the unreadable records and rewriting the
+        // ones this read could keep, so the stored bytes stop containing garbage.
+        expect(await service.retryPendingLedger(), isTrue);
+        expect(
+          service.ledgerIssue.value,
+          isNull,
+          reason:
+              'the explicit repair is the confirmation behind the skip notice',
+        );
+        expect(ledger.written, isNotNull);
+        expect(ledger.written, isNot(contains('not-a-kind')));
 
-      // A restart reads the repaired bytes and reports nothing.
-      final afterRestart = InMemoryReminderService(ledgerStore: ledger);
-      await afterRestart.loadPendingJobs();
-      expect(afterRestart.ledgerIssue.value, isNull);
-      expect(afterRestart.pendingJobs, hasLength(1));
-    });
+        // A restart reads the repaired bytes and reports nothing.
+        final afterRestart = InMemoryReminderService(ledgerStore: ledger);
+        await afterRestart.loadPendingJobs();
+        expect(afterRestart.ledgerIssue.value, isNull);
+        expect(afterRestart.pendingJobs, hasLength(1));
+      },
+    );
 
     test('an incidental write does not hide the skip notice', () async {
       final ledger = SeededLedger(seed: damagedSeed());
@@ -329,44 +371,56 @@ void main() {
       expect(afterRestart.pendingJobs, hasLength(2));
     });
 
-    test('an unrepaired ledger is reported again instead of being cleared', () async {
-      final ledger = SeededLedger(seed: damagedSeed());
-      final first = InMemoryReminderService(ledgerStore: ledger);
-      await first.loadPendingJobs();
-      expect(first.ledgerIssue.value?.kind, ReminderLedgerIssueKind.damaged);
+    test(
+      'an unrepaired ledger is reported again instead of being cleared',
+      () async {
+        final ledger = SeededLedger(seed: damagedSeed());
+        final first = InMemoryReminderService(ledgerStore: ledger);
+        await first.loadPendingJobs();
+        expect(first.ledgerIssue.value?.kind, ReminderLedgerIssueKind.damaged);
 
-      // No write happened, so a fresh process must still report the damage.
-      final second = InMemoryReminderService(ledgerStore: ledger);
-      await second.loadPendingJobs();
-      expect(
-        second.ledgerIssue.value?.kind,
-        ReminderLedgerIssueKind.damaged,
-        reason: 'nothing repaired the bytes, so the row must come back',
-      );
-      expect(second.ledgerIssue.value?.count, 1);
-    });
+        // No write happened, so a fresh process must still report the damage.
+        final second = InMemoryReminderService(ledgerStore: ledger);
+        await second.loadPendingJobs();
+        expect(
+          second.ledgerIssue.value?.kind,
+          ReminderLedgerIssueKind.damaged,
+          reason: 'nothing repaired the bytes, so the row must come back',
+        );
+        expect(second.ledgerIssue.value?.count, 1);
+      },
+    );
 
-    test('a failing repair reports the write problem instead of hiding it', () async {
-      final ledger = SeededLedger(seed: damagedSeed())..failWrites = true;
-      final service = InMemoryReminderService(ledgerStore: ledger);
-      await service.loadPendingJobs();
-      expect(service.ledgerIssue.value?.kind, ReminderLedgerIssueKind.damaged);
+    test(
+      'a failing repair reports the write problem instead of hiding it',
+      () async {
+        final ledger = SeededLedger(seed: damagedSeed())..failWrites = true;
+        final service = InMemoryReminderService(ledgerStore: ledger);
+        await service.loadPendingJobs();
+        expect(
+          service.ledgerIssue.value?.kind,
+          ReminderLedgerIssueKind.damaged,
+        );
 
-      expect(await service.retryPendingLedger(), isFalse);
-      expect(
-        service.ledgerIssue.value?.kind,
-        ReminderLedgerIssueKind.write,
-        reason: 'a repair that could not land is the write problem, not success',
-      );
+        expect(await service.retryPendingLedger(), isFalse);
+        expect(
+          service.ledgerIssue.value?.kind,
+          ReminderLedgerIssueKind.write,
+          reason:
+              'a repair that could not land is the write problem, not success',
+        );
 
-      ledger.failWrites = false;
-      expect(await service.retryPendingLedger(), isTrue);
-      expect(service.ledgerIssue.value, isNull);
-    });
+        ledger.failWrites = false;
+        expect(await service.retryPendingLedger(), isTrue);
+        expect(service.ledgerIssue.value, isNull);
+      },
+    );
   });
 
   group('the banner follows the service lifecycle', () {
-    testWidgets('a damaged ledger offers a repair that really clears the row', (tester) async {
+    testWidgets('a damaged ledger offers a repair that really clears the row', (
+      tester,
+    ) async {
       final ledger = SeededLedger(
         seed: jsonEncode({
           'v': 1,
@@ -397,56 +451,68 @@ void main() {
       fixture.settle(tester, store);
     });
 
-    testWidgets('the full-ledger row offers no retry and leaves once work is recovered', (
-      tester,
-    ) async {
-      final trigger = _nowMs() + 600000;
-      final service = InMemoryReminderService(ledgerStore: SeededLedger())
-        ..scheduleFault = StateError('synthetic schedule rejection');
-      final store = await pumpBanner(tester, service);
-      for (var i = 0; i < ReminderService.maxPendingJobs; i++) {
-        await service.trackPendingJob(_filler(i));
+    testWidgets(
+      'the full-ledger row offers no retry and leaves once work is recovered',
+      (tester) async {
+        final trigger = _nowMs() + 600000;
+        final service = InMemoryReminderService(ledgerStore: SeededLedger())
+          ..scheduleFault = StateError('synthetic schedule rejection');
+        final store = await pumpBanner(tester, service);
+        for (var i = 0; i < ReminderService.maxPendingJobs; i++) {
+          await service.trackPendingJob(_filler(i));
+        }
+        await service.scheduleReminder(
+          boardId: 'b1',
+          taskId: 't-new',
+          title: 'Synthetic t-new',
+          triggerAtMs: trigger,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(_row('overflow')), findsOneWidget);
+        expect(find.byKey(_ledgerRetry), findsNothing);
+        expect(
+          find.byKey(_ledgerRepair),
+          findsNothing,
+          reason: 'a full ledger is fixed by freeing capacity, not by a button',
+        );
+
+        // Freeing a slot is the recovery condition the service acts on.
+        await service.clearPendingJob(_fillerKey(0));
+        await tester.pumpAndSettle();
+        expect(find.byKey(_row('overflow'), skipOffstage: false), findsNothing);
+        expect(
+          find.byKey(const ValueKey('reminder-schedule-failure')),
+          findsOneWidget,
+          reason: 'the recovered reminder is still reported as unarmed',
+        );
+        fixture.settle(tester, store);
+      },
+    );
+  });
+
+  test(
+    'the repair label exists in every language and promises no delivery',
+    () {
+      final banned = RegExp('100%|绝对|絶対|必ず届|一定送达|guaranteed|保証します');
+      for (final language in Language.values) {
+        final value = dictOf(language)['reminderLedgerRepair'];
+        expect(
+          value,
+          isNotNull,
+          reason: '${language.name} is missing the repair label',
+        );
+        expect(
+          value,
+          isNotEmpty,
+          reason: '${language.name} repair label is empty',
+        );
+        expect(
+          banned.hasMatch(value!),
+          isFalse,
+          reason: '${language.name} repair label may not promise delivery',
+        );
       }
-      await service.scheduleReminder(
-        boardId: 'b1',
-        taskId: 't-new',
-        title: 'Synthetic t-new',
-        triggerAtMs: trigger,
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(_row('overflow')), findsOneWidget);
-      expect(find.byKey(_ledgerRetry), findsNothing);
-      expect(
-        find.byKey(_ledgerRepair),
-        findsNothing,
-        reason: 'a full ledger is fixed by freeing capacity, not by a button',
-      );
-
-      // Freeing a slot is the recovery condition the service acts on.
-      await service.clearPendingJob(_fillerKey(0));
-      await tester.pumpAndSettle();
-      expect(find.byKey(_row('overflow'), skipOffstage: false), findsNothing);
-      expect(
-        find.byKey(const ValueKey('reminder-schedule-failure')),
-        findsOneWidget,
-        reason: 'the recovered reminder is still reported as unarmed',
-      );
-      fixture.settle(tester, store);
-    });
-  });
-
-  test('the repair label exists in every language and promises no delivery', () {
-    final banned = RegExp('100%|绝对|絶対|必ず届|一定送达|guaranteed|保証します');
-    for (final language in Language.values) {
-      final value = dictOf(language)['reminderLedgerRepair'];
-      expect(value, isNotNull, reason: '${language.name} is missing the repair label');
-      expect(value, isNotEmpty, reason: '${language.name} repair label is empty');
-      expect(
-        banned.hasMatch(value!),
-        isFalse,
-        reason: '${language.name} repair label may not promise delivery',
-      );
-    }
-  });
+    },
+  );
 }

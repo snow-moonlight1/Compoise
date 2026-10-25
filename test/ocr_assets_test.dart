@@ -36,26 +36,27 @@ void main() {
     }
   }
 
-  test('model check reads exactly the five native file names under ncnn/', () async {
-    await writeModels(directory.path);
-    expect(await missingOcrModelFiles(directory.path), isEmpty);
-    expect(
-      ocrModelFileNames,
-      [
+  test(
+    'model check reads exactly the five native file names under ncnn/',
+    () async {
+      await writeModels(directory.path);
+      expect(await missingOcrModelFiles(directory.path), isEmpty);
+      expect(ocrModelFileNames, [
         'ppocrv5_dict.txt',
         'PP_OCRv5_mobile_det.ncnn.param',
         'PP_OCRv5_mobile_det.ncnn.bin',
         'PP_OCRv5_mobile_rec.ncnn.param',
         'PP_OCRv5_mobile_rec.ncnn.bin',
-      ],
-    );
-    final entries = Directory('${directory.path}/ncnn')
-        .listSync()
-        .map((entry) => entry.path.split(Platform.pathSeparator).last)
-        .toList()
-      ..sort();
-    expect(entries, [...ocrModelFileNames]..sort());
-  });
+      ]);
+      final entries =
+          Directory('${directory.path}/ncnn')
+              .listSync()
+              .map((entry) => entry.path.split(Platform.pathSeparator).last)
+              .toList()
+            ..sort();
+      expect(entries, [...ocrModelFileNames]..sort());
+    },
+  );
 
   test('missing and empty files are reported by name', () async {
     await writeModels(
@@ -63,10 +64,10 @@ void main() {
       omit: ['PP_OCRv5_mobile_rec.ncnn.bin'],
       empty: ['ppocrv5_dict.txt'],
     );
-    expect(
-      await missingOcrModelFiles(directory.path),
-      ['ppocrv5_dict.txt', 'PP_OCRv5_mobile_rec.ncnn.bin'],
-    );
+    expect(await missingOcrModelFiles(directory.path), [
+      'ppocrv5_dict.txt',
+      'PP_OCRv5_mobile_rec.ncnn.bin',
+    ]);
   });
 
   test('a wrong layout (models directly under the root) is rejected', () async {
@@ -74,31 +75,41 @@ void main() {
     expect(await missingOcrModelFiles(directory.path), ocrModelFileNames);
   });
 
-  test('WP17_OCR_ASSETS from the environment wins over the support directory', () async {
-    final environment = Directory('${directory.path}/environment')..createSync();
+  test(
+    'WP17_OCR_ASSETS from the environment wins over the support directory',
+    () async {
+      final environment = Directory('${directory.path}/environment')
+        ..createSync();
 
-    expect(
-      await resolveOcrAssetsRoot(
-        environment: () => {'WP17_OCR_ASSETS': environment.path},
-      ),
-      environment.path,
-    );
-  });
-
-  test('blank or absent environment falls back to application support', () async {
-    final support = Directory('${directory.path}/support')..createSync();
-    final expected = '${support.path}/ocr-models/v1';
-
-    for (final environment in [<String, String>{}, {'WP17_OCR_ASSETS': '  '}]) {
       expect(
         await resolveOcrAssetsRoot(
-          environment: () => environment,
-          supportDirectory: () async => support,
+          environment: () => {'WP17_OCR_ASSETS': environment.path},
         ),
-        expected,
+        environment.path,
       );
-    }
-  });
+    },
+  );
+
+  test(
+    'blank or absent environment falls back to application support',
+    () async {
+      final support = Directory('${directory.path}/support')..createSync();
+      final expected = '${support.path}/ocr-models/v1';
+
+      for (final environment in [
+        <String, String>{},
+        {'WP17_OCR_ASSETS': '  '},
+      ]) {
+        expect(
+          await resolveOcrAssetsRoot(
+            environment: () => environment,
+            supportDirectory: () async => support,
+          ),
+          expected,
+        );
+      }
+    },
+  );
 
   test('library lookup is executable-relative on Windows and Linux', () {
     final executable = File(Platform.resolvedExecutable).parent.path;
@@ -121,16 +132,19 @@ void main() {
     await backend.dispose();
   });
 
-  test('backend reports NativeMissing when only the models are deployed', () async {
-    await writeModels(directory.path);
-    final backend = LocalScreenshotBackend(
-      android: false,
-      environment: () => {'WP17_OCR_ASSETS': directory.path},
-    );
-    // No compoise_ocr.dll exists next to the test executable.
-    expect(await backend.availability(), 'NativeMissing');
-    await backend.dispose();
-  });
+  test(
+    'backend reports NativeMissing when only the models are deployed',
+    () async {
+      await writeModels(directory.path);
+      final backend = LocalScreenshotBackend(
+        android: false,
+        environment: () => {'WP17_OCR_ASSETS': directory.path},
+      );
+      // No compoise_ocr.dll exists next to the test executable.
+      expect(await backend.availability(), 'NativeMissing');
+      await backend.dispose();
+    },
+  );
 
   test('backend finds the models through an injected environment', () async {
     await writeModels(directory.path);

@@ -6,19 +6,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:compoise/ocr/ocr_runtime.dart';
 
 void main() {
-  test('cancelled batch retains one result per input without opening native code', () async {
-    final token = OcrCancellationToken()..cancel();
-    final results = await OcrRuntime(assetsRoot: 'unused').recognizeFiles(
-      ['a.png', 'b.png'],
-      cancellation: token,
-    );
-    expect(results.map((result) => result.path), ['a.png', 'b.png']);
-    expect(results.every((result) => result.error == 'cancelled'), isTrue);
-  });
+  test(
+    'cancelled batch retains one result per input without opening native code',
+    () async {
+      final token = OcrCancellationToken()..cancel();
+      final results = await OcrRuntime(
+        assetsRoot: 'unused',
+      ).recognizeFiles(['a.png', 'b.png'], cancellation: token);
+      expect(results.map((result) => result.path), ['a.png', 'b.png']);
+      expect(results.every((result) => result.error == 'cancelled'), isTrue);
+    },
+  );
 
   test('rejects batch larger than the bounded decode queue', () async {
     final runtime = OcrRuntime(assetsRoot: 'unused');
-    await expectLater(runtime.recognizeFiles(List.filled(21, 'a.png')), throwsArgumentError);
+    await expectLater(
+      runtime.recognizeFiles(List.filled(21, 'a.png')),
+      throwsArgumentError,
+    );
   });
 
   final libraryPath = Platform.environment['WP17_OCR_TEST_LIBRARY'];
@@ -35,93 +40,121 @@ void main() {
     expect(result.error, contains('cannot open image'));
   }, skip: !enabled);
 
-  test('native call reproduces R2 text and boxes on synthetic screenshots', () async {
-    final root = Directory.current.path;
-    final samples = '$root/test/fixtures/ocr-evaluation/samples/images';
-    final raw = jsonDecode(File(
-      '$root/test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json',
-    ).readAsStringSync()) as Map<String, dynamic>;
-    final reference = {
-      for (final image in raw['images'] as List<dynamic>)
-        File((image as Map<String, dynamic>)['path'] as String).uri.pathSegments.last:
-            image,
-    };
-    final paths = [
-      for (final name in reference.keys) '$samples/$name',
-    ];
-    final results = await OcrRuntime(
-      assetsRoot: assetsRoot!,
-      libraryPath: libraryPath!,
-    ).recognizeFiles(paths);
-    expect(results.length, paths.length);
-    for (final result in results) {
-      expect(result.error, isNull, reason: result.path);
-      final expected = reference[File(result.path).uri.pathSegments.last]
-          as Map<String, dynamic>;
-      final lines = expected['lines'] as List<dynamic>;
-      expect(result.width, expected['width']);
-      expect(result.height, expected['height']);
-      expect(result.lines.length, lines.length);
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i] as Map<String, dynamic>;
-        expect(result.lines[i].text, line['text']);
-        final box = line['box'] as List<dynamic>;
-        for (var j = 0; j < 4; j++) {
-          expect(result.lines[i].box[j], closeTo((box[j] as num).toDouble(), 1));
+  test(
+    'native call reproduces R2 text and boxes on synthetic screenshots',
+    () async {
+      final root = Directory.current.path;
+      final samples = '$root/test/fixtures/ocr-evaluation/samples/images';
+      final raw =
+          jsonDecode(
+                File(
+                  '$root/test/fixtures/ocr-evaluation/results/win/raw/ncnn-cpu-t4/all.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final reference = {
+        for (final image in raw['images'] as List<dynamic>)
+          File(
+            (image as Map<String, dynamic>)['path'] as String,
+          ).uri.pathSegments.last: image,
+      };
+      final paths = [for (final name in reference.keys) '$samples/$name'];
+      final results = await OcrRuntime(
+        assetsRoot: assetsRoot!,
+        libraryPath: libraryPath!,
+      ).recognizeFiles(paths);
+      expect(results.length, paths.length);
+      for (final result in results) {
+        expect(result.error, isNull, reason: result.path);
+        final expected =
+            reference[File(result.path).uri.pathSegments.last]
+                as Map<String, dynamic>;
+        final lines = expected['lines'] as List<dynamic>;
+        expect(result.width, expected['width']);
+        expect(result.height, expected['height']);
+        expect(result.lines.length, lines.length);
+        for (var i = 0; i < lines.length; i++) {
+          final line = lines[i] as Map<String, dynamic>;
+          expect(result.lines[i].text, line['text']);
+          final box = line['box'] as List<dynamic>;
+          for (var j = 0; j < 4; j++) {
+            expect(
+              result.lines[i].box[j],
+              closeTo((box[j] as num).toDouble(), 1),
+            );
+          }
         }
       }
-    }
-  }, skip: !enabled, timeout: const Timeout(Duration(minutes: 5)));
+    },
+    skip: !enabled,
+    timeout: const Timeout(Duration(minutes: 5)),
+  );
 
-  test('native library reports model, decode, size and repeated-call results', () async {
-    final runtime = OcrRuntime(assetsRoot: assetsRoot!, libraryPath: libraryPath!);
-    final temp = await Directory.systemTemp.createTemp('wp17i1-');
-    try {
-      final missingModel = (await OcrRuntime(
-        assetsRoot: temp.path,
-        libraryPath: libraryPath,
-      ).recognizeFiles([_touch(temp, 'missing.png', [1, 2, 3])])).single;
-      expect(missingModel.error, contains('cannot read dict'));
-      expect(missingModel.width, 0);
-      expect(missingModel.lines, isEmpty);
+  test(
+    'native library reports model, decode, size and repeated-call results',
+    () async {
+      final runtime = OcrRuntime(
+        assetsRoot: assetsRoot!,
+        libraryPath: libraryPath!,
+      );
+      final temp = await Directory.systemTemp.createTemp('wp17i1-');
+      try {
+        final missingModel =
+            (await OcrRuntime(
+                  assetsRoot: temp.path,
+                  libraryPath: libraryPath,
+                ).recognizeFiles([
+                  _touch(temp, 'missing.png', [1, 2, 3]),
+                ]))
+                .single;
+        expect(missingModel.error, contains('cannot read dict'));
+        expect(missingModel.width, 0);
+        expect(missingModel.lines, isEmpty);
 
-      final corrupt = (await runtime.recognizeFiles([
-        _touch(temp, 'corrupt.png', utf8.encode('not a png')),
-      ])).single;
-      expect(corrupt.error, 'PNG header decode failed');
+        final corrupt = (await runtime.recognizeFiles([
+          _touch(temp, 'corrupt.png', utf8.encode('not a png')),
+        ])).single;
+        expect(corrupt.error, 'PNG header decode failed');
 
-      final empty = (await runtime.recognizeFiles([
-        _touch(temp, 'empty.png', const []),
-      ])).single;
-      expect(empty.error, contains('16 MiB or is empty'));
+        final empty = (await runtime.recognizeFiles([
+          _touch(temp, 'empty.png', const []),
+        ])).single;
+        expect(empty.error, contains('16 MiB or is empty'));
 
-      final wide = (await runtime.recognizeFiles([
-        _touch(temp, 'wide.png', _png(4097, 8)),
-      ])).single;
-      expect(wide.error, 'image dimensions exceed OCR limit');
-      expect(wide.width, 0);
+        final wide = (await runtime.recognizeFiles([
+          _touch(temp, 'wide.png', _png(4097, 8)),
+        ])).single;
+        expect(wide.error, 'image dimensions exceed OCR limit');
+        expect(wide.width, 0);
 
-      final sample = '${Directory.current.path}/test/fixtures/ocr-evaluation/samples/images/zh_light_base.png';
-      final first = (await runtime.recognizeFiles([sample])).single;
-      final second = (await runtime.recognizeFiles([sample])).single;
-      expect(first.error, isNull);
-      expect(second.width, first.width);
-      expect(second.height, first.height);
-      expect(second.lines.map((line) => line.text), first.lines.map((line) => line.text));
+        final sample =
+            '${Directory.current.path}/test/fixtures/ocr-evaluation/samples/images/zh_light_base.png';
+        final first = (await runtime.recognizeFiles([sample])).single;
+        final second = (await runtime.recognizeFiles([sample])).single;
+        expect(first.error, isNull);
+        expect(second.width, first.width);
+        expect(second.height, first.height);
+        expect(
+          second.lines.map((line) => line.text),
+          first.lines.map((line) => line.text),
+        );
 
-      final token = OcrCancellationToken();
-      final pending = runtime.recognizeFiles([
-        sample,
-        '${Directory.current.path}/test/fixtures/ocr-evaluation/samples/images/en_light_base.png',
-      ], cancellation: token);
-      token.cancel();
-      final cancelled = await pending;
-      expect(cancelled, hasLength(2));
-      expect(cancelled.last.error, 'cancelled');
-    } finally {
-      await temp.delete(recursive: true);
-    }
-  }, skip: !enabled, timeout: const Timeout(Duration(minutes: 3)));
+        final token = OcrCancellationToken();
+        final pending = runtime.recognizeFiles([
+          sample,
+          '${Directory.current.path}/test/fixtures/ocr-evaluation/samples/images/en_light_base.png',
+        ], cancellation: token);
+        token.cancel();
+        final cancelled = await pending;
+        expect(cancelled, hasLength(2));
+        expect(cancelled.last.error, 'cancelled');
+      } finally {
+        await temp.delete(recursive: true);
+      }
+    },
+    skip: !enabled,
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
 }
 
 String _touch(Directory dir, String name, List<int> bytes) {

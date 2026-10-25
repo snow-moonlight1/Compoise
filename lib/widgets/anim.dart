@@ -15,13 +15,16 @@ class StaggerIn extends StatefulWidget {
   State<StaggerIn> createState() => _StaggerInState();
 }
 
-class _StaggerInState extends State<StaggerIn> with SingleTickerProviderStateMixin {
+class _StaggerInState extends State<StaggerIn>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: MotionPolicy.entranceFade,
   );
-  late final Animation<double> _fade =
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+  late final Animation<double> _fade = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
 
   bool _resolved = false;
 
@@ -105,8 +108,9 @@ class StrikeThrough extends StatelessWidget {
         textDirection: child.textDirection,
         locale: child.locale,
         style: base.copyWith(
-          decoration:
-              crossed ? TextDecoration.lineThrough : TextDecoration.none,
+          decoration: crossed
+              ? TextDecoration.lineThrough
+              : TextDecoration.none,
           decorationColor: crossed ? color : base.decorationColor,
           decorationThickness: crossed ? 1.6 : base.decorationThickness,
         ),

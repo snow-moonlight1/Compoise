@@ -11,14 +11,13 @@ Future<String?> askText(
   String initial = '',
 }) => showDialog<String>(
   context: context,
-  builder:
-      (_) => _TextPrompt(
-        title: title,
-        label: label,
-        cancel: cancel,
-        confirm: confirm,
-        initial: initial,
-      ),
+  builder: (_) => _TextPrompt(
+    title: title,
+    label: label,
+    cancel: cancel,
+    confirm: confirm,
+    initial: initial,
+  ),
 );
 
 class _TextPrompt extends StatefulWidget {
@@ -65,10 +64,7 @@ class _TextPromptState extends State<_TextPrompt> {
           onPressed: () => Navigator.pop(context),
           child: Text(widget.cancel),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(widget.confirm),
-        ),
+        FilledButton(onPressed: _submit, child: Text(widget.confirm)),
       ],
     ),
   );

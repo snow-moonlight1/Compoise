@@ -63,9 +63,8 @@ ReminderPendingJob _job(String taskId) => ReminderPendingJob(
   updatedAtMs: 5000,
 );
 
-Widget _host() => Scaffold(
-  body: ListView(children: const [ReminderFailureBanner()]),
-);
+Widget _host() =>
+    Scaffold(body: ListView(children: const [ReminderFailureBanner()]));
 
 /// Route for every screen the banner is mounted on.
 ValueKey<String> _row(String state) => ValueKey('reminder-ledger-$state');
@@ -121,76 +120,83 @@ void main() {
     fixture.settle(tester, store);
   });
 
-  testWidgets('a ledger that cannot be written is shown and blocks a clean save', (
-    tester,
-  ) async {
-    final ledger = FlakyLedger()..failWrites = true;
-    final service = InMemoryReminderService(ledgerStore: ledger);
-    final store = await pumpBanner(tester, service);
+  testWidgets(
+    'a ledger that cannot be written is shown and blocks a clean save',
+    (tester) async {
+      final ledger = FlakyLedger()..failWrites = true;
+      final service = InMemoryReminderService(ledgerStore: ledger);
+      final store = await pumpBanner(tester, service);
 
-    await service.trackPendingJob(_job('t1'));
-    await service.pendingLedgerWrites();
-    await tester.pumpAndSettle();
+      await service.trackPendingJob(_job('t1'));
+      await service.pendingLedgerWrites();
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(_row('write')), findsOneWidget);
-    expect(
-      find.textContaining(store.t['reminderLedgerWriteFailed']!),
-      findsOneWidget,
-    );
-    expect(
-      (await store.flush(includeReminderLedger: true)).success,
-      isFalse,
-      reason: 'exit must not report a clean save while the ledger is unwritten',
-    );
-    expect(
-      (await store.flush()).success,
-      isTrue,
-      reason: 'a data-only barrier keeps the library contract',
-    );
+      expect(find.byKey(_row('write')), findsOneWidget);
+      expect(
+        find.textContaining(store.t['reminderLedgerWriteFailed']!),
+        findsOneWidget,
+      );
+      expect(
+        (await store.flush(includeReminderLedger: true)).success,
+        isFalse,
+        reason:
+            'exit must not report a clean save while the ledger is unwritten',
+      );
+      expect(
+        (await store.flush()).success,
+        isTrue,
+        reason: 'a data-only barrier keeps the library contract',
+      );
 
-    ledger.failWrites = false;
-    await tester.tap(find.byKey(_ledgerRetry));
-    await tester.pumpAndSettle();
-    expect(service.ledgerIssue.value, isNull);
-    expect(find.byKey(_row('write')), findsNothing);
-    expect(ledger.written, contains('reschedule'), reason: 'the retry lands it');
-    fixture.settle(tester, store);
-  });
+      ledger.failWrites = false;
+      await tester.tap(find.byKey(_ledgerRetry));
+      await tester.pumpAndSettle();
+      expect(service.ledgerIssue.value, isNull);
+      expect(find.byKey(_row('write')), findsNothing);
+      expect(
+        ledger.written,
+        contains('reschedule'),
+        reason: 'the retry lands it',
+      );
+      fixture.settle(tester, store);
+    },
+  );
 
-  testWidgets('a full ledger says how many records it refused and offers no retry', (
-    tester,
-  ) async {
-    final service = InMemoryReminderService(ledgerStore: FlakyLedger());
-    final store = await pumpBanner(tester, service);
-    for (var i = 0; i < ReminderService.maxPendingJobs; i++) {
-      await service.trackPendingJob(_job('filler-$i'));
-    }
-    await service.pendingLedgerWrites();
-    await tester.pumpAndSettle();
-    expect(find.byKey(_row('overflow')), findsNothing);
+  testWidgets(
+    'a full ledger says how many records it refused and offers no retry',
+    (tester) async {
+      final service = InMemoryReminderService(ledgerStore: FlakyLedger());
+      final store = await pumpBanner(tester, service);
+      for (var i = 0; i < ReminderService.maxPendingJobs; i++) {
+        await service.trackPendingJob(_job('filler-$i'));
+      }
+      await service.pendingLedgerWrites();
+      await tester.pumpAndSettle();
+      expect(find.byKey(_row('overflow')), findsNothing);
 
-    final refused = await service.trackPendingJob(_job('one-too-many'));
-    await service.pendingLedgerWrites();
-    await tester.pumpAndSettle();
+      final refused = await service.trackPendingJob(_job('one-too-many'));
+      await service.pendingLedgerWrites();
+      await tester.pumpAndSettle();
 
-    expect(refused, ReminderLedgerUpdate.rejected);
-    expect(find.byKey(_row('overflow')), findsOneWidget);
-    expect(
-      find.text(
-        store.t['reminderLedgerFull']!
-            .replaceAll('{count}', '${service.refusedRecords}')
-            .replaceAll('{cap}', '${ReminderService.maxPendingJobs}'),
-      ),
-      findsOneWidget,
-      reason: 'the count and the cap tell the user what the limit did',
-    );
-    expect(
-      find.byKey(_ledgerRetry),
-      findsNothing,
-      reason: 'a full ledger is a fact; retrying it would change nothing',
-    );
-    fixture.settle(tester, store);
-  });
+      expect(refused, ReminderLedgerUpdate.rejected);
+      expect(find.byKey(_row('overflow')), findsOneWidget);
+      expect(
+        find.text(
+          store.t['reminderLedgerFull']!
+              .replaceAll('{count}', '${service.refusedRecords}')
+              .replaceAll('{cap}', '${ReminderService.maxPendingJobs}'),
+        ),
+        findsOneWidget,
+        reason: 'the count and the cap tell the user what the limit did',
+      );
+      expect(
+        find.byKey(_ledgerRetry),
+        findsNothing,
+        reason: 'a full ledger is a fact; retrying it would change nothing',
+      );
+      fixture.settle(tester, store);
+    },
+  );
 
   testWidgets('records skipped as damaged are counted instead of vanishing', (
     tester,
@@ -211,9 +217,7 @@ void main() {
 
     expect(find.byKey(_row('damaged')), findsOneWidget);
     expect(
-      find.text(
-        store.t['reminderLedgerDamaged']!.replaceAll('{count}', '1'),
-      ),
+      find.text(store.t['reminderLedgerDamaged']!.replaceAll('{count}', '1')),
       findsOneWidget,
     );
     expect(find.byKey(_ledgerRetry), findsNothing);
@@ -343,7 +347,10 @@ void main() {
     );
     await service.pendingLedgerWrites();
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('reminder-schedule-failure')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('reminder-schedule-failure')),
+      findsOneWidget,
+    );
     expect(find.byKey(_row('write')), findsOneWidget);
 
     // The original retry keeps its own semantics and still clears its row.
@@ -351,7 +358,10 @@ void main() {
     ledger.failWrites = false;
     await tester.tap(find.byKey(const ValueKey('retry-reminders')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('reminder-schedule-failure')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('reminder-schedule-failure')),
+      findsNothing,
+    );
     expect(find.byKey(_row('write')), findsNothing);
     expect(service.ledgerIssue.value, isNull);
     fixture.settle(tester, store);

@@ -96,10 +96,12 @@ void main() {
       );
 
       SharedPreferences.setMockInitialValues(<String, Object>{
-        kTasks: jsonEncode(<Object?>[libraryTask('case-b', 'board-b').toJson()]),
-        kBoards: jsonEncode(
-          <Object?>[Board(id: 'board-b', name: 'B', createdAt: 1).toJson()],
-        ),
+        kTasks: jsonEncode(<Object?>[
+          libraryTask('case-b', 'board-b').toJson(),
+        ]),
+        kBoards: jsonEncode(<Object?>[
+          Board(id: 'board-b', name: 'B', createdAt: 1).toJson(),
+        ]),
         kActiveBoard: 'board-b',
         kOnboarding: true,
       });
@@ -122,18 +124,21 @@ void main() {
     });
   });
 
-  test('the helper returns a store whose initial commit already landed', () async {
-    final writer = HoldingSaveWriter();
-    final (store, _) = await makeStore(
-      boards: [Board(id: 'board-q', name: 'Q', createdAt: 1)],
-      tasks: [libraryTask('quiet', 'board-q')],
-      saveWriter: writer.call,
-    );
-    expect(store.tasks.map((task) => task.id), ['quiet']);
-    expect(writer.committed, hasLength(1));
-    expect(store.lastSaveResult.revision, 1);
-    expect(store.persistenceError, isNull);
-  });
+  test(
+    'the helper returns a store whose initial commit already landed',
+    () async {
+      final writer = HoldingSaveWriter();
+      final (store, _) = await makeStore(
+        boards: [Board(id: 'board-q', name: 'Q', createdAt: 1)],
+        tasks: [libraryTask('quiet', 'board-q')],
+        saveWriter: writer.call,
+      );
+      expect(store.tasks.map((task) => task.id), ['quiet']);
+      expect(writer.committed, hasLength(1));
+      expect(store.lastSaveResult.revision, 1);
+      expect(store.persistenceError, isNull);
+    },
+  );
 
   test('one held handle can write into the next mock generation', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{

@@ -211,10 +211,7 @@ void main() {
         final flow = SettingsBackupFlow(onBusyChanged: (_) {});
         final running = flow.importBackup(context, store, syncAiFields: () {});
         await _mode(tester, store, 'importModeOverwrite');
-        expect(
-          find.textContaining(store.t['backupImportV3']!),
-          findsOneWidget,
-        );
+        expect(find.textContaining(store.t['backupImportV3']!), findsOneWidget);
         for (final entry in {
           'importScheduleAdded': 2,
           'importScheduleSkipped': 0,

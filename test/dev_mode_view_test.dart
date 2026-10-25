@@ -37,10 +37,7 @@ void main() {
         .ancestor(of: finder, matching: find.byType(Scrollable))
         .evaluate()
         .isNotEmpty) {
-      await Scrollable.ensureVisible(
-        finder.evaluate().single,
-        alignment: 0.5,
-      );
+      await Scrollable.ensureVisible(finder.evaluate().single, alignment: 0.5);
       await tester.pumpAndSettle();
     }
     final center = tester.getCenter(finder);
@@ -66,8 +63,6 @@ void main() {
   Future<void> tapMode(WidgetTester tester, String label) =>
       tapText(tester, label);
 
-
-
   Future<void> open(
     WidgetTester tester, {
     Size viewport = const Size(360, 780),
@@ -78,10 +73,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      const RepaintBoundary(
-        key: _captureBoundary,
-        child: Wp19DevModeApp(),
-      ),
+      const RepaintBoundary(key: _captureBoundary, child: Wp19DevModeApp()),
     );
     await tester.pumpAndSettle();
     if (!devMode) {
@@ -139,7 +131,9 @@ void main() {
     expect(find.byKey(const Key('wp19r-select-r-pipeline')), findsOneWidget);
   });
 
-  testWidgets('export presents reviewable experiment state only', (tester) async {
+  testWidgets('export presents reviewable experiment state only', (
+    tester,
+  ) async {
     await open(tester);
     await tap(tester, const Key('wp19r-toggle-r-pipeline'));
 
@@ -291,7 +285,11 @@ void main() {
 
     final visited = <String>{};
     String? focused;
-    for (var step = 0; step < 60 && focused?.startsWith('wp19r-toggle-') != true; step++) {
+    for (
+      var step = 0;
+      step < 60 && focused?.startsWith('wp19r-toggle-') != true;
+      step++
+    ) {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       focused = _focusedPrototypeKey(tester);
@@ -325,9 +323,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       return {
         'keys': prefs.getKeys().toList()..sort(),
-        'values': {
-          for (final key in prefs.getKeys()) key: prefs.get(key),
-        },
+        'values': {for (final key in prefs.getKeys()) key: prefs.get(key)},
       };
     });
     expect(after!['keys'], _seededLibrary.keys.toList()..sort());
@@ -367,8 +363,9 @@ Future<void> _capture(WidgetTester tester, String name) async {
     final image = await boundary.toImage(pixelRatio: 2.0);
     final bytes = await image.toByteData(format: ImageByteFormat.png);
     Directory('$dir/render').createSync(recursive: true);
-    File('$dir/render/$name')
-        .writeAsBytesSync(bytes!.buffer.asUint8List(), flush: true);
+    File(
+      '$dir/render/$name',
+    ).writeAsBytesSync(bytes!.buffer.asUint8List(), flush: true);
     image.dispose();
   });
 }

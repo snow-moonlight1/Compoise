@@ -139,11 +139,7 @@ class ExitRetention<T> {
 /// testing, focus and semantics are excluded so the snapshot can never be
 /// operated on or announced twice.
 class ExitingRow extends StatefulWidget {
-  const ExitingRow({
-    super.key,
-    required this.exiting,
-    required this.child,
-  });
+  const ExitingRow({super.key, required this.exiting, required this.child});
 
   final bool exiting;
   final Widget child;
@@ -192,22 +188,22 @@ class _ExitingRowState extends State<ExitingRow>
     return ExcludeFocus(
       excluding: widget.exiting,
       child: IgnorePointer(
-      ignoring: widget.exiting,
-      child: ExcludeSemantics(
-        excluding: widget.exiting,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) => SizeTransition(
-            sizeFactor: _controller,
-            axisAlignment: -1,
-            child: Opacity(
-              opacity: _controller.value.clamp(0.0, 1.0),
-              child: child,
+        ignoring: widget.exiting,
+        child: ExcludeSemantics(
+          excluding: widget.exiting,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) => SizeTransition(
+              sizeFactor: _controller,
+              axisAlignment: -1,
+              child: Opacity(
+                opacity: _controller.value.clamp(0.0, 1.0),
+                child: child,
+              ),
             ),
+            child: widget.child,
           ),
-          child: widget.child,
         ),
-      ),
       ),
     );
   }

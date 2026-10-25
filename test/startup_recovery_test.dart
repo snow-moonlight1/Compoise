@@ -37,10 +37,7 @@ void main() {
     await store.init();
     await store.flush();
     expect(store.hasStartupRecovery, isFalse);
-    expect(
-      store.startupDataStates['compoise-tasks'],
-      StartupDataState.missing,
-    );
+    expect(store.startupDataStates['compoise-tasks'], StartupDataState.missing);
     expect(store.boards, hasLength(1));
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('compoise-boards'), isNotNull);
@@ -140,25 +137,22 @@ void main() {
     },
   );
 
-  test(
-    'legacy normalized records migrate without recovery lock',
-    () async {
-      SharedPreferences.setMockInitialValues({
-        'compoise-boards': '[{"id":"b"}]',
-        'compoise-tasks': '[{"id":"t","boardId":"b","quadrant":"Q2"}]',
-      });
-      final store = Store();
-      addTearDown(store.dispose);
-      await store.init();
-      await store.flush();
-      expect(store.hasStartupRecovery, isFalse);
-      expect(
-        store.startupDataStates['compoise-tasks'],
-        StartupDataState.migrated,
-      );
-      expect(store.tasks.single.quadrant, 2);
-    },
-  );
+  test('legacy normalized records migrate without recovery lock', () async {
+    SharedPreferences.setMockInitialValues({
+      'compoise-boards': '[{"id":"b"}]',
+      'compoise-tasks': '[{"id":"t","boardId":"b","quadrant":"Q2"}]',
+    });
+    final store = Store();
+    addTearDown(store.dispose);
+    await store.init();
+    await store.flush();
+    expect(store.hasStartupRecovery, isFalse);
+    expect(
+      store.startupDataStates['compoise-tasks'],
+      StartupDataState.migrated,
+    );
+    expect(store.tasks.single.quadrant, 2);
+  });
 
   testWidgets('cancelling discard keeps recovery screen and source', (
     tester,

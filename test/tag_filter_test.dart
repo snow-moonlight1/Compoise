@@ -40,9 +40,8 @@ final List<Board> _boards = [
   Board(id: 'b-b', name: 'Personal', createdAt: 1000),
 ];
 
-List<String> _ids(List<TaskSearchResult> results) => results.map((
-  result,
-) => result.resultKey).toList();
+List<String> _ids(List<TaskSearchResult> results) =>
+    results.map((result) => result.resultKey).toList();
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -166,7 +165,12 @@ void main() {
         ),
         ['t2', 't4'],
       );
-      expect(_ids(query(scope: TaskScopeFilter.allBoards)), ['t1', 't2', 't3', 't4']);
+      expect(_ids(query(scope: TaskScopeFilter.allBoards)), [
+        't1',
+        't2',
+        't3',
+        't4',
+      ]);
     });
 
     test('a keyword query still searches titles while tags narrow the set', () {
@@ -176,7 +180,10 @@ void main() {
       ];
       expect(_ids(run(const ['Work'], tasks: tasks, query: 'ship')), ['t1']);
       expect(_ids(run(const ['Home'], tasks: tasks, query: 'ship')), ['t2']);
-      expect(_ids(run(const ['Work', 'Home'], tasks: tasks, query: 'ship')), isEmpty);
+      expect(
+        _ids(run(const ['Work', 'Home'], tasks: tasks, query: 'ship')),
+        isEmpty,
+      );
       expect(_ids(run(const ['Work'], tasks: tasks, query: 'boat')), isEmpty);
     });
 

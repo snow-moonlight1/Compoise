@@ -91,11 +91,14 @@ void main() {
       ).archiveDimensionCount,
       1,
     );
-    expect(resolveBoardName(
-      boards: [Board(id: 'gone', name: 'Kept', createdAt: 1)],
-      boardId: 'missing',
-      unknownLabel: 'Unknown board',
-    ), 'Unknown board');
+    expect(
+      resolveBoardName(
+        boards: [Board(id: 'gone', name: 'Kept', createdAt: 1)],
+        boardId: 'missing',
+        unknownLabel: 'Unknown board',
+      ),
+      'Unknown board',
+    );
   });
 
   testWidgets('Android search has bottom filter chrome and no chip track', (
@@ -108,9 +111,7 @@ void main() {
     expect(find.byKey(const ValueKey('clear-filters-btn')), findsOneWidget);
     expect(find.byKey(const ValueKey('filter-scope-current')), findsNothing);
     expect(
-      find.textContaining(
-        store.t['currentBoardNamed']!.split('{name}').first,
-      ),
+      find.textContaining(store.t['currentBoardNamed']!.split('{name}').first),
       findsOneWidget,
     );
     expectNoHorizontalFilterTrack(tester);
@@ -187,7 +188,12 @@ void main() {
       store.newTask('Q1 Item', quadrant: qDo),
       store.newTask('Q2 Item', quadrant: qPlan),
     ]);
-    await pumpSearch(tester, store, platform: TargetPlatform.windows, size: const Size(1200, 900));
+    await pumpSearch(
+      tester,
+      store,
+      platform: TargetPlatform.windows,
+      size: const Size(1200, 900),
+    );
     await openFilter(tester);
     await tester.ensureVisible(find.byKey(const ValueKey('filter-q-1')));
     await tester.tap(find.byKey(const ValueKey('filter-q-1')));
@@ -222,7 +228,9 @@ void main() {
     );
     await openFilter(tester);
     expectNoHorizontalFilterTrack(tester);
-    await tester.ensureVisible(find.byKey(const ValueKey('filter-date-nodate')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('filter-date-nodate')),
+    );
     await tester.tap(find.byKey(const ValueKey('filter-date-nodate')));
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -242,14 +250,22 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('search-input')), 'xyz');
     await tester.pumpAndSettle();
     await openFilter(tester);
-    await tester.ensureVisible(find.byKey(const ValueKey('filter-status-incomplete')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('filter-status-incomplete')),
+    );
     await tester.tap(find.byKey(const ValueKey('filter-status-incomplete')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('filter-apply-btn')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('empty-results-hint')), findsOneWidget);
-    expect(find.byKey(const ValueKey('empty-clear-filters-btn')), findsOneWidget);
-    expect(find.byKey(const ValueKey('empty-clear-keyword-btn')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('empty-clear-filters-btn')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('empty-clear-keyword-btn')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('empty-clear-keyword-btn')));
     await tester.pumpAndSettle();
     expect(find.text('Milk'), findsOneWidget);
@@ -292,7 +308,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('filter-open-btn')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('completed-scope-all')), findsOneWidget);
-    expect(find.byKey(const ValueKey('filter-status-incomplete')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('filter-status-incomplete')),
+      findsNothing,
+    );
     expectNoHorizontalFilterTrack(tester);
     await tester.tap(find.byKey(const ValueKey('completed-scope-all')));
     await tester.pumpAndSettle();
@@ -307,10 +326,10 @@ void main() {
     tester,
   ) async {
     final (store, _) = await makeStore();
-    final parent = store.newTask('Parent Feature', quadrant: qDo)
-      ..subtasks = [
-        SubTask(id: 'sub-1', title: 'Nested hit', completed: false),
-      ];
+    final parent = store.newTask(
+      'Parent Feature',
+      quadrant: qDo,
+    )..subtasks = [SubTask(id: 'sub-1', title: 'Nested hit', completed: false)];
     store.addTasks([parent]);
     await pumpSearch(
       tester,
@@ -318,7 +337,10 @@ void main() {
       platform: TargetPlatform.android,
       textScale: 2,
     );
-    await tester.enterText(find.byKey(const ValueKey('search-input')), 'Nested');
+    await tester.enterText(
+      find.byKey(const ValueKey('search-input')),
+      'Nested',
+    );
     await tester.pumpAndSettle();
     expect(find.text('Nested hit'), findsOneWidget);
     expect(find.textContaining('Parent Feature'), findsWidgets);

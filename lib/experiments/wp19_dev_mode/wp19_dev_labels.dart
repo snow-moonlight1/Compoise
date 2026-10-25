@@ -13,10 +13,8 @@ class Wp19Labels {
   static const modeNormal = '普通模式（现状）';
   static const modeDev = '开发视角';
 
-  static const normalNote =
-      '普通模式按象限和标签组织：勾选只会让任务换位置，被它挡住的任务不会有任何提示。';
-  static const devNote =
-      '开发视角只看多出的三件事：阶段、谁挡住谁、完成标准。字段属于本会话，不改任务本身。';
+  static const normalNote = '普通模式按象限和标签组织：勾选只会让任务换位置，被它挡住的任务不会有任何提示。';
+  static const devNote = '开发视角只看多出的三件事：阶段、谁挡住谁、完成标准。字段属于本会话，不改任务本身。';
 
   static const phaseDesign = '设计';
   static const phaseBuild = '实现';

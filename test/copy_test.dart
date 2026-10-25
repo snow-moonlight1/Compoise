@@ -28,8 +28,9 @@ void main() {
 
   const languages = [Language.en, Language.zh, Language.ja];
 
-  Set<String> placeholders(String value) =>
-      RegExp(r'\{([A-Za-z0-9_]+)\}').allMatches(value).map((m) => m.group(1)!).toSet();
+  Set<String> placeholders(String value) => RegExp(
+    r'\{([A-Za-z0-9_]+)\}',
+  ).allMatches(value).map((m) => m.group(1)!).toSet();
 
   group('dictionary shape', () {
     test('every language defines exactly the same keys', () {
@@ -142,12 +143,11 @@ void main() {
               await tester.pumpAndSettle();
             }
 
-            final visible =
-                tester
-                    .widgetList<Text>(find.byType(Text))
-                    .map((widget) => widget.data ?? '')
-                    .where((value) => value.isNotEmpty)
-                    .toList();
+            final visible = tester
+                .widgetList<Text>(find.byType(Text))
+                .map((widget) => widget.data ?? '')
+                .where((value) => value.isNotEmpty)
+                .toList();
             expect(visible, isNotEmpty);
             for (final value in visible) {
               if (!latinOnly.hasMatch(value)) continue;

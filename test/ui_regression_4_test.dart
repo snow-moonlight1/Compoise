@@ -41,31 +41,30 @@ void main() {
     expect(windows.bodyWeight, FontWeight.w400);
   });
 
-  testWidgets(
-    'theme applies Consolas plus CJK fallback and title weight',
-    (tester) async {
-      final theme = buildTheme(
-        Brightness.light,
-        ThemeColor.blue,
-        fontFamilyPref: FontFamilyPref.monospace,
-        platform: TargetPlatform.windows,
-      );
-      expect(theme.textTheme.bodyMedium?.fontWeight, FontWeight.w400);
-      expect(theme.textTheme.titleMedium?.fontWeight, FontWeight.w600);
-      expect(theme.textSelectionTheme.selectionColor, isNotNull);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          home: const Scaffold(body: Text('sample')),
-        ),
-      );
-      final style = DefaultTextStyle.of(
-        tester.element(find.text('sample')),
-      ).style;
-      expect(style.fontFamily, 'Consolas');
-      expect(style.fontFamilyFallback, contains('Microsoft YaHei UI'));
-    },
-  );
+  testWidgets('theme applies Consolas plus CJK fallback and title weight', (
+    tester,
+  ) async {
+    final theme = buildTheme(
+      Brightness.light,
+      ThemeColor.blue,
+      fontFamilyPref: FontFamilyPref.monospace,
+      platform: TargetPlatform.windows,
+    );
+    expect(theme.textTheme.bodyMedium?.fontWeight, FontWeight.w400);
+    expect(theme.textTheme.titleMedium?.fontWeight, FontWeight.w600);
+    expect(theme.textSelectionTheme.selectionColor, isNotNull);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: const Scaffold(body: Text('sample')),
+      ),
+    );
+    final style = DefaultTextStyle.of(
+      tester.element(find.text('sample')),
+    ).style;
+    expect(style.fontFamily, 'Consolas');
+    expect(style.fontFamilyFallback, contains('Microsoft YaHei UI'));
+  });
 
   testWidgets('preview shows CJK sample and keeps stored monospace', (
     tester,

@@ -628,72 +628,69 @@ void main() {
     },
   );
 
-  testWidgets(
-    'startup and blur do not generate; only the test button does',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(900, 2400));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final calls = <String>[];
-      final service = AIService(
-        client: MockClient((request) async {
-          calls.add(request.method);
-          if (request.method == 'GET') {
-            return http.Response(
-              jsonEncode({
-                'data': [
-                  {'id': 'listed-model'},
-                ],
-              }),
-              200,
-            );
-          }
+  testWidgets('startup and blur do not generate; only the test button does', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final calls = <String>[];
+    final service = AIService(
+      client: MockClient((request) async {
+        calls.add(request.method);
+        if (request.method == 'GET') {
           return http.Response(
             jsonEncode({
-              'choices': [
-                {
-                  'message': {'content': 'pong'},
-                },
+              'data': [
+                {'id': 'listed-model'},
               ],
             }),
             200,
           );
-        }),
-      );
-      final store = await _openStore(tester, service);
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: store,
-          child: const MaterialApp(home: SettingsScreen()),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(calls, isEmpty);
-      await openSettingsPanel(tester, 'settings-assistant-row');
+        }
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': 'pong'},
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+    final store = await _openStore(tester, service);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, isEmpty);
+    await openSettingsPanel(tester, 'settings-assistant-row');
 
-      await tester.enterText(
-        find.byKey(const ValueKey('api-key-input')),
-        _secret,
-      );
-      FocusManager.instance.primaryFocus?.unfocus();
-      await tester.pumpAndSettle();
-      expect(calls, ['GET']);
+    await tester.enterText(
+      find.byKey(const ValueKey('api-key-input')),
+      _secret,
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    expect(calls, ['GET']);
 
-      await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('test-connection-btn')),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.byKey(const ValueKey('test-connection-btn')));
-      await tester.pumpAndSettle();
-      expect(calls.where((call) => call == 'POST'), ['POST']);
-      expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('connection-result')))
-            .data,
-        store.t['testOk'],
-      );
-    },
-  );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('test-connection-btn')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('test-connection-btn')));
+    await tester.pumpAndSettle();
+    expect(calls.where((call) => call == 'POST'), ['POST']);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('connection-result'))).data,
+      store.t['testOk'],
+    );
+  });
 
   testWidgets('a generation result is dropped when the key changes', (
     tester,

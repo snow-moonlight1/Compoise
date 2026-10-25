@@ -28,10 +28,7 @@ double fontScaleFactor(FontSizePref pref) {
   }
 }
 
-List<String>? fontFallbackFor(
-  FontFamilyPref pref, {
-  TargetPlatform? platform,
-}) {
+List<String>? fontFallbackFor(FontFamilyPref pref, {TargetPlatform? platform}) {
   return AppFontPolicy(
     platform: platform ?? defaultTargetPlatform,
   ).fallbackFor(pref);
@@ -104,14 +101,15 @@ ThemeData buildTheme(
   );
   final isDark = brightness == Brightness.dark;
   final bg = isDark ? const Color(0xFF2D3748) : const Color(0xFFEFEEEE);
-  final baseText = ThemeData(
-    useMaterial3: true,
-    colorScheme: scheme,
-    brightness: brightness,
-  ).textTheme.apply(
-    fontFamily: fonts.familyFor(fontFamilyPref),
-    fontFamilyFallback: fonts.fallbackFor(fontFamilyPref),
-  );
+  final baseText =
+      ThemeData(
+        useMaterial3: true,
+        colorScheme: scheme,
+        brightness: brightness,
+      ).textTheme.apply(
+        fontFamily: fonts.familyFor(fontFamilyPref),
+        fontFamilyFallback: fonts.fallbackFor(fontFamilyPref),
+      );
   final textTheme = baseText.copyWith(
     bodyLarge: baseText.bodyLarge?.copyWith(fontWeight: fonts.bodyWeight),
     bodyMedium: baseText.bodyMedium?.copyWith(fontWeight: fonts.bodyWeight),
@@ -141,7 +139,9 @@ ThemeData buildTheme(
     ),
     cardTheme: CardThemeData(
       elevation: 0,
-      color: isDark ? const Color(0xFF37475C) : Colors.white.withValues(alpha: 0.72),
+      color: isDark
+          ? const Color(0xFF37475C)
+          : Colors.white.withValues(alpha: 0.72),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: EdgeInsets.zero,
     ),
@@ -151,7 +151,9 @@ ThemeData buildTheme(
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04),
+      fillColor: isDark
+          ? Colors.white.withValues(alpha: 0.06)
+          : Colors.black.withValues(alpha: 0.04),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -166,19 +168,24 @@ ThemeData buildTheme(
     outlinedButtonTheme: OutlinedButtonThemeData(style: _quietButtonStyle()),
     textButtonTheme: TextButtonThemeData(style: _quietButtonStyle()),
     iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ).copyWith(
-        overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
-        splashFactory: NoSplash.splashFactory,
-      ),
+      style:
+          IconButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ).copyWith(
+            overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
+            splashFactory: NoSplash.splashFactory,
+          ),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
-      style: ButtonStyle(shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
+      style: ButtonStyle(
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
     ),
-    sliderTheme: const SliderThemeData(
-      overlayColor: Color(0x00000000),
-    ),
+    sliderTheme: const SliderThemeData(overlayColor: Color(0x00000000)),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     splashFactory: NoSplash.splashFactory,
     splashColor: const Color(0x00000000),
@@ -305,52 +312,54 @@ class ComicOutline extends ThemeExtension<ComicOutline> {
 
 ThemeData applyComicOutline(ThemeData theme) {
   final accent = theme.colorScheme.primary;
-  final comic = (theme.brightness == Brightness.dark
-          ? ComicOutline.dark
-          : ComicOutline.light)
-      .copyWith(
-        primary: accent,
-        onPrimary: theme.colorScheme.onPrimary,
-        pressedPrimary: Color.alphaBlend(
-          theme.brightness == Brightness.dark
-              ? const Color(0x33FFFFFF)
-              : const Color(0x33000000),
-          accent,
-        ),
+  final comic =
+      (theme.brightness == Brightness.dark
+              ? ComicOutline.dark
+              : ComicOutline.light)
+          .copyWith(
+            primary: accent,
+            onPrimary: theme.colorScheme.onPrimary,
+            pressedPrimary: Color.alphaBlend(
+              theme.brightness == Brightness.dark
+                  ? const Color(0x33FFFFFF)
+                  : const Color(0x33000000),
+              accent,
+            ),
+          );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: accent,
+        brightness: theme.brightness,
+      ).copyWith(
+        primary: comic.primary,
+        onPrimary: comic.onPrimary,
+        secondary: comic.edge,
+        onSecondary: comic.ink,
+        tertiary: comic.ink,
+        onTertiary: comic.field,
+        error: comic.danger,
+        onError: comic.onDanger,
+        surface: comic.canvas,
+        onSurface: comic.ink,
+        onSurfaceVariant: comic.ink,
+        outline: comic.edge,
+        outlineVariant: comic.edge,
+        surfaceTint: const Color(0x00000000),
+        surfaceContainerHighest: comic.field,
+        surfaceContainerHigh: comic.field,
+        surfaceContainer: comic.field,
+        surfaceContainerLow: comic.canvas,
+        surfaceContainerLowest: comic.field,
+        primaryContainer: comic.primary,
+        onPrimaryContainer: comic.onPrimary,
+        secondaryContainer: comic.field,
+        onSecondaryContainer: comic.ink,
+        errorContainer: comic.danger,
+        onErrorContainer: comic.onDanger,
+        inverseSurface: comic.ink,
+        onInverseSurface: comic.field,
+        shadow: const Color(0x00000000),
       );
-  final scheme = ColorScheme.fromSeed(
-    seedColor: accent,
-    brightness: theme.brightness,
-  ).copyWith(
-    primary: comic.primary,
-    onPrimary: comic.onPrimary,
-    secondary: comic.edge,
-    onSecondary: comic.ink,
-    tertiary: comic.ink,
-    onTertiary: comic.field,
-    error: comic.danger,
-    onError: comic.onDanger,
-    surface: comic.canvas,
-    onSurface: comic.ink,
-    onSurfaceVariant: comic.ink,
-    outline: comic.edge,
-    outlineVariant: comic.edge,
-    surfaceTint: const Color(0x00000000),
-    surfaceContainerHighest: comic.field,
-    surfaceContainerHigh: comic.field,
-    surfaceContainer: comic.field,
-    surfaceContainerLow: comic.canvas,
-    surfaceContainerLowest: comic.field,
-    primaryContainer: comic.primary,
-    onPrimaryContainer: comic.onPrimary,
-    secondaryContainer: comic.field,
-    onSecondaryContainer: comic.ink,
-    errorContainer: comic.danger,
-    onErrorContainer: comic.onDanger,
-    inverseSurface: comic.ink,
-    onInverseSurface: comic.field,
-    shadow: const Color(0x00000000),
-  );
   const radius = BorderRadius.all(Radius.circular(ComicOutline.radius));
   final panel = RoundedRectangleBorder(
     borderRadius: radius,
@@ -472,12 +481,30 @@ ThemeData applyComicOutline(ThemeData theme) {
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       hintStyle: TextStyle(color: comic.ink.withValues(alpha: 0.55)),
       labelStyle: TextStyle(color: comic.ink),
-      border: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: comic.edge, width: 2)),
-      enabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: comic.edge, width: 2)),
-      focusedBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: comic.edge, width: 3)),
-      errorBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: comic.danger, width: 2)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: comic.danger, width: 3)),
-      disabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: comic.edge, width: 2)),
+      border: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: comic.edge, width: 2),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: comic.edge, width: 2),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: comic.edge, width: 3),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: comic.danger, width: 2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: comic.danger, width: 3),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: comic.edge, width: 2),
+      ),
     ),
     filledButtonTheme: FilledButtonThemeData(style: primary),
     elevatedButtonTheme: ElevatedButtonThemeData(style: primary),
@@ -560,7 +587,10 @@ ThemeData applyComicOutline(ThemeData theme) {
         side: BorderSide(color: comic.edge, width: 2),
       ),
     ),
-    listTileTheme: ListTileThemeData(iconColor: comic.ink, textColor: comic.ink),
+    listTileTheme: ListTileThemeData(
+      iconColor: comic.ink,
+      textColor: comic.ink,
+    ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: comic.canvas,
       elevation: 0,
@@ -635,7 +665,8 @@ class NeumorphicSkin extends ThemeExtension<NeumorphicSkin> {
 
   /// Darker slab used where a real inset blur cannot be painted, such as a
   /// chip. Still the same family as [canvas], not the accent.
-  Color get groove => Color.alphaBlend(darkShadow.withValues(alpha: 0.55), canvas);
+  Color get groove =>
+      Color.alphaBlend(darkShadow.withValues(alpha: 0.55), canvas);
 
   static NeumorphicSkin? maybeOf(BuildContext context) =>
       Theme.of(context).extension<NeumorphicSkin>();
@@ -927,7 +958,10 @@ ThemeData applyNeumorphic(ThemeData theme) {
       thumbColor: WidgetStatePropertyAll(neu.lightShadow),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) return neu.groove;
-        return Color.alphaBlend(neu.darkShadow.withValues(alpha: 0.28), neu.canvas);
+        return Color.alphaBlend(
+          neu.darkShadow.withValues(alpha: 0.28),
+          neu.canvas,
+        );
       }),
       trackOutlineColor: const WidgetStatePropertyAll(Color(0x00000000)),
     ),
@@ -958,7 +992,12 @@ ThemeData applyNeumorphic(ThemeData theme) {
 
 /// Paints the concave pair: dark lip on the top-left, light lip on the
 /// bottom-right. The caller has already filled [rect] with the slab color.
-void paintNeuInset(Canvas canvas, Rect rect, NeumorphicSkin skin, double radius) {
+void paintNeuInset(
+  Canvas canvas,
+  Rect rect,
+  NeumorphicSkin skin,
+  double radius,
+) {
   final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
   canvas.save();
   canvas.clipRRect(rrect);
@@ -1005,8 +1044,10 @@ const double neuLabelBand = 10;
 
 /// Rounded field whose border is the inset pair, painted over a same-color fill.
 class NeuInputBorder extends InputBorder {
-  const NeuInputBorder({required this.skin, this.radius = NeumorphicSkin.radius})
-    : super(borderSide: BorderSide.none);
+  const NeuInputBorder({
+    required this.skin,
+    this.radius = NeumorphicSkin.radius,
+  }) : super(borderSide: BorderSide.none);
 
   final NeumorphicSkin skin;
   final double radius;
@@ -1177,9 +1218,7 @@ class _NeuPressFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: pressed
-          ? NeuInsetPainter(skin: skin, radius: radius)
-          : null,
+      painter: pressed ? NeuInsetPainter(skin: skin, radius: radius) : null,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: pressed ? const Color(0x00000000) : skin.canvas,
@@ -1213,4 +1252,3 @@ Widget neuSlab(
     ),
   );
 }
-

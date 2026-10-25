@@ -44,10 +44,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(
-          find.byKey(ValueKey('task-planned-${parent.id}')),
-          findsNothing,
-        );
+        expect(find.byKey(ValueKey('task-planned-${parent.id}')), findsNothing);
         expect(
           find.byIcon(Icons.notifications_active_outlined),
           findsOneWidget,

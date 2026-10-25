@@ -226,10 +226,7 @@ DevSessionFixture buildWp19Session() {
       phase: DevPhase.verify,
       blockedBy: ['d-refactor'],
     ),
-    'd-renew': const DevFields(
-      phase: DevPhase.ship,
-      acceptance: '旧格式仍能导入',
-    ),
+    'd-renew': const DevFields(phase: DevPhase.ship, acceptance: '旧格式仍能导入'),
   };
 
   return DevSessionFixture(boards: boards, tasks: tasks, fields: fields);

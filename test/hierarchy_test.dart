@@ -98,14 +98,18 @@ void main() {
     'matrix card keeps parent/child text, alignment and independent controls at 200% text',
     (tester) async {
       final (store, _) = await makeStore();
-      final task = store.newTask(
-          'A very long parent task title that should still fit safely',
-          quadrant: qDo,
-        )
-        ..subtasks = [
-          SubTask(id: 'c1', title: 'A long first child task title'),
-          SubTask(id: 'c2', title: 'A second child keeps parent incomplete'),
-        ];
+      final task =
+          store.newTask(
+              'A very long parent task title that should still fit safely',
+              quadrant: qDo,
+            )
+            ..subtasks = [
+              SubTask(id: 'c1', title: 'A long first child task title'),
+              SubTask(
+                id: 'c2',
+                title: 'A second child keeps parent incomplete',
+              ),
+            ];
       store.addTasks([task]);
 
       await tester.pumpWidget(
@@ -223,11 +227,10 @@ void main() {
     store.dispose();
 
     final (completedStore, _) = await makeStore();
-    final completed =
-        completedStore.newTask('Completed Parent', quadrant: qDo)
-          ..completed = true
-          ..completedAt = DateTime(2026, 9, 22).millisecondsSinceEpoch
-          ..subtasks = [SubTask(id: 'done-child', title: 'Completed Child')];
+    final completed = completedStore.newTask('Completed Parent', quadrant: qDo)
+      ..completed = true
+      ..completedAt = DateTime(2026, 9, 22).millisecondsSinceEpoch
+      ..subtasks = [SubTask(id: 'done-child', title: 'Completed Child')];
     completedStore.addTasks([completed]);
     await tester.pumpWidget(_app(completedStore, const CompletedScreen()));
     await tester.pumpAndSettle();

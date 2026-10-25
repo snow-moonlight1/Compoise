@@ -307,7 +307,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
     await tester.pumpAndSettle();
-    await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
+    await chooseTaskMoment(
+      tester,
+      'deadline-custom',
+      DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day + 1,
+        23,
+        59,
+      ),
+    );
     await tester.tap(
       find.descendant(
         of: find.byType(AlertDialog).last,

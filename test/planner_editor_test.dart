@@ -41,17 +41,6 @@ void main() {
     },
   );
 
-
-
-
-
-
-
-
-
-
-
-
   for (final delete in [false, true]) {
     testWidgets(
       'external ${delete ? 'deletion' : 'edit'} saves nothing and says the form is stale',
@@ -87,14 +76,6 @@ void main() {
       },
     );
   }
-
-
-
-
-
-
-
-
 
   testWidgets('recovery Planner exposes no create or edit controls', (
     tester,
