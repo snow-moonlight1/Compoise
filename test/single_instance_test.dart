@@ -38,7 +38,9 @@ void main() {
         isNull,
       );
       expect(
-        notificationPayloadFromArguments(['--compoise-notification-payload=']),
+        notificationPayloadFromArguments([
+          '--compoise-notification-payload=',
+        ]),
         isNull,
       );
     });
@@ -77,22 +79,19 @@ void main() {
       expect(delivered, 0);
     });
 
-    test(
-      'primary install delivers only its own notification argument',
-      () async {
-        final seen = <List<String>>[];
-        await SingleInstanceController.install(
-          initialArguments: [
-            '--enable-dart-profiling',
-            encodeNotificationPayloadArgument(
-              const ReminderPayload(boardId: 'b', taskId: 'cold'),
-            ),
-          ],
-          onActivated: seen.add,
-        );
-        expect(seen, hasLength(1));
-        expect(seen.single.last, contains('cold'));
-      },
-    );
+    test('primary install delivers only its own notification argument', () async {
+      final seen = <List<String>>[];
+      await SingleInstanceController.install(
+        initialArguments: [
+          '--enable-dart-profiling',
+          encodeNotificationPayloadArgument(
+            const ReminderPayload(boardId: 'b', taskId: 'cold'),
+          ),
+        ],
+        onActivated: seen.add,
+      );
+      expect(seen, hasLength(1));
+      expect(seen.single.last, contains('cold'));
+    });
   });
 }

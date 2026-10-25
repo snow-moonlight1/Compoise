@@ -95,8 +95,7 @@ void main() {
     });
 
     test('suppresses past reminder older than 5 minutes', () async {
-      final oldMs =
-          DateTime.now().millisecondsSinceEpoch - 400000; // > 6 min ago
+      final oldMs = DateTime.now().millisecondsSinceEpoch - 400000; // > 6 min ago
       await service.scheduleReminder(
         boardId: 'b1',
         taskId: 't_old',
@@ -165,153 +164,101 @@ void main() {
       await service.cancelAllForBoard('b1', [task1]);
 
       // b1 parent and subtask should be removed; b2 stays
-      expect(
-        service.scheduled.containsKey(generateNotificationId('t1')),
-        isFalse,
-      );
-      expect(
-        service.scheduled.containsKey(
-          generateNotificationId('t1', subtaskId: 's1'),
-        ),
-        isFalse,
-      );
-      expect(
-        service.scheduled.containsKey(generateNotificationId('t2')),
-        isTrue,
-      );
+      expect(service.scheduled.containsKey(generateNotificationId('t1')), isFalse);
+      expect(service.scheduled.containsKey(generateNotificationId('t1', subtaskId: 's1')), isFalse);
+      expect(service.scheduled.containsKey(generateNotificationId('t2')), isTrue);
     });
 
-    test(
-      'rescheduleAllFuture reschedules future uncompleted tasks and skips completed or past',
-      () async {
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final futureMs = now + 120000;
-        final pastMs = now - 600000;
+    test('rescheduleAllFuture reschedules future uncompleted tasks and skips completed or past', () async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final futureMs = now + 120000;
+      final pastMs = now - 600000;
 
-        final tasks = [
-          Task(
-            id: 'active_future',
-            boardId: 'b1',
-            title: 'Future active',
-            quadrant: 1,
-            createdAt: 0,
-            reminderAt: futureMs,
-          ),
-          Task(
-            id: 'completed_task',
-            boardId: 'b1',
-            title: 'Completed',
-            completed: true,
-            quadrant: 1,
-            createdAt: 0,
-            reminderAt: futureMs,
-          ),
-          Task(
-            id: 'past_task',
-            boardId: 'b1',
-            title: 'Past',
-            quadrant: 1,
-            createdAt: 0,
-            reminderAt: pastMs,
-          ),
-          Task(
-            id: 'with_sub',
-            boardId: 'b1',
-            title: 'Parent with sub',
-            quadrant: 1,
-            createdAt: 0,
-            subtasks: [
-              SubTask(
-                id: 'sub_future',
-                title: 'Sub Future',
-                reminderAt: futureMs,
-              ),
-              SubTask(
-                id: 'sub_done',
-                title: 'Sub Done',
-                completed: true,
-                reminderAt: futureMs,
-              ),
-            ],
-          ),
-        ];
+      final tasks = [
+        Task(
+          id: 'active_future',
+          boardId: 'b1',
+          title: 'Future active',
+          quadrant: 1,
+          createdAt: 0,
+          reminderAt: futureMs,
+        ),
+        Task(
+          id: 'completed_task',
+          boardId: 'b1',
+          title: 'Completed',
+          completed: true,
+          quadrant: 1,
+          createdAt: 0,
+          reminderAt: futureMs,
+        ),
+        Task(
+          id: 'past_task',
+          boardId: 'b1',
+          title: 'Past',
+          quadrant: 1,
+          createdAt: 0,
+          reminderAt: pastMs,
+        ),
+        Task(
+          id: 'with_sub',
+          boardId: 'b1',
+          title: 'Parent with sub',
+          quadrant: 1,
+          createdAt: 0,
+          subtasks: [
+            SubTask(id: 'sub_future', title: 'Sub Future', reminderAt: futureMs),
+            SubTask(id: 'sub_done', title: 'Sub Done', completed: true, reminderAt: futureMs),
+          ],
+        ),
+      ];
 
-        await service.rescheduleAllFuture(tasks);
+      await service.rescheduleAllFuture(tasks);
 
-        expect(
-          service.scheduled.containsKey(
-            generateNotificationId('active_future'),
-          ),
-          isTrue,
-        );
-        expect(
-          service.scheduled.containsKey(
-            generateNotificationId('completed_task'),
-          ),
-          isFalse,
-        );
-        expect(
-          service.scheduled.containsKey(generateNotificationId('past_task')),
-          isFalse,
-        );
-        expect(
-          service.scheduled.containsKey(
-            generateNotificationId('with_sub', subtaskId: 'sub_future'),
-          ),
-          isTrue,
-        );
-        expect(
-          service.scheduled.containsKey(
-            generateNotificationId('with_sub', subtaskId: 'sub_done'),
-          ),
-          isFalse,
-        );
-      },
-    );
+      expect(service.scheduled.containsKey(generateNotificationId('active_future')), isTrue);
+      expect(service.scheduled.containsKey(generateNotificationId('completed_task')), isFalse);
+      expect(service.scheduled.containsKey(generateNotificationId('past_task')), isFalse);
+      expect(service.scheduled.containsKey(generateNotificationId('with_sub', subtaskId: 'sub_future')), isTrue);
+      expect(service.scheduled.containsKey(generateNotificationId('with_sub', subtaskId: 'sub_done')), isFalse);
+    });
   });
 
   group('Desktop Platform Integration', () {
-    test(
-      'checkPermission and requestPermission on Windows report unknown',
-      () async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-        addTearDown(() {
-          debugDefaultTargetPlatformOverride = null;
-        });
+    test('checkPermission and requestPermission on Windows report unknown', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+      });
 
-        final service = FlutterLocalNotificationsReminderService();
-        // the plugin exposes no notification state on Windows, so the
-        // service must not claim the reminders are granted.
-        final status = await service.checkPermission();
-        expect(status, equals(ReminderPermissionStatus.unknown));
+      final service = FlutterLocalNotificationsReminderService();
+      // the plugin exposes no notification state on Windows, so the
+      // service must not claim the reminders are granted.
+      final status = await service.checkPermission();
+      expect(status, equals(ReminderPermissionStatus.unknown));
 
-        final requested = await service.requestPermission();
-        expect(requested, equals(ReminderPermissionStatus.unknown));
-      },
-    );
+      final requested = await service.requestPermission();
+      expect(requested, equals(ReminderPermissionStatus.unknown));
+    });
 
-    test(
-      'DesktopShellService window restoration coordinates with notification tap',
-      () async {
-        DesktopShellService.debugIsDesktopOverride = true;
-        addTearDown(() {
-          DesktopShellService.instance.resetForTest();
-        });
+    test('DesktopShellService window restoration coordinates with notification tap', () async {
+      DesktopShellService.debugIsDesktopOverride = true;
+      addTearDown(() {
+        DesktopShellService.instance.resetForTest();
+      });
 
-        bool showWindowCalled = false;
-        DesktopShellService.instance.onShowWindow = () {
-          showWindowCalled = true;
-        };
+      bool showWindowCalled = false;
+      DesktopShellService.instance.onShowWindow = () {
+        showWindowCalled = true;
+      };
 
-        await DesktopShellService.instance.init(closeToTray: true);
-        await DesktopShellService.instance.hideWindowToTray();
-        expect(DesktopShellService.instance.isWindowVisible, isFalse);
+      await DesktopShellService.instance.init(closeToTray: true);
+      await DesktopShellService.instance.hideWindowToTray();
+      expect(DesktopShellService.instance.isWindowVisible, isFalse);
 
-        DesktopShellService.instance.restoreWindow();
-        expect(DesktopShellService.instance.isWindowVisible, isTrue);
-        expect(showWindowCalled, isTrue);
-      },
-    );
+      DesktopShellService.instance.restoreWindow();
+      expect(DesktopShellService.instance.isWindowVisible, isTrue);
+      expect(showWindowCalled, isTrue);
+    });
 
     test('WindowsNotificationDetails configuration and duration', () {
       const details = WindowsNotificationDetails(

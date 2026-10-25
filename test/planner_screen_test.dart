@@ -62,7 +62,8 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
-Future<void> _menu(WidgetTester tester) => _tap(tester, _key('schedule-menu'));
+Future<void> _menu(WidgetTester tester) =>
+    _tap(tester, _key('schedule-menu'));
 
 Future<void> _tap(WidgetTester tester, Finder target) async {
   await tester.ensureVisible(target);
@@ -117,6 +118,8 @@ Future<void> _finish(WidgetTester tester, Store store) async {
 }
 
 void main() {
+
+
   testWidgets(
     'board filter includes task-derived and independent board associations',
     (tester) async {
@@ -191,6 +194,10 @@ void main() {
     expect(_key('schedule-day-2026-09-29'), findsOneWidget);
   });
 
+
+
+
+
   for (final (month, day, hours) in [(3, 8, 23), (11, 1, 25)]) {
     testWidgets('$hours-hour day shows actual elapsed axis and offset labels', (
       tester,
@@ -219,6 +226,8 @@ void main() {
     });
   }
 
+
+
   for (final mode in PlannerView.values) {
     testWidgets(
       '320px width with 3x text in ${mode.name} remains scrollable and readable',
@@ -246,6 +255,8 @@ void main() {
       },
     );
   }
+
+
 
   testWidgets(
     'empty schedule retains navigation, board scope and real day grid',
@@ -305,6 +316,8 @@ void main() {
       expect(item.timeZoneId, c1Zone);
     },
   );
+
+
 
   testWidgets(
     'provider Store refreshes new records and deleted board filters',

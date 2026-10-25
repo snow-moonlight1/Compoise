@@ -40,26 +40,23 @@ void main() {
   }
 
   group('revisions invalidate undo after the task changes again', () {
-    test(
-      'moving away and back does not let the old undo restore completion',
-      () async {
-        final store = await open(task());
-        final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
-        expect(store.canApplyUndo(undo), isTrue);
+    test('moving away and back does not let the old undo restore completion', () async {
+      final store = await open(task());
+      final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
+      expect(store.canApplyUndo(undo), isTrue);
 
-        store.moveTask('t', qDo);
-        store.moveTask('t', qPlan);
+      store.moveTask('t', qDo);
+      store.moveTask('t', qPlan);
 
-        final current = store.tasks.single;
-        expect(current.quadrant, qPlan);
-        expect(current.urgencyMode, UrgencyMode.manual);
-        expect(current.completed, isTrue);
-        expect(store.canApplyUndo(undo), isFalse);
-        expect(store.applyUndo(undo), isFalse);
-        expect(store.tasks.single.completed, isTrue);
-        expect(store.tasks.single.urgencyMode, UrgencyMode.manual);
-      },
-    );
+      final current = store.tasks.single;
+      expect(current.quadrant, qPlan);
+      expect(current.urgencyMode, UrgencyMode.manual);
+      expect(current.completed, isTrue);
+      expect(store.canApplyUndo(undo), isFalse);
+      expect(store.applyUndo(undo), isFalse);
+      expect(store.tasks.single.completed, isTrue);
+      expect(store.tasks.single.urgencyMode, UrgencyMode.manual);
+    });
 
     test('a same-quadrant move does not invalidate undo', () async {
       final store = await open(task(quadrant: qDo));
@@ -71,21 +68,16 @@ void main() {
       expect(store.tasks.single.completed, isFalse);
     });
 
-    test(
-      'resetting urgency mode invalidates the previous completion undo',
-      () async {
-        final store = await open(
-          task(quadrant: qDo, urgencyMode: UrgencyMode.manual),
-        );
-        final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
-        store.resetTaskUrgencyMode('t');
-        expect(store.tasks.single.urgencyMode, UrgencyMode.auto);
-        expect(store.tasks.single.quadrant, qDo);
-        expect(store.applyUndo(undo), isFalse);
-        expect(store.tasks.single.completed, isTrue);
-        expect(store.tasks.single.urgencyMode, UrgencyMode.auto);
-      },
-    );
+    test('resetting urgency mode invalidates the previous completion undo', () async {
+      final store = await open(task(quadrant: qDo, urgencyMode: UrgencyMode.manual));
+      final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
+      store.resetTaskUrgencyMode('t');
+      expect(store.tasks.single.urgencyMode, UrgencyMode.auto);
+      expect(store.tasks.single.quadrant, qDo);
+      expect(store.applyUndo(undo), isFalse);
+      expect(store.tasks.single.completed, isTrue);
+      expect(store.tasks.single.urgencyMode, UrgencyMode.auto);
+    });
 
     test('a no-op urgency reset leaves the previous undo applicable', () async {
       final store = await open(task(quadrant: qDo));
@@ -97,39 +89,33 @@ void main() {
       expect(store.tasks.single.completed, isFalse);
     });
 
-    test(
-      'parent edit, child edit, child removal, and child completion block the old undo',
-      () async {
-        final store = await open(task());
-        final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
+    test('parent edit, child edit, child removal, and child completion block the old undo', () async {
+      final store = await open(task());
+      final undo = store.toggleCompleteWithUndo(store.tasks.single)!;
 
-        store.updateTask(
-          Task.fromJson(store.tasks.single.toJson())..title = 'Renamed',
-        );
-        expect(store.applyUndo(undo), isFalse);
-        expect(store.tasks.single.title, 'Renamed');
-        expect(store.tasks.single.completed, isTrue);
+      store.updateTask(Task.fromJson(store.tasks.single.toJson())..title = 'Renamed');
+      expect(store.applyUndo(undo), isFalse);
+      expect(store.tasks.single.title, 'Renamed');
+      expect(store.tasks.single.completed, isTrue);
 
-        final afterEdit = store.toggleCompleteWithUndo(store.tasks.single)!;
-        var edited = Task.fromJson(store.tasks.single.toJson());
-        edited.subtasks.first.title = 'Renamed child';
-        store.updateTask(edited);
-        expect(store.applyUndo(afterEdit), isFalse);
-        expect(store.tasks.single.subtasks.first.title, 'Renamed child');
+      final afterEdit = store.toggleCompleteWithUndo(store.tasks.single)!;
+      var edited = Task.fromJson(store.tasks.single.toJson());
+      edited.subtasks.first.title = 'Renamed child';
+      store.updateTask(edited);
+      expect(store.applyUndo(afterEdit), isFalse);
+      expect(store.tasks.single.subtasks.first.title, 'Renamed child');
 
-        final afterChild = store.toggleCompleteWithUndo(store.tasks.single)!;
-        edited = Task.fromJson(store.tasks.single.toJson())
-          ..subtasks = [edited.subtasks.first];
-        store.updateTask(edited);
-        expect(store.applyUndo(afterChild), isFalse);
-        expect(store.tasks.single.subtasks, hasLength(1));
+      final afterChild = store.toggleCompleteWithUndo(store.tasks.single)!;
+      edited = Task.fromJson(store.tasks.single.toJson())..subtasks = [edited.subtasks.first];
+      store.updateTask(edited);
+      expect(store.applyUndo(afterChild), isFalse);
+      expect(store.tasks.single.subtasks, hasLength(1));
 
-        final afterRemoval = store.toggleCompleteWithUndo(store.tasks.single)!;
-        store.setSubtaskCompleted('t', 's1', true);
-        expect(store.applyUndo(afterRemoval), isFalse);
-        expect(store.tasks.single.subtasks.single.completed, isTrue);
-      },
-    );
+      final afterRemoval = store.toggleCompleteWithUndo(store.tasks.single)!;
+      store.setSubtaskCompleted('t', 's1', true);
+      expect(store.applyUndo(afterRemoval), isFalse);
+      expect(store.tasks.single.subtasks.single.completed, isTrue);
+    });
 
     test('deleting the task rejects the old completion undo', () async {
       final store = await open(task());
@@ -171,7 +157,8 @@ void main() {
       addTearDown(ReminderService.resetForTest);
       ReminderService.instance = other;
       SharedPreferences.setMockInitialValues({
-        'compoise-boards': '[{"id":"b","name":"Board","createdAt":1}]',
+        'compoise-boards':
+            '[{"id":"b","name":"Board","createdAt":1}]',
         'compoise-tasks': '[]',
         'compoise-has-seen-onboarding': true,
       });
@@ -183,7 +170,9 @@ void main() {
         task(
           quadrant: qDo,
           reminderAt: when,
-          subtasks: [SubTask(id: 's1', title: 'One', reminderAt: when)],
+          subtasks: [
+            SubTask(id: 's1', title: 'One', reminderAt: when),
+          ],
         ),
       ]);
       expect(injected.scheduled, isNotEmpty);
@@ -204,19 +193,13 @@ void main() {
       expect(other.scheduled, isEmpty);
     });
 
-    test(
-      'search-style parent completion does not cascade, and records completedAt',
-      () async {
-        final store = await open(task());
-        store.setTaskCompleted('t', true);
-        expect(store.tasks.single.completed, isTrue);
-        expect(store.tasks.single.completedAt, isNotNull);
-        expect(
-          store.tasks.single.subtasks.every((sub) => !sub.completed),
-          isTrue,
-        );
-      },
-    );
+    test('search-style parent completion does not cascade, and records completedAt', () async {
+      final store = await open(task());
+      store.setTaskCompleted('t', true);
+      expect(store.tasks.single.completed, isTrue);
+      expect(store.tasks.single.completedAt, isNotNull);
+      expect(store.tasks.single.subtasks.every((sub) => !sub.completed), isTrue);
+    });
   });
 
   group('reads are snapshots and writes stay on commands', () {
@@ -227,10 +210,7 @@ void main() {
       snapshot.aiConfig.model = 'mutated-model';
       expect(store.tasks.single.title, 'Alpha');
       expect(store.aiConfig.model, isNot('mutated-model'));
-      expect(
-        () => store.tasks.add(task(quadrant: qDo)),
-        throwsUnsupportedError,
-      );
+      expect(() => store.tasks.add(task(quadrant: qDo)), throwsUnsupportedError);
       expect(store.tasks, hasLength(1));
     });
 

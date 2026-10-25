@@ -385,12 +385,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(TimePickerDialog), findsOneWidget);
-        await tester.tap(
-          find.descendant(
-            of: find.byType(TimePickerDialog),
-            matching: find.text('Cancel'),
-          ),
-        );
+        await tester.tap(find.descendant(
+          of: find.byType(TimePickerDialog),
+          matching: find.text('Cancel'),
+        ));
         await tester.pumpAndSettle();
         expect(store.tasks.single.deadline, stored.millisecondsSinceEpoch);
         expect(store.tasks.single.reminderAt, isNull);
@@ -458,17 +456,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
         await tester.pumpAndSettle();
-        await chooseTaskMoment(
-          tester,
-          'deadline-custom',
-          DateTime(
-            DateTime.now().year,
-            DateTime.now().month,
-            DateTime.now().day + 1,
-            23,
-            59,
-          ),
-        );
+        await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
         await tester.pump();
         await tester.tap(find.byKey(const ValueKey('time-confirm')));
         await tester.pumpAndSettle();
@@ -519,17 +507,7 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.byKey(const ValueKey('input-time-btn')));
         await tester.pumpAndSettle();
-        await chooseTaskMoment(
-          tester,
-          'deadline-custom',
-          DateTime(
-            DateTime.now().year,
-            DateTime.now().month,
-            DateTime.now().day + 1,
-            23,
-            59,
-          ),
-        );
+        await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
         await tester.pump();
         await tester.tap(find.byKey(const ValueKey('reminder-quick-custom')));
         await tester.pumpAndSettle();
@@ -612,6 +590,8 @@ void main() {
         await _finish(tester, store);
       },
     );
+
+
   });
 }
 

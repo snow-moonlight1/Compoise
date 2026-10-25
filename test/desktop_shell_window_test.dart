@@ -15,29 +15,26 @@ void main() {
   tearDown(DesktopShellService.instance.resetForTest);
 
   group('desktop shell real-result coordination', () {
-    test(
-      'language change reapplies tray labels without restarting hotkey',
-      () async {
-        final host = _FakeDesktopShellHost();
-        final service = DesktopShellService.forTest(host);
-        await service.applySettings(
-          closeToTray: true,
-          globalShortcut: 'Ctrl+Alt+M',
-          language: Language.en,
-        );
-        expect(host.callbacks?.language, Language.en);
-        await service.applySettings(
-          closeToTray: true,
-          globalShortcut: 'Ctrl+Alt+M',
-          language: Language.zh,
-        );
-        expect(host.callbacks?.language, Language.zh);
-        expect(host.startCalls, 2);
-        expect(host.registerCalls, 1);
-        await service.retrySettings();
-        expect(host.startCalls, 2);
-      },
-    );
+    test('language change reapplies tray labels without restarting hotkey', () async {
+      final host = _FakeDesktopShellHost();
+      final service = DesktopShellService.forTest(host);
+      await service.applySettings(
+        closeToTray: true,
+        globalShortcut: 'Ctrl+Alt+M',
+        language: Language.en,
+      );
+      expect(host.callbacks?.language, Language.en);
+      await service.applySettings(
+        closeToTray: true,
+        globalShortcut: 'Ctrl+Alt+M',
+        language: Language.zh,
+      );
+      expect(host.callbacks?.language, Language.zh);
+      expect(host.startCalls, 2);
+      expect(host.registerCalls, 1);
+      await service.retrySettings();
+      expect(host.startCalls, 2);
+    });
 
     test(
       'tray init failure disables close-to-tray and a window close runs true exit',
@@ -66,7 +63,10 @@ void main() {
         expect(host.hideCalls, 0);
         await _waitUntil(() => exited);
         // Joining the already-running exit reports the completed result once.
-        expect(await service.exitApplication(), DesktopExitResult.completed);
+        expect(
+          await service.exitApplication(),
+          DesktopExitResult.completed,
+        );
         expect(host.destroyCalls, 1);
       },
     );
@@ -163,9 +163,11 @@ void main() {
     test('late tray result cannot enable an outdated close policy', () async {
       final host = _FakeDesktopShellHost();
       final late = Completer<DesktopShellResult>();
-      host.startHandler = () => host.startCalls == 1
-          ? late.future
-          : Future.value(const DesktopShellResult.success());
+      host.startHandler =
+          () =>
+              host.startCalls == 1
+                  ? late.future
+                  : Future.value(const DesktopShellResult.success());
       final service = DesktopShellService.forTest(host);
 
       final first = service.applySettings(

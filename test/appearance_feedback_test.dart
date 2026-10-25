@@ -23,7 +23,9 @@ void main() {
         home: Center(
           child: SizedBox(
             width: width,
-            child: const OrphanSqueeze(child: Text(text, style: style)),
+            child: const OrphanSqueeze(
+              child: Text(text, style: style),
+            ),
           ),
         ),
       ),
@@ -49,7 +51,9 @@ void main() {
         home: Center(
           child: SizedBox(
             width: 64,
-            child: OrphanSqueeze(child: Text(text, style: style)),
+            child: OrphanSqueeze(
+              child: Text(text, style: style),
+            ),
           ),
         ),
       ),
@@ -125,7 +129,7 @@ void main() {
             body: HomeBottomActions(
               onSearch: () {},
               onAdd: () {},
-
+             
               onMore: () {},
             ),
           ),

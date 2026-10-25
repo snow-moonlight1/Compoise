@@ -179,16 +179,17 @@ class AIService {
       forceJsonObject: config.protocol != AIProtocol.anthropic,
       cancellation: cancellation,
     );
-    final results = extractJsonArray(text)
-        .whereType<Map<String, dynamic>>()
-        .where((item) => item['originalTitle'] is String)
-        .map(
-          (item) => DecomposeResult(
-            originalTitle: item['originalTitle'] as String,
-            subtasks: _subtaskTitles(item['subtasks']),
-          ),
-        )
-        .toList();
+    final results =
+        extractJsonArray(text)
+            .whereType<Map<String, dynamic>>()
+            .where((item) => item['originalTitle'] is String)
+            .map(
+              (item) => DecomposeResult(
+                originalTitle: item['originalTitle'] as String,
+                subtasks: _subtaskTitles(item['subtasks']),
+              ),
+            )
+            .toList();
     for (final title in taskTitles) {
       final matches = results.where((r) => r.originalTitle == title);
       if (matches.isEmpty || matches.any((r) => r.subtasks.isEmpty)) {
@@ -561,9 +562,10 @@ class AIService {
       final models = _parseModelList(jsonDecode(utf8.decode(res.bodyBytes)));
       return ConnectionProbe(
         endpointAuth: endpoint(ok: true, code: 'aiEndpointReachable'),
-        modelDiscovery: models.isEmpty
-            ? discovery(ok: false, code: 'aiNoModels')
-            : discovery(ok: true, code: 'aiDiscoveryOk'),
+        modelDiscovery:
+            models.isEmpty
+                ? discovery(ok: false, code: 'aiNoModels')
+                : discovery(ok: true, code: 'aiDiscoveryOk'),
       );
     } catch (_) {
       return ConnectionProbe(
@@ -696,12 +698,13 @@ class AIService {
     String url,
     AIConfig config,
     Map<String, dynamic> body,
-  ) => http.Request('POST', Uri.parse(url))
-    ..headers.addAll({
-      'content-type': 'application/json',
-      ..._authHeaders(config),
-    })
-    ..body = jsonEncode(body);
+  ) =>
+      http.Request('POST', Uri.parse(url))
+        ..headers.addAll({
+          'content-type': 'application/json',
+          ..._authHeaders(config),
+        })
+        ..body = jsonEncode(body);
 
   Future<http.Response> _send(
     http.Request req, {
@@ -721,15 +724,15 @@ class AIService {
           ..headers.addAll(req.headers)
           ..bodyBytes = req.bodyBytes;
     try {
-      return await (() async => http.Response.fromStream(
-        await _client.send(request),
-      ))().timeout(
-        timeout ?? this.timeout,
-        onTimeout: () {
-          cancel();
-          throw TimeoutException('AI timeout');
-        },
-      );
+      return await (() async =>
+              http.Response.fromStream(await _client.send(request)))()
+          .timeout(
+            timeout ?? this.timeout,
+            onTimeout: () {
+              cancel();
+              throw TimeoutException('AI timeout');
+            },
+          );
     } finally {
       _requests.remove(abort);
     }
@@ -757,9 +760,8 @@ class AIService {
   http.Request _modelsRequest(AIConfig config, String base) {
     final preset = getAIProviderPreset(config.provider);
     final path = preset.modelsPath.isNotEmpty ? preset.modelsPath : '/models';
-    final root = config.protocol == AIProtocol.anthropic
-        ? _anthropicBase(base)
-        : base;
+    final root =
+        config.protocol == AIProtocol.anthropic ? _anthropicBase(base) : base;
     return _get('$root$path', config);
   }
 
@@ -829,8 +831,7 @@ class AIService {
     }
   }
 
-  String _sortInstruction(Language lang, bool autoDecompose) =>
-      '''
+  String _sortInstruction(Language lang, bool autoDecompose) => '''
 You are an expert productivity assistant based on the Eisenhower Matrix.
 Analyze the user's tasks and categorize them into four quadrants by urgency and importance:
 1. Urgent and Important (quadrant 1)
@@ -850,8 +851,7 @@ Important: Respond with ONLY a JSON object {"tasks": [...]}, no markdown fences,
 The "title" and "subtasks" fields MUST be in the user's language: ${_langName(lang)}.
 ''';
 
-  String _batchInstruction(Language lang) =>
-      '''
+  String _batchInstruction(Language lang) => '''
 You are an expert project manager.
 You will receive a list of long-term tasks.
 For EACH task, break it down into 3-5 immediate, actionable, short-term steps (subtasks) that can be done in under 2 hours each.

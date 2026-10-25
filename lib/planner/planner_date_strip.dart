@@ -104,9 +104,7 @@ class _PlannerDateStripState extends State<PlannerDateStrip> {
             child: Row(
               children: [
                 for (var index = 0; index < 7; index++)
-                  Expanded(
-                    child: _day(context, theme, monday, index, selected),
-                  ),
+                  Expanded(child: _day(context, theme, monday, index, selected)),
               ],
             ),
           );

@@ -526,9 +526,8 @@ class DevExperiment {
               'id': board.id,
               'name': board.name,
               'openTasks': views
-                  .where(
-                    (view) => view.source.boardId == board.id && !view.done,
-                  )
+                  .where((view) =>
+                      view.source.boardId == board.id && !view.done)
                   .length,
             },
       ],

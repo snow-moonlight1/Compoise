@@ -40,7 +40,7 @@ void main() {
   for (final failure in [1, 2]) {
     for (final throwsError in [false, true]) {
       test(
-        'restart retains old batch after write $failure ${throwsError ? 'throws' : 'returns false'}',
+        'restart retains old batch after write $failure ${throwsError ? 'throws': 'returns false'}',
         () async {
           SharedPreferences.setMockInitialValues({});
           final original = await open();
@@ -152,47 +152,55 @@ void main() {
     },
   );
 
-  test('mirror failure after commit restarts on complete new batch', () async {
-    SharedPreferences.setMockInitialValues({});
-    var rejectMirror = false;
-    final store = await open(
-      writer: (key, value) async {
-        if (rejectMirror && key == 'compoise-active-board') return false;
-        return (await SharedPreferences.getInstance()).setString(key, value);
-      },
-    );
-    rejectMirror = true;
-    final plan = store.previewImport(payload(), 'overwrite');
-    expect((await store.applyImport(plan)).success, isTrue);
-    store.dispose();
-    final restarted = await open();
-    expect(restarted.boards.single.id, 'board-new');
-    expect(restarted.tasks.single.title, 'new');
-    restarted.dispose();
-  });
+  test(
+    'mirror failure after commit restarts on complete new batch',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      var rejectMirror = false;
+      final store = await open(
+        writer: (key, value) async {
+          if (rejectMirror && key == 'compoise-active-board') return false;
+          return (await SharedPreferences.getInstance()).setString(key, value);
+        },
+      );
+      rejectMirror = true;
+      final plan = store.previewImport(payload(), 'overwrite');
+      expect((await store.applyImport(plan)).success, isTrue);
+      store.dispose();
+      final restarted = await open();
+      expect(restarted.boards.single.id, 'board-new');
+      expect(restarted.tasks.single.title, 'new');
+      restarted.dispose();
+    },
+  );
 
-  test('simultaneous mutations coalesce into a consistent batch', () async {
-    SharedPreferences.setMockInitialValues({});
-    final store = await open();
-    store.createBoard('Parallel');
-    final boardId = store.activeBoardId;
-    store.addTasks([
-      Task(
-        id: 'parallel-task',
-        boardId: boardId,
-        title: 'Parallel task',
-        quadrant: 1,
-        createdAt: 1,
-      ),
-    ]);
-    expect((await store.flush()).success, isTrue);
-    store.dispose();
-    final restarted = await open();
-    expect(restarted.tasks.single.boardId, restarted.boards.last.id);
-    restarted.dispose();
-  });
+  test(
+    'simultaneous mutations coalesce into a consistent batch',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = await open();
+      store.createBoard('Parallel');
+      final boardId = store.activeBoardId;
+      store.addTasks([
+        Task(
+          id: 'parallel-task',
+          boardId: boardId,
+          title: 'Parallel task',
+          quadrant: 1,
+          createdAt: 1,
+        ),
+      ]);
+      expect((await store.flush()).success, isTrue);
+      store.dispose();
+      final restarted = await open();
+      expect(restarted.tasks.single.boardId, restarted.boards.last.id);
+      restarted.dispose();
+    },
+  );
 
-  testWidgets('damaged commit pointer enters recovery screen', (tester) async {
+  testWidgets('damaged commit pointer enters recovery screen', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       SaveProtocol.pointerKey: 'invalid',
     });
@@ -223,8 +231,9 @@ void main() {
         throwsFormatException,
       );
       expect(
-        () =>
-            ImportPreflight.decode(Uint8List(ImportPreflight.maxFileBytes + 1)),
+        () => ImportPreflight.decode(
+          Uint8List(ImportPreflight.maxFileBytes + 1),
+        ),
         throwsFormatException,
       );
       final nested =
@@ -332,17 +341,23 @@ void main() {
     },
   );
 
-  test('merge reports skips and conflicts without changing state', () async {
-    SharedPreferences.setMockInitialValues({});
-    final store = await open();
-    final first = store.previewImport(payload(), 'merge');
-    expect((await store.applyImport(first)).success, isTrue);
-    final identical = store.previewImport(payload(), 'merge');
-    expect(identical.skipped, 2);
-    final conflict = store.previewImport(payload(title: 'different'), 'merge');
-    expect(conflict.conflicts, 1);
-    expect((await store.applyImport(conflict)).success, isFalse);
-    expect(store.tasks.single.title, 'new');
-    store.dispose();
-  });
+  test(
+    'merge reports skips and conflicts without changing state',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = await open();
+      final first = store.previewImport(payload(), 'merge');
+      expect((await store.applyImport(first)).success, isTrue);
+      final identical = store.previewImport(payload(), 'merge');
+      expect(identical.skipped, 2);
+      final conflict = store.previewImport(
+        payload(title: 'different'),
+        'merge',
+      );
+      expect(conflict.conflicts, 1);
+      expect((await store.applyImport(conflict)).success, isFalse);
+      expect(store.tasks.single.title, 'new');
+      store.dispose();
+    },
+  );
 }

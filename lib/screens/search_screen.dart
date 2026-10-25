@@ -121,15 +121,16 @@ class _SearchScreenState extends State<SearchScreen> {
     final activeCount = _applied.dimensionCount(TaskFilterKind.search);
 
     return Scaffold(
-      bottomNavigationBar: policy.isTouchLayout
-          ? FilterChromeBar(
-              activeCount: activeCount,
-              canClear: !_applied.isDefault,
-              onOpen: () => _openFilter(context),
-              onClear: _clearFilters,
-              expanded: true,
-            )
-          : null,
+      bottomNavigationBar:
+          policy.isTouchLayout
+              ? FilterChromeBar(
+                activeCount: activeCount,
+                canClear: !_applied.isDefault,
+                onOpen: () => _openFilter(context),
+                onClear: _clearFilters,
+                expanded: true,
+              )
+              : null,
       body: SafeArea(
         bottom: !policy.isTouchLayout,
         child: LayoutBuilder(
@@ -149,8 +150,8 @@ class _SearchScreenState extends State<SearchScreen> {
                   '#${_applied.status.name}#${_applied.quadrant}'
                   '#${_applied.date.name}#${_applied.tags.join(',')}',
               idOf: (hit) => hit.resultKey,
-              keepIfMissing: (hit) =>
-                  store.tasks.any((task) => task.id == hit.task.id),
+              keepIfMissing:
+                  (hit) => store.tasks.any((task) => task.id == hit.task.id),
               reduceMotion: MotionPolicy.reduceMotionOf(context),
             );
             final detailTask = _detail.taskIn(store);
@@ -173,17 +174,23 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 _buildResultsSummary(context, t, theme, results.length),
                 Expanded(
-                  child: entries.isEmpty
-                      ? _buildEmptyState(context, t, theme, boardName)
-                      : _buildResultsList(
-                          context,
-                          store,
-                          t,
-                          theme,
-                          entries,
-                          isWide,
-                          policy,
-                        ),
+                  child:
+                      entries.isEmpty
+                          ? _buildEmptyState(
+                            context,
+                            t,
+                            theme,
+                            boardName,
+                          )
+                          : _buildResultsList(
+                            context,
+                            store,
+                            t,
+                            theme,
+                            entries,
+                            isWide,
+                            policy,
+                          ),
                 ),
               ],
             );
@@ -204,9 +211,10 @@ class _SearchScreenState extends State<SearchScreen> {
               separator: VerticalDivider(
                 width: 1,
                 thickness: 1,
-                color: theme.brightness == Brightness.light
-                    ? const Color(0xFFD5DAE1)
-                    : theme.colorScheme.outlineVariant,
+                color:
+                    theme.brightness == Brightness.light
+                        ? const Color(0xFFD5DAE1)
+                        : theme.colorScheme.outlineVariant,
               ),
               crossAxisAlignment: CrossAxisAlignment.center,
             );
@@ -214,6 +222,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
     );
+
   }
 
   Widget _buildSearchBar(
@@ -245,16 +254,17 @@ class _SearchScreenState extends State<SearchScreen> {
                 hintText:
                     t['searchPlaceholder'] ?? 'Search tasks and subtasks…',
                 prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        key: const ValueKey('clear-search-btn'),
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {});
-                        },
-                      )
-                    : null,
+                suffixIcon:
+                    _searchController.text.isNotEmpty
+                        ? IconButton(
+                          key: const ValueKey('clear-search-btn'),
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {});
+                          },
+                        )
+                        : null,
                 isDense: true,
                 filled: true,
                 fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
@@ -324,14 +334,16 @@ class _SearchScreenState extends State<SearchScreen> {
       t: t,
       currentBoardName: boardName,
     );
-    final hint = query.isEmpty
-        ? (t['emptyResultsScope'] ?? 'No matches in {scope}').replaceAll(
-            '{scope}',
-            scope,
-          )
-        : (t['emptyResultsQuery'] ?? 'No matches for “{query}” in {scope}')
-              .replaceAll('{query}', query)
-              .replaceAll('{scope}', scope);
+    final hint =
+        query.isEmpty
+            ? (t['emptyResultsScope'] ?? 'No matches in {scope}').replaceAll(
+              '{scope}',
+              scope,
+            )
+            : (t['emptyResultsQuery'] ??
+                    'No matches for “{query}” in {scope}')
+                .replaceAll('{query}', query)
+                .replaceAll('{scope}', scope);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -436,9 +448,10 @@ class _SearchScreenState extends State<SearchScreen> {
                     t: t,
                     level: level,
                     value: isCompleted,
-                    title: isSubtask
-                        ? (subtask?.title ?? task.title)
-                        : task.title,
+                    title:
+                        isSubtask
+                            ? (subtask?.title ?? task.title)
+                            : task.title,
                   ),
                   onChanged: (val) {
                     if (isSubtask && subtask != null) {
@@ -512,12 +525,12 @@ class _SearchScreenState extends State<SearchScreen> {
                                 ? TaskHierarchyLevel.child
                                 : TaskHierarchyLevel.parent,
                           ),
-                          color: isCompleted
-                              ? theme.disabledColor
-                              : theme.colorScheme.onSurface,
-                          fontWeight: isSubtask
-                              ? FontWeight.normal
-                              : FontWeight.w600,
+                          color:
+                              isCompleted
+                                  ? theme.disabledColor
+                                  : theme.colorScheme.onSurface,
+                          fontWeight:
+                              isSubtask ? FontWeight.normal : FontWeight.w600,
                         ),
                       ),
 
@@ -555,19 +568,20 @@ class _SearchScreenState extends State<SearchScreen> {
                         Navigator.pop(context);
                       }
                     },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        key: ValueKey('go-to-board-btn-${hit.resultKey}'),
-                        value: 'goToBoard',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.arrow_forward, size: 16),
-                            const SizedBox(width: 8),
-                            Text(t['goToBoard'] ?? 'Go to Board'),
-                          ],
-                        ),
-                      ),
-                    ],
+                    itemBuilder:
+                        (_) => [
+                          PopupMenuItem(
+                            key: ValueKey('go-to-board-btn-${hit.resultKey}'),
+                            value: 'goToBoard',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.arrow_forward, size: 16),
+                                const SizedBox(width: 8),
+                                Text(t['goToBoard'] ?? 'Go to Board'),
+                              ],
+                            ),
+                          ),
+                        ],
                   ),
                 ],
               ],
@@ -593,17 +607,19 @@ class _SearchScreenState extends State<SearchScreen> {
     final isOverdue = !completed && days < 0;
     final isToday = days == 0;
 
-    final color = isOverdue
-        ? theme.colorScheme.error
-        : isToday
-        ? Colors.orange
-        : theme.colorScheme.outline;
+    final color =
+        isOverdue
+            ? theme.colorScheme.error
+            : isToday
+            ? Colors.orange
+            : theme.colorScheme.outline;
 
-    final text = isOverdue
-        ? t['overdue'] ?? 'Overdue'
-        : isToday
-        ? t['today'] ?? 'Today'
-        : '${days}d';
+    final text =
+        isOverdue
+            ? t['overdue'] ?? 'Overdue'
+            : isToday
+            ? t['today'] ?? 'Today'
+            : '${days}d';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

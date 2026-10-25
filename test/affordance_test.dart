@@ -233,54 +233,58 @@ void main() {
     },
   );
 
-  testWidgets('parent and subtask boxes announce distinct labelled targets', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final (store, _) = await makeStore();
-    final parent = _seedParent(store);
-    await tester.pumpWidget(
-      _app(store, _card(parent, expanded: true, onChanged: () {})),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'parent and subtask boxes announce distinct labelled targets',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final (store, _) = await makeStore();
+      final parent = _seedParent(store);
+      await tester.pumpWidget(
+        _app(store, _card(parent, expanded: true, onChanged: () {})),
+      );
+      await tester.pumpAndSettle();
 
-    final parentHit = ValueKey('complete-${parent.id}');
-    const childA = ValueKey('task-subtask-check-sub-a');
-    const childB = ValueKey('task-subtask-check-sub-b');
+      final parentHit = ValueKey('complete-${parent.id}');
+      const childA = ValueKey('task-subtask-check-sub-a');
+      const childB = ValueKey('task-subtask-check-sub-b');
 
-    final parentData = _data(tester, parentHit);
-    final childAData = _data(tester, childA);
-    final childBData = _data(tester, childB);
+      final parentData = _data(tester, parentHit);
+      final childAData = _data(tester, childA);
+      final childBData = _data(tester, childB);
 
-    expect(parentData.label, 'Mark parent task "Ship release notes" complete');
-    expect(childAData.label, 'Mark subtask "Draft changelog" complete');
-    expect(childBData.label, 'Mark subtask "Screenshot the matrix" complete');
+      expect(
+        parentData.label,
+        'Mark parent task "Ship release notes" complete',
+      );
+      expect(childAData.label, 'Mark subtask "Draft changelog" complete');
+      expect(childBData.label, 'Mark subtask "Screenshot the matrix" complete');
 
-    for (final data in [parentData, childAData, childBData]) {
-      expect(data.hasFlag(SemanticsFlag.hasCheckedState), isTrue);
-      expect(data.hasFlag(SemanticsFlag.isChecked), isFalse);
-      expect(data.hasFlag(SemanticsFlag.isButton), isTrue);
-      // One announcement per control, not the label merged with title text.
-      expect(data.label.split('"').length, 3, reason: data.label);
-    }
+      for (final data in [parentData, childAData, childBData]) {
+        expect(data.hasFlag(SemanticsFlag.hasCheckedState), isTrue);
+        expect(data.hasFlag(SemanticsFlag.isChecked), isFalse);
+        expect(data.hasFlag(SemanticsFlag.isButton), isTrue);
+        // One announcement per control, not the label merged with title text.
+        expect(data.label.split('"').length, 3, reason: data.label);
+      }
 
-    await tester.tapAt(_tl(tester, childA) + const Offset(24, 24));
-    await tester.pumpAndSettle();
-    expect(_data(tester, childA).label, isNot(childAData.label));
-    expect(
-      _data(tester, childA).label,
-      'Mark subtask "Draft changelog" incomplete',
-    );
-    expect(_data(tester, childA).hasFlag(SemanticsFlag.isChecked), isTrue);
-    expect(
-      _data(tester, parentHit).label,
-      'Mark parent task "Ship release notes" complete',
-      reason: 'sibling boxes must not shift identity',
-    );
+      await tester.tapAt(_tl(tester, childA) + const Offset(24, 24));
+      await tester.pumpAndSettle();
+      expect(_data(tester, childA).label, isNot(childAData.label));
+      expect(
+        _data(tester, childA).label,
+        'Mark subtask "Draft changelog" incomplete',
+      );
+      expect(_data(tester, childA).hasFlag(SemanticsFlag.isChecked), isTrue);
+      expect(
+        _data(tester, parentHit).label,
+        'Mark parent task "Ship release notes" complete',
+        reason: 'sibling boxes must not shift identity',
+      );
 
-    semantics.dispose();
-    store.dispose();
-  });
+      semantics.dispose();
+      store.dispose();
+    },
+  );
 
   testWidgets(
     'subtask toggle enlarges only its hit box and reports expanded state',

@@ -418,58 +418,54 @@ void main() {
     expect(reopened.recoveryCopyJson(), contains('{not json'));
   });
 
-  test(
-    'a duplicated schedule id in a committed slot enters recovery',
-    () async {
-      final damaged = await commitDamagedSchedule(
-        jsonEncode([block('dup', 'a').toJson(), block('dup', 'b').toJson()]),
-      );
-      final reopened = await open();
-      addTearDown(reopened.dispose);
-      expect(reopened.hasStartupRecovery, isTrue);
-      expect(reopened.recoveryKeys, contains(SaveProtocol.scheduleKey));
-      expect(reopened.scheduleItems, isEmpty);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(damaged.$1), damaged.$2);
-      expect(reopened.tasks, hasLength(2));
-    },
-  );
-
-  test(
-    'a damaged schedule is only cleared after an explicit discard',
-    () async {
-      SharedPreferences.setMockInitialValues({
-        'compoise-boards': jsonEncode([
-          Board(id: board, name: 'Board', createdAt: 1).toJson(),
-        ]),
-        'compoise-tasks': jsonEncode([task('a').toJson()]),
-        SaveProtocol.scheduleKey: jsonEncode([
-          block('orphan', 'gone').toJson(),
-        ]),
+  test('a duplicated schedule id in a committed slot enters recovery',
+      () async {
+        final damaged = await commitDamagedSchedule(
+          jsonEncode([block('dup', 'a').toJson(), block('dup', 'b').toJson()]),
+        );
+        final reopened = await open();
+        addTearDown(reopened.dispose);
+        expect(reopened.hasStartupRecovery, isTrue);
+        expect(reopened.recoveryKeys, contains(SaveProtocol.scheduleKey));
+        expect(reopened.scheduleItems, isEmpty);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(damaged.$1), damaged.$2);
+        expect(reopened.tasks, hasLength(2));
       });
-      final store = await open();
-      addTearDown(store.dispose);
-      expect(store.hasStartupRecovery, isTrue);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(SaveProtocol.scheduleKey), contains('orphan'));
-      expect(store.tasks.single.id, 'a');
 
-      expect(await store.discardDamagedStartupData(), isTrue);
-      expect((await store.flush()).success, isTrue);
-      expect(store.hasStartupRecovery, isFalse);
-      expect(store.scheduleItems, isEmpty);
-      expect(store.tasks.single.id, 'a');
-      expect(store.tasks.single.plannedDate, task('a').plannedDate);
-      expect(
-        SaveProtocol(prefs).load()!.values[SaveProtocol.scheduleKey],
-        '[]',
-      );
+  test('a damaged schedule is only cleared after an explicit discard',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'compoise-boards': jsonEncode([
+            Board(id: board, name: 'Board', createdAt: 1).toJson(),
+          ]),
+          'compoise-tasks': jsonEncode([task('a').toJson()]),
+          SaveProtocol.scheduleKey: jsonEncode([
+            block('orphan', 'gone').toJson(),
+          ]),
+        });
+        final store = await open();
+        addTearDown(store.dispose);
+        expect(store.hasStartupRecovery, isTrue);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(SaveProtocol.scheduleKey), contains('orphan'));
+        expect(store.tasks.single.id, 'a');
 
-      final reopened = await open();
-      addTearDown(reopened.dispose);
-      expect(reopened.hasStartupRecovery, isFalse);
-      expect(reopened.scheduleItems, isEmpty);
-      expect(reopened.tasks.single.id, 'a');
-    },
-  );
+        expect(await store.discardDamagedStartupData(), isTrue);
+        expect((await store.flush()).success, isTrue);
+        expect(store.hasStartupRecovery, isFalse);
+        expect(store.scheduleItems, isEmpty);
+        expect(store.tasks.single.id, 'a');
+        expect(store.tasks.single.plannedDate, task('a').plannedDate);
+        expect(
+          SaveProtocol(prefs).load()!.values[SaveProtocol.scheduleKey],
+          '[]',
+        );
+
+        final reopened = await open();
+        addTearDown(reopened.dispose);
+        expect(reopened.hasStartupRecovery, isFalse);
+        expect(reopened.scheduleItems, isEmpty);
+        expect(reopened.tasks.single.id, 'a');
+      });
 }

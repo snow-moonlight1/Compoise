@@ -14,6 +14,7 @@ import 'package:compoise/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 import 'planner_navigation_test.dart' show mockDeviceTimeZone;
 
 enum _Skin { plain, comic, neu }
@@ -68,7 +69,8 @@ void main() {
                     comicOutline: skin == _Skin.comic,
                     neumorphic: skin == _Skin.neu,
                   ),
-                  localizationsDelegates: GlobalMaterialLocalizations.delegates,
+                  localizationsDelegates:
+                      GlobalMaterialLocalizations.delegates,
                   supportedLocales: const [Locale('en'), Locale('zh')],
                   home: const MatrixHome(),
                 ),

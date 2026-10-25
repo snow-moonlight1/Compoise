@@ -14,9 +14,7 @@ void main() {
   final enabled = library != null && assets != null;
   final labels =
       jsonDecode(
-            File(
-              'test/fixtures/ocr-evaluation/samples/labels.json',
-            ).readAsStringSync(),
+            File('test/fixtures/ocr-evaluation/samples/labels.json').readAsStringSync(),
           )
           as Map;
 
@@ -29,9 +27,7 @@ void main() {
       var taskCount = 0;
       for (final sample in labels['cases'] as List) {
         final id = sample['id'] as String;
-        final file = File(
-          'test/fixtures/ocr-evaluation/samples/${sample['file']}',
-        );
+        final file = File('test/fixtures/ocr-evaluation/samples/${sample['file']}');
         final batch = (await capture.captureFiles([picked(file)])).batch!;
         expect(batch.images.single.error, isNull, reason: id);
         final reference =

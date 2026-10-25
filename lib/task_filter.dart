@@ -47,9 +47,10 @@ class TaskFilterCriteria {
   int get archiveDimensionCount =>
       scope == TaskScopeFilter.currentBoard ? 0 : 1;
 
-  int dimensionCount(TaskFilterKind kind) => kind == TaskFilterKind.archive
-      ? archiveDimensionCount
-      : searchDimensionCount;
+  int dimensionCount(TaskFilterKind kind) =>
+      kind == TaskFilterKind.archive
+          ? archiveDimensionCount
+          : searchDimensionCount;
 
   TaskFilterCriteria copyWith({
     TaskScopeFilter? scope,

@@ -92,13 +92,14 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
                   contentPadding: EdgeInsets.zero,
                   value: _selected.contains(task.id),
                   title: Text(task.title),
-                  onChanged: _busy
-                      ? null
-                      : (v) => setState(() {
-                          v == true
-                              ? _selected.add(task.id)
-                              : _selected.remove(task.id);
-                        }),
+                  onChanged:
+                      _busy
+                          ? null
+                          : (v) => setState(() {
+                            v == true
+                                ? _selected.add(task.id)
+                                : _selected.remove(task.id);
+                          }),
                 ),
               if (_error != null)
                 Text(
@@ -108,13 +109,14 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
               FilledButton.icon(
                 key: const ValueKey('decompose-submit'),
                 onPressed: _busy || _selected.isEmpty ? null : _run,
-                icon: _busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome),
+                icon:
+                    _busy
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.auto_awesome),
                 label: Text(
                   _busy
                       ? t['processingBatch']!
@@ -139,14 +141,14 @@ class _DecomposeSheetState extends State<_DecomposeSheet> {
     final picked = onSubtasks != null
         ? widget.tasks
         : store.tasks
-              .where(
-                (task) =>
-                    _selected.contains(task.id) &&
-                    !task.hasSubtasks &&
-                    !task.completed,
-              )
-              .map((task) => Task.fromJson(task.toJson()))
-              .toList();
+            .where(
+              (task) =>
+                  _selected.contains(task.id) &&
+                  !task.hasSubtasks &&
+                  !task.completed,
+            )
+            .map((task) => Task.fromJson(task.toJson()))
+            .toList();
     if (picked.isEmpty) {
       Navigator.pop(context);
       return;

@@ -125,106 +125,97 @@ void main() {
       expect(resJa.single.task.id, 't-ja');
     });
 
-    test(
-      'subtask matching displays path as Board / Parent and includes child info',
-      () {
-        final parent = Task(
-          id: 'p1',
-          boardId: 'b-a',
-          title: 'Client Presentation',
-          quadrant: qDo,
-          createdAt: 100,
-          subtasks: [
-            SubTask(id: 's1', title: 'Prepare slides', completed: false),
-            SubTask(id: 's2', title: 'Rehearse pitch', completed: true),
-          ],
-        );
+    test('subtask matching displays path as Board / Parent and includes child info', () {
+      final parent = Task(
+        id: 'p1',
+        boardId: 'b-a',
+        title: 'Client Presentation',
+        quadrant: qDo,
+        createdAt: 100,
+        subtasks: [
+          SubTask(id: 's1', title: 'Prepare slides', completed: false),
+          SubTask(id: 's2', title: 'Rehearse pitch', completed: true),
+        ],
+      );
 
-        final results = queryTasks(
-          tasks: [parent],
-          boards: boards,
-          activeBoardId: 'b-a',
-          query: 'slides',
-        );
+      final results = queryTasks(
+        tasks: [parent],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: 'slides',
+      );
 
-        expect(results.length, 1);
-        final hit = results.single;
-        expect(hit.isSubtaskMatch, isTrue);
-        expect(hit.task.id, 'p1');
-        expect(hit.matchedSubtask?.id, 's1');
-        expect(hit.displayTitle, 'Prepare slides');
-        expect(hit.pathDisplay, 'Work / Client Presentation');
-        expect(hit.isCompleted, isFalse);
-      },
-    );
+      expect(results.length, 1);
+      final hit = results.single;
+      expect(hit.isSubtaskMatch, isTrue);
+      expect(hit.task.id, 'p1');
+      expect(hit.matchedSubtask?.id, 's1');
+      expect(hit.displayTitle, 'Prepare slides');
+      expect(hit.pathDisplay, 'Work / Client Presentation');
+      expect(hit.isCompleted, isFalse);
+    });
 
-    test(
-      'both parent and subtask match keyword query without key collision',
-      () {
-        final parent = Task(
-          id: 'p1',
-          boardId: 'b-a',
-          title: 'Release Version 1.0',
-          quadrant: qDo,
-          createdAt: 100,
-          subtasks: [
-            SubTask(id: 's1', title: 'Tag Release in Git', completed: false),
-          ],
-        );
+    test('both parent and subtask match keyword query without key collision', () {
+      final parent = Task(
+        id: 'p1',
+        boardId: 'b-a',
+        title: 'Release Version 1.0',
+        quadrant: qDo,
+        createdAt: 100,
+        subtasks: [
+          SubTask(id: 's1', title: 'Tag Release in Git', completed: false),
+        ],
+      );
 
-        final results = queryTasks(
-          tasks: [parent],
-          boards: boards,
-          activeBoardId: 'b-a',
-          query: 'Release',
-        );
+      final results = queryTasks(
+        tasks: [parent],
+        boards: boards,
+        activeBoardId: 'b-a',
+        query: 'Release',
+      );
 
-        expect(results.length, 2);
-        expect(results[0].isSubtaskMatch, isFalse);
-        expect(results[0].displayTitle, 'Release Version 1.0');
-        expect(results[0].resultKey, 'p1');
+      expect(results.length, 2);
+      expect(results[0].isSubtaskMatch, isFalse);
+      expect(results[0].displayTitle, 'Release Version 1.0');
+      expect(results[0].resultKey, 'p1');
 
-        expect(results[1].isSubtaskMatch, isTrue);
-        expect(results[1].displayTitle, 'Tag Release in Git');
-        expect(results[1].resultKey, 'p1:s1');
-      },
-    );
+      expect(results[1].isSubtaskMatch, isTrue);
+      expect(results[1].displayTitle, 'Tag Release in Git');
+      expect(results[1].resultKey, 'p1:s1');
+    });
 
-    test(
-      'cross-board tasks with identical parent/child titles are distinguished',
-      () {
-        final tA = Task(
-          id: 't-a',
-          boardId: 'b-a',
-          title: 'Deploy Service',
-          quadrant: qDo,
-          createdAt: 100,
-          subtasks: [SubTask(id: 'sub-1', title: 'Check health endpoint')],
-        );
-        final tB = Task(
-          id: 't-b',
-          boardId: 'b-b',
-          title: 'Deploy Service',
-          quadrant: qPlan,
-          createdAt: 200,
-          subtasks: [SubTask(id: 'sub-2', title: 'Check health endpoint')],
-        );
+    test('cross-board tasks with identical parent/child titles are distinguished', () {
+      final tA = Task(
+        id: 't-a',
+        boardId: 'b-a',
+        title: 'Deploy Service',
+        quadrant: qDo,
+        createdAt: 100,
+        subtasks: [SubTask(id: 'sub-1', title: 'Check health endpoint')],
+      );
+      final tB = Task(
+        id: 't-b',
+        boardId: 'b-b',
+        title: 'Deploy Service',
+        quadrant: qPlan,
+        createdAt: 200,
+        subtasks: [SubTask(id: 'sub-2', title: 'Check health endpoint')],
+      );
 
-        final results = queryTasks(
-          tasks: [tA, tB],
-          boards: boards,
-          activeBoardId: 'b-a',
-          scope: TaskScopeFilter.allBoards,
-          query: 'health',
-        );
+      final results = queryTasks(
+        tasks: [tA, tB],
+        boards: boards,
+        activeBoardId: 'b-a',
+        scope: TaskScopeFilter.allBoards,
+        query: 'health',
+      );
 
-        expect(results.length, 2);
-        expect(results[0].pathDisplay, 'Work / Deploy Service');
-        expect(results[0].board.id, 'b-a');
-        expect(results[1].pathDisplay, 'Personal / Deploy Service');
-        expect(results[1].board.id, 'b-b');
-      },
-    );
+      expect(results.length, 2);
+      expect(results[0].pathDisplay, 'Work / Deploy Service');
+      expect(results[0].board.id, 'b-a');
+      expect(results[1].pathDisplay, 'Personal / Deploy Service');
+      expect(results[1].board.id, 'b-b');
+    });
 
     test('quadrant and status combination filter', () {
       final t1 = Task(
@@ -273,154 +264,137 @@ void main() {
       expect(doCompleted.single.task.id, 't2');
     });
 
-    test(
-      'date filter local calendar boundaries: today, thisWeek, thisMonth, overdue, noDate',
-      () {
-        // Reference time: Wednesday 2026-09-09 14:30:00 (Weekday: Wednesday = 3)
-        // Monday of this week: 2026-09-07 00:00:00
-        // Next Monday: 2026-09-14 00:00:00
-        // Start of month: 2026-09-01 00:00:00
-        // Start of next month: 2026-10-01 00:00:00
-        final now = DateTime(2026, 9, 9, 14, 30);
+    test('date filter local calendar boundaries: today, thisWeek, thisMonth, overdue, noDate', () {
+      // Reference time: Wednesday 2026-09-09 14:30:00 (Weekday: Wednesday = 3)
+      // Monday of this week: 2026-09-07 00:00:00
+      // Next Monday: 2026-09-14 00:00:00
+      // Start of month: 2026-09-01 00:00:00
+      // Start of next month: 2026-10-01 00:00:00
+      final now = DateTime(2026, 9, 9, 14, 30);
 
-        final tToday = Task(
-          id: 't-today',
-          boardId: 'b-a',
-          title: 'Today Task',
-          quadrant: qDo,
-          createdAt: 100,
-          deadline: DateTime(2026, 9, 9, 23, 59).millisecondsSinceEpoch,
-        );
+      final tToday = Task(
+        id: 't-today',
+        boardId: 'b-a',
+        title: 'Today Task',
+        quadrant: qDo,
+        createdAt: 100,
+        deadline: DateTime(2026, 9, 9, 23, 59).millisecondsSinceEpoch,
+      );
 
-        final tThisWeek = Task(
-          id: 't-week',
-          boardId: 'b-a',
-          title: 'Week Task',
-          quadrant: qPlan,
-          createdAt: 100,
-          deadline: DateTime(2026, 9, 12, 18).millisecondsSinceEpoch,
-        );
+      final tThisWeek = Task(
+        id: 't-week',
+        boardId: 'b-a',
+        title: 'Week Task',
+        quadrant: qPlan,
+        createdAt: 100,
+        deadline: DateTime(2026, 9, 12, 18).millisecondsSinceEpoch,
+      );
 
-        final tThisMonth = Task(
-          id: 't-month',
-          boardId: 'b-a',
-          title: 'Month Task',
-          quadrant: qPlan,
-          createdAt: 100,
-          deadline: DateTime(2026, 9, 28, 12).millisecondsSinceEpoch,
-        );
+      final tThisMonth = Task(
+        id: 't-month',
+        boardId: 'b-a',
+        title: 'Month Task',
+        quadrant: qPlan,
+        createdAt: 100,
+        deadline: DateTime(2026, 9, 28, 12).millisecondsSinceEpoch,
+      );
 
-        final tOverdue = Task(
-          id: 't-overdue',
-          boardId: 'b-a',
-          title: 'Overdue Task',
-          quadrant: qDo,
-          createdAt: 100,
-          completed: false,
-          deadline: DateTime(
-            2026,
-            9,
-            6,
-            20,
-          ).millisecondsSinceEpoch, // Sunday before Monday 09-07
-        );
+      final tOverdue = Task(
+        id: 't-overdue',
+        boardId: 'b-a',
+        title: 'Overdue Task',
+        quadrant: qDo,
+        createdAt: 100,
+        completed: false,
+        deadline: DateTime(2026, 9, 6, 20).millisecondsSinceEpoch, // Sunday before Monday 09-07
+      );
 
-        final tNoDate = Task(
-          id: 't-nodate',
-          boardId: 'b-a',
-          title: 'No Date Task',
-          quadrant: qEliminate,
-          createdAt: 100,
-        );
+      final tNoDate = Task(
+        id: 't-nodate',
+        boardId: 'b-a',
+        title: 'No Date Task',
+        quadrant: qEliminate,
+        createdAt: 100,
+      );
 
-        final allTasks = [tToday, tThisWeek, tThisMonth, tOverdue, tNoDate];
+      final allTasks = [tToday, tThisWeek, tThisMonth, tOverdue, tNoDate];
 
-        // Today
-        final resToday = queryTasks(
-          tasks: allTasks,
-          boards: boards,
-          activeBoardId: 'b-a',
-          dateFilter: TaskDateFilter.today,
-          now: now,
-        );
-        expect(resToday.map((r) => r.task.id), ['t-today']);
+      // Today
+      final resToday = queryTasks(
+        tasks: allTasks,
+        boards: boards,
+        activeBoardId: 'b-a',
+        dateFilter: TaskDateFilter.today,
+        now: now,
+      );
+      expect(resToday.map((r) => r.task.id), ['t-today']);
 
-        // This Week
-        final resWeek = queryTasks(
-          tasks: allTasks,
-          boards: boards,
-          activeBoardId: 'b-a',
-          dateFilter: TaskDateFilter.thisWeek,
-          now: now,
-        );
-        expect(
-          resWeek.map((r) => r.task.id),
-          containsAll(['t-today', 't-week']),
-        );
+      // This Week
+      final resWeek = queryTasks(
+        tasks: allTasks,
+        boards: boards,
+        activeBoardId: 'b-a',
+        dateFilter: TaskDateFilter.thisWeek,
+        now: now,
+      );
+      expect(resWeek.map((r) => r.task.id), containsAll(['t-today', 't-week']));
 
-        // This Month
-        final resMonth = queryTasks(
-          tasks: allTasks,
-          boards: boards,
-          activeBoardId: 'b-a',
-          dateFilter: TaskDateFilter.thisMonth,
-          now: now,
-        );
-        expect(
-          resMonth.map((r) => r.task.id),
-          containsAll(['t-today', 't-week', 't-month', 't-overdue']),
-        );
+      // This Month
+      final resMonth = queryTasks(
+        tasks: allTasks,
+        boards: boards,
+        activeBoardId: 'b-a',
+        dateFilter: TaskDateFilter.thisMonth,
+        now: now,
+      );
+      expect(resMonth.map((r) => r.task.id), containsAll(['t-today', 't-week', 't-month', 't-overdue']));
 
-        // Overdue
-        final resOverdue = queryTasks(
-          tasks: allTasks,
-          boards: boards,
-          activeBoardId: 'b-a',
-          dateFilter: TaskDateFilter.overdue,
-          now: now,
-        );
-        expect(resOverdue.map((r) => r.task.id), ['t-overdue']);
+      // Overdue
+      final resOverdue = queryTasks(
+        tasks: allTasks,
+        boards: boards,
+        activeBoardId: 'b-a',
+        dateFilter: TaskDateFilter.overdue,
+        now: now,
+      );
+      expect(resOverdue.map((r) => r.task.id), ['t-overdue']);
 
-        // No Date
-        final resNoDate = queryTasks(
-          tasks: allTasks,
-          boards: boards,
-          activeBoardId: 'b-a',
-          dateFilter: TaskDateFilter.noDate,
-          now: now,
-        );
-        expect(resNoDate.map((r) => r.task.id), ['t-nodate']);
-      },
-    );
+      // No Date
+      final resNoDate = queryTasks(
+        tasks: allTasks,
+        boards: boards,
+        activeBoardId: 'b-a',
+        dateFilter: TaskDateFilter.noDate,
+        now: now,
+      );
+      expect(resNoDate.map((r) => r.task.id), ['t-nodate']);
+    });
 
-    test(
-      'deduplication by ID ensures no duplicates when duplicate task IDs exist in input',
-      () {
-        final t1 = Task(
-          id: 'dup-id',
-          boardId: 'b-a',
-          title: 'Duplicate Task 1',
-          quadrant: qDo,
-          createdAt: 100,
-        );
-        final t2 = Task(
-          id: 'dup-id',
-          boardId: 'b-a',
-          title: 'Duplicate Task 2',
-          quadrant: qDo,
-          createdAt: 200,
-        );
+    test('deduplication by ID ensures no duplicates when duplicate task IDs exist in input', () {
+      final t1 = Task(
+        id: 'dup-id',
+        boardId: 'b-a',
+        title: 'Duplicate Task 1',
+        quadrant: qDo,
+        createdAt: 100,
+      );
+      final t2 = Task(
+        id: 'dup-id',
+        boardId: 'b-a',
+        title: 'Duplicate Task 2',
+        quadrant: qDo,
+        createdAt: 200,
+      );
 
-        final results = queryTasks(
-          tasks: [t1, t2],
-          boards: boards,
-          activeBoardId: 'b-a',
-        );
+      final results = queryTasks(
+        tasks: [t1, t2],
+        boards: boards,
+        activeBoardId: 'b-a',
+      );
 
-        expect(results.length, 1);
-        expect(results.single.task.id, 'dup-id');
-      },
-    );
+      expect(results.length, 1);
+      expect(results.single.task.id, 'dup-id');
+    });
 
     test('performance benchmark: 1,000 synthetic tasks query in < 50ms', () {
       final bigList = <Task>[];

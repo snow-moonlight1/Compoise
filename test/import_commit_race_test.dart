@@ -95,7 +95,10 @@ Future<Store> openStore({
   SlotBarrier? barrier,
   CredentialStore? credentials,
 }) async {
-  final store = Store(saveWriter: barrier?.write, credentialStore: credentials);
+  final store = Store(
+    saveWriter: barrier?.write,
+    credentialStore: credentials,
+  );
   await store.init();
   await store.flush();
   return store;
@@ -195,20 +198,8 @@ void main() {
       final store = await openStore(barrier: barrier);
       final boardId = store.activeBoardId;
       store.addTasks([
-        Task(
-          id: 'kept',
-          boardId: boardId,
-          title: 'Kept',
-          quadrant: 1,
-          createdAt: 1,
-        ),
-        Task(
-          id: 'gone',
-          boardId: boardId,
-          title: 'Gone',
-          quadrant: 1,
-          createdAt: 1,
-        ),
+        Task(id: 'kept', boardId: boardId, title: 'Kept', quadrant: 1, createdAt: 1),
+        Task(id: 'gone', boardId: boardId, title: 'Gone', quadrant: 1, createdAt: 1),
       ]);
       await store.flush();
       final plan = store.previewImport(
@@ -228,7 +219,10 @@ void main() {
       barrier.release(0);
       expect((await importing).success, isTrue);
       expect(store.tasks.map((t) => t.title), isNot(contains('Gone')));
-      await expectConsistentTitles(store, ['Imported', 'Kept edited']);
+      await expectConsistentTitles(
+        store,
+        ['Imported', 'Kept edited'],
+      );
     },
   );
 
@@ -368,38 +362,47 @@ void main() {
     barrier.release(0);
     expect((await first).success, isTrue);
     expect((await second).success, isTrue);
-    await expectConsistentTitles(store, ['First import', 'Second import']);
+    await expectConsistentTitles(
+      store,
+      ['First import', 'Second import'],
+    );
   });
 
-  test('overwrite and merge imports both land in submission order', () async {
-    SharedPreferences.setMockInitialValues({});
-    final barrier = SlotBarrier();
-    final store = await openStore(barrier: barrier);
-    store.addTasks([store.newTask('Local')]);
-    await store.flush();
-    barrier.armed = true;
-    final overwrite = store.applyImport(
-      store.previewImport(
-        payload(newBoards('board-imported'), [
-          taskJson('imported', 'board-imported', 'Imported'),
-        ]),
-        'overwrite',
-      ),
-    );
-    await barrier.enteredAt(0);
-    final merge = store.applyImport(
-      store.previewImport(
-        payload(newBoards('board-imported'), [
-          taskJson('merged', 'board-imported', 'Merged after overwrite'),
-        ]),
-        'merge',
-      ),
-    );
-    barrier.release(0);
-    expect((await overwrite).success, isTrue);
-    expect((await merge).success, isTrue);
-    await expectConsistentTitles(store, ['Imported', 'Merged after overwrite']);
-  });
+  test(
+    'overwrite and merge imports both land in submission order',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final barrier = SlotBarrier();
+      final store = await openStore(barrier: barrier);
+      store.addTasks([store.newTask('Local')]);
+      await store.flush();
+      barrier.armed = true;
+      final overwrite = store.applyImport(
+        store.previewImport(
+          payload(newBoards('board-imported'), [
+            taskJson('imported', 'board-imported', 'Imported'),
+          ]),
+          'overwrite',
+        ),
+      );
+      await barrier.enteredAt(0);
+      final merge = store.applyImport(
+        store.previewImport(
+          payload(newBoards('board-imported'), [
+            taskJson('merged', 'board-imported', 'Merged after overwrite'),
+          ]),
+          'merge',
+        ),
+      );
+      barrier.release(0);
+      expect((await overwrite).success, isTrue);
+      expect((await merge).success, isTrue);
+      await expectConsistentTitles(
+        store,
+        ['Imported', 'Merged after overwrite'],
+      );
+    },
+  );
 
   test(
     'credential write failure leaves the old library and the accepted edit',
@@ -412,15 +415,13 @@ void main() {
       store.addTasks([store.newTask('Local')]);
       await store.flush();
       final plan = store.previewImport(
-        payload(
-          newBoards('board-imported'),
-          [taskJson('imported', 'board-imported', 'Imported')],
-          aiConfig: {
-            'provider': 'custom',
-            'protocol': 'openai-compatible',
-            'customApiKey': 'synthetic-backup-key',
-          },
-        ),
+        payload(newBoards('board-imported'), [
+          taskJson('imported', 'board-imported', 'Imported'),
+        ], aiConfig: {
+          'provider': 'custom',
+          'protocol': 'openai-compatible',
+          'customApiKey': 'synthetic-backup-key',
+        }),
         'overwrite',
       );
       expect(plan.hasCredential, isTrue);
@@ -550,10 +551,10 @@ void main() {
     // report it instead of the stale preview counts.
     store.addTasks([store.newTask('Between preview and apply')]);
     expect((await store.applyImport(plan)).success, isTrue);
-    await expectConsistentTitles(store, [
-      'Imported',
-      'Between preview and apply',
-    ]);
+    await expectConsistentTitles(
+      store,
+      ['Imported', 'Between preview and apply'],
+    );
   });
 
   test('confirmed import payload is isolated from later edits', () async {
@@ -609,11 +610,9 @@ void main() {
       store.addTasks([store.newTask('Local')]);
       await store.flush();
       final plan = store.previewImport(
-        payload(
-          newBoards('board-imported'),
-          [taskJson('imported', 'board-imported', 'Imported')],
-          settings: {'theme': 'dark'},
-        ),
+        payload(newBoards('board-imported'), [
+          taskJson('imported', 'board-imported', 'Imported'),
+        ], settings: {'theme': 'dark'}),
         'overwrite',
       );
       expect(plan.settings?.theme, ThemeModePref.dark);
@@ -637,38 +636,39 @@ void main() {
     },
   );
 
-  test('failed overwrite import reverts every value it brought in', () async {
-    SharedPreferences.setMockInitialValues({});
-    final barrier = SlotBarrier()..failSlot(0);
-    final store = await openStore(barrier: barrier);
-    store.addTasks([store.newTask('Local')]);
-    await store.flush();
-    final beforeBoardId = store.activeBoardId;
-    expect(store.settings.theme, isNot(ThemeModePref.dark));
-    // A merge import never carries settings (see ImportPreflight.inspect), so
-    // only overwrite exercises the values the rollback has to put back.
-    final plan = store.previewImport(
-      payload(
-        newBoards('board-imported'),
-        [taskJson('imported', 'board-imported', 'Imported')],
-        settings: {'theme': 'dark'},
-      ),
-      'overwrite',
-    );
-    expect(plan.settings?.theme, ThemeModePref.dark);
-    barrier.armed = true;
-    final importing = store.applyImport(plan);
-    await barrier.enteredAt(0);
-    barrier.release(0);
-    // Nothing was accepted during the commit, so the failed import leaves no
-    // trace of its own state behind.
-    expect((await importing).success, isFalse);
-    expect(store.settings.theme, isNot(ThemeModePref.dark));
-    expect(store.activeBoardId, beforeBoardId);
-    expect(store.boards.map((b) => b.id), isNot(contains('board-imported')));
-    expect(store.tasks.map((t) => t.title), isNot(contains('Imported')));
-    await expectConsistentTitles(store, ['Local']);
-  });
+  test(
+    'failed overwrite import reverts every value it brought in',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final barrier = SlotBarrier()..failSlot(0);
+      final store = await openStore(barrier: barrier);
+      store.addTasks([store.newTask('Local')]);
+      await store.flush();
+      final beforeBoardId = store.activeBoardId;
+      expect(store.settings.theme, isNot(ThemeModePref.dark));
+      // A merge import never carries settings (see ImportPreflight.inspect), so
+      // only overwrite exercises the values the rollback has to put back.
+      final plan = store.previewImport(
+        payload(newBoards('board-imported'), [
+          taskJson('imported', 'board-imported', 'Imported'),
+        ], settings: {'theme': 'dark'}),
+        'overwrite',
+      );
+      expect(plan.settings?.theme, ThemeModePref.dark);
+      barrier.armed = true;
+      final importing = store.applyImport(plan);
+      await barrier.enteredAt(0);
+      barrier.release(0);
+      // Nothing was accepted during the commit, so the failed import leaves no
+      // trace of its own state behind.
+      expect((await importing).success, isFalse);
+      expect(store.settings.theme, isNot(ThemeModePref.dark));
+      expect(store.activeBoardId, beforeBoardId);
+      expect(store.boards.map((b) => b.id), isNot(contains('board-imported')));
+      expect(store.tasks.map((t) => t.title), isNot(contains('Imported')));
+      await expectConsistentTitles(store, ['Local']);
+    },
+  );
 
   test(
     'failed import does not roll back a credential accepted during its commit',
@@ -680,15 +680,13 @@ void main() {
       store.addTasks([store.newTask('Local')]);
       await store.flush();
       final plan = store.previewImport(
-        payload(
-          newBoards('board-imported'),
-          [taskJson('imported', 'board-imported', 'Imported')],
-          aiConfig: {
-            'provider': 'custom',
-            'protocol': 'openai-compatible',
-            'customApiKey': 'synthetic-backup-key',
-          },
-        ),
+        payload(newBoards('board-imported'), [
+          taskJson('imported', 'board-imported', 'Imported'),
+        ], aiConfig: {
+          'provider': 'custom',
+          'protocol': 'openai-compatible',
+          'customApiKey': 'synthetic-backup-key',
+        }),
         'overwrite',
       );
       expect(plan.hasCredential, isTrue);

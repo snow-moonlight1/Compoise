@@ -639,16 +639,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('edit-time-btn')));
     await tester.pumpAndSettle();
-    await chooseTaskMoment(
-      tester,
-      'reminder-quick-custom',
-      DateTime(
-        DateTime.now().year,
-        DateTime.now().month,
-        DateTime.now().day + 1,
-        9,
-      ),
-    );
+    await chooseTaskMoment(tester, 'reminder-quick-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 9));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('time-confirm')));
     await tester.pumpAndSettle();

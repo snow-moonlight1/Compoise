@@ -105,29 +105,26 @@ void main() {
     });
   });
 
-  test(
-    'a queue disposed on the way writes nothing further and still drains',
-    () async {
-      final writer = GatedWriter();
-      final (store, _) = await makeStore(
-        boards: [board('board-d')],
-        tasks: [task('kept', 'board-d')],
-        saveWriter: writer.call,
-      );
-      expect(writer.batches, hasLength(1));
+  test('a queue disposed on the way writes nothing further and still drains', () async {
+    final writer = GatedWriter();
+    final (store, _) = await makeStore(
+      boards: [board('board-d')],
+      tasks: [task('kept', 'board-d')],
+      saveWriter: writer.call,
+    );
+    expect(writer.batches, hasLength(1));
 
-      store.addTasks([task('dropped', 'board-d')]);
-      store.dispose();
-      await drainTestStores();
+    store.addTasks([task('dropped', 'board-d')]);
+    store.dispose();
+    await drainTestStores();
 
-      expect(
-        writer.batches,
-        hasLength(1),
-        reason: 'dispose stops the queue before the next batch is derived',
-      );
-      expect(store.tasks.map((item) => item.id).toSet(), {'kept', 'dropped'});
-    },
-  );
+    expect(
+      writer.batches,
+      hasLength(1),
+      reason: 'dispose stops the queue before the next batch is derived',
+    );
+    expect(store.tasks.map((item) => item.id).toSet(), {'kept', 'dropped'});
+  });
 
   test('a store whose init failed still drains and writes nothing', () async {
     final writer = GatedWriter();
@@ -175,8 +172,7 @@ void main() {
     expect(
       firstWriter.committed,
       hasLength(1),
-      reason:
-          'the first library committed before the second case seed replaced it',
+      reason: 'the first library committed before the second case seed replaced it',
     );
     final prefs = await SharedPreferences.getInstance();
     final committed = SaveProtocol.readCommitted(prefs.get)?.values[kTasks];

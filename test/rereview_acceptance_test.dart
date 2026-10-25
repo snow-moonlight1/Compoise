@@ -51,32 +51,35 @@ Future<Store> importingStore(GatedAlignment reminders) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('Rflush waits for a reminder repair accepted while it waits', () async {
-    final reminders = GatedAlignment();
-    final store = await importingStore(reminders);
-    var flushDone = false;
-    final flushing = store.flush(includeReminderLedger: true).then((result) {
-      flushDone = true;
-      return result;
-    });
-    final edited = Task.fromJson(store.tasks.single.toJson())
-      ..reminderAt =
-          store.tasks.single.reminderAt! +
-          const Duration(days: 1).inMilliseconds;
-    store.updateTask(edited);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    reminders.release[0].complete();
-    await reminders.entered[1].future;
-    await Future<void>.delayed(Duration.zero);
-    expect(flushDone, isFalse);
-    reminders.release[1].complete();
-    final result = await flushing;
-    expect(result.success, isTrue);
-    expect(flushDone, isTrue);
-    expect(reminders.scheduled.values.single.triggerAtMs, edited.reminderAt);
-    await store.flush();
-    store.dispose();
-  });
+  test(
+    'Rflush waits for a reminder repair accepted while it waits',
+    () async {
+      final reminders = GatedAlignment();
+      final store = await importingStore(reminders);
+      var flushDone = false;
+      final flushing = store.flush(includeReminderLedger: true).then((result) {
+        flushDone = true;
+        return result;
+      });
+      final edited = Task.fromJson(store.tasks.single.toJson())
+        ..reminderAt =
+            store.tasks.single.reminderAt! +
+            const Duration(days: 1).inMilliseconds;
+      store.updateTask(edited);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      reminders.release[0].complete();
+      await reminders.entered[1].future;
+      await Future<void>.delayed(Duration.zero);
+      expect(flushDone, isFalse);
+      reminders.release[1].complete();
+      final result = await flushing;
+      expect(result.success, isTrue);
+      expect(flushDone, isTrue);
+      expect(reminders.scheduled.values.single.triggerAtMs, edited.reminderAt);
+      await store.flush();
+      store.dispose();
+    },
+  );
 
   test('Rflush waits for a deletion accepted while it waits', () async {
     final reminders = GatedAlignment();
@@ -99,40 +102,43 @@ void main() {
     store.dispose();
   });
 
-  test('Rflush waits for a second import accepted while it waits', () async {
-    final reminders = GatedAlignment();
-    final store = await importingStore(reminders);
-    var flushDone = false;
-    final flushing = store.flush(includeReminderLedger: true).then((result) {
-      flushDone = true;
-      return result;
-    });
-    final secondWhen = DateTime.now()
-        .add(const Duration(days: 4))
-        .millisecondsSinceEpoch;
-    final second = store.applyImport(
-      store.previewImport(
-        fixture.payload(fixture.currentBoards(store), [
-          {
-            ...fixture.taskJson('later', store.activeBoardId, 'Later'),
-            'reminderAt': secondWhen,
-          },
-        ]),
-        'merge',
-      ),
-    );
-    reminders.release[0].complete();
-    await reminders.entered[1].future;
-    expect(flushDone, isFalse);
-    reminders.release[1].complete();
-    expect((await second).success, isTrue);
-    expect((await flushing).success, isTrue);
-    expect(
-      reminders.scheduled.values.map((item) => item.triggerAtMs),
-      contains(secondWhen),
-    );
-    store.dispose();
-  });
+  test(
+    'Rflush waits for a second import accepted while it waits',
+    () async {
+      final reminders = GatedAlignment();
+      final store = await importingStore(reminders);
+      var flushDone = false;
+      final flushing = store.flush(includeReminderLedger: true).then((result) {
+        flushDone = true;
+        return result;
+      });
+      final secondWhen = DateTime.now()
+          .add(const Duration(days: 4))
+          .millisecondsSinceEpoch;
+      final second = store.applyImport(
+        store.previewImport(
+          fixture.payload(fixture.currentBoards(store), [
+            {
+              ...fixture.taskJson('later', store.activeBoardId, 'Later'),
+              'reminderAt': secondWhen,
+            },
+          ]),
+          'merge',
+        ),
+      );
+      reminders.release[0].complete();
+      await reminders.entered[1].future;
+      expect(flushDone, isFalse);
+      reminders.release[1].complete();
+      expect((await second).success, isTrue);
+      expect((await flushing).success, isTrue);
+      expect(
+        reminders.scheduled.values.map((item) => item.triggerAtMs),
+        contains(secondWhen),
+      );
+      store.dispose();
+    },
+  );
 
   test('Ra library past both the count and file limits round-trips', () async {
     SharedPreferences.setMockInitialValues({});
@@ -169,11 +175,7 @@ void main() {
         jsonDecode(bundle.parts[i].json) as Map<String, dynamic>,
         i == 0 ? 'overwrite' : 'merge',
       );
-      expect(
-        (await empty.applyImport(plan)).success,
-        isTrue,
-        reason: 'part $i',
-      );
+      expect((await empty.applyImport(plan)).success, isTrue, reason: 'part $i');
     }
     expect(empty.boards.length, store.boards.length);
     expect(empty.tasks.single.notesMarkdown, note);

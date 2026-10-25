@@ -93,8 +93,7 @@ void main() {
       expect(
         find.byType(TaskListView),
         findsOneWidget,
-        reason:
-            'Reparenting the transition for the sidebar must not lose exit completion',
+        reason: 'Reparenting the transition for the sidebar must not lose exit completion',
       );
       await finish(tester, store);
     },
@@ -117,8 +116,7 @@ void main() {
     expect(
       find.text('Review task'),
       findsOneWidget,
-      reason:
-          'At transition frame zero the completion snapshot must still be visible',
+      reason: 'At transition frame zero the completion snapshot must still be visible',
     );
     expect(
       identical(

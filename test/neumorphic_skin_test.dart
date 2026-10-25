@@ -56,12 +56,10 @@ void main() {
 
     expect(find.byType(NeuRaised), findsWidgets);
     final raised = tester.widget<DecoratedBox>(
-      find
-          .descendant(
-            of: find.byType(TaskCard),
-            matching: find.byType(DecoratedBox),
-          )
-          .first,
+      find.descendant(
+        of: find.byType(TaskCard),
+        matching: find.byType(DecoratedBox),
+      ).first,
     );
     final box = raised.decoration as BoxDecoration;
     expect(box.color, skin.canvas);

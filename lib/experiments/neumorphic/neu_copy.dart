@@ -109,7 +109,8 @@ class NeuCopy {
     statusBlocked: '样本里的删除被拦住了，没有删除任何任务。',
     compare: '比较外观',
     stateMatrixTitle: '状态样本：填充、边框和图标，不只靠阴影',
-    recommendation: '这一页只是单独样本，应用里已经不再从这里进入。同一套粗描边可以由设置里的开关用到整份应用。这里的阴影只是装饰。',
+    recommendation:
+        '这一页只是单独样本，应用里已经不再从这里进入。同一套粗描边可以由设置里的开关用到整份应用。这里的阴影只是装饰。',
   );
 
   static const en = NeuCopy(

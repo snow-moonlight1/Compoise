@@ -49,7 +49,9 @@ void main() {
     );
   }
 
-  testWidgets('a long list mounts only the visible window', (tester) async {
+  testWidgets('a long list mounts only the visible window', (
+    tester,
+  ) async {
     final harness = await pumpList(
       tester,
       seed: (store) => [
@@ -63,7 +65,9 @@ void main() {
     await finish(tester, harness.store);
   });
 
-  testWidgets('list scroll offset survives a new TaskListView', (tester) async {
+  testWidgets('list scroll offset survives a new TaskListView', (
+    tester,
+  ) async {
     final harness = await pumpList(
       tester,
       seed: (store) => [
@@ -86,7 +90,9 @@ void main() {
     await finish(tester, harness.store);
   });
 
-  testWidgets('a visible row still plays the exit animation', (tester) async {
+  testWidgets('a visible row still plays the exit animation', (
+    tester,
+  ) async {
     final harness = await pumpList(
       tester,
       settings: AppSettings(hideCompleted: true),
@@ -109,43 +115,44 @@ void main() {
     await finish(tester, harness.store);
   });
 
-  testWidgets('parent expansion remains after the row leaves and returns', (
-    tester,
-  ) async {
-    final harness = await pumpList(
-      tester,
-      seed: (store) {
-        final parent = Task(
-          id: 'parent-os22',
-          boardId: store.activeBoardId,
-          title: '父任务',
-          quadrant: qDo,
-          createdAt: 1,
-          subtasks: [SubTask(id: 'child-os22', title: '子任务')],
-        );
-        return [
-          parent,
-          for (var i = 0; i < 30; i++) store.newTask('填充 $i', quadrant: qDo),
-        ];
-      },
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('expand-parent-os22')));
-    await tester.pump();
-    expect(find.text('子任务'), findsOneWidget);
+  testWidgets(
+    'parent expansion remains after the row leaves and returns',
+    (tester) async {
+      final harness = await pumpList(
+        tester,
+        seed: (store) {
+          final parent = Task(
+            id: 'parent-os22',
+            boardId: store.activeBoardId,
+            title: '父任务',
+            quadrant: qDo,
+            createdAt: 1,
+            subtasks: [SubTask(id: 'child-os22', title: '子任务')],
+          );
+          return [
+            parent,
+            for (var i = 0; i < 30; i++) store.newTask('填充 $i', quadrant: qDo),
+          ];
+        },
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('expand-parent-os22')));
+      await tester.pump();
+      expect(find.text('子任务'), findsOneWidget);
 
-    final scrollable = primaryScrollable(tester);
-    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
-    await tester.pump();
-    expect(find.text('子任务'), findsNothing);
+      final scrollable = primaryScrollable(tester);
+      scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+      await tester.pump();
+      expect(find.text('子任务'), findsNothing);
 
-    scrollable.position.jumpTo(0);
-    await tester.pump();
-    expect(find.text('父任务'), findsOneWidget);
-    expect(find.text('子任务'), findsOneWidget);
-    expect(harness.key.currentState!.expanded, contains('parent-os22'));
-    await finish(tester, harness.store);
-  });
+      scrollable.position.jumpTo(0);
+      await tester.pump();
+      expect(find.text('父任务'), findsOneWidget);
+      expect(find.text('子任务'), findsOneWidget);
+      expect(harness.key.currentState!.expanded, contains('parent-os22'));
+      await finish(tester, harness.store);
+    },
+  );
 }
 
 class _Host extends StatefulWidget {

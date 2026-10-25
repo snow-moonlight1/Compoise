@@ -26,169 +26,147 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Onboarding & Tutorial Help Panel', () {
-    testWidgets(
-      'fresh launch automatically presents OnboardingScreen and can be completed',
-      (tester) async {
-        final (store, _) = await makeStore(hasSeenOnboarding: false);
-        expect(store.hasSeenOnboarding, isFalse);
+    testWidgets('fresh launch automatically presents OnboardingScreen and can be completed', (tester) async {
+      final (store, _) = await makeStore(hasSeenOnboarding: false);
+      expect(store.hasSeenOnboarding, isFalse);
 
-        await tester.pumpWidget(wrapApp(store, const MatrixHome()));
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(wrapApp(store, const MatrixHome()));
+      await tester.pumpAndSettle();
 
-        // Onboarding screen automatically popped up
-        expect(find.byType(OnboardingScreen), findsOneWidget);
-        expect(find.text(store.t['onboardingStep1Title']!), findsOneWidget);
+      // Onboarding screen automatically popped up
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      expect(find.text(store.t['onboardingStep1Title']!), findsOneWidget);
 
-        // Slide 1: Next button visible, Previous not visible
-        expect(
-          find.byKey(const ValueKey('onboarding-next-btn')),
-          findsOneWidget,
-        );
-        expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsNothing);
+      // Slide 1: Next button visible, Previous not visible
+      expect(find.byKey(const ValueKey('onboarding-next-btn')), findsOneWidget);
+      expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsNothing);
 
-        // Navigate to Slide 2
+      // Navigate to Slide 2
+      await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
+      await tester.pumpAndSettle();
+      expect(find.text(store.t['onboardingStep2Title']!), findsOneWidget);
+      expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsOneWidget);
+
+      // Navigate back to Slide 1
+      await tester.tap(find.byKey(const ValueKey('onboarding-prev-btn')));
+      await tester.pumpAndSettle();
+      expect(find.text(store.t['onboardingStep1Title']!), findsOneWidget);
+
+      // Navigate all the way to Slide 5
+      for (int i = 0; i < 4; i++) {
         await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
         await tester.pumpAndSettle();
-        expect(find.text(store.t['onboardingStep2Title']!), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('onboarding-prev-btn')),
-          findsOneWidget,
-        );
+      }
+      expect(find.text(store.t['onboardingStep5Title']!), findsOneWidget);
+      expect(find.text(store.t['onboardingStart']!), findsOneWidget);
 
-        // Navigate back to Slide 1
-        await tester.tap(find.byKey(const ValueKey('onboarding-prev-btn')));
-        await tester.pumpAndSettle();
-        expect(find.text(store.t['onboardingStep1Title']!), findsOneWidget);
+      // Tap "Get Started"
+      await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
+      await tester.pumpAndSettle();
 
-        // Navigate all the way to Slide 5
-        for (int i = 0; i < 4; i++) {
-          await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
-          await tester.pumpAndSettle();
-        }
-        expect(find.text(store.t['onboardingStep5Title']!), findsOneWidget);
-        expect(find.text(store.t['onboardingStart']!), findsOneWidget);
+      // Onboarding dismissed, store marked as seen
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(store.hasSeenOnboarding, isTrue);
 
-        // Tap "Get Started"
-        await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    });
 
-        // Onboarding dismissed, store marked as seen
-        expect(find.byType(OnboardingScreen), findsNothing);
-        expect(store.hasSeenOnboarding, isTrue);
+    testWidgets('skip button marks onboarding as complete and does not reopen on next launch', (tester) async {
+      final (store, _) = await makeStore(hasSeenOnboarding: false);
+      expect(store.hasSeenOnboarding, isFalse);
 
-        await tester.pumpWidget(const SizedBox());
-        store.dispose();
-      },
-    );
+      await tester.pumpWidget(wrapApp(store, const MatrixHome()));
+      await tester.pumpAndSettle();
 
-    testWidgets(
-      'skip button marks onboarding as complete and does not reopen on next launch',
-      (tester) async {
-        final (store, _) = await makeStore(hasSeenOnboarding: false);
-        expect(store.hasSeenOnboarding, isFalse);
+      expect(find.byType(OnboardingScreen), findsOneWidget);
 
-        await tester.pumpWidget(wrapApp(store, const MatrixHome()));
-        await tester.pumpAndSettle();
+      // Tap "Skip"
+      await tester.tap(find.byKey(const ValueKey('onboarding-skip-btn')));
+      await tester.pumpAndSettle();
 
-        expect(find.byType(OnboardingScreen), findsOneWidget);
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(store.hasSeenOnboarding, isTrue);
 
-        // Tap "Skip"
-        await tester.tap(find.byKey(const ValueKey('onboarding-skip-btn')));
-        await tester.pumpAndSettle();
+      // Simulate next launch / reboot with store where hasSeenOnboarding is true
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(wrapApp(store, const MatrixHome()));
+      await tester.pumpAndSettle();
 
-        expect(find.byType(OnboardingScreen), findsNothing);
-        expect(store.hasSeenOnboarding, isTrue);
+      // Does NOT pop up onboarding screen
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(find.byType(MatrixHome), findsOneWidget);
 
-        // Simulate next launch / reboot with store where hasSeenOnboarding is true
-        await tester.pumpWidget(const SizedBox());
-        await tester.pumpWidget(wrapApp(store, const MatrixHome()));
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    });
 
-        // Does NOT pop up onboarding screen
-        expect(find.byType(OnboardingScreen), findsNothing);
-        expect(find.byType(MatrixHome), findsOneWidget);
+    testWidgets('SettingsScreen provides entry to reopen tutorial in review mode', (tester) async {
+      final (store, _) = await makeStore();
+      store.completeOnboarding();
+      expect(store.hasSeenOnboarding, isTrue);
 
-        await tester.pumpWidget(const SizedBox());
-        store.dispose();
-      },
-    );
+      await tester.pumpWidget(wrapApp(store, const SettingsScreen()));
+      await tester.pumpAndSettle();
 
-    testWidgets(
-      'SettingsScreen provides entry to reopen tutorial in review mode',
-      (tester) async {
-        final (store, _) = await makeStore();
-        store.completeOnboarding();
-        expect(store.hasSeenOnboarding, isTrue);
+      // Scroll into view to build lazily in ListView
+      final reopenTile = find.byKey(const ValueKey('reopen-onboarding-btn'));
+      await tester.scrollUntilVisible(
+        reopenTile,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(reopenTile, findsOneWidget);
 
-        await tester.pumpWidget(wrapApp(store, const SettingsScreen()));
-        await tester.pumpAndSettle();
+      await tester.tap(reopenTile);
+      await tester.pumpAndSettle();
 
-        // Scroll into view to build lazily in ListView
-        final reopenTile = find.byKey(const ValueKey('reopen-onboarding-btn'));
-        await tester.scrollUntilVisible(
-          reopenTile,
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        expect(reopenTile, findsOneWidget);
+      // Opens in review mode
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      expect(find.text(store.t['onboarding']!), findsOneWidget);
+      expect(find.text(store.t['onboardingClose']!), findsOneWidget);
 
-        await tester.tap(reopenTile);
-        await tester.pumpAndSettle();
+      // Close button exits review mode without corrupting store state
+      await tester.tap(find.byKey(const ValueKey('onboarding-skip-btn')));
+      await tester.pumpAndSettle();
 
-        // Opens in review mode
-        expect(find.byType(OnboardingScreen), findsOneWidget);
-        expect(find.text(store.t['onboarding']!), findsOneWidget);
-        expect(find.text(store.t['onboardingClose']!), findsOneWidget);
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(store.hasSeenOnboarding, isTrue);
 
-        // Close button exits review mode without corrupting store state
-        await tester.tap(find.byKey(const ValueKey('onboarding-skip-btn')));
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    });
 
-        expect(find.byType(OnboardingScreen), findsNothing);
-        expect(store.hasSeenOnboarding, isTrue);
+    testWidgets('Onboarding renders localized strings for Chinese and Japanese', (tester) async {
+      // Chinese
+      final (storeZh, _) = await makeStore(
+        settings: AppSettings(language: Language.zh),
+      );
+      await tester.pumpWidget(wrapApp(storeZh, const OnboardingScreen(isReviewMode: true)));
+      await tester.pumpAndSettle();
 
-        await tester.pumpWidget(const SizedBox());
-        store.dispose();
-      },
-    );
+      expect(find.text(storeZh.t['onboardingStep1Title']!), findsOneWidget);
+      expect(find.text('四象限矩阵与快速添加'), findsOneWidget);
+      expect(find.text('下一步'), findsOneWidget);
 
-    testWidgets(
-      'Onboarding renders localized strings for Chinese and Japanese',
-      (tester) async {
-        // Chinese
-        final (storeZh, _) = await makeStore(
-          settings: AppSettings(language: Language.zh),
-        );
-        await tester.pumpWidget(
-          wrapApp(storeZh, const OnboardingScreen(isReviewMode: true)),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      storeZh.dispose();
 
-        expect(find.text(storeZh.t['onboardingStep1Title']!), findsOneWidget);
-        expect(find.text('四象限矩阵与快速添加'), findsOneWidget);
-        expect(find.text('下一步'), findsOneWidget);
+      // Japanese
+      final (storeJa, _) = await makeStore(
+        settings: AppSettings(language: Language.ja),
+      );
+      await tester.pumpWidget(wrapApp(storeJa, const OnboardingScreen(isReviewMode: true)));
+      await tester.pumpAndSettle();
 
-        await tester.pumpWidget(const SizedBox());
-        storeZh.dispose();
+      expect(find.text(storeJa.t['onboardingStep1Title']!), findsOneWidget);
+      expect(find.text('アイゼンハワーマトリクスと高速追加'), findsOneWidget);
+      expect(find.text('次へ'), findsOneWidget);
 
-        // Japanese
-        final (storeJa, _) = await makeStore(
-          settings: AppSettings(language: Language.ja),
-        );
-        await tester.pumpWidget(
-          wrapApp(storeJa, const OnboardingScreen(isReviewMode: true)),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text(storeJa.t['onboardingStep1Title']!), findsOneWidget);
-        expect(find.text('アイゼンハワーマトリクスと高速追加'), findsOneWidget);
-        expect(find.text('次へ'), findsOneWidget);
-
-        await tester.pumpWidget(const SizedBox());
-        storeJa.dispose();
-      },
-    );
+      await tester.pumpWidget(const SizedBox());
+      storeJa.dispose();
+    });
 
     testWidgets('Escape shortcut finishes onboarding', (tester) async {
       final (store, _) = await makeStore();

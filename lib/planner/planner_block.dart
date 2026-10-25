@@ -12,12 +12,7 @@ import 'planner_skin.dart';
 import 'schedule_edit_session.dart';
 
 typedef PlannerDragBuilder =
-    Widget Function(
-      ScheduleEditMode mode,
-      Widget child, {
-      Key? key,
-      Size? size,
-    });
+    Widget Function(ScheduleEditMode mode, Widget child, {Key? key, Size? size});
 
 /// Extra room above and below a selected block for the round edge handles.
 /// It keeps each handle's 48 dp touch target inside the block's own bounds.

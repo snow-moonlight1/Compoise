@@ -94,9 +94,10 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
   late final AnimationController _listFade = AnimationController(
     vsync: this,
     duration: MotionPolicy.listFade,
-    value: _inListMode && widget.focusedQuadrant != null && !widget.fadeOutOnly
-        ? 0
-        : 1,
+    value:
+        _inListMode && widget.focusedQuadrant != null && !widget.fadeOutOnly
+            ? 0
+            : 1,
   )..addStatusListener(_onListFadeStatus);
 
   /// Bumped on every list fade-out start or cancel so a stale dismissed
@@ -275,10 +276,15 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
     final size = _lastSize;
     if (size != null && size.width > 0 && size.height > 0) {
       final current = _currentRects(size, t);
-      _frozenRelFrom = [for (final rect in current) _relativize(rect, size)];
+      _frozenRelFrom = [
+        for (final rect in current) _relativize(rect, size),
+      ];
       final fromBlend = _frozenFromBlend ?? _blendOf(_fromState);
-      _frozenFromBlend = fromBlend + (_blendOf(_toState) - fromBlend) * t;
-      _frozenPaneOpacity = [for (final q in allQuadrants) _paneOpacityAt(q, t)];
+      _frozenFromBlend =
+          fromBlend + (_blendOf(_toState) - fromBlend) * t;
+      _frozenPaneOpacity = [
+        for (final q in allQuadrants) _paneOpacityAt(q, t),
+      ];
     } else {
       _frozenRelFrom = null;
       _frozenFromBlend = null;
@@ -323,9 +329,10 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
   );
 
   List<Rect> _currentRects(Size size, double t) {
-    final from = _frozenRelFrom != null
-        ? [for (final rect in _frozenRelFrom!) _absolutize(rect, size)]
-        : _layoutFor(size, _fromState).rects;
+    final from =
+        _frozenRelFrom != null
+            ? [for (final rect in _frozenRelFrom!) _absolutize(rect, size)]
+            : _layoutFor(size, _fromState).rects;
     final to = _layoutFor(size, _toState).rects;
     return [for (var i = 0; i < 4; i++) Rect.lerp(from[i], to[i], t)!];
   }
@@ -365,7 +372,12 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
     final cardsTop = mainH + gap;
 
     final rects = List<Rect>.filled(allQuadrants.length, Rect.zero);
-    rects[allQuadrants.indexOf(focus)] = Rect.fromLTWH(0, 0, size.width, mainH);
+    rects[allQuadrants.indexOf(focus)] = Rect.fromLTWH(
+      0,
+      0,
+      size.width,
+      mainH,
+    );
     for (var i = 0; i < others.length; i++) {
       final idx = allQuadrants.indexOf(others[i]);
       if (stackCards) {
@@ -390,7 +402,8 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
     List<String> titles,
     bool stackCards,
   ) {
-    final cardW = stackCards ? size.width - 12 : (size.width - 12 - 12) / 3;
+    final cardW =
+        stackCards ? size.width - 12 : (size.width - 12 - 12) / 3;
     final titleW = math.max(24.0, cardW - 16);
     var maxTitleH = 0.0;
     for (final title in titles) {
@@ -449,111 +462,110 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
 
     return AnimatedBuilder(
       animation: _geometry,
-      builder: (context, _) => LayoutBuilder(
-        builder: (context, constraints) {
-          final boundedH = constraints.maxHeight.isFinite
-              ? constraints.maxHeight
-              : 440.0;
-          final needsScroll = boundedH < 440;
-          final size = Size(
-            constraints.maxWidth,
-            needsScroll ? 440.0 : boundedH,
-          );
-          _lastSize = size;
+      builder:
+          (context, _) => LayoutBuilder(
+            builder: (context, constraints) {
+        final boundedH =
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 440.0;
+        final needsScroll = boundedH < 440;
+        final size = Size(
+          constraints.maxWidth,
+          needsScroll ? 440.0 : boundedH,
+        );
+        _lastSize = size;
 
-          final progress = Curves.easeInOutCubic.transform(_geometry.value);
-          final rects = _currentRects(size, progress);
-          final toLayout = _layoutFor(size, _toState);
-          final animating = _geometry.isAnimating;
+        final progress = Curves.easeInOutCubic.transform(_geometry.value);
+        final rects = _currentRects(size, progress);
+        final toLayout = _layoutFor(size, _toState);
+        final animating = _geometry.isAnimating;
 
-          final fromBlend = _frozenFromBlend ?? _blendOf(_fromState);
-          final focusBlend =
-              fromBlend + (_blendOf(_toState) - fromBlend) * progress;
+        final fromBlend = _frozenFromBlend ?? _blendOf(_fromState);
+        final focusBlend =
+            fromBlend + (_blendOf(_toState) - fromBlend) * progress;
 
-          final topQuadrant = _toState ?? allQuadrants.first;
-          final orderedQuadrants = [
-            for (final q in allQuadrants)
-              if (q != topQuadrant) q,
-            topQuadrant,
-          ];
+        final topQuadrant = _toState ?? allQuadrants.first;
+        final orderedQuadrants = [
+          for (final q in allQuadrants)
+            if (q != topQuadrant) q,
+          topQuadrant,
+        ];
 
-          final children = <Widget>[
-            // Cross divider of the matrix, fading out with focus; and the
-            // divider above the collapsed cards, fading in.
-            Positioned(
-              key: const ValueKey('matrix-divider-v'),
-              left: size.width / 2 - cross / 2,
-              top: 0,
-              width: cross,
-              height: size.height,
-              child: Opacity(
-                opacity: 1 - focusBlend,
-                child: ColoredBox(color: crossColor),
-              ),
-            ),
-            Positioned(
-              key: const ValueKey('matrix-divider-h'),
-              top: size.height / 2 - cross / 2,
-              left: 0,
-              height: cross,
-              width: size.width,
-              child: Opacity(
-                opacity: 1 - focusBlend,
-                child: ColoredBox(color: crossColor),
-              ),
-            ),
-            Positioned(
-              top: toLayout.cardsTop - 5,
-              left: 0,
-              height: 1,
-              width: size.width,
-              child: Opacity(
-                opacity: focusBlend,
-                child: ColoredBox(color: hairline),
-              ),
-            ),
-            if (_toState != null && !widget.fadeOutOnly)
-              const Positioned(
-                left: 0,
-                top: 0,
-                child: SizedBox.shrink(key: ValueKey('focus-view-active')),
-              ),
-            for (final q in orderedQuadrants)
-              _buildRegion(
-                q: q,
-                rect: rects[allQuadrants.indexOf(q)],
-                progress: progress,
-                animating: animating,
-                store: store,
-                t: t,
-              ),
-          ];
-
-          Widget content = SizedBox(
-            width: size.width,
+        final children = <Widget>[
+          // Cross divider of the matrix, fading out with focus; and the
+          // divider above the collapsed cards, fading in.
+          Positioned(
+            key: const ValueKey('matrix-divider-v'),
+            left: size.width / 2 - cross / 2,
+            top: 0,
+            width: cross,
             height: size.height,
-            child: Stack(children: children),
-          );
+            child: Opacity(
+              opacity: 1 - focusBlend,
+              child: ColoredBox(color: crossColor),
+            ),
+          ),
+          Positioned(
+            key: const ValueKey('matrix-divider-h'),
+            top: size.height / 2 - cross / 2,
+            left: 0,
+            height: cross,
+            width: size.width,
+            child: Opacity(
+              opacity: 1 - focusBlend,
+              child: ColoredBox(color: crossColor),
+            ),
+          ),
+          Positioned(
+            top: toLayout.cardsTop - 5,
+            left: 0,
+            height: 1,
+            width: size.width,
+            child: Opacity(
+              opacity: focusBlend,
+              child: ColoredBox(color: hairline),
+            ),
+          ),
+          if (_toState != null && !widget.fadeOutOnly)
+            const Positioned(
+              left: 0,
+              top: 0,
+              child: SizedBox.shrink(key: ValueKey('focus-view-active')),
+            ),
+          for (final q in orderedQuadrants)
+            _buildRegion(
+              q: q,
+              rect: rects[allQuadrants.indexOf(q)],
+              progress: progress,
+              animating: animating,
+              store: store,
+              t: t,
+            ),
+        ];
 
-          if (_inListMode) {
-            content = FadeTransition(
-              opacity: _listFade,
-              child: SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(0, 0.03),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(parent: _listFade, curve: Curves.easeOut),
-                    ),
-                child: content,
+        Widget content = SizedBox(
+          width: size.width,
+          height: size.height,
+          child: Stack(children: children),
+        );
+
+        if (_inListMode) {
+          content = FadeTransition(
+            opacity: _listFade,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: _listFade, curve: Curves.easeOut),
               ),
-            );
-          }
+              child: content,
+            ),
+          );
+        }
 
-          return needsScroll ? SingleChildScrollView(child: content) : content;
-        },
-      ),
+        return needsScroll ? SingleChildScrollView(child: content) : content;
+            },
+          ),
     );
   }
 
@@ -586,39 +598,40 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
                 // Offstage and IgnorePointer do not clear keyboard focus.
                 excluding: animating || paneOpacity < 0.5,
                 child: IgnorePointer(
-                  ignoring: animating || paneOpacity < 0.5,
-                  child: ExcludeSemantics(
-                    excluding: animating || paneOpacity < 0.5,
-                    child: Opacity(
-                      opacity: paneOpacity,
-                      child: QuadrantPane(
-                        key: ValueKey('q-pane-$q'),
-                        quadrant: q,
-                        selecting: widget.selecting,
-                        selectedIds: widget.selectedIds,
-                        expandedIds: widget.expandedIds,
-                        onSelect: widget.onSelect,
-                        onToggleExpand: widget.onToggleExpand,
-                        onEnsureExpanded: widget.onEnsureExpanded,
-                        isFocused: isMain,
-                        rowLayout: isMain
-                            ? TaskRowLayout.hierarchical
-                            : TaskRowLayout.matrixCompact,
-                        onQuadrantTap: () {
-                          if (_toState == null) {
-                            widget.onFocusQuadrant(q);
-                          } else if (_toState == q) {
-                            widget.onExitFocus();
-                          } else {
-                            widget.onFocusQuadrant(q);
-                          }
-                        },
-                        onEdit: widget.onEdit,
-                        onEditSubtask: widget.onEditSubtask,
-                        onMoveSelected: widget.onMoveSelected,
-                      ),
+                ignoring: animating || paneOpacity < 0.5,
+                child: ExcludeSemantics(
+                  excluding: animating || paneOpacity < 0.5,
+                  child: Opacity(
+                    opacity: paneOpacity,
+                    child: QuadrantPane(
+                      key: ValueKey('q-pane-$q'),
+                      quadrant: q,
+                      selecting: widget.selecting,
+                      selectedIds: widget.selectedIds,
+                      expandedIds: widget.expandedIds,
+                      onSelect: widget.onSelect,
+                      onToggleExpand: widget.onToggleExpand,
+                      onEnsureExpanded: widget.onEnsureExpanded,
+                      isFocused: isMain,
+                      rowLayout:
+                          isMain
+                              ? TaskRowLayout.hierarchical
+                              : TaskRowLayout.matrixCompact,
+                      onQuadrantTap: () {
+                        if (_toState == null) {
+                          widget.onFocusQuadrant(q);
+                        } else if (_toState == q) {
+                          widget.onExitFocus();
+                        } else {
+                          widget.onFocusQuadrant(q);
+                        }
+                      },
+                      onEdit: widget.onEdit,
+                      onEditSubtask: widget.onEditSubtask,
+                      onMoveSelected: widget.onMoveSelected,
                     ),
                   ),
+                ),
                 ),
               ),
             ),
@@ -628,29 +641,29 @@ class _QuadrantTransitionLayoutState extends State<QuadrantTransitionLayout>
                 child: ExcludeFocus(
                   excluding: cardOpacity < 0.5,
                   child: IgnorePointer(
-                    // Tappable as soon as visible so a mid-animation tap can
-                    // retarget to another quadrant; drops stay gated below.
-                    ignoring: cardOpacity <= 0,
-                    child: ExcludeSemantics(
-                      excluding: cardOpacity < 0.5,
-                      child: Opacity(
-                        opacity: cardOpacity,
-                        child: _CollapsedQuadrantCard(
-                          key: ValueKey('focus-card-$q'),
-                          quadrant: q,
-                          title: t['q$q'] ?? 'Q$q',
-                          count: store.tasksIn(q).length,
-                          accent: Color(quadrantColors[q]!),
-                          selecting: widget.selecting,
-                          enabled: !animating,
-                          onTap: () => widget.onFocusQuadrant(q),
-                          selectedIds: widget.selectedIds,
-                          onDropTask: (task) => widget.selecting
-                              ? widget.onMoveSelected?.call(q)
-                              : store.moveTask(task.id, q),
-                        ),
+                  // Tappable as soon as visible so a mid-animation tap can
+                  // retarget to another quadrant; drops stay gated below.
+                  ignoring: cardOpacity <= 0,
+                  child: ExcludeSemantics(
+                    excluding: cardOpacity < 0.5,
+                    child: Opacity(
+                      opacity: cardOpacity,
+                      child: _CollapsedQuadrantCard(
+                        key: ValueKey('focus-card-$q'),
+                        quadrant: q,
+                        title: t['q$q'] ?? 'Q$q',
+                        count: store.tasksIn(q).length,
+                        accent: Color(quadrantColors[q]!),
+                        selecting: widget.selecting,
+                        enabled: !animating,
+                        onTap: () => widget.onFocusQuadrant(q),
+                        selectedIds: widget.selectedIds,
+                        onDropTask: (task) => widget.selecting
+                            ? widget.onMoveSelected?.call(q)
+                            : store.moveTask(task.id, q),
                       ),
                     ),
+                  ),
                   ),
                 ),
               ),
@@ -700,10 +713,12 @@ class _CollapsedQuadrantCardState extends State<_CollapsedQuadrantCard> {
     final store = context.read<Store>();
 
     return DragTarget<Task>(
-      onWillAcceptWithDetails: (details) =>
-          widget.enabled &&
-          (!widget.selecting || widget.selectedIds.contains(details.data.id)) &&
-          details.data.boardId == store.activeBoardId,
+      onWillAcceptWithDetails:
+          (details) =>
+              widget.enabled &&
+              (!widget.selecting ||
+                  widget.selectedIds.contains(details.data.id)) &&
+              details.data.boardId == store.activeBoardId,
       onMove: (_) {
         if (!_hovering) setState(() => _hovering = true);
       },
@@ -734,66 +749,66 @@ class _CollapsedQuadrantCardState extends State<_CollapsedQuadrantCard> {
           maxHeight: double.infinity,
           alignment: Alignment.topLeft,
           child: Material(
-            color: bgColor,
+          color: bgColor,
+          borderRadius: corner,
+          child: InkWell(
             borderRadius: corner,
-            child: InkWell(
-              borderRadius: corner,
-              onTap: widget.onTap,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: corner,
-                  border: Border.all(
-                    color: borderColor,
-                    width: isHovered ? 1.5 : 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: widget.accent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          '${widget.count}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: widget.accent,
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 14,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.35,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        height: 1.15,
-                      ),
-                    ),
-                  ],
+            onTap: widget.onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: corner,
+                border: Border.all(
+                  color: borderColor,
+                  width: isHovered ? 1.5 : 1,
                 ),
               ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: widget.accent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${widget.count}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: widget.accent,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 14,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    widget.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      height: 1.15,
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ),
           ),
         );
       },

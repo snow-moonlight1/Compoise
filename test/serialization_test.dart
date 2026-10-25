@@ -27,11 +27,9 @@ const bool _capture =
 
 // --- locked format goldens ---------------------------------------------------
 
-const String goldenSlotRev1 =
-    '{"revision":1,"values":{"compoise-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\compoise\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","compoise-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","compoise-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","compoise-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","compoise-active-board":"board \\"quoted\\" \\\\ back 🎯","compoise-has-seen-onboarding":"true"},"check":2460819076}';
+const String goldenSlotRev1 = '{"revision":1,"values":{"compoise-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\compoise\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","compoise-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","compoise-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","compoise-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","compoise-active-board":"board \\"quoted\\" \\\\ back 🎯","compoise-has-seen-onboarding":"true"},"check":2460819076}';
 const int goldenCheckRev1 = 2460819076;
-const String goldenSlotRev2 =
-    '{"revision":2,"values":{"compoise-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\compoise\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","compoise-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","compoise-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","compoise-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","compoise-active-board":"board \\"quoted\\" \\\\ back 🎯","compoise-has-seen-onboarding":"true"},"check":2510888581}';
+const String goldenSlotRev2 = '{"revision":2,"values":{"compoise-tasks":"[{\\"id\\":\\"t1\\",\\"title\\":\\"整理季度复盘 \\\\\\"Q1\\\\\\" 🎯\\",\\"notes\\":\\"第一行\\\\n第二行\\\\t制表\\\\u0001\\\\u0007bell\\",\\"path\\":\\"C:\\\\\\\\Dev\\\\\\\\compoise\\\\\\\\src\\",\\"markup\\":\\"\\\\\\"<b>&amp;</b>\\\\\\" 100% \$free {not interpolated}\\",\\"empty\\":\\"\\",\\"subtasks\\":[{\\"id\\":\\"s1\\",\\"title\\":\\"子步骤 \\\\\\\\ 1 \\\\\\"x\\\\\\"\\"}]}]","compoise-boards":"[{\\"id\\":\\"board-1\\",\\"name\\":\\"测量 \\\\\\"板\\\\\\"\\",\\"createdAt\\":0}]","compoise-config":"{\\"provider\\":\\"custom\\",\\"baseUrl\\":\\"https://example.invalid/v1\\",\\"model\\":\\"synthetic \\\\\\"模型\\\\\\" 🎯\\"}","compoise-settings":"{\\"language\\":\\"zh\\",\\"fontSize\\":\\"large\\",\\"reduceMotion\\":true}","compoise-active-board":"board \\"quoted\\" \\\\ back 🎯","compoise-has-seen-onboarding":"true"},"check":2510888581}';
 const int goldenCheckRev2 = 2510888581;
 const int goldenBigPayloadBytes = 279789;
 const int goldenBigPayloadFingerprint = 1661805430;
@@ -110,12 +108,7 @@ List<Task> largeLibrary(int count) => List<Task>.generate(count, (i) {
     completed: i % 5 == 0,
     subtasks: i % 4 == 0
         ? <SubTask>[
-            SubTask(
-              id: 't$i-s0',
-              title:
-                  r'子 "步骤" \n '
-                  '$i',
-            ),
+            SubTask(id: 't$i-s0', title: r'子 "步骤" \n ' '$i'),
             SubTask(id: 't$i-s1', title: '制表\t换行\n$i', completed: true),
           ]
         : <SubTask>[],
@@ -195,10 +188,8 @@ String dartLiteral(String value) {
 
 void reportGolden(String name, Object? value) {
   // ignore: avoid_print
-  print(
-    'RF09GOLDEN $name = '
-    '${value is String ? "'${dartLiteral(value)}'" : value}',
-  );
+  print('RF09GOLDEN $name = '
+      '${value is String ? "'${dartLiteral(value)}'" : value}');
 }
 
 /// Records every key/value a commit asks for, and can fail, throw or block.
@@ -247,7 +238,11 @@ class RecordingWriter {
 int byteLen(String value) => utf8.encode(value).length;
 
 Matcher failsWith(String message) => throwsA(
-  isA<FormatException>().having((error) => error.message, 'message', message),
+  isA<FormatException>().having(
+    (error) => error.message,
+    'message',
+    message,
+  ),
 );
 
 /// Seeds the legacy keys only, so a store starts with no committed batch.
@@ -256,16 +251,12 @@ Future<void> seedLegacyPrefs(
   List<Task> tasks = const <Task>[],
 }) async {
   await prefs.clear();
-  await prefs.setString(
-    kBoards,
-    jsonEncode(<Object?>[
-      Board(id: 'board-1', name: '板', createdAt: 0).toJson(),
-    ]),
-  );
-  await prefs.setString(
-    kTasks,
-    jsonEncode(<Object?>[for (final task in tasks) task.toJson()]),
-  );
+  await prefs.setString(kBoards, jsonEncode(<Object?>[
+    Board(id: 'board-1', name: '板', createdAt: 0).toJson(),
+  ]));
+  await prefs.setString(kTasks, jsonEncode(<Object?>[
+    for (final task in tasks) task.toJson(),
+  ]));
   await prefs.setString(kActiveBoard, 'board-1');
   await prefs.setBool(kOnboarding, true);
 }
@@ -284,8 +275,13 @@ Future<Store> openStore(
   return store;
 }
 
-Task seedTask(String id, {String title = '任务'}) =>
-    Task(id: id, boardId: 'board-1', title: title, quadrant: 1, createdAt: 1);
+Task seedTask(String id, {String title = '任务'}) => Task(
+  id: id,
+  boardId: 'board-1',
+  title: title,
+  quadrant: 1,
+  createdAt: 1,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -338,79 +334,76 @@ void main() {
       expect(prefs.getBool(kOnboarding), isTrue);
     });
 
-    test(
-      'the second commit alternates slots and locks revision-2 bytes',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final writer = RecordingWriter(prefs: prefs);
-        final protocol = SaveProtocol(prefs, writer: writer.call);
-        final values = fixtureValues();
-        await protocol.commit(values);
-        final firstPayload = writer.written[slotA]!;
-        writer.reset();
-        final second = await protocol.commit(values);
+    test('the second commit alternates slots and locks revision-2 bytes',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = RecordingWriter(prefs: prefs);
+      final protocol = SaveProtocol(prefs, writer: writer.call);
+      final values = fixtureValues();
+      await protocol.commit(values);
+      final firstPayload = writer.written[slotA]!;
+      writer.reset();
+      final second = await protocol.commit(values);
 
-        expect(second.revision, 2);
-        expect(writer.order.first, slotB);
-        final payload = writer.written[slotB]!;
-        if (_capture) {
-          reportGolden('goldenSlotRev2', payload);
-          reportGolden(
-            'goldenCheckRev2',
-            (jsonDecode(payload) as Map<String, Object?>)['check'],
-          );
-        } else {
-          expect(payload, goldenSlotRev2);
-          expect(
-            (jsonDecode(payload) as Map<String, Object?>)['check'],
-            goldenCheckRev2,
-          );
-        }
-        expect(payload, referencePayload(2, values));
-        // Same framing and value bytes; only the revision digits and their check
-        // differ between the two locked payloads.
-        String bodyOf(String text) =>
-            text.substring(0, text.indexOf(',"check":'));
+      expect(second.revision, 2);
+      expect(writer.order.first, slotB);
+      final payload = writer.written[slotB]!;
+      if (_capture) {
+        reportGolden('goldenSlotRev2', payload);
+        reportGolden(
+          'goldenCheckRev2',
+          (jsonDecode(payload) as Map<String, Object?>)['check'],
+        );
+      } else {
+        expect(payload, goldenSlotRev2);
         expect(
-          bodyOf(payload),
-          bodyOf(firstPayload).replaceAll('{"revision":1', '{"revision":2'),
+          (jsonDecode(payload) as Map<String, Object?>)['check'],
+          goldenCheckRev2,
         );
-      },
-    );
+      }
+      expect(payload, referencePayload(2, values));
+      // Same framing and value bytes; only the revision digits and their check
+      // differ between the two locked payloads.
+      String bodyOf(String text) =>
+          text.substring(0, text.indexOf(',"check":'));
+      expect(
+        bodyOf(payload),
+        bodyOf(firstPayload).replaceAll('{"revision":1', '{"revision":2'),
+      );
+    });
 
-    test(
-      'a 1,000-task library keeps its locked payload bytes and check',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final writer = RecordingWriter(prefs: prefs);
-        final protocol = SaveProtocol(prefs, writer: writer.call);
-        final values = largeValues(1000);
-        await protocol.commit(values);
-        final payload = writer.written[slotA]!;
-        final decoded = jsonDecode(payload) as Map<String, Object?>;
-        if (_capture) {
-          reportGolden('goldenBigPayloadBytes', byteLen(payload));
-          reportGolden('goldenBigPayloadFingerprint', fingerprint(payload));
-          reportGolden('goldenBigCheck', decoded['check']);
-          reportGolden('goldenBigMirrorBytes', byteLen(values[kTasks]!));
-        } else {
-          expect(byteLen(payload), goldenBigPayloadBytes);
-          expect(fingerprint(payload), goldenBigPayloadFingerprint);
-          expect(decoded['check'], goldenBigCheck);
-          expect(byteLen(writer.written[kTasks]!), goldenBigMirrorBytes);
-        }
-        expect(payload, referencePayload(1, values));
-        final restored = (decoded['values'] as Map<String, Object?>).map(
-          (key, value) => MapEntry(key, value as String),
-        );
-        expect(restored.keys.toList(), values.keys.toList());
-        for (final key in values.keys) {
-          expect(restored[key], values[key], reason: key);
-        }
-      },
-    );
+    test('a 1,000-task library keeps its locked payload bytes and check',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = RecordingWriter(prefs: prefs);
+      final protocol = SaveProtocol(prefs, writer: writer.call);
+      final values = largeValues(1000);
+      await protocol.commit(values);
+      final payload = writer.written[slotA]!;
+      final decoded = jsonDecode(payload) as Map<String, Object?>;
+      if (_capture) {
+        reportGolden('goldenBigPayloadBytes', byteLen(payload));
+        reportGolden('goldenBigPayloadFingerprint', fingerprint(payload));
+        reportGolden('goldenBigCheck', decoded['check']);
+        reportGolden('goldenBigMirrorBytes', byteLen(values[kTasks]!));
+      } else {
+        expect(byteLen(payload), goldenBigPayloadBytes);
+        expect(fingerprint(payload), goldenBigPayloadFingerprint);
+        expect(decoded['check'], goldenBigCheck);
+        expect(byteLen(writer.written[kTasks]!), goldenBigMirrorBytes);
+      }
+      expect(payload, referencePayload(1, values));
+      final restored = (decoded['values'] as Map<String, Object?>).map(
+        (key, value) => MapEntry(key, value as String),
+      );
+      expect(restored.keys.toList(), values.keys.toList());
+      for (final key in values.keys) {
+        expect(restored[key], values[key], reason: key);
+      }
+    });
+
   });
 
   group('S2 checksum and damaged batch rejection', () {
@@ -483,9 +476,9 @@ void main() {
     });
 
     test('an off-by-one check fails', () async {
-      await seedValues(<String, Object?>{
-        'check': (parts(validPayload)['check'] as int) + 1,
-      });
+      await seedValues(
+        <String, Object?>{'check': (parts(validPayload)['check'] as int) + 1},
+      );
       expect(
         () => SaveProtocol(prefs).load(),
         failsWith('Committed batch checksum failed'),
@@ -497,7 +490,8 @@ void main() {
       expect(() => SaveProtocol(prefs).load(), throwsFormatException);
     });
 
-    test('a dropped value fails as incomplete, not as a silent default', () async {
+    test('a dropped value fails as incomplete, not as a silent default',
+        () async {
       final required = <String>[
         kTasks,
         kBoards,
@@ -534,15 +528,11 @@ void main() {
 
     test('a non-object payload is rejected', () async {
       await seed(payload: '[]');
-      expect(
-        () => SaveProtocol(prefs).load(),
-        failsWith('Invalid committed batch'),
-      );
+      expect(() => SaveProtocol(prefs).load(),
+          failsWith('Invalid committed batch'));
       await seed(payload: '"just a string"');
-      expect(
-        () => SaveProtocol(prefs).load(),
-        failsWith('Invalid committed batch'),
-      );
+      expect(() => SaveProtocol(prefs).load(),
+          failsWith('Invalid committed batch'));
     });
 
     test('wrong field types are rejected', () async {
@@ -577,42 +567,35 @@ void main() {
       expect(() => SaveProtocol(prefs).load(), throwsA(isA<TypeError>()));
     });
 
-    test(
-      'a batch the reader cannot use lands on the startup recovery screen',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final recoveryPrefs = await SharedPreferences.getInstance();
-        await recoveryPrefs.clear();
-        final batch = parts(validPayload);
-        final values = Map<String, Object?>.from(batch['values'] as Map)
-          ..[kSettings] = 7;
-        await recoveryPrefs.setString(
-          slotA,
-          jsonEncode(<String, Object?>{...batch, 'values': values}),
-        );
-        await recoveryPrefs.setString(SaveProtocol.pointerKey, slotA);
-        final store = Store(reminders: InMemoryReminderService());
-        await store.init();
-        expect(store.hasStartupRecovery, isTrue);
-        expect(
-          store.startupDataStates[SaveProtocol.pointerKey],
-          StartupDataState.corrupt,
-        );
-        // Nothing was rewritten: the damaged batch is still there untouched.
-        expect(
-          recoveryPrefs.getString(slotA),
-          contains('"compoise-settings":7'),
-        );
-        store.dispose();
-      },
-    );
+    test('a batch the reader cannot use lands on the startup recovery screen',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final recoveryPrefs = await SharedPreferences.getInstance();
+      await recoveryPrefs.clear();
+      final batch = parts(validPayload);
+      final values = Map<String, Object?>.from(batch['values'] as Map)
+        ..[kSettings] = 7;
+      await recoveryPrefs.setString(
+        slotA,
+        jsonEncode(<String, Object?>{...batch, 'values': values}),
+      );
+      await recoveryPrefs.setString(SaveProtocol.pointerKey, slotA);
+      final store = Store(reminders: InMemoryReminderService());
+      await store.init();
+      expect(store.hasStartupRecovery, isTrue);
+      expect(
+        store.startupDataStates[SaveProtocol.pointerKey],
+        StartupDataState.corrupt,
+      );
+      // Nothing was rewritten: the damaged batch is still there untouched.
+      expect(recoveryPrefs.getString(slotA), contains('"compoise-settings":7'));
+      store.dispose();
+    });
 
     test('an unknown pointer is rejected', () async {
       await seed(slot: false, pointer: 'compoise-save-c');
-      expect(
-        () => SaveProtocol(prefs).load(),
-        failsWith('Invalid save pointer'),
-      );
+      expect(() => SaveProtocol(prefs).load(),
+          failsWith('Invalid save pointer'));
     });
 
     test('a pointer without its committed batch is rejected', () async {
@@ -645,74 +628,68 @@ void main() {
   });
 
   group('S3 failure, retry and flush barrier', () {
-    test(
-      'a rejected slot write advances nothing and retries at the free slot',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final writer = RecordingWriter(prefs: prefs);
-        final protocol = SaveProtocol(prefs, writer: writer.call);
-        await protocol.commit(fixtureValues());
-        writer.reset();
-        final next = largeValues(1);
-        writer.reject = (key, _) => key == slotB;
+    test('a rejected slot write advances nothing and retries at the free slot',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = RecordingWriter(prefs: prefs);
+      final protocol = SaveProtocol(prefs, writer: writer.call);
+      await protocol.commit(fixtureValues());
+      writer.reset();
+      final next = largeValues(1);
+      writer.reject = (key, _) => key == slotB;
 
-        final failed = await protocol.commit(next);
-        expect(failed.success, isFalse);
-        expect(failed.committed, isFalse);
-        expect(protocol.revision, 1);
-        expect(writer.order, <String>[slotB]);
-        expect(prefs.getString(SaveProtocol.pointerKey), slotA);
-        expect(prefs.getString(slotB), isNull);
-        expect(
-          SaveProtocol(prefs).load()!.values[kTasks],
-          fixtureValues()[kTasks],
-        );
+      final failed = await protocol.commit(next);
+      expect(failed.success, isFalse);
+      expect(failed.committed, isFalse);
+      expect(protocol.revision, 1);
+      expect(writer.order, <String>[slotB]);
+      expect(prefs.getString(SaveProtocol.pointerKey), slotA);
+      expect(prefs.getString(slotB), isNull);
+      expect(SaveProtocol(prefs).load()!.values[kTasks],
+          fixtureValues()[kTasks]);
 
-        writer.reject = null;
-        final retried = await protocol.commit(next);
-        expect(retried.success, isTrue);
-        expect(retried.revision, 2);
-        expect(prefs.getString(SaveProtocol.pointerKey), slotB);
-        final batch = SaveProtocol(prefs).load()!;
-        expect(batch.revision, 2);
-        expect(batch.values[kTasks], next[kTasks]);
-      },
-    );
+      writer.reject = null;
+      final retried = await protocol.commit(next);
+      expect(retried.success, isTrue);
+      expect(retried.revision, 2);
+      expect(prefs.getString(SaveProtocol.pointerKey), slotB);
+      final batch = SaveProtocol(prefs).load()!;
+      expect(batch.revision, 2);
+      expect(batch.values[kTasks], next[kTasks]);
+    });
 
-    test(
-      'a rejected pointer write leaves the previous batch authoritative',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final writer = RecordingWriter(prefs: prefs);
-        final protocol = SaveProtocol(prefs, writer: writer.call);
-        final first = fixtureValues();
-        await protocol.commit(first);
-        final second = largeValues(1);
-        writer.reset();
-        writer.reject = (key, _) => key == SaveProtocol.pointerKey;
+    test('a rejected pointer write leaves the previous batch authoritative',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = RecordingWriter(prefs: prefs);
+      final protocol = SaveProtocol(prefs, writer: writer.call);
+      final first = fixtureValues();
+      await protocol.commit(first);
+      final second = largeValues(1);
+      writer.reset();
+      writer.reject = (key, _) => key == SaveProtocol.pointerKey;
 
-        final failed = await protocol.commit(second);
-        expect(failed.success, isFalse);
-        expect(protocol.revision, 1);
-        // The slot was written but never pointed at, so startup still reads the
-        // first batch and no mirror moved.
-        final batch = SaveProtocol(prefs).load()!;
-        expect(batch.revision, 1);
-        expect(batch.values[kTasks], first[kTasks]);
-        expect(writer.order.contains(kTasks), isFalse);
-        // The mirror still shows the first batch: the rejected commit changed
-        // nothing that a restart can observe.
-        expect(prefs.getString(kTasks), first[kTasks]);
+      final failed = await protocol.commit(second);
+      expect(failed.success, isFalse);
+      expect(protocol.revision, 1);
+      // The slot was written but never pointed at, so startup still reads the
+      // first batch and no mirror moved.
+      final batch = SaveProtocol(prefs).load()!;
+      expect(batch.revision, 1);
+      expect(batch.values[kTasks], first[kTasks]);
+      expect(writer.order.contains(kTasks), isFalse);
+      // The mirror still shows the first batch: the rejected commit changed
+      // nothing that a restart can observe.
+      expect(prefs.getString(kTasks), first[kTasks]);
 
-        writer.reject = null;
-        expect((await protocol.commit(second)).success, isTrue);
-        final afterRetry = SaveProtocol(prefs).load()!;
-        expect(afterRetry.revision, 2);
-        expect(afterRetry.values[kTasks], second[kTasks]);
-      },
-    );
+      writer.reject = null;
+      expect((await protocol.commit(second)).success, isTrue);
+      final afterRetry = SaveProtocol(prefs).load()!;
+      expect(afterRetry.revision, 2);
+      expect(afterRetry.values[kTasks], second[kTasks]);
+    });
 
     test('a slot write that throws advances nothing', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -726,22 +703,19 @@ void main() {
       expect(SaveProtocol(prefs).load(), isNull);
     });
 
-    test(
-      'a write that throws after the pointer landed still commits',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final writer = RecordingWriter(prefs: prefs)
-          ..throwAfterWriteKey = SaveProtocol.pointerKey;
-        final protocol = SaveProtocol(prefs, writer: writer.call);
-        final result = await protocol.commit(fixtureValues());
-        expect(result.success, isTrue);
-        expect(result.committed, isTrue);
-        expect(protocol.revision, 1);
-        expect(prefs.getString(SaveProtocol.pointerKey), slotA);
-        expect(SaveProtocol(prefs).load(), isNotNull);
-      },
-    );
+    test('a write that throws after the pointer landed still commits', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = RecordingWriter(prefs: prefs)
+        ..throwAfterWriteKey = SaveProtocol.pointerKey;
+      final protocol = SaveProtocol(prefs, writer: writer.call);
+      final result = await protocol.commit(fixtureValues());
+      expect(result.success, isTrue);
+      expect(result.committed, isTrue);
+      expect(protocol.revision, 1);
+      expect(prefs.getString(SaveProtocol.pointerKey), slotA);
+      expect(SaveProtocol(prefs).load(), isNotNull);
+    });
 
     test('a mirror that refuses one key does not fail the commit', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -754,64 +728,56 @@ void main() {
       expect(result.success, isTrue);
       expect(result.committed, isTrue);
       expect(prefs.getString(kActiveBoard), isNull);
-      expect(
-        SaveProtocol(prefs).load()!.values[kActiveBoard],
-        values[kActiveBoard],
-      );
+      expect(SaveProtocol(prefs).load()!.values[kActiveBoard],
+          values[kActiveBoard]);
     });
 
-    test(
-      'flush waits for a blocked commit and the edit survives a reopen',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
-        final gate = Completer<void>();
-        var blocked = false;
-        Future<bool> writer(String key, String value) async {
-          if (blocked && key == slotB) await gate.future;
-          return prefs.setString(key, value);
-        }
+    test('flush waits for a blocked commit and the edit survives a reopen',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      final gate = Completer<void>();
+      var blocked = false;
+      Future<bool> writer(String key, String value) async {
+        if (blocked && key == slotB) await gate.future;
+        return prefs.setString(key, value);
+      }
 
-        final store = Store(
-          reminders: InMemoryReminderService(),
-          saveWriter: writer,
-        );
-        await store.init();
-        store.createBoard('Before');
-        expect((await store.flush()).success, isTrue);
-        store.dispose();
+      final store = Store(
+        reminders: InMemoryReminderService(),
+        saveWriter: writer,
+      );
+      await store.init();
+      store.createBoard('Before');
+      expect((await store.flush()).success, isTrue);
+      store.dispose();
 
-        final second = Store(
-          reminders: InMemoryReminderService(),
-          saveWriter: writer,
-        );
-        await second.init();
-        blocked = true;
-        second.createBoard('Blocked');
-        var settled = false;
-        final barrier = second.flush().then((result) {
-          settled = true;
-          return result;
-        });
-        await pumpEventQueue(times: 20);
-        expect(
-          settled,
-          isFalse,
-          reason: 'flush must wait for the blocked write',
-        );
-        blocked = false;
-        gate.complete();
-        expect((await barrier).success, isTrue);
-        expect(settled, isTrue);
-        second.dispose();
+      final second = Store(
+        reminders: InMemoryReminderService(),
+        saveWriter: writer,
+      );
+      await second.init();
+      blocked = true;
+      second.createBoard('Blocked');
+      var settled = false;
+      final barrier = second.flush().then((result) {
+        settled = true;
+        return result;
+      });
+      await pumpEventQueue(times: 20);
+      expect(settled, isFalse, reason: 'flush must wait for the blocked write');
+      blocked = false;
+      gate.complete();
+      expect((await barrier).success, isTrue);
+      expect(settled, isTrue);
+      second.dispose();
 
-        final reopened = Store(reminders: InMemoryReminderService());
-        await reopened.init();
-        expect(reopened.boards.map((b) => b.name), contains('Blocked'));
-        reopened.dispose();
-      },
-    );
+      final reopened = Store(reminders: InMemoryReminderService());
+      await reopened.init();
+      expect(reopened.boards.map((b) => b.name), contains('Blocked'));
+      reopened.dispose();
+    });
 
     test('retrySave commits again even when nothing else is dirty', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -844,93 +810,92 @@ void main() {
       reopened.dispose();
     });
 
-    test(
-      'retrySave after a rejected pointer recovers the accepted edit',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        await seedLegacyPrefs(prefs);
-        var reject = false;
-        final store = Store(
-          reminders: InMemoryReminderService(),
-          saveWriter: (key, value) async {
-            if (reject && key == SaveProtocol.pointerKey) return false;
-            return prefs.setString(key, value);
-          },
-        );
-        await store.init();
-        await store.flush();
-        reject = true;
-        store.addTasks([seedTask('retry-task', title: '未落盘的编辑')]);
-        expect((await store.flush()).success, isFalse);
-        expect(store.persistenceError, isNotNull);
-        reject = false;
-        expect((await store.retrySave()).success, isTrue);
-        expect(store.persistenceError, isNull);
-        store.dispose();
-        final reopened = Store(reminders: InMemoryReminderService());
-        await reopened.init();
-        expect(reopened.tasks.map((t) => t.title), contains('未落盘的编辑'));
-        reopened.dispose();
-      },
-    );
+    test('retrySave after a rejected pointer recovers the accepted edit',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      await seedLegacyPrefs(prefs);
+      var reject = false;
+      final store = Store(
+        reminders: InMemoryReminderService(),
+        saveWriter: (key, value) async {
+          if (reject && key == SaveProtocol.pointerKey) return false;
+          return prefs.setString(key, value);
+        },
+      );
+      await store.init();
+      await store.flush();
+      reject = true;
+      store.addTasks([seedTask('retry-task', title: '未落盘的编辑')]);
+      expect((await store.flush()).success, isFalse);
+      expect(store.persistenceError, isNotNull);
+      reject = false;
+      expect((await store.retrySave()).success, isTrue);
+      expect(store.persistenceError, isNull);
+      store.dispose();
+      final reopened = Store(reminders: InMemoryReminderService());
+      await reopened.init();
+      expect(reopened.tasks.map((t) => t.title), contains('未落盘的编辑'));
+      reopened.dispose();
+    });
   });
 
   group('S4 dirtying and commit order', () {
-    test(
-      'a single task edit produces exactly one whole-library batch',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final writer = RecordingWriter(prefs: prefs);
-        final store = await openStore(
-          prefs,
-          writer,
-          tasks: List<Task>.generate(50, (i) => seedTask('t$i')),
-        );
-        store.updateSettings((s) => s);
-        await store.flush();
-        writer.reset();
+    test('a single task edit produces exactly one whole-library batch',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = RecordingWriter(prefs: prefs);
+      final store = await openStore(
+        prefs,
+        writer,
+        tasks: List<Task>.generate(50, (i) => seedTask('t$i')),
+      );
+      store.updateSettings((s) => s);
+      await store.flush();
+      writer.reset();
 
-        final edited = Task.fromJson(store.tasks.first.toJson())
-          ..title = '改名 🎯';
-        store.updateTask(edited);
-        expect((await store.flush()).success, isTrue);
+      final edited = Task.fromJson(store.tasks.first.toJson())
+        ..title = '改名 🎯';
+      store.updateTask(edited);
+      expect((await store.flush()).success, isTrue);
 
-        // The seed commit used slot A, so this one alternates to slot B.
-        expect(writer.order, <String>[
-          slotB,
-          SaveProtocol.pointerKey,
-          kTasks,
-          kSchedule,
-          kBoards,
-          kConfig,
-          kSettings,
-          kActiveBoard,
-        ]);
-        final decoded =
-            jsonDecode(writer.written[slotB]!) as Map<String, Object?>;
-        expect(decoded['revision'], 2);
-        final values = (decoded['values'] as Map<String, Object?>).map(
-          (key, value) => MapEntry(key, value as String),
-        );
-        expect(values.keys.toList(), <String>[
-          kTasks,
-          kSchedule,
-          kBoards,
-          kConfig,
-          kSettings,
-          kActiveBoard,
-          kOnboarding,
-        ]);
-        // Dropping the discarded per-command encode must not change what lands:
-        // the batch still carries the full library, including the edit.
-        final library = jsonDecode(values[kTasks]!) as List<Object?>;
-        expect(library, hasLength(50));
-        expect((library.first as Map<String, Object?>)['title'], '改名 🎯');
-        store.dispose();
-      },
-    );
+      // The seed commit used slot A, so this one alternates to slot B.
+      expect(writer.order, <String>[
+        slotB,
+        SaveProtocol.pointerKey,
+        kTasks,
+        kSchedule,
+        kBoards,
+        kConfig,
+        kSettings,
+        kActiveBoard,
+      ]);
+      final decoded =
+          jsonDecode(writer.written[slotB]!) as Map<String, Object?>;
+      expect(decoded['revision'], 2);
+      final values = (decoded['values'] as Map<String, Object?>).map(
+        (key, value) => MapEntry(key, value as String),
+      );
+      expect(values.keys.toList(), <String>[
+        kTasks,
+        kSchedule,
+        kBoards,
+        kConfig,
+        kSettings,
+        kActiveBoard,
+        kOnboarding,
+      ]);
+      // Dropping the discarded per-command encode must not change what lands:
+      // the batch still carries the full library, including the edit.
+      final library = jsonDecode(values[kTasks]!) as List<Object?>;
+      expect(library, hasLength(50));
+      expect(
+        (library.first as Map<String, Object?>)['title'],
+        '改名 🎯',
+      );
+      store.dispose();
+    });
 
     test('a settings-only change still rewrites the task mirror', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -954,43 +919,41 @@ void main() {
       store.dispose();
     });
 
-    test(
-      'a board change is one batch that carries the board and active id',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final writer = RecordingWriter(prefs: prefs);
-        final store = await openStore(prefs, writer);
-        store.updateSettings((s) => s);
-        await store.flush();
-        writer.reset();
+    test('a board change is one batch that carries the board and active id',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = RecordingWriter(prefs: prefs);
+      final store = await openStore(prefs, writer);
+      store.updateSettings((s) => s);
+      await store.flush();
+      writer.reset();
 
-        store.createBoard('第二个板');
-        expect((await store.flush()).success, isTrue);
-        expect(writer.sawBatch, isTrue);
-        expect(
-          writer.order.where((key) => key == slotA || key == slotB).length,
-          1,
-          reason: 'one command, one batch',
-        );
-        final batch = writer.written[writer.order.first]!;
-        final values =
-            ((jsonDecode(batch) as Map<String, Object?>)['values']
-                    as Map<String, Object?>)
-                .map((key, value) => MapEntry(key, value as String));
-        expect(jsonDecode(values[kBoards]!), hasLength(2));
-        expect(values[kActiveBoard], store.activeBoardId);
-        final activeMirror = writer.written[kActiveBoard];
-        expect(activeMirror, store.activeBoardId);
-        store.dispose();
+      store.createBoard('第二个板');
+      expect((await store.flush()).success, isTrue);
+      expect(writer.sawBatch, isTrue);
+      expect(
+        writer.order.where((key) => key == slotA || key == slotB).length,
+        1,
+        reason: 'one command, one batch',
+      );
+      final batch = writer.written[writer.order.first]!;
+      final values =
+          ((jsonDecode(batch) as Map<String, Object?>)['values']
+                  as Map<String, Object?>)
+              .map((key, value) => MapEntry(key, value as String));
+      expect(jsonDecode(values[kBoards]!), hasLength(2));
+      expect(values[kActiveBoard], store.activeBoardId);
+      final activeMirror = writer.written[kActiveBoard];
+      expect(activeMirror, store.activeBoardId);
+      store.dispose();
 
-        final reopened = Store(reminders: InMemoryReminderService());
-        await reopened.init();
-        expect(reopened.boards.map((b) => b.name), contains('第二个板'));
-        expect(reopened.activeBoardId, store.activeBoardId);
-        reopened.dispose();
-      },
-    );
+      final reopened = Store(reminders: InMemoryReminderService());
+      await reopened.init();
+      expect(reopened.boards.map((b) => b.name), contains('第二个板'));
+      expect(reopened.activeBoardId, store.activeBoardId);
+      reopened.dispose();
+    });
 
     test('an unusable store writes nothing', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -1029,86 +992,80 @@ void main() {
       recovery.dispose();
     });
 
-    test(
-      'an import blocked in its slot write and a concurrent edit keep order',
-      () async {
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final prefs = await SharedPreferences.getInstance();
-        final gate = Completer<void>();
-        final writer = RecordingWriter(prefs: prefs);
-        var blockNext = false;
-        writer.block = (key) {
-          final isSlot = key == slotA || key == slotB;
-          return blockNext && isSlot ? gate.future : null;
-        };
-        final store = await openStore(prefs, writer);
-        await store.flush();
-        store.addTasks([seedTask('seed', title: '既有任务')]);
-        expect((await store.flush()).success, isTrue);
-        writer.reset();
+    test('an import blocked in its slot write and a concurrent edit keep order',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final gate = Completer<void>();
+      final writer = RecordingWriter(prefs: prefs);
+      var blockNext = false;
+      writer.block = (key) {
+        final isSlot = key == slotA || key == slotB;
+        return blockNext && isSlot ? gate.future : null;
+      };
+      final store = await openStore(prefs, writer);
+      await store.flush();
+      store.addTasks([seedTask('seed', title: '既有任务')]);
+      expect((await store.flush()).success, isTrue);
+      writer.reset();
 
-        blockNext = true;
-        final plan = store.previewImport(<String, Object?>{
-          'version': 2,
-          'boards': <Object?>[
-            {'id': 'board-2', 'name': '导入板', 'createdAt': 1},
-          ],
-          'tasks': <Object?>[
-            {
-              'id': 'imported',
-              'boardId': 'board-2',
-              'title': '导入任务',
-              'quadrant': 2,
-              'createdAt': 1,
-              'subtasks': <Object?>[],
-            },
-          ],
-        }, 'merge');
-        final import = store.applyImport(plan);
-        await pumpEventQueue(times: 20);
-        expect(
-          writer.batches,
-          hasLength(1),
-          reason: 'the import holds the chain',
-        );
-        // A command accepted while the import holds the commit chain must land
-        // after it, not inside its batch.
-        store.updateTask(
-          Task.fromJson(store.tasks.firstWhere((t) => t.id == 'seed').toJson())
-            ..title = '编辑后续',
-        );
-        gate.complete();
-        blockNext = false;
-        expect((await import).success, isTrue);
-        expect((await store.flush()).success, isTrue);
-        expect(writer.batches, hasLength(2));
+      blockNext = true;
+      final plan = store.previewImport(<String, Object?>{
+        'version': 2,
+        'boards': <Object?>[
+          {'id': 'board-2', 'name': '导入板', 'createdAt': 1},
+        ],
+        'tasks': <Object?>[
+          {
+            'id': 'imported',
+            'boardId': 'board-2',
+            'title': '导入任务',
+            'quadrant': 2,
+            'createdAt': 1,
+            'subtasks': <Object?>[],
+          },
+        ],
+      }, 'merge');
+      final import = store.applyImport(plan);
+      await pumpEventQueue(times: 20);
+      expect(writer.batches, hasLength(1), reason: 'the import holds the chain');
+      // A command accepted while the import holds the commit chain must land
+      // after it, not inside its batch.
+      store.updateTask(
+        Task.fromJson(store.tasks.firstWhere((t) => t.id == 'seed').toJson())
+          ..title = '编辑后续',
+      );
+      gate.complete();
+      blockNext = false;
+      expect((await import).success, isTrue);
+      expect((await store.flush()).success, isTrue);
+      expect(writer.batches, hasLength(2));
 
-        List<Object?> titlesOf(String batch) {
-          final values =
-              ((jsonDecode(batch) as Map<String, Object?>)['values']
-                      as Map<String, Object?>)
-                  .cast<String, String>();
-          return (jsonDecode(values[kTasks]!) as List<Object?>)
-              .map((entry) => (entry as Map<String, Object?>)['title'])
-              .toList();
-        }
+      List<Object?> titlesOf(String batch) {
+        final values =
+            ((jsonDecode(batch) as Map<String, Object?>)['values']
+                    as Map<String, Object?>)
+                .cast<String, String>();
+        return (jsonDecode(values[kTasks]!) as List<Object?>)
+            .map((entry) => (entry as Map<String, Object?>)['title'])
+            .toList();
+      }
 
-        expect(titlesOf(writer.batches[0]), contains('导入任务'));
-        expect(titlesOf(writer.batches[0]), isNot(contains('编辑后续')));
-        expect(
-          titlesOf(writer.batches[1]),
-          containsAll(<String>['导入任务', '编辑后续']),
-        );
-        store.dispose();
+      expect(titlesOf(writer.batches[0]), contains('导入任务'));
+      expect(titlesOf(writer.batches[0]), isNot(contains('编辑后续')));
+      expect(titlesOf(writer.batches[1]), containsAll(<String>[
+        '导入任务',
+        '编辑后续',
+      ]));
+      store.dispose();
 
-        final reopened = Store(reminders: InMemoryReminderService());
-        await reopened.init();
-        expect(reopened.tasks.map((t) => t.title), contains('导入任务'));
-        expect(reopened.tasks.map((t) => t.title), contains('编辑后续'));
-        expect(reopened.boards.map((b) => b.name), contains('导入板'));
-        reopened.dispose();
-      },
-    );
+      final reopened = Store(reminders: InMemoryReminderService());
+      await reopened.init();
+      expect(reopened.tasks.map((t) => t.title), contains('导入任务'));
+      expect(reopened.tasks.map((t) => t.title), contains('编辑后续'));
+      expect(reopened.boards.map((b) => b.name), contains('导入板'));
+      reopened.dispose();
+    });
   });
 }
 

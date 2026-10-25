@@ -27,19 +27,22 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
   bool _retryingLedger = false;
 
   String _names(Store store, Iterable<ReminderPayload> payloads) {
-    final names = payloads
-        .map((p) {
-          final task = store.tasks.where((t) => t.id == p.taskId).firstOrNull;
-          return task?.subtasks
-                  .where((s) => s.id == p.subtaskId)
-                  .firstOrNull
-                  ?.title ??
-              task?.title ??
-              '';
-        })
-        .where((s) => s.isNotEmpty)
-        .take(3)
-        .join(', ');
+    final names =
+        payloads
+            .map((p) {
+              final task = store.tasks
+                  .where((t) => t.id == p.taskId)
+                  .firstOrNull;
+              return task?.subtasks
+                      .where((s) => s.id == p.subtaskId)
+                      .firstOrNull
+                      ?.title ??
+                  task?.title ??
+                  '';
+            })
+            .where((s) => s.isNotEmpty)
+            .take(3)
+            .join(', ');
     return names;
   }
 
@@ -62,99 +65,105 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
       builder: (context, scheduleFailures, _) =>
           ValueListenableBuilder<Map<int, ReminderPayload>>(
             valueListenable: store.reminderService.cancelFailures,
-            builder: (context, cancelFailures, _) =>
-                ValueListenableBuilder<ReminderPermissionStatus?>(
-                  valueListenable: store.reminderService.observedPermission,
-                  builder: (context, permission, _) {
-                    final hasFailures =
-                        scheduleFailures.isNotEmpty ||
-                        cancelFailures.isNotEmpty;
-                    final rows = <Widget>[
-                      if (scheduleFailures.isNotEmpty)
-                        _row(
-                          context,
-                          bannerKey: const ValueKey(
-                            'reminder-schedule-failure',
-                          ),
-                          buttonKey: const ValueKey('retry-reminders'),
-                          message: store.t['reminderScheduleFailed']!,
-                          names: _names(store, scheduleFailures.values),
-                          busy: _retryingSchedule,
-                          onRetry: () async {
-                            setState(() => _retryingSchedule = true);
-                            try {
-                              for (final payload
-                                  in scheduleFailures.values.toList()) {
-                                await store.retryReminder(payload);
-                              }
-                            } finally {
-                              if (mounted) {
-                                setState(() => _retryingSchedule = false);
-                              }
-                            }
-                          },
-                        ),
-                      if (cancelFailures.isNotEmpty)
-                        _row(
-                          context,
-                          bannerKey: const ValueKey('reminder-cancel-failure'),
-                          buttonKey: const ValueKey(
-                            'retry-reminder-cancellations',
-                          ),
-                          message: store.t['reminderCancelFailed']!,
-                          names: _names(store, cancelFailures.values),
-                          busy: _retryingCancel,
-                          onRetry: () async {
-                            setState(() => _retryingCancel = true);
-                            try {
-                              for (final payload
-                                  in cancelFailures.values.toList()) {
-                                await store.retryReminderCancellation(payload);
-                              }
-                            } finally {
-                              if (mounted) {
-                                setState(() => _retryingCancel = false);
-                              }
-                            }
-                          },
-                        ),
-                      if (ledgerIssue != null)
-                        _row(
-                          context,
-                          bannerKey: _ledgerKey(ledgerIssue.kind),
-                          buttonKey: _ledgerButtonKey(ledgerIssue.kind),
-                          actionLabel: _ledgerActionLabel(
-                            store,
-                            ledgerIssue.kind,
-                          ),
-                          message: _ledgerMessage(store, ledgerIssue),
-                          busy: _retryingLedger,
-                          onRetry: _ledgerRetry(ledgerIssue.kind),
-                        ),
-                      if (hasFailures &&
-                          permission == ReminderPermissionStatus.unknown)
-                        _note(
-                          context,
-                          key: const ValueKey('reminder-permission-unknown'),
-                          message: store.t['permissionUnknown']!,
-                        ),
-                      if (hasFailures &&
-                          permission == ReminderPermissionStatus.unsupported)
-                        _note(
-                          context,
-                          key: const ValueKey(
-                            'reminder-permission-unsupported',
-                          ),
-                          message: store.t['permissionUnsupported']!,
-                        ),
-                    ];
-                    if (rows.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: rows,
-                    );
-                  },
-                ),
+            builder:
+                (context, cancelFailures, _) =>
+                    ValueListenableBuilder<ReminderPermissionStatus?>(
+                      valueListenable:
+                          store.reminderService.observedPermission,
+                      builder: (context, permission, _) {
+                        final hasFailures =
+                            scheduleFailures.isNotEmpty ||
+                            cancelFailures.isNotEmpty;
+                        final rows = <Widget>[
+                          if (scheduleFailures.isNotEmpty)
+                            _row(
+                              context,
+                              bannerKey: const ValueKey('reminder-schedule-failure'),
+                              buttonKey: const ValueKey('retry-reminders'),
+                              message: store.t['reminderScheduleFailed']!,
+                              names: _names(
+                                store,
+                                scheduleFailures.values,
+                              ),
+                              busy: _retryingSchedule,
+                              onRetry: () async {
+                                setState(() => _retryingSchedule = true);
+                                try {
+                                  for (final payload
+                                      in scheduleFailures.values.toList()) {
+                                    await store.retryReminder(payload);
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() => _retryingSchedule = false);
+                                  }
+                                }
+                              },
+                            ),
+                          if (cancelFailures.isNotEmpty)
+                            _row(
+                              context,
+                              bannerKey: const ValueKey('reminder-cancel-failure'),
+                              buttonKey: const ValueKey(
+                                'retry-reminder-cancellations',
+                              ),
+                              message: store.t['reminderCancelFailed']!,
+                              names: _names(store, cancelFailures.values),
+                              busy: _retryingCancel,
+                              onRetry: () async {
+                                setState(() => _retryingCancel = true);
+                                try {
+                                  for (final payload
+                                      in cancelFailures.values.toList()) {
+                                    await store.retryReminderCancellation(
+                                      payload,
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() => _retryingCancel = false);
+                                  }
+                                }
+                              },
+                            ),
+                          if (ledgerIssue != null)
+                            _row(
+                              context,
+                              bannerKey: _ledgerKey(ledgerIssue.kind),
+                              buttonKey: _ledgerButtonKey(ledgerIssue.kind),
+                              actionLabel: _ledgerActionLabel(
+                                store,
+                                ledgerIssue.kind,
+                              ),
+                              message: _ledgerMessage(store, ledgerIssue),
+                              busy: _retryingLedger,
+                              onRetry: _ledgerRetry(ledgerIssue.kind),
+                            ),
+                          if (hasFailures &&
+                              permission == ReminderPermissionStatus.unknown)
+                            _note(
+                              context,
+                              key: const ValueKey('reminder-permission-unknown'),
+                              message: store.t['permissionUnknown']!,
+                            ),
+                          if (hasFailures &&
+                              permission ==
+                                  ReminderPermissionStatus.unsupported)
+                            _note(
+                              context,
+                              key: const ValueKey(
+                                'reminder-permission-unsupported',
+                              ),
+                              message: store.t['permissionUnsupported']!,
+                            ),
+                        ];
+                        if (rows.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: rows,
+                        );
+                      },
+                    ),
           ),
     );
   }
@@ -167,9 +176,7 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
     ReminderLedgerIssueKind.overflow => const ValueKey(
       'reminder-ledger-overflow',
     ),
-    ReminderLedgerIssueKind.damaged => const ValueKey(
-      'reminder-ledger-damaged',
-    ),
+    ReminderLedgerIssueKind.damaged => const ValueKey('reminder-ledger-damaged'),
   };
 
   /// What the ledger problem means for the user. The wording stays about the
@@ -179,15 +186,11 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
       switch (issue.kind) {
         ReminderLedgerIssueKind.read => store.t['reminderLedgerUnreadable']!,
         ReminderLedgerIssueKind.write => store.t['reminderLedgerWriteFailed']!,
-        ReminderLedgerIssueKind.overflow =>
-          store.t['reminderLedgerFull']!
-              .replaceAll('{count}', '${issue.count}')
-              .replaceAll('{cap}', '${ReminderService.maxPendingJobs}'),
-        ReminderLedgerIssueKind.damaged =>
-          store.t['reminderLedgerDamaged']!.replaceAll(
-            '{count}',
-            '${issue.count}',
-          ),
+        ReminderLedgerIssueKind.overflow => store.t['reminderLedgerFull']!
+            .replaceAll('{count}', '${issue.count}')
+            .replaceAll('{cap}', '${ReminderService.maxPendingJobs}'),
+        ReminderLedgerIssueKind.damaged => store.t['reminderLedgerDamaged']!
+            .replaceAll('{count}', '${issue.count}'),
       };
 
   /// The action that actually fits the reported problem. A read failure is
@@ -274,18 +277,16 @@ class _ReminderFailureBannerState extends State<ReminderFailureBanner> {
     );
   }
 
-  Widget _note(
-    BuildContext context, {
-    required Key key,
-    required String message,
-  }) {
+  Widget _note(BuildContext context, {required Key key, required String message}) {
     return Padding(
       key: key,
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Text(
         message,
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+          color: Theme.of(context).colorScheme.onSurface.withValues(
+            alpha: 0.7,
+          ),
         ),
       ),
     );

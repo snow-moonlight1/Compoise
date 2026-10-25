@@ -16,10 +16,8 @@ enum TodaySection {
 }
 
 /// Timestamp helpers for preserving retired planning-day data in fixtures.
-int? plannedDayMs(DateTime? day) =>
-    day == null ? null : civilDate(day).millisecondsSinceEpoch;
-int? plannedDaysLeft(int? day, {DateTime? now}) =>
-    day == null ? null : calendarDaysLeft(day, now: now);
+int? plannedDayMs(DateTime? day) => day == null ? null : civilDate(day).millisecondsSinceEpoch;
+int? plannedDaysLeft(int? day, {DateTime? now}) => day == null ? null : calendarDaysLeft(day, now: now);
 
 /// Which bucket [task] belongs to, or null when it does not belong on Today.
 ///

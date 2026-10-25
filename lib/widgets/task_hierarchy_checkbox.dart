@@ -17,8 +17,8 @@ abstract final class TaskHierarchyStyle {
 
   static double checkboxVisualSize(TaskHierarchyLevel level) =>
       level == TaskHierarchyLevel.parent
-      ? parentCheckboxVisualSize
-      : childCheckboxVisualSize;
+          ? parentCheckboxVisualSize
+          : childCheckboxVisualSize;
 
   static double titleSize(TaskHierarchyLevel level) =>
       level == TaskHierarchyLevel.parent ? parentTitleSize : childTitleSize;

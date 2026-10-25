@@ -84,16 +84,17 @@ Future<(Store, Map<String, Object>)> makeStore({
   SaveWrite? saveWriter,
 }) async {
   final backend = <String, Object>{
-    if (boards != null)
-      'compoise-boards': jsonEncode(boards.map((b) => b.toJson()).toList()),
-    if (tasks != null)
-      'compoise-tasks': jsonEncode(tasks.map((t) => t.toJson()).toList()),
+    if (boards != null) 'compoise-boards': jsonEncode(boards.map((b) => b.toJson()).toList()),
+    if (tasks != null) 'compoise-tasks': jsonEncode(tasks.map((t) => t.toJson()).toList()),
     if (settings != null) 'compoise-settings': jsonEncode(settings.toJson()),
     if (aiConfig != null) 'compoise-config': jsonEncode(aiConfig.toJson()),
     'compoise-has-seen-onboarding': hasSeenOnboarding,
   };
   SharedPreferences.setMockInitialValues(backend);
-  final store = Store(deviceLocales: deviceLocales, saveWriter: saveWriter);
+  final store = Store(
+    deviceLocales: deviceLocales,
+    saveWriter: saveWriter,
+  );
   registerTestStore(store);
   await store.init();
   await store.flush(waitForReminders: false);

@@ -154,30 +154,31 @@ Widget app(
   Widget home, {
   double scale = 1,
   TargetPlatform? platform,
-}) => ChangeNotifierProvider.value(
-  value: store,
-  child: MaterialApp(
-    theme: buildTheme(
-      Brightness.light,
-      store.settings.themeColor,
-      platform: platform,
-      fontFamilyPref: store.settings.fontFamily,
-    ),
-    locale: Locale(store.settings.language.name),
-    supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: CombinedTextScaler(
-          TextScaler.linear(scale),
-          fontScaleFactor(store.settings.fontSize),
+}) =>
+    ChangeNotifierProvider.value(
+      value: store,
+      child: MaterialApp(
+        theme: buildTheme(
+          Brightness.light,
+          store.settings.themeColor,
+          platform: platform,
+          fontFamilyPref: store.settings.fontFamily,
         ),
+        locale: Locale(store.settings.language.name),
+        supportedLocales: const [Locale('en'), Locale('zh'), Locale('ja')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: CombinedTextScaler(
+              TextScaler.linear(scale),
+              fontScaleFactor(store.settings.fontSize),
+            ),
+          ),
+          child: child!,
+        ),
+        home: home,
       ),
-      child: child!,
-    ),
-    home: home,
-  ),
-);
+    );
 
 void viewport(WidgetTester tester, Size size) {
   tester.view.physicalSize = size;
@@ -1392,34 +1393,35 @@ void main() {
     },
   );
 
-  testWidgets('task deletion and deleted task cannot be resurrected on save', (
-    tester,
-  ) async {
-    viewport(tester, const Size(390, 844));
-    final store = await setup(tester);
-    final task = store.newTask('to delete');
-    store.addTasks([task]);
-    await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'task deletion and deleted task cannot be resurrected on save',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      final task = store.newTask('to delete');
+      store.addTasks([task]);
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('to delete'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('to delete'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Delete Task'));
-    await tester.tap(find.text('Delete Task'));
-    await tester.pumpAndSettle();
-    expect(find.text('Delete this task?'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('more-properties-btn')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Delete Task'));
+      await tester.tap(find.text('Delete Task'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete this task?'), findsOneWidget);
 
-    await tester.tap(find.text('Confirm'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
 
-    expect(store.tasks, isEmpty);
-    expect(find.byKey(const ValueKey('edit-title')), findsNothing);
+      expect(store.tasks, isEmpty);
+      expect(find.byKey(const ValueKey('edit-title')), findsNothing);
 
-    await tester.pumpWidget(const SizedBox());
-  });
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'manual input with empty lines creates exact number of tasks (regression MF23)',
@@ -1868,17 +1870,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('input-time-btn')));
       await tester.pumpAndSettle();
-      await chooseTaskMoment(
-        tester,
-        'deadline-custom',
-        DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day + 0,
-          23,
-          59,
-        ),
-      );
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 0, 23, 59));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
@@ -1908,17 +1900,7 @@ void main() {
       // Now test Tomorrow and clear button
       await tester.tap(find.byKey(const ValueKey('input-time-btn')));
       await tester.pumpAndSettle();
-      await chooseTaskMoment(
-        tester,
-        'deadline-custom',
-        DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day + 1,
-          23,
-          59,
-        ),
-      );
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
 
@@ -1968,17 +1950,7 @@ void main() {
       // Select Tomorrow
       await tester.tap(find.byKey(const ValueKey('input-time-btn')));
       await tester.pumpAndSettle();
-      await chooseTaskMoment(
-        tester,
-        'deadline-custom',
-        DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day + 1,
-          23,
-          59,
-        ),
-      );
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
@@ -2024,174 +1996,156 @@ void main() {
     },
   );
 
-  testWidgets('AI error or cancel retains input draft and selected date', (
-    tester,
-  ) async {
-    final ai = ControlledAI();
-    final store = await setup(tester, ai: ai);
+  testWidgets(
+    'AI error or cancel retains input draft and selected date',
+    (tester) async {
+      final ai = ControlledAI();
+      final store = await setup(tester, ai: ai);
 
-    await tester.pumpWidget(
-      app(
-        store,
-        const Scaffold(
-          body: InputSheet(
-            initialMode: InputModePref.brainDump,
-            embedded: true,
+      await tester.pumpWidget(
+        app(
+          store,
+          const Scaffold(
+            body: InputSheet(
+              initialMode: InputModePref.brainDump,
+              embedded: true,
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    // Select Today and enter draft
-    await tester.tap(find.byKey(const ValueKey('input-time-btn')));
-    await tester.pumpAndSettle();
-    await chooseTaskMoment(
-      tester,
-      'deadline-custom',
-      DateTime(
-        DateTime.now().year,
-        DateTime.now().month,
-        DateTime.now().day + 0,
-        23,
-        59,
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('time-confirm')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('task-input')),
-      'Draft that will fail',
-    );
+      // Select Today and enter draft
+      await tester.tap(find.byKey(const ValueKey('input-time-btn')));
+      await tester.pumpAndSettle();
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 0, 23, 59));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('task-input')),
+        'Draft that will fail',
+      );
 
-    await tester.tap(find.byKey(const ValueKey('submit-tasks')));
-    await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('submit-tasks')));
+      await tester.pump();
 
-    // AI errors out
-    ai.analysis.completeError(const AIException('aiNetworkError'));
-    await tester.pumpAndSettle();
+      // AI errors out
+      ai.analysis.completeError(const AIException('aiNetworkError'));
+      await tester.pumpAndSettle();
 
-    // Error message shown
-    expect(find.text(store.t['aiNetworkError']!), findsOneWidget);
+      // Error message shown
+      expect(find.text(store.t['aiNetworkError']!), findsOneWidget);
 
-    // Input draft and deadline choice are both retained!
-    final textField = tester.widget<TextField>(
-      find.byKey(const ValueKey('task-input')),
-    );
-    expect(textField.controller!.text, 'Draft that will fail');
-    expect(find.textContaining(store.t['deadline']!), findsWidgets);
+      // Input draft and deadline choice are both retained!
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('task-input')),
+      );
+      expect(textField.controller!.text, 'Draft that will fail');
+      expect(find.textContaining(store.t['deadline']!), findsWidgets);
 
-    await tester.pumpWidget(const SizedBox());
-  });
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
-  testWidgets('subtask deadline set, edited, cleared, and dirty draft tracking', (
-    tester,
-  ) async {
-    viewport(tester, const Size(390, 844));
-    final store = await setup(tester);
-    final parent = store.newTask('Parent with Subtasks')
-      ..subtasks = [SubTask(id: 's1', title: 'Subtask Alpha')];
-    store.addTasks([parent]);
+  testWidgets(
+    'subtask deadline set, edited, cleared, and dirty draft tracking',
+    (tester) async {
+      viewport(tester, const Size(390, 844));
+      final store = await setup(tester);
+      final parent = store.newTask('Parent with Subtasks')
+        ..subtasks = [SubTask(id: 's1', title: 'Subtask Alpha')];
+      store.addTasks([parent]);
 
-    await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
 
-    // Open task detail panel
-    await tester.tap(find.text('Parent with Subtasks'));
-    await tester.pumpAndSettle();
-    expect(find.byType(TaskDetailPanel), findsOneWidget);
+      // Open task detail panel
+      await tester.tap(find.text('Parent with Subtasks'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskDetailPanel), findsOneWidget);
 
-    // Open subtask editor
-    await tester.ensureVisible(find.byKey(const ValueKey('subtask-item-s1')));
-    await tester.tap(find.byKey(const ValueKey('subtask-item-s1')));
-    await tester.pumpAndSettle();
+      // Open subtask editor
+      await tester.ensureVisible(find.byKey(const ValueKey('subtask-item-s1')));
+      await tester.tap(find.byKey(const ValueKey('subtask-item-s1')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('subtask-edit-title')), findsOneWidget);
-    expect(find.byKey(const ValueKey('subtask-time-btn')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('deadline-custom')), findsOneWidget);
-    expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
+      expect(find.byKey(const ValueKey('subtask-edit-title')), findsOneWidget);
+      expect(find.byKey(const ValueKey('subtask-time-btn')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('deadline-custom')), findsOneWidget);
+      expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
 
-    // Select Today deadline and edit title
-    await chooseTaskMoment(
-      tester,
-      'deadline-custom',
-      DateTime(
-        DateTime.now().year,
-        DateTime.now().month,
-        DateTime.now().day + 0,
-        23,
-        59,
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('time-confirm')));
-    await tester.pumpAndSettle();
+      // Select Today deadline and edit title
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 0, 23, 59));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('deadline-clear')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('subtask-edit-title')),
-      'Subtask Alpha Edited',
-    );
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('subtask-edit-title')),
+        'Subtask Alpha Edited',
+      );
+      await tester.pumpAndSettle();
 
-    // Save subtask
-    await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
-    await tester.pumpAndSettle();
+      // Save subtask
+      await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
+      await tester.pumpAndSettle();
 
-    // Verify subtask item reflects new title and calendar icon
-    expect(find.text('Subtask Alpha Edited'), findsOneWidget);
-    expect(find.byIcon(Icons.calendar_month), findsWidgets);
+      // Verify subtask item reflects new title and calendar icon
+      expect(find.text('Subtask Alpha Edited'), findsOneWidget);
+      expect(find.byIcon(Icons.calendar_month), findsWidgets);
 
-    // Try closing without saving parent -> dirty dialog appears because subtask was changed
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
-    expect(find.text('Discard changes?'), findsOneWidget);
+      // Try closing without saving parent -> dirty dialog appears because subtask was changed
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
 
-    // Stay in editor
-    await tester.tap(find.text('Keep Editing'));
-    await tester.pumpAndSettle();
+      // Stay in editor
+      await tester.tap(find.text('Keep Editing'));
+      await tester.pumpAndSettle();
 
-    // Save parent task
-    await tester.tap(find.byKey(const ValueKey('save-task')));
-    await waitForEditorSave(tester, store);
+      // Save parent task
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await waitForEditorSave(tester, store);
 
-    final savedSub = store.tasks.first.subtasks.first;
-    expect(savedSub.title, 'Subtask Alpha Edited');
-    expect(savedSub.deadline, isNotNull);
-    final now = DateTime.now();
-    final subD = DateTime.fromMillisecondsSinceEpoch(savedSub.deadline!);
-    expect(subD.year, now.year);
-    expect(subD.month, now.month);
-    expect(subD.day, now.day);
+      final savedSub = store.tasks.first.subtasks.first;
+      expect(savedSub.title, 'Subtask Alpha Edited');
+      expect(savedSub.deadline, isNotNull);
+      final now = DateTime.now();
+      final subD = DateTime.fromMillisecondsSinceEpoch(savedSub.deadline!);
+      expect(subD.year, now.year);
+      expect(subD.month, now.month);
+      expect(subD.day, now.day);
 
-    // Re-open detail panel and clear subtask deadline
-    await tester.tap(find.text('Parent with Subtasks'));
-    await tester.pumpAndSettle();
+      // Re-open detail panel and clear subtask deadline
+      await tester.tap(find.text('Parent with Subtasks'));
+      await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const ValueKey('subtask-item-s1')));
-    await tester.tap(find.byKey(const ValueKey('subtask-item-s1')));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('subtask-item-s1')));
+      await tester.tap(find.byKey(const ValueKey('subtask-item-s1')));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('deadline-clear')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('time-confirm')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('deadline-clear')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('deadline-clear')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('time-confirm')));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('subtask-save-btn')));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('save-task')));
-    await waitForEditorSave(tester, store);
+      await tester.tap(find.byKey(const ValueKey('save-task')));
+      await waitForEditorSave(tester, store);
 
-    expect(store.tasks.first.subtasks.first.deadline, isNull);
+      expect(store.tasks.first.subtasks.first.deadline, isNull);
 
-    await tester.pumpWidget(const SizedBox());
-  });
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'parent and subtask deadlines are independent, subtask deadline can be later than parent with advisory warning',
@@ -2227,17 +2181,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('subtask-time-btn')));
       await tester.pumpAndSettle();
-      await chooseTaskMoment(
-        tester,
-        'deadline-custom',
-        DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day + 1,
-          23,
-          59,
-        ),
-      );
+      await chooseTaskMoment(tester, 'deadline-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 23, 59));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();
@@ -3257,65 +3201,66 @@ void main() {
     },
   );
 
-  testWidgets('toggle view mode between grid and list via header button', (
-    tester,
-  ) async {
-    viewport(tester, const Size(400, 800));
-    final store = await setup(tester);
-    final t1 = store.newTask('Task Alpha', quadrant: qDo);
-    final t2 = store.newTask('Task Beta', quadrant: qPlan);
-    store.addTasks([t1, t2]);
+  testWidgets(
+    'toggle view mode between grid and list via header button',
+    (tester) async {
+      viewport(tester, const Size(400, 800));
+      final store = await setup(tester);
+      final t1 = store.newTask('Task Alpha', quadrant: qDo);
+      final t2 = store.newTask('Task Beta', quadrant: qPlan);
+      store.addTasks([t1, t2]);
 
-    await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
 
-    // Initially grid mode: 4 QuadrantPane instances, 0 TaskListView
-    expect(find.byType(QuadrantPane), findsNWidgets(4));
-    expect(find.byType(TaskListView), findsNothing);
-    expect(find.text('Task Alpha'), findsOneWidget);
-    expect(find.text('Task Beta'), findsOneWidget);
+      // Initially grid mode: 4 QuadrantPane instances, 0 TaskListView
+      expect(find.byType(QuadrantPane), findsNWidgets(4));
+      expect(find.byType(TaskListView), findsNothing);
+      expect(find.text('Task Alpha'), findsOneWidget);
+      expect(find.text('Task Beta'), findsOneWidget);
 
-    // Tap view mode toggle button in header
-    await tapMoreKey(tester, const ValueKey('view-mode-toggle-btn'));
-    await tester.pumpAndSettle();
+      // Tap view mode toggle button in header
+      await tapMoreKey(tester, const ValueKey('view-mode-toggle-btn'));
+      await tester.pumpAndSettle();
 
-    // Now in list mode: 1 TaskListView instance, 0 QuadrantPane
-    expect(find.byType(TaskListView), findsOneWidget);
-    expect(find.byType(QuadrantPane), findsNothing);
-    expect(store.settings.viewMode, ViewMode.list);
+      // Now in list mode: 1 TaskListView instance, 0 QuadrantPane
+      expect(find.byType(TaskListView), findsOneWidget);
+      expect(find.byType(QuadrantPane), findsNothing);
+      expect(store.settings.viewMode, ViewMode.list);
 
-    // Check quadrant headers in list view
-    expect(
-      find.byKey(const ValueKey('list-quadrant-header-1')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('list-quadrant-header-2')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('list-quadrant-header-3')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('list-quadrant-header-4')),
-      findsOneWidget,
-    );
+      // Check quadrant headers in list view
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-2')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-3')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('list-quadrant-header-4')),
+        findsOneWidget,
+      );
 
-    // Tasks are visible in list view
-    expect(find.text('Task Alpha'), findsOneWidget);
-    expect(find.text('Task Beta'), findsOneWidget);
+      // Tasks are visible in list view
+      expect(find.text('Task Alpha'), findsOneWidget);
+      expect(find.text('Task Beta'), findsOneWidget);
 
-    // Tap toggle button again: switches back to grid mode
-    await tapMoreKey(tester, const ValueKey('view-mode-toggle-btn'));
-    await tester.pumpAndSettle();
+      // Tap toggle button again: switches back to grid mode
+      await tapMoreKey(tester, const ValueKey('view-mode-toggle-btn'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(QuadrantPane), findsNWidgets(4));
-    expect(find.byType(TaskListView), findsNothing);
-    expect(store.settings.viewMode, ViewMode.grid);
+      expect(find.byType(QuadrantPane), findsNWidgets(4));
+      expect(find.byType(TaskListView), findsNothing);
+      expect(store.settings.viewMode, ViewMode.grid);
 
-    await tester.pumpWidget(const SizedBox());
-  });
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'list view task completion, quadrant focus transition, and settings viewMode choice',
@@ -3556,7 +3501,9 @@ void main() {
     },
   );
 
-  testWidgets('multi-select mode disables swipe dismissible', (tester) async {
+  testWidgets('multi-select mode disables swipe dismissible', (
+    tester,
+  ) async {
     viewport(tester, const Size(800, 600));
     final store = await setup(tester);
     final t = store.newTask('MultiSelect Task', quadrant: qDo);
@@ -3584,65 +3531,66 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('context menu offers complete, delete, and undo operations', (
-    tester,
-  ) async {
-    viewport(tester, const Size(800, 600));
-    final store = await setup(tester);
-    final t = store.newTask('Context Menu Task', quadrant: qDo);
-    store.addTasks([t]);
+  testWidgets(
+    'context menu offers complete, delete, and undo operations',
+    (tester) async {
+      viewport(tester, const Size(800, 600));
+      final store = await setup(tester);
+      final t = store.newTask('Context Menu Task', quadrant: qDo);
+      store.addTasks([t]);
 
-    await tester.pumpWidget(app(store, const MatrixHome()));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(app(store, const MatrixHome()));
+      await tester.pumpAndSettle();
 
-    // Right-click / secondary click on task
-    final cardFinder = find.text('Context Menu Task');
-    final center = tester.getCenter(cardFinder);
-    final gesture = await tester.startGesture(
-      center,
-      kind: PointerDeviceKind.mouse,
-      buttons: kSecondaryMouseButton,
-    );
-    await gesture.up();
-    await tester.pumpAndSettle();
+      // Right-click / secondary click on task
+      final cardFinder = find.text('Context Menu Task');
+      final center = tester.getCenter(cardFinder);
+      final gesture = await tester.startGesture(
+        center,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
 
-    // Verify menu items
-    expect(find.byKey(ValueKey('context-complete-${t.id}')), findsOneWidget);
-    expect(find.byKey(ValueKey('context-delete-${t.id}')), findsOneWidget);
-    expect(find.byKey(ValueKey('move-to-q$qPlan-${t.id}')), findsOneWidget);
+      // Verify menu items
+      expect(find.byKey(ValueKey('context-complete-${t.id}')), findsOneWidget);
+      expect(find.byKey(ValueKey('context-delete-${t.id}')), findsOneWidget);
+      expect(find.byKey(ValueKey('move-to-q$qPlan-${t.id}')), findsOneWidget);
 
-    // Tap complete from context menu
-    await tester.tap(find.byKey(ValueKey('context-complete-${t.id}')));
-    await tester.pumpAndSettle();
+      // Tap complete from context menu
+      await tester.tap(find.byKey(ValueKey('context-complete-${t.id}')));
+      await tester.pumpAndSettle();
 
-    expect(t.completed, isTrue);
-    expect(find.byType(SnackBar), findsNothing);
-    store.restoreTask(t);
-    await tester.pumpAndSettle();
-    expect(t.completed, isFalse);
+      expect(t.completed, isTrue);
+      expect(find.byType(SnackBar), findsNothing);
+      store.restoreTask(t);
+      await tester.pumpAndSettle();
+      expect(t.completed, isFalse);
 
-    // Right-click again and delete
-    final gesture2 = await tester.startGesture(
-      center,
-      kind: PointerDeviceKind.mouse,
-      buttons: kSecondaryMouseButton,
-    );
-    await gesture2.up();
-    await tester.pumpAndSettle();
+      // Right-click again and delete
+      final gesture2 = await tester.startGesture(
+        center,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture2.up();
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ValueKey('context-delete-${t.id}')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('context-delete-${t.id}')));
+      await tester.pumpAndSettle();
 
-    expect(store.tasksIn(qDo), isEmpty);
-    expect(find.byKey(const ValueKey('task-undo-snackbar')), findsOneWidget);
+      expect(store.tasksIn(qDo), isEmpty);
+      expect(find.byKey(const ValueKey('task-undo-snackbar')), findsOneWidget);
 
-    // Tap Undo to restore
-    await tester.tap(find.byKey(const ValueKey('undo-action-btn')));
-    await tester.pumpAndSettle();
-    expect(store.tasksIn(qDo).length, 1);
+      // Tap Undo to restore
+      await tester.tap(find.byKey(const ValueKey('undo-action-btn')));
+      await tester.pumpAndSettle();
+      expect(store.tasksIn(qDo).length, 1);
 
-    await tester.pumpWidget(const SizedBox());
-  });
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'parent and subtask notes editing, saving, display, and discard draft protection',
@@ -3787,7 +3735,9 @@ void main() {
     },
   );
 
-  testWidgets('SearchScreen finds parent and subtask by notes', (tester) async {
+  testWidgets('SearchScreen finds parent and subtask by notes', (
+    tester,
+  ) async {
     viewport(tester, const Size(390, 844));
     final store = await setup(tester);
     final t1 = store.newTask('Regular Header', quadrant: qDo);
@@ -3860,16 +3810,7 @@ void main() {
       );
 
       // Choose tomorrow at 09:00 explicitly
-      await chooseTaskMoment(
-        tester,
-        'reminder-quick-custom',
-        DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day + 1,
-          9,
-        ),
-      );
+      await chooseTaskMoment(tester, 'reminder-quick-custom', DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1, 9));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('time-confirm')));
       await tester.pumpAndSettle();

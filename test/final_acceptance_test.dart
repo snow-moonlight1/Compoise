@@ -154,37 +154,43 @@ void main() {
     expectRefs(store);
   });
 
-  test('a same-byte edit does not anchor the uncommitted import', () async {
-    SharedPreferences.setMockInitialValues({});
-    final barrier = fixture.SlotBarrier()..failSlot(0);
-    final store = await fixture.openStore(barrier: barrier);
-    addTearDown(store.dispose);
-    store.addTasks([store.newTask('Local')]);
-    await store.flush();
-    final plan = store.previewImport(
-      fixture.payload(fixture.newBoards('import-board'), [
-        fixture.taskJson('import-task', 'import-board', 'Imported'),
-      ]),
-      'overwrite',
-    );
-    barrier.armed = true;
-    final importing = store.applyImport(plan);
-    await barrier.enteredAt(0);
-    final same = Task.fromJson(
-      store.tasks.firstWhere((task) => task.id == 'import-task').toJson(),
-    );
-    store.updateTask(same);
-    barrier.release(0);
-    expect((await importing).success, isFalse);
-    await store.flush();
-    expect(store.tasks.map((task) => task.id), isNot(contains('import-task')));
-    expect(
-      store.boards.map((board) => board.id),
-      isNot(contains('import-board')),
-    );
-    expect(store.tasks.map((task) => task.title), contains('Local'));
-    expectRefs(store);
-  });
+  test(
+    'a same-byte edit does not anchor the uncommitted import',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final barrier = fixture.SlotBarrier()..failSlot(0);
+      final store = await fixture.openStore(barrier: barrier);
+      addTearDown(store.dispose);
+      store.addTasks([store.newTask('Local')]);
+      await store.flush();
+      final plan = store.previewImport(
+        fixture.payload(fixture.newBoards('import-board'), [
+          fixture.taskJson('import-task', 'import-board', 'Imported'),
+        ]),
+        'overwrite',
+      );
+      barrier.armed = true;
+      final importing = store.applyImport(plan);
+      await barrier.enteredAt(0);
+      final same = Task.fromJson(
+        store.tasks.firstWhere((task) => task.id == 'import-task').toJson(),
+      );
+      store.updateTask(same);
+      barrier.release(0);
+      expect((await importing).success, isFalse);
+      await store.flush();
+      expect(
+        store.tasks.map((task) => task.id),
+        isNot(contains('import-task')),
+      );
+      expect(
+        store.boards.map((board) => board.id),
+        isNot(contains('import-board')),
+      );
+      expect(store.tasks.map((task) => task.title), contains('Local'));
+      expectRefs(store);
+    },
+  );
 
   test('deleting the imported board stays deleted', () async {
     SharedPreferences.setMockInitialValues({});
@@ -217,30 +223,33 @@ void main() {
     expectRefs(store);
   });
 
-  test('switching to an unreferenced imported board is not a ghost', () async {
-    SharedPreferences.setMockInitialValues({});
-    final barrier = fixture.SlotBarrier()..failSlot(0);
-    final store = await fixture.openStore(barrier: barrier);
-    addTearDown(store.dispose);
-    final original = store.activeBoardId;
-    final plan = store.previewImport(
-      fixture.payload(fixture.newBoards('import-board'), []),
-      'merge',
-    );
-    barrier.armed = true;
-    final importing = store.applyImport(plan);
-    await barrier.enteredAt(0);
-    store.setActiveBoard('import-board');
-    barrier.release(0);
-    expect((await importing).success, isFalse);
-    await store.flush();
-    expect(
-      store.boards.map((board) => board.id),
-      isNot(contains('import-board')),
-    );
-    expect(store.activeBoardId, original);
-    expectRefs(store);
-  });
+  test(
+    'switching to an unreferenced imported board is not a ghost',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final barrier = fixture.SlotBarrier()..failSlot(0);
+      final store = await fixture.openStore(barrier: barrier);
+      addTearDown(store.dispose);
+      final original = store.activeBoardId;
+      final plan = store.previewImport(
+        fixture.payload(fixture.newBoards('import-board'), []),
+        'merge',
+      );
+      barrier.armed = true;
+      final importing = store.applyImport(plan);
+      await barrier.enteredAt(0);
+      store.setActiveBoard('import-board');
+      barrier.release(0);
+      expect((await importing).success, isFalse);
+      await store.flush();
+      expect(
+        store.boards.map((board) => board.id),
+        isNot(contains('import-board')),
+      );
+      expect(store.activeBoardId, original);
+      expectRefs(store);
+    },
+  );
 
   test('pointer failure keeps the new task on a real board', () async {
     SharedPreferences.setMockInitialValues({});
@@ -416,103 +425,113 @@ void main() {
     );
   });
 
-  test('a failed import does not leave the reminders it carried', () async {
-    SharedPreferences.setMockInitialValues({});
-    final barrier = fixture.SlotBarrier()..failSlot(0);
-    final reminders = HoldingReminders();
-    final store = Store(saveWriter: barrier.write, reminders: reminders);
-    addTearDown(store.dispose);
-    await store.init();
-    final old = store.newTask('Original')..reminderAt = futureMs();
-    final child = SubTask(id: 'child', title: 'Child', reminderAt: futureMs());
-    old.subtasks = [child];
-    store.addTasks([old]);
-    await store.flush();
-    await settle();
-    final carried = futureMs();
-    final plan = store.previewImport(
-      fixture.payload(fixture.newBoards('import-board'), [
-        {
-          ...fixture.taskJson('import-task', 'import-board', 'Imported'),
-          'reminderAt': carried,
-          'subtasks': [
-            {
-              'id': 'import-child',
-              'title': 'Imported child',
-              'reminderAt': carried,
-            },
-          ],
-        },
-      ]),
-      'overwrite',
-    );
-    barrier.armed = true;
-    final importing = store.applyImport(plan);
-    await barrier.enteredAt(0);
-    await settle();
-    barrier.release(0);
-    expect((await importing).success, isFalse);
-    await store.flush();
-    await settle();
-    expect(reminders.cancelAlls, 0);
-    final ids = reminders.scheduled.values.map((item) => item.taskId).toSet();
-    expect(ids, {old.id});
-    expect(
-      reminders.scheduled.values.map((item) => item.subtaskId).toSet(),
-      contains(child.id),
-    );
-    expect(ids, isNot(contains('import-task')));
-  });
+  test(
+    'a failed import does not leave the reminders it carried',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final barrier = fixture.SlotBarrier()..failSlot(0);
+      final reminders = HoldingReminders();
+      final store = Store(saveWriter: barrier.write, reminders: reminders);
+      addTearDown(store.dispose);
+      await store.init();
+      final old = store.newTask('Original')..reminderAt = futureMs();
+      final child = SubTask(
+        id: 'child',
+        title: 'Child',
+        reminderAt: futureMs(),
+      );
+      old.subtasks = [child];
+      store.addTasks([old]);
+      await store.flush();
+      await settle();
+      final carried = futureMs();
+      final plan = store.previewImport(
+        fixture.payload(fixture.newBoards('import-board'), [
+          {
+            ...fixture.taskJson('import-task', 'import-board', 'Imported'),
+            'reminderAt': carried,
+            'subtasks': [
+              {
+                'id': 'import-child',
+                'title': 'Imported child',
+                'reminderAt': carried,
+              },
+            ],
+          },
+        ]),
+        'overwrite',
+      );
+      barrier.armed = true;
+      final importing = store.applyImport(plan);
+      await barrier.enteredAt(0);
+      await settle();
+      barrier.release(0);
+      expect((await importing).success, isFalse);
+      await store.flush();
+      await settle();
+      expect(reminders.cancelAlls, 0);
+      final ids = reminders.scheduled.values.map((item) => item.taskId).toSet();
+      expect(ids, {old.id});
+      expect(
+        reminders.scheduled.values.map((item) => item.subtaskId).toSet(),
+        contains(child.id),
+      );
+      expect(ids, isNot(contains('import-task')));
+    },
+  );
 
-  test('a successful overwrite replaces parent and child reminders', () async {
-    SharedPreferences.setMockInitialValues({});
-    final reminders = InMemoryReminderService();
-    final store = Store(reminders: reminders);
-    addTearDown(store.dispose);
-    await store.init();
-    final oldWhen = futureMs();
-    final old = store.newTask('Original')..reminderAt = oldWhen;
-    old.subtasks = [
-      SubTask(id: 'old-child', title: 'Old child', reminderAt: oldWhen),
-    ];
-    store.addTasks([old]);
-    await store.flush();
-    await settle();
-    final next = futureMs();
-    final plan = store.previewImport(
-      fixture.payload(fixture.newBoards('import-board'), [
-        {
-          ...fixture.taskJson('import-task', 'import-board', 'Imported'),
-          'reminderAt': next,
-          'subtasks': [
-            {
-              'id': 'import-child',
-              'title': 'Imported child',
-              'reminderAt': next,
-            },
-          ],
-        },
-      ]),
-      'overwrite',
-    );
-    expect((await store.applyImport(plan)).success, isTrue);
-    await store.flush();
-    await settle();
-    final scheduled = reminders.scheduled.values.toList();
-    expect(scheduled.map((item) => item.taskId), isNot(contains(old.id)));
-    expect(
-      scheduled.where(
-        (item) => item.taskId == 'import-task' && item.subtaskId == null,
-      ),
-      hasLength(1),
-    );
-    expect(
-      scheduled
-          .firstWhere((item) => item.subtaskId == 'import-child')
-          .triggerAtMs,
-      next,
-    );
-  });
+  test(
+    'a successful overwrite replaces parent and child reminders',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final reminders = InMemoryReminderService();
+      final store = Store(reminders: reminders);
+      addTearDown(store.dispose);
+      await store.init();
+      final oldWhen = futureMs();
+      final old = store.newTask('Original')..reminderAt = oldWhen;
+      old.subtasks = [
+        SubTask(id: 'old-child', title: 'Old child', reminderAt: oldWhen),
+      ];
+      store.addTasks([old]);
+      await store.flush();
+      await settle();
+      final next = futureMs();
+      final plan = store.previewImport(
+        fixture.payload(fixture.newBoards('import-board'), [
+          {
+            ...fixture.taskJson('import-task', 'import-board', 'Imported'),
+            'reminderAt': next,
+            'subtasks': [
+              {
+                'id': 'import-child',
+                'title': 'Imported child',
+                'reminderAt': next,
+              },
+            ],
+          },
+        ]),
+        'overwrite',
+      );
+      expect((await store.applyImport(plan)).success, isTrue);
+      await store.flush();
+      await settle();
+      final scheduled = reminders.scheduled.values.toList();
+      expect(scheduled.map((item) => item.taskId), isNot(contains(old.id)));
+      expect(
+        scheduled.where(
+          (item) => item.taskId == 'import-task' && item.subtaskId == null,
+        ),
+        hasLength(1),
+      );
+      expect(
+        scheduled
+            .firstWhere((item) => item.subtaskId == 'import-child')
+            .triggerAtMs,
+        next,
+      );
+    },
+  );
 
   test('a late rebuild does not cover a newer reminder edit', () async {
     SharedPreferences.setMockInitialValues({});
@@ -749,73 +768,76 @@ void main() {
     );
   });
 
-  test('one-by-one growth past each count cap still round-trips', () async {
-    SharedPreferences.setMockInitialValues({});
-    final store = await fixture.openStore();
-    addTearDown(store.dispose);
-    final boardId = store.activeBoardId;
-    store.addTasks([
-      for (var i = 0; i < ImportPreflight.maxTasks - 1; i++)
+  test(
+    'one-by-one growth past each count cap still round-trips',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = await fixture.openStore();
+      addTearDown(store.dispose);
+      final boardId = store.activeBoardId;
+      store.addTasks([
+        for (var i = 0; i < ImportPreflight.maxTasks - 1; i++)
+          Task(
+            id: 'n$i',
+            boardId: boardId,
+            title: 'T',
+            quadrant: 1,
+            createdAt: 1,
+          ),
+      ]);
+      store.addTasks([
         Task(
-          id: 'n$i',
+          id: 'n-last',
           boardId: boardId,
           title: 'T',
           quadrant: 1,
           createdAt: 1,
         ),
-    ]);
-    store.addTasks([
-      Task(
-        id: 'n-last',
-        boardId: boardId,
-        title: 'T',
-        quadrant: 1,
-        createdAt: 1,
-      ),
-    ]);
-    expect(store.tasks, hasLength(ImportPreflight.maxTasks));
-    expect((await store.exportBackup()).status, BackupStatus.single);
-    store.addTasks([
-      Task(
-        id: 'n-extra',
-        boardId: boardId,
-        title: 'T',
-        quadrant: 1,
-        createdAt: 1,
-      ),
-    ]);
-    final tasks = await store.exportBackup();
-    expect(tasks.recoverable, isTrue);
-    expect(tasks.status, BackupStatus.recovery);
+      ]);
+      expect(store.tasks, hasLength(ImportPreflight.maxTasks));
+      expect((await store.exportBackup()).status, BackupStatus.single);
+      store.addTasks([
+        Task(
+          id: 'n-extra',
+          boardId: boardId,
+          title: 'T',
+          quadrant: 1,
+          createdAt: 1,
+        ),
+      ]);
+      final tasks = await store.exportBackup();
+      expect(tasks.recoverable, isTrue);
+      expect(tasks.status, BackupStatus.recovery);
 
-    for (var i = 0; i < ImportPreflight.maxBoards; i++) {
-      store.createBoard('Board $i');
-    }
-    final boards = await store.exportBackup();
-    expect(boards.recoverable, isTrue);
+      for (var i = 0; i < ImportPreflight.maxBoards; i++) {
+        store.createBoard('Board $i');
+      }
+      final boards = await store.exportBackup();
+      expect(boards.recoverable, isTrue);
 
-    store.addTasks([
-      Task(
-        id: 'many-children',
-        boardId: boardId,
-        title: 'Parent',
-        quadrant: 1,
-        createdAt: 1,
-        subtasks: [
-          for (var i = 0; i <= ImportPreflight.maxSubtasks; i++)
-            SubTask(id: 'c$i', title: 'S'),
-        ],
-      ),
-    ]);
-    final children = await store.exportBackup();
-    expect(children.recoverable, isTrue);
-    expect(
-      children.parts.every(
-        (part) => part.bytes <= ImportPreflight.maxFileBytes,
-      ),
-      isTrue,
-    );
-  });
+      store.addTasks([
+        Task(
+          id: 'many-children',
+          boardId: boardId,
+          title: 'Parent',
+          quadrant: 1,
+          createdAt: 1,
+          subtasks: [
+            for (var i = 0; i <= ImportPreflight.maxSubtasks; i++)
+              SubTask(id: 'c$i', title: 'S'),
+          ],
+        ),
+      ]);
+      final children = await store.exportBackup();
+      expect(children.recoverable, isTrue);
+      expect(
+        children.parts.every(
+          (part) => part.bytes <= ImportPreflight.maxFileBytes,
+        ),
+        isTrue,
+      );
+    },
+  );
 
   test('an oversized note round-trips without deleting it', () async {
     SharedPreferences.setMockInitialValues({});

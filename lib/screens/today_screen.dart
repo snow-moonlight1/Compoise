@@ -224,11 +224,9 @@ class _TodayScreenState extends State<TodayScreen> {
     ];
     final rowIndexes = {
       for (var i = 0; i < rows.length; i++)
-        ValueKey(
-          rows[i].section == null
-              ? 'today-exit-${rows[i].task!.id}'
-              : 'today-section-${rows[i].section!.name}',
-        ): i,
+        ValueKey(rows[i].section == null
+            ? 'today-exit-${rows[i].task!.id}'
+            : 'today-section-${rows[i].section!.name}'): i,
     };
     final activeCount = _applied.dimensionCount(TaskFilterKind.archive);
     final detailTask = _detail.taskIn(store);

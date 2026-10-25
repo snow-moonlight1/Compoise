@@ -85,14 +85,20 @@ void main() {
 
       // Slide 0: Previous button is not built yet.
       expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsNothing);
-      expect(find.byKey(const ValueKey('onboarding-next-btn')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('onboarding-next-btn')),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
       // One frame only: the old 300ms slide would still be mid-flight. Under
       // reduce motion the page must already be on slide 1.
       await tester.pump();
 
-      expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('onboarding-prev-btn')),
+        findsOneWidget,
+      );
       expect(find.text(store.t['onboardingStep2Title']!), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
@@ -117,7 +123,10 @@ void main() {
       expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsNothing);
 
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('onboarding-prev-btn')),
+        findsOneWidget,
+      );
       expect(find.text(store.t['onboardingStep2Title']!), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
@@ -146,7 +155,10 @@ void main() {
       await tester.pump(); // post-frame jump lands; page change settles
       await tester.pump();
 
-      expect(find.byKey(const ValueKey('onboarding-prev-btn')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('onboarding-prev-btn')),
+        findsOneWidget,
+      );
       expect(find.text(store.t['onboardingStep2Title']!), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
@@ -154,30 +166,31 @@ void main() {
     },
   );
 
-  testWidgets('page turn still snaps after the destination crosses center', (
-    tester,
-  ) async {
-    final (store, _) = await makeStore(
-      settings: AppSettings()..reduceMotion = false,
-    );
-    await tester.pumpWidget(wrapOnboarding(store));
-    await tester.pump();
+  testWidgets(
+    'page turn still snaps after the destination crosses center',
+    (tester) async {
+      final (store, _) = await makeStore(
+        settings: AppSettings()..reduceMotion = false,
+      );
+      await tester.pumpWidget(wrapOnboarding(store));
+      await tester.pump();
 
-    await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 190));
-    final pageView = tester.widget<PageView>(find.byType(PageView));
-    expect(pageView.controller!.page, greaterThan(0.5));
-    expect(pageView.controller!.page, lessThan(1));
+      await tester.tap(find.byKey(const ValueKey('onboarding-next-btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 190));
+      final pageView = tester.widget<PageView>(find.byType(PageView));
+      expect(pageView.controller!.page, greaterThan(0.5));
+      expect(pageView.controller!.page, lessThan(1));
 
-    store.updateSettings((s) => s..reduceMotion = true);
-    await tester.pump();
-    await tester.pump();
-    expect(pageView.controller!.page, 1);
+      store.updateSettings((s) => s..reduceMotion = true);
+      await tester.pump();
+      await tester.pump();
+      expect(pageView.controller!.page, 1);
 
-    await tester.pumpWidget(const SizedBox());
-    store.dispose();
-  });
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
 
   testWidgets(
     'dropped task jumps a scrolled pane to top at once under reduce motion',
@@ -191,7 +204,9 @@ void main() {
       await tester.pumpWidget(wrapMatrix(store));
       await tester.pumpAndSettle();
 
-      final q1List = find.byKey(PageStorageKey('${store.activeBoardId}-$qDo'));
+      final q1List = find.byKey(
+        PageStorageKey('${store.activeBoardId}-$qDo'),
+      );
       await tester.drag(q1List, const Offset(0, -300));
       await tester.pumpAndSettle();
       final scrollable = tester.state<ScrollableState>(
@@ -224,7 +239,9 @@ void main() {
       await tester.pumpWidget(wrapMatrix(store));
       await tester.pumpAndSettle();
 
-      final q1List = find.byKey(PageStorageKey('${store.activeBoardId}-$qDo'));
+      final q1List = find.byKey(
+        PageStorageKey('${store.activeBoardId}-$qDo'),
+      );
       await tester.drag(q1List, const Offset(0, -300));
       await tester.pumpAndSettle();
       final scrollable = tester.state<ScrollableState>(
@@ -234,8 +251,7 @@ void main() {
       expect(scrolledOffset, greaterThan(100));
 
       await dropMovingTaskOntoQ1(tester);
-      await tester
-          .pump(); // onAccept postframe creates the DrivenScrollActivity
+      await tester.pump(); // onAccept postframe creates the DrivenScrollActivity
       await tester.pump(); // first tick anchors the ticker start at this frame
       await tester.pump(const Duration(milliseconds: 100)); // 100ms elapsed
       expect(scrollable.position.pixels, lessThan(scrolledOffset));
@@ -258,34 +274,35 @@ void main() {
     },
   );
 
-  testWidgets('reduce motion preserves a manually scrolled pane', (
-    tester,
-  ) async {
-    setViewport(tester, const Size(600, 700));
-    final (store, _) = await makeStore(
-      settings: AppSettings()..reduceMotion = false,
-    );
-    await seedMatrix(store);
-    await tester.pumpWidget(wrapMatrix(store));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'reduce motion preserves a manually scrolled pane',
+    (tester) async {
+      setViewport(tester, const Size(600, 700));
+      final (store, _) = await makeStore(
+        settings: AppSettings()..reduceMotion = false,
+      );
+      await seedMatrix(store);
+      await tester.pumpWidget(wrapMatrix(store));
+      await tester.pumpAndSettle();
 
-    final q1List = find.byKey(PageStorageKey('${store.activeBoardId}-$qDo'));
-    await tester.drag(q1List, const Offset(0, -300));
-    await tester.pumpAndSettle();
-    final scrollable = tester.state<ScrollableState>(
-      find.descendant(of: q1List, matching: find.byType(Scrollable)),
-    );
-    final offset = scrollable.position.pixels;
-    expect(offset, greaterThan(100));
+      final q1List = find.byKey(PageStorageKey('${store.activeBoardId}-$qDo'));
+      await tester.drag(q1List, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: q1List, matching: find.byType(Scrollable)),
+      );
+      final offset = scrollable.position.pixels;
+      expect(offset, greaterThan(100));
 
-    store.updateSettings((s) => s..reduceMotion = true);
-    await tester.pump();
-    await tester.pump();
-    expect(scrollable.position.pixels, offset);
+      store.updateSettings((s) => s..reduceMotion = true);
+      await tester.pump();
+      await tester.pump();
+      expect(scrollable.position.pixels, offset);
 
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-    await tester.pumpWidget(const SizedBox());
-    store.dispose();
-  });
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
 }

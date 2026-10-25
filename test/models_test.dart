@@ -15,12 +15,7 @@ void main() {
         deadline: 1700001000000,
         reasoning: '需要拆解',
         subtasks: [
-          SubTask(
-            id: 's1',
-            title: '收集数据',
-            completed: true,
-            deadline: 1700000500000,
-          ),
+          SubTask(id: 's1', title: '收集数据', completed: true, deadline: 1700000500000),
           SubTask(id: 's2', title: '撰写'),
         ],
       );
@@ -46,7 +41,11 @@ void main() {
         createdAt: 1700000000000,
         notesMarkdown: '这是父任务详细纯文本备注\n第二行内容',
         subtasks: [
-          SubTask(id: 's-notes', title: '子任务A', notesMarkdown: '子任务备注详情'),
+          SubTask(
+            id: 's-notes',
+            title: '子任务A',
+            notesMarkdown: '子任务备注详情',
+          ),
         ],
       );
       final restoredWithNotes = Task.fromJson(taskWithNotes.toJson());
@@ -61,10 +60,7 @@ void main() {
       // v1 downgrade export strips notesMarkdown from parent and subtasks
       final v1Json = taskWithNotes.toJson(targetVersion: 1);
       expect(v1Json.containsKey('notesMarkdown'), isFalse);
-      expect(
-        (v1Json['subtasks'] as List).first.containsKey('notesMarkdown'),
-        isFalse,
-      );
+      expect((v1Json['subtasks'] as List).first.containsKey('notesMarkdown'), isFalse);
 
       final manualTask = Task(
         id: 't-manual',
@@ -77,10 +73,7 @@ void main() {
       final restoredManual = Task.fromJson(manualTask.toJson());
       expect(restoredManual.urgencyMode, UrgencyMode.manual);
       expect(manualTask.toJson(targetVersion: 2)['urgencyMode'], 'manual');
-      expect(
-        manualTask.toJson(targetVersion: 1).containsKey('urgencyMode'),
-        isFalse,
-      );
+      expect(manualTask.toJson(targetVersion: 1).containsKey('urgencyMode'), isFalse);
 
       final reminderTask = Task(
         id: 't-reminder',
@@ -91,7 +84,11 @@ void main() {
         reminderAt: 1700005000000,
         reminderTimezone: 'Asia/Shanghai',
         subtasks: [
-          SubTask(id: 's-reminder', title: '子任务提醒', reminderAt: 1700004000000),
+          SubTask(
+            id: 's-reminder',
+            title: '子任务提醒',
+            reminderAt: 1700004000000,
+          ),
         ],
       );
       final restoredReminder = Task.fromJson(reminderTask.toJson());
@@ -184,80 +181,48 @@ void main() {
   });
 
   group('quadrant labels', () {
-    test(
-      'keep urgency and importance in zh/en/ja without action short names',
-      () {
-        const expected = {
-          Language.zh: {
-            'q1': '紧急且重要',
-            'q2': '不紧急但重要',
-            'q3': '紧急但不重要',
-            'q4': '不紧急也不重要',
-          },
-          Language.en: {
-            'q1': 'Urgent and Important',
-            'q2': 'Not Urgent but Important',
-            'q3': 'Urgent but Not Important',
-            'q4': 'Neither Urgent nor Important',
-          },
-          Language.ja: {
-            'q1': '緊急かつ重要',
-            'q2': '緊急でないが重要',
-            'q3': '緊急だが重要ではない',
-            'q4': '緊急でも重要でもない',
-          },
-        };
-        for (final language in Language.values) {
-          final t = dictOf(language);
-          expected[language]!.forEach((key, value) {
-            expect(t[key], value);
-            expect(t['${key}Short'], value);
-          });
-          expect(t['q1Short'], isNot(anyOf('Do', '马上做', 'すぐやる')));
-          expect(t['q4'], isNot(contains('不要做')));
-          expect(t['q4'], isNot(contains("Don't Do")));
-          expect(
-            t['q2'],
-            contains(
-              language == Language.en
-                  ? 'Not'
-                  : language == Language.zh
-                  ? '不'
-                  : 'ない',
-            ),
-          );
-          expect(
-            t['q3'],
-            contains(
-              language == Language.en
-                  ? 'Not'
-                  : language == Language.zh
-                  ? '不'
-                  : 'ない',
-            ),
-          );
-          expect(
-            t['q4'],
-            contains(
-              language == Language.en
-                  ? 'nor'
-                  : language == Language.zh
-                  ? '不'
-                  : 'ない',
-            ),
-          );
-        }
-      },
-    );
+    test('keep urgency and importance in zh/en/ja without action short names', () {
+      const expected = {
+        Language.zh: {
+          'q1': '紧急且重要',
+          'q2': '不紧急但重要',
+          'q3': '紧急但不重要',
+          'q4': '不紧急也不重要',
+        },
+        Language.en: {
+          'q1': 'Urgent and Important',
+          'q2': 'Not Urgent but Important',
+          'q3': 'Urgent but Not Important',
+          'q4': 'Neither Urgent nor Important',
+        },
+        Language.ja: {
+          'q1': '緊急かつ重要',
+          'q2': '緊急でないが重要',
+          'q3': '緊急だが重要ではない',
+          'q4': '緊急でも重要でもない',
+        },
+      };
+      for (final language in Language.values) {
+        final t = dictOf(language);
+        expected[language]!.forEach((key, value) {
+          expect(t[key], value);
+          expect(t['${key}Short'], value);
+        });
+        expect(t['q1Short'], isNot(anyOf('Do', '马上做', 'すぐやる')));
+        expect(t['q4'], isNot(contains('不要做')));
+        expect(t['q4'], isNot(contains("Don't Do")));
+        expect(t['q2'], contains(language == Language.en ? 'Not' : language == Language.zh ? '不' : 'ない'));
+        expect(t['q3'], contains(language == Language.en ? 'Not' : language == Language.zh ? '不' : 'ない'));
+        expect(t['q4'], contains(language == Language.en ? 'nor' : language == Language.zh ? '不' : 'ない'));
+      }
+    });
   });
 
   group('ExportData', () {
     test('standard v4 export shape', () {
       final json = ExportData(
         boards: [Board(id: 'b1', name: 'My Tasks', createdAt: 1)],
-        tasks: [
-          Task(id: 't1', boardId: 'b1', title: 'x', quadrant: 1, createdAt: 1),
-        ],
+        tasks: [Task(id: 't1', boardId: 'b1', title: 'x', quadrant: 1, createdAt: 1)],
         settings: AppSettings(),
         aiConfig: AIConfig(),
       ).toJson();
@@ -273,9 +238,7 @@ void main() {
     test('v1 downgrade export shape excludes v2-only settings', () {
       final json = ExportData(
         boards: [Board(id: 'b1', name: 'My Tasks', createdAt: 1)],
-        tasks: [
-          Task(id: 't1', boardId: 'b1', title: 'x', quadrant: 1, createdAt: 1),
-        ],
+        tasks: [Task(id: 't1', boardId: 'b1', title: 'x', quadrant: 1, createdAt: 1)],
         settings: AppSettings(),
         aiConfig: AIConfig(),
       ).toJson(targetVersion: 1);
@@ -287,10 +250,7 @@ void main() {
       expect((json['settings'] as Map).containsKey('viewMode'), isFalse);
       expect((json['settings'] as Map).containsKey('fontSize'), isFalse);
       expect((json['settings'] as Map).containsKey('closeToTray'), isFalse);
-      expect(
-        (json['settings'] as Map).containsKey('showCompletionRate'),
-        isFalse,
-      );
+      expect((json['settings'] as Map).containsKey('showCompletionRate'), isFalse);
     });
   });
 
@@ -304,11 +264,7 @@ void main() {
       expect(resolveDeviceLanguage([const Locale('zh_TW')]), Language.zh);
       expect(
         resolveDeviceLanguage([
-          const Locale.fromSubtags(
-            languageCode: 'zh',
-            scriptCode: 'Hans',
-            countryCode: 'CN',
-          ),
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN'),
         ]),
         Language.zh,
       );
@@ -326,16 +282,13 @@ void main() {
       expect(resolveDeviceLanguage([const Locale('en', 'GB')]), Language.en);
     });
 
-    test(
-      'falls back to Language.en for unsupported locales or empty/null list',
-      () {
-        expect(resolveDeviceLanguage([const Locale('fr', 'FR')]), Language.en);
-        expect(resolveDeviceLanguage([const Locale('de', 'DE')]), Language.en);
-        expect(resolveDeviceLanguage([const Locale('ru')]), Language.en);
-        expect(resolveDeviceLanguage([]), Language.en);
-        expect(resolveDeviceLanguage(null), Language.en);
-      },
-    );
+    test('falls back to Language.en for unsupported locales or empty/null list', () {
+      expect(resolveDeviceLanguage([const Locale('fr', 'FR')]), Language.en);
+      expect(resolveDeviceLanguage([const Locale('de', 'DE')]), Language.en);
+      expect(resolveDeviceLanguage([const Locale('ru')]), Language.en);
+      expect(resolveDeviceLanguage([]), Language.en);
+      expect(resolveDeviceLanguage(null), Language.en);
+    });
 
     test('picks the first supported language according to priority order', () {
       expect(
@@ -364,48 +317,48 @@ void main() {
       );
     });
 
-    test(
-      'AppSettings.fromJson preserves explicit language even when defaultLanguage differs',
-      () {
-        // Explicit en on zh device
-        final enSettings = AppSettings.fromJson({
-          'language': 'en',
-        }, defaultLanguage: Language.zh);
-        expect(enSettings.language, Language.en);
+    test('AppSettings.fromJson preserves explicit language even when defaultLanguage differs', () {
+      // Explicit en on zh device
+      final enSettings = AppSettings.fromJson(
+        {'language': 'en'},
+        defaultLanguage: Language.zh,
+      );
+      expect(enSettings.language, Language.en);
 
-        // Explicit zh on en device
-        final zhSettings = AppSettings.fromJson({
-          'language': 'zh',
-        }, defaultLanguage: Language.en);
-        expect(zhSettings.language, Language.zh);
+      // Explicit zh on en device
+      final zhSettings = AppSettings.fromJson(
+        {'language': 'zh'},
+        defaultLanguage: Language.en,
+      );
+      expect(zhSettings.language, Language.zh);
 
-        // Explicit ja on zh device
-        final jaSettings = AppSettings.fromJson({
-          'language': 'ja',
-        }, defaultLanguage: Language.zh);
-        expect(jaSettings.language, Language.ja);
-      },
-    );
+      // Explicit ja on zh device
+      final jaSettings = AppSettings.fromJson(
+        {'language': 'ja'},
+        defaultLanguage: Language.zh,
+      );
+      expect(jaSettings.language, Language.ja);
+    });
 
-    test(
-      'AppSettings.fromJson uses defaultLanguage when language key is missing or invalid',
-      () {
-        final missingSettings = AppSettings.fromJson({
-          'theme': 'dark',
-        }, defaultLanguage: Language.zh);
-        expect(missingSettings.language, Language.zh);
+    test('AppSettings.fromJson uses defaultLanguage when language key is missing or invalid', () {
+      final missingSettings = AppSettings.fromJson(
+        {'theme': 'dark'},
+        defaultLanguage: Language.zh,
+      );
+      expect(missingSettings.language, Language.zh);
 
-        final nullSettings = AppSettings.fromJson({
-          'language': null,
-        }, defaultLanguage: Language.ja);
-        expect(nullSettings.language, Language.ja);
+      final nullSettings = AppSettings.fromJson(
+        {'language': null},
+        defaultLanguage: Language.ja,
+      );
+      expect(nullSettings.language, Language.ja);
 
-        final invalidSettings = AppSettings.fromJson({
-          'language': 'fr',
-        }, defaultLanguage: Language.zh);
-        expect(invalidSettings.language, Language.zh);
-      },
-    );
+      final invalidSettings = AppSettings.fromJson(
+        {'language': 'fr'},
+        defaultLanguage: Language.zh,
+      );
+      expect(invalidSettings.language, Language.zh);
+    });
   });
 
   group('ViewMode', () {
@@ -453,22 +406,19 @@ void main() {
       expect(s.toJson()['fontFamily'], 'serif');
     });
 
-    test(
-      'fromJson falls back to standard and system when keys are missing or invalid',
-      () {
-        final missing = AppSettings.fromJson({});
-        expect(missing.fontSize, FontSizePref.standard);
-        expect(missing.fontFamily, FontFamilyPref.system);
-        expect(missing.showCompletionRate, isFalse);
+    test('fromJson falls back to standard and system when keys are missing or invalid', () {
+      final missing = AppSettings.fromJson({});
+      expect(missing.fontSize, FontSizePref.standard);
+      expect(missing.fontFamily, FontFamilyPref.system);
+      expect(missing.showCompletionRate, isFalse);
 
-        final invalid = AppSettings.fromJson({
-          'fontSize': 'huge',
-          'fontFamily': 'comic-sans',
-        });
-        expect(invalid.fontSize, FontSizePref.standard);
-        expect(invalid.fontFamily, FontFamilyPref.system);
-      },
-    );
+      final invalid = AppSettings.fromJson({
+        'fontSize': 'huge',
+        'fontFamily': 'comic-sans',
+      });
+      expect(invalid.fontSize, FontSizePref.standard);
+      expect(invalid.fontFamily, FontFamilyPref.system);
+    });
 
     test('comicOutline defaults off and stays out of a v1 export', () {
       final missing = AppSettings.fromJson({});
@@ -477,13 +427,8 @@ void main() {
       final enabled = AppSettings.fromJson({'comicOutline': true});
       expect(enabled.comicOutline, isTrue);
       expect(enabled.toJson()['comicOutline'], isTrue);
-      expect(
-        enabled.toJson(targetVersion: 1).containsKey('comicOutline'),
-        isFalse,
-      );
-      final cleared = AppSettings.fromJson(
-        enabled.toJson()..['comicOutline'] = false,
-      );
+      expect(enabled.toJson(targetVersion: 1).containsKey('comicOutline'), isFalse);
+      final cleared = AppSettings.fromJson(enabled.toJson()..['comicOutline'] = false);
       expect(cleared.comicOutline, isFalse);
     });
 
@@ -494,13 +439,8 @@ void main() {
       final enabled = AppSettings.fromJson({'neumorphic': true});
       expect(enabled.neumorphic, isTrue);
       expect(enabled.toJson()['neumorphic'], isTrue);
-      expect(
-        enabled.toJson(targetVersion: 1).containsKey('neumorphic'),
-        isFalse,
-      );
-      final cleared = AppSettings.fromJson(
-        enabled.toJson()..['neumorphic'] = false,
-      );
+      expect(enabled.toJson(targetVersion: 1).containsKey('neumorphic'), isFalse);
+      final cleared = AppSettings.fromJson(enabled.toJson()..['neumorphic'] = false);
       expect(cleared.neumorphic, isFalse);
     });
 

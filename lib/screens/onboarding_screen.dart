@@ -114,172 +114,173 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return _limitWidth(
       theme,
       Scaffold(
-        backgroundColor: theme.colorScheme.surface,
-        body: SafeArea(
-          child: CallbackShortcuts(
-            bindings: {
-              const SingleActivator(LogicalKeyboardKey.escape): _finish,
-              const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
-              const SingleActivator(LogicalKeyboardKey.arrowLeft): _prevPage,
-            },
-            child: Focus(
-              autofocus: true,
-              child: Column(
-                children: [
-                  // Top App Bar: Skip or Close button
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        if (widget.isReviewMode)
-                          Text(
-                            t['onboarding']!,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        else
-                          const SizedBox.shrink(),
-                        TextButton(
-                          key: const ValueKey('onboarding-skip-btn'),
-                          onPressed: _finish,
-                          child: Text(
-                            widget.isReviewMode
-                                ? t['onboardingClose']!
-                                : t['onboardingSkip']!,
-                            style: TextStyle(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): _finish,
+            const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
+            const SingleActivator(LogicalKeyboardKey.arrowLeft): _prevPage,
+          },
+          child: Focus(
+            autofocus: true,
+            child: Column(
+              children: [
+                // Top App Bar: Skip or Close button
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (widget.isReviewMode)
+                        Text(
+                          t['onboarding']!,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      TextButton(
+                        key: const ValueKey('onboarding-skip-btn'),
+                        onPressed: _finish,
+                        child: Text(
+                          widget.isReviewMode
+                              ? t['onboardingClose']!
+                              : t['onboardingSkip']!,
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Main PageView with 5 slides
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) =>
+                        setState(() => _currentPage = index),
+                    children: [
+                      _buildSlide(
+                        context,
+                        step: 1,
+                        icon: Icons.grid_view,
+                        iconColor: const Color(0xFFE53935),
+                        title: t['onboardingStep1Title']!,
+                        description: step1Desc,
+                        mockup: _buildMatrixMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 2,
+                        icon: Icons.open_with,
+                        iconColor: const Color(0xFF1E88E5),
+                        title: t['onboardingStep2Title']!,
+                        description: step2Desc,
+                        mockup: _buildDragMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 3,
+                        icon: Icons.checklist,
+                        iconColor: const Color(0xFF43A047),
+                        title: t['onboardingStep3Title']!,
+                        description: t['onboardingStep3Desc']!,
+                        mockup: _buildDetailsMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 4,
+                        icon: Icons.history,
+                        iconColor: const Color(0xFFFB8C00),
+                        title: t['onboardingStep4Title']!,
+                        description: t['onboardingStep4Desc']!,
+                        mockup: _buildCompletedMockup(theme, t),
+                      ),
+                      _buildSlide(
+                        context,
+                        step: 5,
+                        icon: Icons.auto_awesome,
+                        iconColor: const Color(0xFF8E24AA),
+                        title: t['onboardingStep5Title']!,
+                        description: t['onboardingStep5Desc']!,
+                        mockup: _buildAiMockup(theme, t),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Bottom Navigation: Indicator Dots & Action Buttons
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      // Back button
+                      if (_currentPage > 0)
+                        OutlinedButton(
+                          key: const ValueKey('onboarding-prev-btn'),
+                          onPressed: _prevPage,
+                          child: Text(t['onboardingPrev']!),
+                        )
+                      else
+                        const SizedBox(width: 80),
+
+                      const Spacer(),
+
+                      // Dots indicator
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(
+                          _pageCount,
+                          (index) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: _currentPage == index ? 20 : 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: _currentPage == index
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outlineVariant.withValues(
+                                      alpha: 0.6,
+                                    ),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+
+                      const Spacer(),
+
+                      // Next / Start button
+                      FilledButton(
+                        key: const ValueKey('onboarding-next-btn'),
+                        onPressed: _nextPage,
+                        child: Text(
+                          _currentPage == _pageCount - 1
+                              ? (widget.isReviewMode
+                                    ? t['onboardingClose']!
+                                    : t['onboardingStart']!)
+                              : t['onboardingNext']!,
+                        ),
+                      ),
+                    ],
                   ),
-
-                  // Main PageView with 5 slides
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      onPageChanged: (index) =>
-                          setState(() => _currentPage = index),
-                      children: [
-                        _buildSlide(
-                          context,
-                          step: 1,
-                          icon: Icons.grid_view,
-                          iconColor: const Color(0xFFE53935),
-                          title: t['onboardingStep1Title']!,
-                          description: step1Desc,
-                          mockup: _buildMatrixMockup(theme, t),
-                        ),
-                        _buildSlide(
-                          context,
-                          step: 2,
-                          icon: Icons.open_with,
-                          iconColor: const Color(0xFF1E88E5),
-                          title: t['onboardingStep2Title']!,
-                          description: step2Desc,
-                          mockup: _buildDragMockup(theme, t),
-                        ),
-                        _buildSlide(
-                          context,
-                          step: 3,
-                          icon: Icons.checklist,
-                          iconColor: const Color(0xFF43A047),
-                          title: t['onboardingStep3Title']!,
-                          description: t['onboardingStep3Desc']!,
-                          mockup: _buildDetailsMockup(theme, t),
-                        ),
-                        _buildSlide(
-                          context,
-                          step: 4,
-                          icon: Icons.history,
-                          iconColor: const Color(0xFFFB8C00),
-                          title: t['onboardingStep4Title']!,
-                          description: t['onboardingStep4Desc']!,
-                          mockup: _buildCompletedMockup(theme, t),
-                        ),
-                        _buildSlide(
-                          context,
-                          step: 5,
-                          icon: Icons.auto_awesome,
-                          iconColor: const Color(0xFF8E24AA),
-                          title: t['onboardingStep5Title']!,
-                          description: t['onboardingStep5Desc']!,
-                          mockup: _buildAiMockup(theme, t),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Bottom Navigation: Indicator Dots & Action Buttons
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      children: [
-                        // Back button
-                        if (_currentPage > 0)
-                          OutlinedButton(
-                            key: const ValueKey('onboarding-prev-btn'),
-                            onPressed: _prevPage,
-                            child: Text(t['onboardingPrev']!),
-                          )
-                        else
-                          const SizedBox(width: 80),
-
-                        const Spacer(),
-
-                        // Dots indicator
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            _pageCount,
-                            (index) => Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              width: _currentPage == index ? 20 : 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: _currentPage == index
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.outlineVariant
-                                          .withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // Next / Start button
-                        FilledButton(
-                          key: const ValueKey('onboarding-next-btn'),
-                          onPressed: _nextPage,
-                          child: Text(
-                            _currentPage == _pageCount - 1
-                                ? (widget.isReviewMode
-                                      ? t['onboardingClose']!
-                                      : t['onboardingStart']!)
-                                : t['onboardingNext']!,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
+    ),
     );
   }
 

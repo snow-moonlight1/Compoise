@@ -31,25 +31,18 @@ const _forbiddenFragments = [
 const _experimentDir = 'lib/experiments/wp19_dev_mode';
 
 List<File> _dartFiles(String dir) =>
-    Directory(dir)
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.dart'))
-        .toList()
+    Directory(dir).listSync(recursive: true).whereType<File>().where((file) => file.path.endsWith('.dart')).toList()
       ..sort((a, b) => a.path.compareTo(b.path));
 
-Task _task(
-  String id, {
-  String boardId = releaseBoardId,
-  bool completed = false,
-}) => Task(
-  id: id,
-  boardId: boardId,
-  title: '任务 $id',
-  quadrant: qDo,
-  completed: completed,
-  createdAt: 0,
-);
+Task _task(String id, {String boardId = releaseBoardId, bool completed = false}) =>
+  Task(
+    id: id,
+    boardId: boardId,
+    title: '任务 $id',
+    quadrant: qDo,
+    completed: completed,
+    createdAt: 0,
+  );
 
 DevExperiment _session(
   List<Task> tasks,
@@ -113,7 +106,9 @@ void main() {
     test('phase, acceptance and blocker edits reject no-ops', () {
       final experiment = _session(
         [_task('a'), _task('b'), _task('other', boardId: 'p-other')],
-        {'a': const DevFields(phase: DevPhase.build, acceptance: '可用')},
+        {
+          'a': const DevFields(phase: DevPhase.build, acceptance: '可用'),
+        },
       );
 
       expect(experiment.setPhase('a', DevPhase.build), isFalse);
@@ -139,32 +134,30 @@ void main() {
       expect(experiment.intentCount, 5);
     });
 
-    test(
-      'resetFields drops only this session and restores seeded completion',
-      () {
-        final experiment = _session(
-          [_task('a', completed: true)],
-          {'a': const DevFields(phase: DevPhase.design)},
-        );
-        expect(experiment.resetFields('a'), isTrue);
-        expect(experiment.view('a')!.phase, isNull);
-        expect(experiment.view('a')!.done, isTrue, reason: 'source stays done');
+    test('resetFields drops only this session and restores seeded completion', () {
+      final experiment = _session(
+        [_task('a', completed: true)],
+        {
+          'a': const DevFields(phase: DevPhase.design),
+        },
+      );
+      expect(experiment.resetFields('a'), isTrue);
+      expect(experiment.view('a')!.phase, isNull);
+      expect(experiment.view('a')!.done, isTrue, reason: 'source stays done');
 
-        expect(experiment.resetFields('a'), isFalse, reason: 'already clean');
+      expect(experiment.resetFields('a'), isFalse, reason: 'already clean');
 
-        experiment.toggleComplete('a');
-        expect(experiment.view('a')!.done, isFalse);
-        expect(experiment.resetFields('a'), isTrue);
-        expect(experiment.view('a')!.done, isTrue);
-      },
-    );
+      experiment.toggleComplete('a');
+      expect(experiment.view('a')!.done, isFalse);
+      expect(experiment.resetFields('a'), isTrue);
+      expect(experiment.view('a')!.done, isTrue);
+    });
 
     test('batch completion skips finished work and records one intent', () {
-      final experiment = _session([
-        _task('a'),
-        _task('b'),
-        _task('c', completed: true),
-      ], {});
+      final experiment = _session(
+        [_task('a'), _task('b'), _task('c', completed: true)],
+        {},
+      );
       expect(experiment.completeBatch(['a', 'b', 'c']), isTrue);
       expect(experiment.intentCount, 1);
       expect(experiment.journal.single.taskIds, ['a', 'b']);
@@ -199,10 +192,8 @@ void main() {
         },
       );
       // c is done, so b has nothing holding it and a only waits on b.
-      expect(
-        experiment.readiness(experiment.view('b')!).reason,
-        DevBlockReason.ready,
-      );
+      expect(experiment.readiness(experiment.view('b')!).reason,
+          DevBlockReason.ready);
       final readiness = experiment.readiness(experiment.view('a')!);
       expect(readiness.reason, DevBlockReason.waitingOnBlockers);
       expect(readiness.cycle, isEmpty);

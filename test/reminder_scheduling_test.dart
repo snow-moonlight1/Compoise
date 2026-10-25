@@ -778,7 +778,9 @@ void main() {
       fixture.settle(tester, store);
     });
 
-    testWidgets('an accepted test notification stays silent', (tester) async {
+    testWidgets('an accepted test notification stays silent', (
+      tester,
+    ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final service = InMemoryReminderService();
       final store = await pumpSettings(tester, service);

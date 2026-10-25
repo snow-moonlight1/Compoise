@@ -146,11 +146,13 @@ void main() {
       tester,
       size: const Size(320, 720),
       seed: (store) {
-        final parent = store.newTask('紧急且重要的很长很长很长很长很长很长的父任务标题', quadrant: qDo)
-          ..subtasks = [
-            for (var i = 0; i < 10; i++)
-              SubTask(id: 's$i', title: '子项 $i 也很长很长很长很长很长'),
-          ];
+        final parent = store.newTask(
+          '紧急且重要的很长很长很长很长很长很长的父任务标题',
+          quadrant: qDo,
+        )..subtasks = [
+          for (var i = 0; i < 10; i++)
+            SubTask(id: 's$i', title: '子项 $i 也很长很长很长很长很长'),
+        ];
         return [parent];
       },
     );

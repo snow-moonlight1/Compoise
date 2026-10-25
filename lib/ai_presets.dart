@@ -129,9 +129,7 @@ String pickPreferredModel(
       return 'qwen-turbo';
     }
   } else if (providerId == 'volcengine') {
-    final doubao = availableModels
-        .where((m) => m.toLowerCase().contains('doubao'))
-        .firstOrNull;
+    final doubao = availableModels.where((m) => m.toLowerCase().contains('doubao')).firstOrNull;
     if (doubao != null) return doubao;
   }
   return availableModels.first;

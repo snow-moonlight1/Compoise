@@ -30,10 +30,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () => showShortcutsHelpDialog(context, store.t),
-            child: const Text('Help'),
-          ),
+          builder:
+              (context) => ElevatedButton(
+                onPressed: () => showShortcutsHelpDialog(context, store.t),
+                child: const Text('Help'),
+              ),
         ),
       ),
     );
