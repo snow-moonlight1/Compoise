@@ -1,7 +1,7 @@
 name: compoise
 description: "Local-first Eisenhower matrix for Android, Windows, and Linux preview. Tasks stay on device; AI requests go to a user-configured endpoint."
 publish_to: 'none'
-version: 1.2.0+4
+version: 1.2.1+5
 
 environment:
   # OS24 pin: Flutter 3.32.8 stable / Dart 3.8.1.

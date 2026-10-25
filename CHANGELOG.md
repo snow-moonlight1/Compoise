@@ -6,6 +6,10 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-26
+
+这一版修复添加任务时的两个小问题：误关窗口不再丢失没写完的文字，按回车时键盘不再闪一下。This release fixes two small issues when adding tasks: text is no longer lost when the sheet is closed by accident, and the keyboard no longer flickers on Enter.
+
 ### 修复
 
 - 添加任务时不小心点到空白处关掉了窗口，没写完的文字会保留，下次打开还在；添加成功后清空。文字只存在本机，不进入备份。
@@ -191,7 +195,8 @@ First public release. 首个公开版本。
 - The Linux version does not deliver scheduled reminder notifications, and it has no tray icon or global hotkey.
 - Windows ARM64 is not built yet.
 
-[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/snow-moonlight1/Compoise/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.2.1
 [1.2.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.2.0
 [1.1.0]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.1.0
 [1.0.1]: https://github.com/snow-moonlight1/Compoise/releases/tag/v1.0.1
