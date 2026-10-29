@@ -12,6 +12,7 @@ class MainActivity : FlutterActivity() {
     private var ocrAssets: OcrAssetsBridge? = null
     private var reminderSettings: ReminderSettingsBridge? = null
     private var oauth: OAuthBridge? = null
+    private var appUpdate: AppUpdateBridge? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         quickCapture = QuickCaptureBridge(MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/quick_capture"))
@@ -28,6 +29,8 @@ class MainActivity : FlutterActivity() {
         oauth = OAuthBridge(this,
             MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/oauth"))
         oauth?.accept(intent)
+        appUpdate = AppUpdateBridge(this,
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "compoise/app_update"))
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (reminderSettings?.onActivityResult(requestCode) != true &&
@@ -53,6 +56,8 @@ class MainActivity : FlutterActivity() {
         reminderSettings = null
         oauth?.destroy()
         oauth = null
+        appUpdate?.destroy()
+        appUpdate = null
         super.onDestroy()
     }
 

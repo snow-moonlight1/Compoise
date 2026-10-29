@@ -15,6 +15,8 @@ import '../shortcuts.dart';
 import '../services/desktop_exit_coordinator.dart';
 import '../services/desktop_shell_service.dart';
 import '../services/update_check.dart';
+import '../services/app_update.dart';
+import '../services/device_prefs.dart';
 import '../ui/desktop_exit_strings.dart';
 import '../ui/platform_ui_policy.dart';
 import '../widgets/batch_decompose_sheet.dart';
@@ -300,17 +302,51 @@ class _MatrixHomeState extends State<MatrixHome> {
     });
   }
 
-  /// The opt-in daily check. Quiet unless a newer release exists.
+  /// The opt-in daily check. Quiet unless a newer release exists. First
+  /// tidies update packages: an installed or stale one is deleted, and a
+  /// verified one that is still the latest is offered for install directly.
   Future<void> _checkForUpdate() async {
-    final result = await UpdateChecker().checkIfDue();
+    final ready = await tidyUpdatePackages();
+    final readyVersion = ready?.parsed;
+    UpdateCheckResult? result;
+    var installReady = false;
+    if (ready != null && readyVersion != null) {
+      final checked = DevicePrefs.instance.updateCheckEnabled
+          ? await UpdateChecker().check()
+          : const UpdateCheckResult(UpdateCheckStatus.failed);
+      final latest = checked.version;
+      if (checked.status == UpdateCheckStatus.available &&
+          latest != null &&
+          isNewerRelease(latest, readyVersion)) {
+        // A newer release than the package: drop it quietly; the update
+        // downloads the latest.
+        await (await AppUpdater().store).clear();
+        result = checked;
+      } else if (checked.status == UpdateCheckStatus.upToDate) {
+        await (await AppUpdater().store).clear();
+      } else {
+        installReady = true;
+        result = UpdateCheckResult(
+          UpdateCheckStatus.available,
+          latest: readyVersion.label,
+          url: latestReleasePage,
+          tag: 'v${ready.version}',
+          version: readyVersion,
+        );
+      }
+    } else {
+      result = await UpdateChecker().checkIfDue();
+    }
     if (result == null || !mounted) return;
+    final offer = result;
     final t = context.read<Store>().t;
     showAppNotice(
       context,
-      t['updateAvailableNotice']!.replaceAll('{latest}', result.latest ?? ''),
-      actionLabel: t['updateView'],
+      (installReady ? t['updateReadyNotice']! : t['updateAvailableNotice']!)
+          .replaceAll('{latest}', offer.latest ?? ''),
+      actionLabel: installReady ? t['updateInstall'] : t['updateView'],
       onAction: () {
-        if (mounted) showUpdateAvailableDialog(context, t, result);
+        if (mounted) showUpdateAvailableDialog(context, t, offer);
       },
     );
   }
