@@ -16,6 +16,7 @@ import 'multi_drag_stack.dart';
 import '../planner/planner_drag_feedback.dart';
 import '../ui/platform_ui_policy.dart';
 import '../task_order.dart';
+import 'drop_slot.dart';
 
 /// One quadrant column: header (dot, title, count, clear) + drag target list.
 class QuadrantPane extends StatefulWidget {
@@ -58,63 +59,47 @@ class QuadrantPane extends StatefulWidget {
   State<QuadrantPane> createState() => _QuadrantPaneState();
 }
 
-class _QuadrantPaneState extends State<QuadrantPane> {
+class _QuadrantPaneState extends State<QuadrantPane>
+    with DropSlotHost<QuadrantPane> {
   bool _hovering = false;
   ScrollController? _internalScrollController;
   bool _scrollToTopAnimating = false;
   int _scrollToTopGeneration = 0;
 
-  /// Drag reorder: index in the shown rows where the dragged task(s) would
-  /// land, and the height of the gap opened there. Null: no exact slot
-  /// (header or blank area), so a drop keeps the move-to-top behavior.
-  int? _slot;
-  double _gap = 0;
-  bool _releasePending = false;
+  /// Drag reorder: ids of the shown rows, top to bottom.
   List<String> _rowIds = const [];
 
-  void _claimSlot(Task dragged, int slot, double height) {
-    _releasePending = false;
-    int? next = slot;
-    if (!widget.selecting && dragged.quadrant == widget.quadrant) {
-      // Both slots next to the dragged row mean "stay": open no gap.
-      final own = _rowIds.indexOf(dragged.id);
-      if (own != -1 && (slot == own || slot == own + 1)) next = null;
-    }
-    final gap = next == null ? _gap : height.clamp(32.0, 64.0);
-    if (next != _slot || gap != _gap || !_hovering) {
-      setState(() {
-        _slot = next;
-        _gap = gap;
-        _hovering = true;
-      });
-    }
+  @override
+  ScrollController get dropScrollController => _scrollController;
+
+  @override
+  bool acceptsDrop(Task task) {
+    final store = context.read<Store>();
+    return (!widget.selecting || widget.selectedIds.contains(task.id)) &&
+        task.boardId == store.activeBoardId;
   }
 
-  /// Moving from one row target to the next reports leave before the next
-  /// move; wait a frame so the gap does not close and reopen in between.
-  void _releaseSlot() {
-    _releasePending = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_releasePending) return;
-      _releasePending = false;
-      setState(() {
-        _slot = null;
-        _hovering = false;
-      });
-    });
-    WidgetsBinding.instance.scheduleFrame();
+  @override
+  bool dropSlotIsNoop(Task dragged, int group, int slot) {
+    if (widget.selecting || dragged.quadrant != widget.quadrant) return false;
+    // Both slots next to the dragged row mean "stay": open no gap.
+    final own = _rowIds.indexOf(dragged.id);
+    return own != -1 && (slot == own || slot == own + 1);
   }
 
-  bool _accepts(Store store, Task task) =>
-      (!widget.selecting || widget.selectedIds.contains(task.id)) &&
-      task.boardId == store.activeBoardId;
+  @override
+  void onDropHover(int group) {
+    if (!_hovering) setState(() => _hovering = true);
+  }
 
-  void _drop(Store store, Task task, int? slot) {
-    _releasePending = false;
-    setState(() {
-      _hovering = false;
-      _slot = null;
-    });
+  @override
+  void onDropHoverEnd() {
+    if (_hovering) setState(() => _hovering = false);
+  }
+
+  @override
+  void dropAt(Task task, int group, int? slot) {
+    final store = context.read<Store>();
     final q = widget.quadrant;
     if (slot == null) {
       if (widget.selecting) {
@@ -143,47 +128,6 @@ class _QuadrantPaneState extends State<QuadrantPane> {
       beforeId: dropAnchor(_rowIds, slot, ids.toSet()),
     );
     if (widget.selecting) widget.onMoveSelected?.call(q);
-  }
-
-  /// Zero-height until it is the active slot; then it opens (rows below
-  /// slide down) and keeps the slot while the pointer is inside it.
-  Widget _gapTarget(Store store, int slot) {
-    final reduce = MotionPolicy.reduceMotionOf(context);
-    return DragTarget<Task>(
-      onWillAcceptWithDetails: (d) => _accepts(store, d.data),
-      onMove: (d) => _claimSlot(d.data, slot, _gap),
-      onLeave: (_) => _releaseSlot(),
-      onAcceptWithDetails: (d) => _drop(store, d.data, slot),
-      builder: (context, _, __) => AnimatedContainer(
-        key: ValueKey('drop-gap-${widget.quadrant}-$slot'),
-        duration: reduce ? Duration.zero : MotionPolicy.dropGap,
-        curve: Curves.easeOutCubic,
-        height: _slot == slot ? _gap : 0,
-      ),
-    );
-  }
-
-  /// A row: the upper half targets the slot above it, the lower half the
-  /// slot below it.
-  Widget _rowTarget(Store store, int index, Widget row) {
-    BuildContext? rowContext;
-    return DragTarget<Task>(
-      onWillAcceptWithDetails: (d) => _accepts(store, d.data),
-      onMove: (d) {
-        final box = rowContext?.findRenderObject();
-        if (box is! RenderBox || !box.hasSize) return;
-        // The feedback is anchored at the pointer, so offset is the pointer.
-        final local = box.globalToLocal(d.offset);
-        final slot = local.dy < box.size.height / 2 ? index : index + 1;
-        _claimSlot(d.data, slot, box.size.height);
-      },
-      onLeave: (_) => _releaseSlot(),
-      onAcceptWithDetails: (d) => _drop(store, d.data, _slot),
-      builder: (context, _, __) {
-        rowContext = context;
-        return row;
-      },
-    );
   }
 
   /// Short-lived display snapshots of rows that just left [Store.tasksIn]
@@ -289,26 +233,24 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     };
 
     return DragTarget<Task>(
-      onWillAcceptWithDetails: (details) => _accepts(store, details.data),
-      onMove: (_) {
+      onWillAcceptWithDetails: (details) => acceptsDrop(details.data),
+      onMove: (details) {
         // Header or blank area: no exact slot, the drop goes to the top.
-        _releasePending = false;
-        if (!_hovering || _slot != null) {
-          setState(() {
-            _hovering = true;
-            _slot = null;
-          });
-        }
+        clearDropSlot();
+        onDropHover(q);
+        dragAutoScroll(details.offset);
       },
       onLeave: (_) {
-        if (_hovering || _slot != null) {
-          setState(() {
-            _hovering = false;
-            _slot = null;
-          });
-        }
+        clearDropSlot();
+        stopDragAutoScroll();
+        onDropHoverEnd();
       },
-      onAcceptWithDetails: (details) => _drop(store, details.data, null),
+      onAcceptWithDetails: (details) {
+        stopDragAutoScroll();
+        clearDropSlot();
+        onDropHoverEnd();
+        dropAt(details.data, q, null);
+      },
       builder: (context, candidate, _) {
         final highlighted = _hovering || candidate.isNotEmpty;
         return AnimatedContainer(
@@ -432,16 +374,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                             );
                             return KeyedSubtree(
                               key: ValueKey('slot-row-${task.id}'),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _gapTarget(store, i),
-                                  _rowTarget(store, i, row),
-                                  if (i == entries.length - 1)
-                                    _gapTarget(store, entries.length),
-                                ],
-                              ),
+                              child: dropSlotRow(q, i, entries.length, row),
                             );
                           },
                         ),

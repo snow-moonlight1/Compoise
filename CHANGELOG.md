@@ -8,11 +8,15 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ### 新增
 
-- 首页四象限里可以拖动任务调整顺序：在同一象限里拖动可以换位置，拖到任意象限的两个任务之间会正好插在那里。拖动时其他任务会让出位置，空出来的地方就是松手后的落点。多选的一叠任务也一起插到那里。拖到另一个象限的空白处或标题上，仍然放到最上面。
+- 可以拖动任务调整顺序：在同一象限里拖动可以换位置，拖到任意象限的两个任务之间会正好插在那里。拖动时其他任务会让出位置，空出来的地方就是松手后的落点。多选的一叠任务也一起插到那里。拖到另一个象限的空白处或标题上，仍然放到最上面。四象限、展开的单个象限和列表视图都可以这样拖。
+- 拖到列表顶部或底部附近会自动滚动，越靠近边缘滚得越快。
+- 调整后的顺序会通过同步带到你的其他设备。
 
 ### Added
 
-- Tasks on the home four-quadrant view can be reordered by dragging: drag within a quadrant to change the order, or drop between two tasks in any quadrant to insert it exactly there. While you drag, the other tasks slide apart to show where it will land. A multi-selected stack is inserted there together. Dropping on another quadrant's blank area or title still puts the task at the top.
+- Tasks can be reordered by dragging: drag within a quadrant to change the order, or drop between two tasks in any quadrant to insert it exactly there. While you drag, the other tasks slide apart to show where it will land. A multi-selected stack is inserted there together. Dropping on another quadrant's blank area or title still puts the task at the top. This works in the four-quadrant view, a single expanded quadrant, and list view.
+- Dragging near the top or bottom of a list scrolls it, faster the closer you get to the edge.
+- The new order syncs to your other devices.
 
 ## [1.2.1] - 2026-10-26
 

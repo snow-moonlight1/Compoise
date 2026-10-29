@@ -126,14 +126,25 @@ void main() {
     Offset start,
     Offset end, {
     void Function()? midway,
+    bool mouse = false,
+    Duration hold = const Duration(milliseconds: 300),
   }) async {
-    final gesture = await tester.startGesture(start);
+    final gesture = await tester.startGesture(
+      start,
+      kind: mouse ? PointerDeviceKind.mouse : PointerDeviceKind.touch,
+    );
     await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
     for (var i = 1; i <= 12; i++) {
       await gesture.moveTo(Offset.lerp(start, end, i / 12)!);
       await tester.pump(const Duration(milliseconds: 16));
     }
-    await tester.pump(const Duration(milliseconds: 300));
+    for (
+      var t = Duration.zero;
+      t < hold;
+      t += const Duration(milliseconds: 50)
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     midway?.call();
     await gesture.up();
     await tester.pumpAndSettle();
@@ -181,6 +192,7 @@ void main() {
           tester.getCenter(find.text(last.title)),
           Offset(firstRect.center.dx, firstRect.top + 1),
           midway: () => expect(openGap(tester), greaterThan(20)),
+          mouse: !touch,
         );
         expect(_ids(store, qDo), [last.id, before[0], before[1]]);
         expect(openGap(tester), 0);
@@ -193,6 +205,7 @@ void main() {
           tester.getCenter(find.text('plan xray')),
           Offset(r0.center.dx, r0.bottom - 1),
           midway: () => expect(openGap(tester), greaterThan(20)),
+          mouse: !touch,
         );
         expect(_ids(store, qDo), [rows[0].id, x.id, rows[1].id, rows[2].id]);
         expect(store.tasksIn(qPlan), isEmpty);
@@ -204,11 +217,173 @@ void main() {
           tester.getCenter(
             find.byKey(const ValueKey('quadrant-header-$qPlan')),
           ),
+          mouse: !touch,
         );
         expect(_ids(store, qPlan), [x.id]);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
       });
+
+      testWidgets('focused quadrant reorders; collapsed card drop goes to top '
+          '(${skin.name}, ${platform.name})', (tester) async {
+        viewport(tester, touch ? const Size(390, 844) : const Size(1280, 800));
+        final store = await setup(tester);
+        final y = store.newTask('plan yoke', quadrant: qPlan);
+        store.addTasks([
+          store.newTask('row alpha'),
+          store.newTask('row beta'),
+          store.newTask('row gamma'),
+          y,
+        ]);
+        await tester.pumpWidget(_app(store, platform, skin));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('quadrant-header-$qDo')));
+        await tester.pumpAndSettle();
+        final before = _ids(store, qDo);
+        final rows = store.tasksIn(qDo);
+        final firstRect = tester.getRect(find.text(rows.first.title));
+        await drag(
+          tester,
+          tester.getCenter(find.text(rows.last.title)),
+          Offset(firstRect.center.dx, firstRect.top + 1),
+          midway: () => expect(openGap(tester), greaterThan(20)),
+          mouse: !touch,
+        );
+        expect(_ids(store, qDo), [before[2], before[0], before[1]]);
+
+        await drag(
+          tester,
+          tester.getCenter(find.text(rows.first.title)),
+          tester.getCenter(find.byKey(ValueKey('focus-card-$qPlan'))),
+          mouse: !touch,
+        );
+        expect(_ids(store, qPlan), [before[0], y.id]);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      });
+
+      testWidgets('list mode reorders, inserts across sections, header = top '
+          '(${skin.name}, ${platform.name})', (tester) async {
+        viewport(tester, touch ? const Size(390, 844) : const Size(1280, 800));
+        final store = await setup(tester);
+        final x = store.newTask('plan xray', quadrant: qPlan);
+        final y = store.newTask('plan yoke', quadrant: qPlan);
+        store.addTasks([
+          store.newTask('row alpha'),
+          store.newTask('row beta'),
+          store.newTask('row gamma'),
+          x,
+          y,
+        ]);
+        store.setViewMode(ViewMode.list);
+        await tester.pumpWidget(_app(store, platform, skin));
+        await tester.pumpAndSettle();
+        final before = _ids(store, qDo);
+        final rows = store.tasksIn(qDo);
+        final firstRect = tester.getRect(find.text(rows.first.title));
+        await drag(
+          tester,
+          tester.getCenter(find.text(rows.last.title)),
+          Offset(firstRect.center.dx, firstRect.top + 1),
+          midway: () => expect(openGap(tester), greaterThan(20)),
+          mouse: !touch,
+        );
+        expect(_ids(store, qDo), [before[2], before[0], before[1]]);
+
+        final r0 = tester.getRect(find.text(store.tasksIn(qDo).first.title));
+        final planFirst = store.tasksIn(qPlan).first;
+        await drag(
+          tester,
+          tester.getCenter(find.text(planFirst.title)),
+          Offset(r0.center.dx, r0.bottom - 1),
+          midway: () => expect(openGap(tester), greaterThan(20)),
+          mouse: !touch,
+        );
+        expect(_ids(store, qDo)[1], planFirst.id);
+
+        final planLeft = store.tasksIn(qPlan).single;
+        await drag(
+          tester,
+          tester.getCenter(find.text(store.tasksIn(qDo).last.title)),
+          tester.getCenter(find.byKey(ValueKey('list-quadrant-header-$qPlan'))),
+          mouse: !touch,
+        );
+        expect(_ids(store, qPlan), [before[1], planLeft.id]);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      });
+
+      for (final list in [false, true]) {
+        testWidgets('dragging near the bottom edge scrolls '
+            '(${list ? 'list' : 'grid'}, ${skin.name}, ${platform.name})', (
+          tester,
+        ) async {
+          viewport(
+            tester,
+            touch ? const Size(390, 844) : const Size(1280, 800),
+          );
+          final store = await setup(tester);
+          store.addTasks([
+            for (var i = 0; i < 30; i++) store.newTask('long row $i'),
+          ]);
+          if (list) store.setViewMode(ViewMode.list);
+          await tester.pumpWidget(_app(store, platform, skin));
+          await tester.pumpAndSettle();
+          final listFinder = find.byKey(
+            PageStorageKey(
+              list
+                  ? '${store.activeBoardId}-task-list-view'
+                  : '${store.activeBoardId}-$qDo',
+            ),
+          );
+          final scrollable = tester.state<ScrollableState>(
+            find
+                .descendant(of: listFinder, matching: find.byType(Scrollable))
+                .first,
+          );
+          expect(scrollable.position.pixels, 0);
+          final rect = tester.getRect(listFinder);
+          final firstId = _ids(store, qDo).first;
+          final start = tester.getCenter(find.text('long row 0').first);
+          final dragged = store.tasks.firstWhere((t) => t.id == firstId);
+          // Near the edge, then right on it: faster the closer it gets.
+          final gesture = await tester.startGesture(
+            start,
+            kind: touch ? PointerDeviceKind.touch : PointerDeviceKind.mouse,
+          );
+          await tester.pump(
+            kLongPressTimeout + const Duration(milliseconds: 50),
+          );
+          await gesture.moveTo(Offset(start.dx, rect.bottom - 30));
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          final slow = scrollable.position.pixels;
+          expect(slow, greaterThan(0));
+          await gesture.moveTo(Offset(start.dx, rect.bottom - 2));
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          final fast = scrollable.position.pixels - slow;
+          expect(fast, greaterThan(slow));
+          // Back to the middle: scrolling stops.
+          await gesture.moveTo(Offset(start.dx, rect.center.dy));
+          await tester.pump(const Duration(milliseconds: 200));
+          final stopped = scrollable.position.pixels;
+          for (var i = 0; i < 6; i++) {
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          expect(scrollable.position.pixels, stopped);
+          await gesture.up();
+          await tester.pumpAndSettle();
+          // It lands lower down, where the pointer ended after scrolling.
+          expect(_ids(store, qDo).indexOf(dragged.id), greaterThan(0));
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+          // Rows built while scrolling still run their entrance timers.
+          await tester.pump(const Duration(seconds: 1));
+        });
+      }
     }
   }
 }

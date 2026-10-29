@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../ui/motion_policy.dart';
+import '../task_order.dart';
 import 'batch_decompose_sheet.dart';
+import 'drop_slot.dart';
 import 'task_detail_panel.dart';
 import 'task_card.dart';
 import 'task_exit.dart';
@@ -41,9 +43,53 @@ class TaskListView extends StatefulWidget {
   State<TaskListView> createState() => _TaskListViewState();
 }
 
-class _TaskListViewState extends State<TaskListView> {
+class _TaskListViewState extends State<TaskListView>
+    with DropSlotHost<TaskListView> {
   int? _hoveringQuadrant;
   int _hoverTicket = 0;
+  final ScrollController _scroll = ScrollController();
+
+  /// Drag reorder: ids of the shown rows of each section, top to bottom.
+  final Map<int, List<String>> _rowIds = {};
+
+  @override
+  ScrollController get dropScrollController => _scroll;
+
+  @override
+  bool acceptsDrop(Task task) =>
+      !widget.selecting &&
+      task.boardId == context.read<Store>().activeBoardId;
+
+  @override
+  bool dropSlotIsNoop(Task dragged, int group, int slot) {
+    if (dragged.quadrant != group) return false;
+    final own = (_rowIds[group] ?? const []).indexOf(dragged.id);
+    return own != -1 && (slot == own || slot == own + 1);
+  }
+
+  @override
+  void onDropHover(int group) => _claimHover(group);
+
+  @override
+  void onDropHoverEnd() {
+    _hoverTicket++;
+    if (_hoveringQuadrant != null) setState(() => _hoveringQuadrant = null);
+  }
+
+  @override
+  void dropAt(Task task, int group, int? slot) {
+    final store = context.read<Store>();
+    if (slot == null) {
+      _acceptDrop(context, store, group, task);
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    store.placeTasks(
+      [task.id],
+      group,
+      beforeId: dropAnchor(_rowIds[group] ?? const [], slot, {task.id}),
+    );
+  }
 
   /// One exit cache per quadrant section; rows are snapshots, never written back.
   final Map<int, ExitRetention<Task>> _retention = {};
@@ -63,6 +109,7 @@ class _TaskListViewState extends State<TaskListView> {
       entry.dispose();
     }
     _retention.clear();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -103,6 +150,7 @@ class _TaskListViewState extends State<TaskListView> {
 
     return CustomScrollView(
       key: PageStorageKey('${store.activeBoardId}-task-list-view'),
+      controller: _scroll,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         SliverPadding(
@@ -152,6 +200,7 @@ class _TaskListViewState extends State<TaskListView> {
       ),
       reduceMotion: MotionPolicy.reduceMotionOf(context),
     );
+    _rowIds[q] = [for (final entry in entries) entry.item.id];
     final accent = Color(quadrantColors[q]!);
     final titleKey = switch (q) {
       qDo => 'q1',
@@ -265,13 +314,19 @@ class _TaskListViewState extends State<TaskListView> {
             return ExitingRow(
               key: ValueKey('list-exit-${task.id}'),
               exiting: entry.exiting,
-              child: _dropShell(
-                context: context,
-                store: store,
-                quadrant: q,
-                accent: accent,
-                outlined: false,
-                child: draggable,
+              child: dropSlotRow(
+                q,
+                i,
+                entries.length,
+                _dropShell(
+                  context: context,
+                  store: store,
+                  quadrant: q,
+                  accent: accent,
+                  outlined: false,
+                  target: false,
+                  child: draggable,
+                ),
               ),
             );
           },
@@ -286,32 +341,42 @@ class _TaskListViewState extends State<TaskListView> {
     required Color accent,
     required bool outlined,
     required Widget child,
+    bool target = true,
   }) {
+    Widget decorated(bool candidate) => AnimatedContainer(
+      duration: MotionPolicy.hoverHighlight,
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: _hoveringQuadrant == quadrant || candidate
+            ? accent.withValues(alpha: 0.10)
+            : Colors.transparent,
+        borderRadius: outlined ? BorderRadius.circular(8) : null,
+        border: outlined && (_hoveringQuadrant == quadrant || candidate)
+            ? Border.all(color: accent.withValues(alpha: 0.55), width: 1.5)
+            : null,
+      ),
+      child: child,
+    );
+    // A row: the slot targets around it handle the drop.
+    if (!target) return decorated(false);
+    // Section header: no exact slot, the drop goes to the top.
     return DragTarget<Task>(
-      onWillAcceptWithDetails: (details) =>
-          !widget.selecting && details.data.boardId == store.activeBoardId,
-      onMove: (_) => _claimHover(quadrant),
-      onLeave: (_) => _releaseHover(quadrant),
-      onAcceptWithDetails: (details) =>
-          _acceptDrop(context, store, quadrant, details.data),
-      builder: (context, candidate, _) {
-        final highlighted =
-            _hoveringQuadrant == quadrant || candidate.isNotEmpty;
-        return AnimatedContainer(
-          duration: MotionPolicy.hoverHighlight,
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            color: highlighted
-                ? accent.withValues(alpha: 0.10)
-                : Colors.transparent,
-            borderRadius: outlined ? BorderRadius.circular(8) : null,
-            border: outlined && highlighted
-                ? Border.all(color: accent.withValues(alpha: 0.55), width: 1.5)
-                : null,
-          ),
-          child: child,
-        );
+      onWillAcceptWithDetails: (details) => acceptsDrop(details.data),
+      onMove: (details) {
+        clearDropSlot();
+        _claimHover(quadrant);
+        dragAutoScroll(details.offset);
       },
+      onLeave: (_) {
+        stopDragAutoScroll();
+        _releaseHover(quadrant);
+      },
+      onAcceptWithDetails: (details) {
+        stopDragAutoScroll();
+        clearDropSlot();
+        _acceptDrop(context, store, quadrant, details.data);
+      },
+      builder: (context, candidate, _) => decorated(candidate.isNotEmpty),
     );
   }
 
