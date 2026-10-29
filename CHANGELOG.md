@@ -6,6 +6,24 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [Unreleased]
 
+### 新增
+
+- 应用内更新：Android 和 Windows 上发现新版本后，点“更新”会在应用里下载并校验安装包，然后直接打开安装程序；Android 按设备架构选择安装包，首次安装时会提示允许安装未知应用。Linux 仍打开发布页。
+- 已下载好的安装包会保留，关掉安装界面后再点“安装”不用重新下载；装好新版本后自动删除，旧版本的安装包会被清理并改为下载最新版，下载中断可以接着下。
+
+### 变更
+
+- “子任务全部完成后自动完成父任务”默认开启；自己改过这个开关的保持原选择。
+
+### Added
+
+- In-app update: on Android and Windows, Update downloads and verifies the new package inside the app and opens the installer. Android picks the package for the device architecture and asks once to allow installing unknown apps. Linux still opens the release page.
+- A downloaded package is kept, so closing the installer and tapping Install again does not download it again. It is deleted after the update is installed; packages for older versions are removed and the latest is downloaded instead, and interrupted downloads resume.
+
+### Changed
+
+- Completing all subtasks now completes the parent task by default; if you changed this setting before, your choice is kept.
+
 ## [1.2.1] - 2026-10-26
 
 这一版修复添加任务时的两个小问题：误关窗口不再丢失没写完的文字，按回车时键盘不再闪一下。This release fixes two small issues when adding tasks: text is no longer lost when the sheet is closed by accident, and the keyboard no longer flickers on Enter.

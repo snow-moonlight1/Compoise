@@ -32,6 +32,10 @@ void main() {
 
   Future<Store> open(Task seed) async {
     final (store, _) = await makeStore(
+      // These cases pin the manual-completion paths.
+      settings: AppSettings()
+        ..autoCompleteParent = false
+        ..autoCompleteParentChosen = true,
       boards: [Board(id: board, name: 'Board', createdAt: 1)],
       tasks: [seed],
     );

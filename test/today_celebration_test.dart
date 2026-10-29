@@ -833,7 +833,9 @@ void main() {
           id: 'only',
           subtasks: [SubTask(id: 'step', title: 'Draft')],
         ),
-      ]);
+      ], settings: AppSettings()
+        ..autoCompleteParent = false
+        ..autoCompleteParentChosen = true);
       try {
         await _pump(tester, store);
         await tester.tap(find.byKey(const ValueKey('today-item-only')));

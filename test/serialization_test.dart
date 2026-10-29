@@ -124,7 +124,9 @@ Map<String, String> largeValues(int count) => <String, String>{
     Board(id: 'board-1', name: '大板', createdAt: 0).toJson(),
   ]),
   kConfig: jsonEncode(AIConfig().toJson(includeCredential: false)),
-  kSettings: jsonEncode(AppSettings(language: Language.zh).toJson()),
+  kSettings: jsonEncode(
+    (AppSettings(language: Language.zh)..autoCompleteParent = false).toJson(),
+  ),
   kActiveBoard: 'board-1',
   kOnboarding: 'true',
 };

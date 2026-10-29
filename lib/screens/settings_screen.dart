@@ -411,7 +411,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               t['autoCompleteParentDesc']!,
               store.settings.autoCompleteParent,
               (v) => store.updateSettings(
-                (settings) => settings..autoCompleteParent = v,
+                (settings) => settings
+                  ..autoCompleteParent = v
+                  ..autoCompleteParentChosen = true,
               ),
             ),
             _SettingsExpander(

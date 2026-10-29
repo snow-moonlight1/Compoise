@@ -82,7 +82,13 @@ class _UpdateHttpError implements Exception {
 }
 
 class UpdateCheckResult {
-  const UpdateCheckResult(this.status, {this.latest, this.url});
+  const UpdateCheckResult(
+    this.status, {
+    this.latest,
+    this.url,
+    this.tag,
+    this.version,
+  });
 
   final UpdateCheckStatus status;
 
@@ -91,6 +97,13 @@ class UpdateCheckResult {
 
   /// The release page; always on github.com/snow-moonlight1/Compoise.
   final String? url;
+
+  /// The release tag, for example `v1.0.1`; its files download from
+  /// `releases/download/<tag>/`.
+  final String? tag;
+
+  /// The parsed release version, with its build number when the tag has one.
+  final ReleaseVersion? version;
 }
 
 /// Asks GitHub for the latest formal release and compares it with this build.
@@ -206,6 +219,8 @@ class UpdateChecker {
       url: page != null && page.startsWith(releasePagePrefix)
           ? page
           : latestReleasePage,
+      tag: tag,
+      version: latest,
     );
   }
 

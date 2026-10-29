@@ -9,9 +9,11 @@ import '../app_version.dart';
 import '../diagnostics/app_log.dart';
 import '../diagnostics/diagnostics_report.dart';
 import '../services/device_prefs.dart';
+import '../services/app_update.dart';
 import '../services/update_check.dart';
 import '../storage.dart';
 import '../widgets/app_notice.dart';
+import '../widgets/update_dialog.dart';
 
 /// Writes the diagnostics file after the save dialog. On Android and iOS the
 /// picker has already written the bytes it was given.
@@ -22,13 +24,26 @@ Future<void> _writeDiagnosticsFile(String path, List<int> bytes) async {
   await File(path).writeAsBytes(bytes, flush: true);
 }
 
-/// Shows the newer version and its release page. The app has no browser
-/// launcher, so the link is offered for copying.
+/// Shows the newer version. Android and Windows download and install it in
+/// the app; elsewhere (Linux) the release page link is offered for copying.
 Future<void> showUpdateAvailableDialog(
   BuildContext context,
   Map<String, String> t,
-  UpdateCheckResult result,
-) {
+  UpdateCheckResult result, {
+  AppUpdater? updater,
+}) {
+  final inApp = updater ?? AppUpdater();
+  if (inApp.supported && result.tag != null && result.version != null) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => UpdateDialog(
+        t: t,
+        result: result,
+        updater: inApp,
+        noticeContext: context,
+      ),
+    );
+  }
   final url = result.url ?? latestReleasePage;
   return showDialog<void>(
     context: context,

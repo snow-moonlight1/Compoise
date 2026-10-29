@@ -298,6 +298,7 @@ class ImportPreflight {
         'autoGroupAI',
         'autoDecomposeAI',
         'autoCompleteParent',
+        'autoCompleteParentChosen',
         'suppressGroupPrompt',
         'suppressLongTermPrompt',
         'hideCompleted',

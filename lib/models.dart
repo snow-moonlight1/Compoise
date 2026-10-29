@@ -458,6 +458,11 @@ class AppSettings {
   bool autoGroupAI;
   bool autoDecomposeAI;
   bool autoCompleteParent;
+
+  /// The user set [autoCompleteParent] themselves. Until then it is on:
+  /// it used to default to off, so a saved `false` without this flag is the
+  /// old default, not a choice.
+  bool autoCompleteParentChosen;
   bool suppressGroupPrompt;
   bool suppressLongTermPrompt;
   bool hideCompleted;
@@ -478,7 +483,8 @@ class AppSettings {
     this.fontFamily = FontFamilyPref.system,
     this.autoGroupAI = false,
     this.autoDecomposeAI = false,
-    this.autoCompleteParent = false,
+    this.autoCompleteParent = true,
+    this.autoCompleteParentChosen = false,
     this.suppressGroupPrompt = false,
     this.suppressLongTermPrompt = false,
     this.hideCompleted = false,
@@ -525,7 +531,10 @@ class AppSettings {
     ),
     autoGroupAI: (j['autoGroupAI'] as bool?) ?? false,
     autoDecomposeAI: (j['autoDecomposeAI'] as bool?) ?? false,
-    autoCompleteParent: (j['autoCompleteParent'] as bool?) ?? false,
+    autoCompleteParent: j['autoCompleteParentChosen'] == true
+        ? (j['autoCompleteParent'] as bool?) ?? true
+        : true,
+    autoCompleteParentChosen: j['autoCompleteParentChosen'] == true,
     suppressGroupPrompt: (j['suppressGroupPrompt'] as bool?) ?? false,
     suppressLongTermPrompt: (j['suppressLongTermPrompt'] as bool?) ?? false,
     hideCompleted: (j['hideCompleted'] as bool?) ?? false,
@@ -552,6 +561,7 @@ class AppSettings {
       'autoGroupAI': autoGroupAI,
       'autoDecomposeAI': autoDecomposeAI,
       'autoCompleteParent': autoCompleteParent,
+      if (!isV1 && autoCompleteParentChosen) 'autoCompleteParentChosen': true,
       'suppressGroupPrompt': suppressGroupPrompt,
       'suppressLongTermPrompt': suppressLongTermPrompt,
       'hideCompleted': hideCompleted,

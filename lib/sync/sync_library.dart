@@ -68,6 +68,7 @@ const List<String> syncedSettingFields = [
   'autoGroupAI',
   'autoDecomposeAI',
   'autoCompleteParent',
+  'autoCompleteParentChosen',
   'suppressGroupPrompt',
   'suppressLongTermPrompt',
   'hideCompleted',
