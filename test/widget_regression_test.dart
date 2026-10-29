@@ -2494,8 +2494,11 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 600));
 
-      // Drag to Q2 list area
-      await gesture.moveTo(tester.getCenter(q2ListFinder));
+      // Drag onto Q2's title (dropping between rows inserts at that slot
+      // instead; see drag_reorder_test.dart)
+      await gesture.moveTo(
+        tester.getCenter(find.byKey(const ValueKey('quadrant-header-$qPlan'))),
+      );
       await tester.pump();
       await gesture.up();
       await tester.pumpAndSettle();

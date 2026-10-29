@@ -61,6 +61,9 @@ class MotionPolicy {
   /// never gates hit testing or focus, and is outside the OS23 transition set.
   static const Duration hoverHighlight = Duration(milliseconds: 180);
 
+  /// Rows sliding apart to open the landing slot while a task is dragged.
+  static const Duration dropGap = Duration(milliseconds: 200);
+
   /// Reads the policy and rebuilds the caller when the app setting changes.
   static bool reduceMotionOf(BuildContext context) {
     if (_systemRequestsReducedMotion(context)) return true;

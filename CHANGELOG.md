@@ -6,6 +6,14 @@ All notable changes to this project are recorded here. The format is based on [K
 
 ## [Unreleased]
 
+### 新增
+
+- 首页四象限里可以拖动任务调整顺序：在同一象限里拖动可以换位置，拖到任意象限的两个任务之间会正好插在那里。拖动时其他任务会让出位置，空出来的地方就是松手后的落点。多选的一叠任务也一起插到那里。拖到另一个象限的空白处或标题上，仍然放到最上面。
+
+### Added
+
+- Tasks on the home four-quadrant view can be reordered by dragging: drag within a quadrant to change the order, or drop between two tasks in any quadrant to insert it exactly there. While you drag, the other tasks slide apart to show where it will land. A multi-selected stack is inserted there together. Dropping on another quadrant's blank area or title still puts the task at the top.
+
 ## [1.2.1] - 2026-10-26
 
 这一版修复添加任务时的两个小问题：误关窗口不再丢失没写完的文字，按回车时键盘不再闪一下。This release fixes two small issues when adding tasks: text is no longer lost when the sheet is closed by accident, and the keyboard no longer flickers on Enter.
