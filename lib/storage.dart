@@ -1127,6 +1127,71 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     return moved.length;
   }
 
+  /// Drag-and-drop placement: puts [ids] (active board, in the given order)
+  /// into [quadrant] directly before the task [beforeId], or after the last
+  /// task of that quadrant when [beforeId] is null or not found. Works for the
+  /// same quadrant (reorder) and another quadrant (move to an exact slot).
+  /// The order is the task list order, which is already persisted. Returns
+  /// false and saves nothing when the result is unchanged.
+  bool placeTasks(List<String> ids, int quadrant, {String? beforeId}) {
+    if (!allQuadrants.contains(quadrant)) {
+      throw ArgumentError.value(quadrant, 'quadrant');
+    }
+    final idSet = ids.toSet();
+    final byId = {
+      for (final task in _tasks)
+        if (idSet.contains(task.id) && task.boardId == activeBoardId)
+          task.id: task,
+    };
+    final moving = [
+      for (final id in ids)
+        if (byId[id] != null) byId[id]!,
+    ];
+    if (moving.isEmpty) return false;
+    final movingIds = moving.map((task) => task.id).toSet();
+    final rest = _tasks.where((t) => !movingIds.contains(t.id)).toList();
+    bool inTarget(Task t) =>
+        t.boardId == activeBoardId && t.quadrant == quadrant;
+    var at = beforeId == null
+        ? -1
+        : rest.indexWhere((t) => t.id == beforeId && inTarget(t));
+    if (at == -1) {
+      final last = rest.lastIndexWhere(inTarget);
+      if (last != -1) {
+        at = last + 1;
+      } else {
+        final firstBoard = rest.indexWhere((t) => t.boardId == activeBoardId);
+        at = firstBoard == -1 ? 0 : firstBoard;
+      }
+    }
+    final placed = [
+      for (final task in moving)
+        task.quadrant == quadrant
+            ? task
+            : (Task.fromJson(task.toJson())
+              ..quadrant = quadrant
+              ..urgencyMode =
+                  isUrgentQuadrant(task.quadrant) != isUrgentQuadrant(quadrant)
+                  ? UrgencyMode.manual
+                  : task.urgencyMode),
+    ];
+    final next = [...rest]..insertAll(at, placed);
+    var changed = next.length != _tasks.length;
+    for (var i = 0; !changed && i < next.length; i++) {
+      changed = !identical(next[i], _tasks[i]);
+    }
+    if (!changed) return false;
+    for (final task in moving) {
+      _touchTask(task.id);
+    }
+    _tasks
+      ..clear()
+      ..addAll(next);
+    _saveTasks();
+    notifyListeners();
+    return true;
+  }
+
   void resetTaskUrgencyMode(String taskId) {
     final i = tasks.indexWhere((t) => t.id == taskId);
     if (i == -1) return;

@@ -15,6 +15,8 @@ import 'task_exit.dart';
 import 'multi_drag_stack.dart';
 import '../planner/planner_drag_feedback.dart';
 import '../ui/platform_ui_policy.dart';
+import '../task_order.dart';
+import 'drop_slot.dart';
 
 /// One quadrant column: header (dot, title, count, clear) + drag target list.
 class QuadrantPane extends StatefulWidget {
@@ -57,11 +59,76 @@ class QuadrantPane extends StatefulWidget {
   State<QuadrantPane> createState() => _QuadrantPaneState();
 }
 
-class _QuadrantPaneState extends State<QuadrantPane> {
+class _QuadrantPaneState extends State<QuadrantPane>
+    with DropSlotHost<QuadrantPane> {
   bool _hovering = false;
   ScrollController? _internalScrollController;
   bool _scrollToTopAnimating = false;
   int _scrollToTopGeneration = 0;
+
+  /// Drag reorder: ids of the shown rows, top to bottom.
+  List<String> _rowIds = const [];
+
+  @override
+  ScrollController get dropScrollController => _scrollController;
+
+  @override
+  bool acceptsDrop(Task task) {
+    final store = context.read<Store>();
+    return (!widget.selecting || widget.selectedIds.contains(task.id)) &&
+        task.boardId == store.activeBoardId;
+  }
+
+  @override
+  bool dropSlotIsNoop(Task dragged, int group, int slot) {
+    if (widget.selecting || dragged.quadrant != widget.quadrant) return false;
+    // Both slots next to the dragged row mean "stay": open no gap.
+    final own = _rowIds.indexOf(dragged.id);
+    return own != -1 && (slot == own || slot == own + 1);
+  }
+
+  @override
+  void onDropHover(int group) {
+    if (!_hovering) setState(() => _hovering = true);
+  }
+
+  @override
+  void onDropHoverEnd() {
+    if (_hovering) setState(() => _hovering = false);
+  }
+
+  @override
+  void dropAt(Task task, int group, int? slot) {
+    final store = context.read<Store>();
+    final q = widget.quadrant;
+    if (slot == null) {
+      if (widget.selecting) {
+        HapticFeedback.mediumImpact();
+        widget.onMoveSelected?.call(q);
+        _scrollToTopIfNeeded();
+        return;
+      }
+      if (task.quadrant != q) {
+        HapticFeedback.mediumImpact();
+        store.moveTask(task.id, q);
+        _scrollToTopIfNeeded();
+      }
+      return;
+    }
+    final ids = widget.selecting
+        ? [
+            for (final t in store.visibleTasks)
+              if (widget.selectedIds.contains(t.id)) t.id,
+          ]
+        : [task.id];
+    HapticFeedback.mediumImpact();
+    store.placeTasks(
+      ids,
+      q,
+      beforeId: dropAnchor(_rowIds, slot, ids.toSet()),
+    );
+    if (widget.selecting) widget.onMoveSelected?.call(q);
+  }
 
   /// Short-lived display snapshots of rows that just left [Store.tasksIn]
   /// (completed while hiding completed, auto-completed parent, filter change).
@@ -156,6 +223,7 @@ class _QuadrantPaneState extends State<QuadrantPane> {
           ),
       reduceMotion: MotionPolicy.reduceMotionOf(context),
     );
+    _rowIds = [for (final entry in entries) entry.item.id];
     final accent = Color(quadrantColors[q]!);
     final titleKey = switch (q) {
       qDo => 'q1',
@@ -165,31 +233,23 @@ class _QuadrantPaneState extends State<QuadrantPane> {
     };
 
     return DragTarget<Task>(
-      onWillAcceptWithDetails:
-          (details) =>
-              (!widget.selecting ||
-                  widget.selectedIds.contains(details.data.id)) &&
-              details.data.boardId == store.activeBoardId,
-      onMove: (_) {
-        if (!_hovering) setState(() => _hovering = true);
+      onWillAcceptWithDetails: (details) => acceptsDrop(details.data),
+      onMove: (details) {
+        // Header or blank area: no exact slot, the drop goes to the top.
+        clearDropSlot();
+        onDropHover(q);
+        dragAutoScroll(details.offset);
       },
       onLeave: (_) {
-        if (_hovering) setState(() => _hovering = false);
+        clearDropSlot();
+        stopDragAutoScroll();
+        onDropHoverEnd();
       },
       onAcceptWithDetails: (details) {
-        setState(() => _hovering = false);
-        final task = details.data;
-        if (widget.selecting) {
-          HapticFeedback.mediumImpact();
-          widget.onMoveSelected?.call(q);
-          _scrollToTopIfNeeded();
-          return;
-        }
-        if (task.quadrant != q) {
-          HapticFeedback.mediumImpact();
-          store.moveTask(task.id, q);
-          _scrollToTopIfNeeded();
-        }
+        stopDragAutoScroll();
+        clearDropSlot();
+        onDropHoverEnd();
+        dropAt(details.data, q, null);
       },
       builder: (context, candidate, _) {
         final highlighted = _hovering || candidate.isNotEmpty;
@@ -307,10 +367,14 @@ class _QuadrantPaneState extends State<QuadrantPane> {
                               i,
                               exiting: entry.exiting,
                             );
-                            return ExitingRow(
+                            final row = ExitingRow(
                               key: ValueKey('exit-${task.id}'),
                               exiting: entry.exiting,
                               child: draggable,
+                            );
+                            return KeyedSubtree(
+                              key: ValueKey('slot-row-${task.id}'),
+                              child: dropSlotRow(q, i, entries.length, row),
                             );
                           },
                         ),
